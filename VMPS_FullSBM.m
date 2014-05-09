@@ -29,11 +29,11 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Parameters
-para.hx=delta;                             % Splitting with sigma_X
-para.hz=0;                             % Splitting with sigma_Z
+para.hx=delta;                          % Splitting with sigma_X
+para.hz=0;                              % Splitting with sigma_Z
 para.s=s;                               % what???
 para.alpha=alpha;                       % What??
-para.Lambda=2;                     % Bath log Discretization parameter
+para.Lambda=2;                          % Bath log Discretization parameter
 para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
 para.z=1;                               % z-shift of bath
 D = 5;
@@ -42,9 +42,9 @@ d_opt = 5;
 L=para.L;
 
 para.model='SpinBoson';
-para.foldedChain=0;                    % parameter to tell that Supersites for chain are used!
+para.foldedChain=0;                     % parameter to tell that Supersites for chain are used!
 para.spinposition=1;                    % The y chain is on the left and the z chain is on the right.
-para.rescaling=1;			% rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
+para.rescaling=1;                       % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
 para.complex=0;
 para.resume=0;                          % Read from saved results if available.
 para.logging = 1;                       % Switch on logging and
@@ -59,12 +59,12 @@ end
 
 %%
 para.M=2;                               % is number of terms in sum to address. Better: Number of 2-operator interaction terms per site in Hamiltonian. =2 for single chain; =4 for folded chain
-para.D=D*ones(1,L-1);                  % Bond dimension; starting dimension is 2. para.D(L) is useless in this program
+para.D=D*ones(1,L-1);                   % Bond dimension; starting dimension is 2. para.D(L) is useless in this program
 para.dk_start = dk;                     % local dimension per boson in bath. Will be increased effectively by oscillator shift.
 para.dk=para.dk_start*ones(1,L);
 para.dk(1)=2;                           %Impurity dimension
 para.increasedk = 0;					% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
-para.d_opt=d_opt*ones(1,L);                % Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
+para.d_opt=d_opt*ones(1,L);             % Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
 para.d_opt(1)=2;                        %Optimal Impurity dimension
 para.eigs_tol=1e-8;
 para.loopmax=600;
@@ -165,6 +165,7 @@ save(para.filename,'para','Vmat','mps','results','op');
 %% Calculate Results
 results.nx=calbosonocc_SBM1(mps,Vmat,para,results);
 results.bosonshift=calbosonshift_SBM1(mps,Vmat,para,results);
+results.bosonshiftPerSpin = calbosonshiftperSpin_SBM1(mps,Vmat,para,results)
 results.spin=calspin(mps,Vmat,para,results);
 %%
 results.time = toc(starttime)

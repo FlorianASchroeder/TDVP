@@ -1,6 +1,6 @@
 %% Path where to save figures
 path = pwd;
-saveto = '..\Presentations\20140206 - Summary\';
+saveto = '..\..\Presentations\20140206 - Summary\';
 wantSave = 0;
 %% Plot Vmat contributions for different Sites i (normalized)
 i=2;
@@ -66,7 +66,7 @@ subplot(2,2,4);
     title('OBB dim')
     text(-80,-30,sprintf(para.filename(1:38)))
 if wantSave
-    export_fig(sprintf('%sResultsSummary%s',saveto,para.filename(1:13)),'-transparent','-png')
+    export_fig(sprintf('%sResultsSummary%s',saveto,para.filename(1:13)),'-transparent','-png','-painters')
 end
 
 %% Plot d_opt, D adjustments
@@ -215,6 +215,25 @@ if wantSave
     export_fig(sprintf('%sRelativeDeviationShift%s',saveto,para.filename(1:13)),'-transparent','-png','-eps')
 end
 
+%% Plot ShiftUp vs ShiftDown
+figure(5);
+wantSave=0;
+hold on
+plot(results.bosonshift.x,'b')
+plot(results.bosonshiftPerSpin.xUp,'r')
+plot(results.bosonshiftPerSpin.xDown,'g')
+title('Bosonic Shift vs Up or Down')
+xlabel('site k')
+ylabel('$\delta_k$')
+legend('$x$','$x_\uparrow$','$x_\downarrow$');
+ylim=get(gca,'YLim');
+text(3,ylim(2)*2/3,...
+    ['$x-(x_{\uparrow} +x_\downarrow) = $', sprintf('%.4g; \n', norm(results.bosonshift.x-results.bosonshiftPerSpin.xUp-results.bosonshiftPerSpin.xDown)),...
+    '$|x|-|x_{\uparrow}|-|x_{\downarrow}| = $',sprintf('%.4g; ', norm(abs(results.bosonshift.x)-abs(results.bosonshiftPerSpin.xUp)-abs(results.bosonshiftPerSpin.xDown)))]);
+formatPlot(5)
+if wantSave
+    export_fig(sprintf('%s%s-SBM-subOhmic-a0036622-shiftUpvsDown',saveto,para.filename(1:13)),'-transparent','-png','-painters')
+end
 %% Plot s-alpha relation
 figure(5)
 x = 0:0.01:1;

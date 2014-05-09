@@ -3,6 +3,8 @@ function bosonshift=calbosonshift_SBM1(mps0,Vmat0,para,results)
 %The operator on the spin site is set to zero
 % Modified:
 %	FS 22/01/2014:	- changed to using para.foldedChain.
+%
+% expectation_allsites is old and should be replaced by correlator_allsites
 
 x_opx=cell(1,para.L);
 x2_opx=cell(1,para.L);
