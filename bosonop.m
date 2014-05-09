@@ -1,5 +1,6 @@
 function [bp,bm,n]=bosonop(dim,shift,parity)
 %Generate local boson operators
+% shift sets only offset to diagonal entries
 bp=sparse(dim,dim);
 n=1;
 for i=dim-1:-1:1

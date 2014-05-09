@@ -1,10 +1,14 @@
-% ******************** one-site optimvzization ***********************
+% ******************** one-site optimization ***********************
 function [B, E] = minimizeE_onesiteVmat(op, A, Blaststep,para)
-% A is the local matrix
-% B is the optimized local optimal phonon basis transform matrix
+% A is the local MPS A-matrix
+% B is the optimized local optimal phonon basis transform matrix V
+% Blaststep is the to be optimized Vmat matrix.
+
+% Commented by Florian Schroeder 31/01/2014
+
 tol=para.eigs_tol;
 M = size(op.h2j, 1);
-[Dblast,dlast]=size(Blaststep);
+[Dblast,dlast]=size(Blaststep);							% dk x d_opt
 
 op.HlOPB = contracttensors(op.Hleft,2,2,A,3,1);
 op.HlOPB = contracttensors(conj(A),3,[1,2],op.HlOPB,3,[1,2]);
@@ -24,8 +28,8 @@ op.OprightOPB{m} = contracttensors(conj(A),3,[1,2],op.OprightOPB{m},3,[1,3]);
 end
 
 
-d = size(op.HlOPB, 1);
-Db = size(op.h2j{1,1}, 1);
+d = size(op.HlOPB, 1); 							% = d_opt
+Db = size(op.h2j{1,1}, 1); 					% = dk
 
 
 % projection on orthogonal subspace

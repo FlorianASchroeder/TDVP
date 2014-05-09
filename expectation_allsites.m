@@ -1,5 +1,5 @@
 function [n]=expectation_allsites(n_op,mps,Vmat)
-%Calculate the expectation value of the local operater "n_op" for all sites.
+% Calculate the expectation value of the local operater "n_op" for all sites.
 % n(j)=<\psi|n_op{j}|\psi>
 
 N=length(n_op);
@@ -14,7 +14,7 @@ end
 
 for j=1:N
     temp=ndset{1,j};
-    ndset{1,j}=n_op{j};
+    ndset{1,j}=n_op{j};											% produce: 1 .... 1 n 1 .... 1
     n(j)=expectationvalue(ndset,mps,Vmat,mps,Vmat);
     ndset{1,j}=temp;
 end

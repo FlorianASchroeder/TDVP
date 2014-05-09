@@ -1,13 +1,16 @@
 function [Vmat, V, results,d_opt] = prepare_onesiteVmat(Vmat,para,results,sitej)
+% SVD on Vmat{i} per site. only if dk >= d_opt
+% TODO: Use QR to speed up if no result needed
+%	put result saving within first if-statement, as otherwise assigned NULL??
 
 [dk, d_opt] = size(Vmat);
 if dk>=d_opt
     if para.parity=='n'
-    [Vmat, S, V] = svd2(Vmat);
-    Vmat_vNE = vonNeumannEntropy(S);
-    sv=diag(S);
-    d_opt = size(S, 1);
-    V=S*V;
+	[Vmat, S, V] = svd2(Vmat);				% TODO: if nargin ==4 then SVD, store results else QR; only for 'n'
+	Vmat_vNE = vonNeumannEntropy(S);
+	sv=diag(S);
+	d_opt = size(S, 1);
+	V=S*V;
     else
         [Vmat_odd, S_odd, V_odd] = svd2(Vmat(1:dk/2,1:d_opt/2));
         [Vmat_even, S_even, V_even] = svd2(Vmat(dk/2+1:end,d_opt/2+1:end));

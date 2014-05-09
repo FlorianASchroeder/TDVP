@@ -1,4 +1,6 @@
 function [Vmat] = createrandomVmat(para)
+% Creates random V-matrix used for optimal boson basis.
+% Dimensions per site: dk x d_opt
 Vmat = cell(1, para.L);
 
 %Vmat{1}=[1 0;0 1];

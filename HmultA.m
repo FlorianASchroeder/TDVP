@@ -1,4 +1,7 @@
 function outvec=HmultA(invec, op, Dl, Dr, d, M,parity,nonzeroindex)
+% calculates H|MPS> for energy minimization.
+% invec & outvec are vectorized forms of the optimized MPS-matrix A
+%
 
 if parity~='n'
     inA=zeros(Dl,Dr,d);

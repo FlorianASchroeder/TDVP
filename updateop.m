@@ -25,7 +25,7 @@ if para.sweepto=='r'
     for m = 1:M
         op.Opstorage{m,1,sitej+1}=updateCleft([],mps{sitej},Vmat{sitej},op.h2term{m,1,sitej},mps{sitej},Vmat{sitej});
     end
-else
+else		% sweep to left
     if sitej>=3 && para.rescaling==1
         op.Hright = op.Hlrstorage{sitej + 1};
     end

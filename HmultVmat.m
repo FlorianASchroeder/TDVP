@@ -1,5 +1,5 @@
 function outvec=HmultVmat(invec,op,dkj,d_opt,M,parity)
-
+% invec = inB = optimising Vmat OBB matrix.
 
 if parity~='n'
     inB=zeros(dkj,d_opt);

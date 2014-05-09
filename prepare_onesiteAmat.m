@@ -1,6 +1,8 @@
 function [Amat, V, vNE] = prepare_onesiteAmat(Amat,para,sitej)
+% Prepare the MPS matrices A for the subsequent updating of Ub
+% (left?) normalize A
+% TODO: replace SVD by QR, if nargout == 2.
 
-%Prepare the MPS matrices A for the subsequent updating of Ub
 [D1, D2, d_opt] = size(Amat);
 
 
@@ -34,8 +36,8 @@ if para.parity~='n'
     V = blkdiag(S_odd* V_odd,S_even*V_even);
 
 else
-
-    Amat = reshape(Amat, [D1 * D2, d_opt]);
+% for para.parity = 'n'
+    Amat = reshape(Amat, [D1 * D2, d_opt]);		% A = A_{(ab),n}
     [Amat, S, V] = svd2(Amat);
     vNE = vonNeumannEntropy(S);
     d_opt = size(S, 1);

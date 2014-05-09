@@ -1,7 +1,10 @@
 function [modelpara]=SBM_genpara(modelpara)
-
 %Calculate the wilson chain parameters for spin-boson model
 %See Appendix A of PRB 71, 045122 for details.
+%
+% Modified:
+%   FS 19/02/2014:  - added automatic L for L = 0;
+%
 z=modelpara.z;
 
 %J=@(w) 2*pi*modelpara.alpha*w.^modelpara.s;
@@ -10,7 +13,7 @@ tempfac=1/((1+modelpara.s)*log(modelpara.Lambda));
 tempLam=modelpara.Lambda^(1+modelpara.s);
 tempexp=1/(1+modelpara.s);
 
-bigL=floor(-1*log(realmin)/log(modelpara.Lambda))/2 %Use a large enough start H to make sure the accuracy after transformed to Wilson chain
+bigL=ceil(floor(-1*log(realmin)/log(modelpara.Lambda))/2) %Use a large enough start H to make sure the accuracy after transformed to Wilson chain
 
 xi=zeros(bigL,1);
 gamma=zeros(bigL,1);
@@ -47,6 +50,12 @@ end
 %inrow
 %indiag
 [epsilon,t]=star2tridiag(indiag,inrow);
+
+if modelpara.L == 0
+    modelpara.L = find(epsilon > modelpara.precision, 1,'Last') + 1;    % +1 as L includes spin site
+    dispif(sprintf('Optimum chain length is: %u',modelpara.L),modelpara.logging)
+end
+
 [epsilon,t]=extroplate(epsilon,t,modelpara.L);
 modelpara.epsilon=epsilon(1:modelpara.L-1);
 modelpara.t=t(1:modelpara.L-1);

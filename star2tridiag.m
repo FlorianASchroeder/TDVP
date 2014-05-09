@@ -36,5 +36,6 @@ for j=1:dim
   end
 end
 
+% cut first element
 alpha=alpha(2:end);
 beta=beta(2:end-1);

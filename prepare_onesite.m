@@ -1,19 +1,31 @@
 function [B, U, para,results] = prepare_onesite(A, direction,para,sitej,results)
+%
+% TODO: Use QR instead of SVD to speed up if SV and nVE are not needed
+% 		Use [Q, R] = qr(A,0) for vertical matrix to get only Q1 and R from (Q1 Q2) (R 0).
+[D1, D2, d] = size(A);					% d is site dimension
+method = 'qr';
 
-[D1, D2, d] = size(A);
 switch direction
     case 'lr'
         if para.parity=='n'
             A = permute(A, [3, 1, 2]);
-            A = reshape(A, [d * D1, D2]);
-            [B, S, U] = svd2(A);
-            vNE = vonNeumannEntropy(S);
-            sv = diag(S);
-            DB = size(S, 1);
+            A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
+            [B, S, U] = svd2(A);			% Could also use QR decomposition if nargin !=5
+%           if nargin ~=5
+%               [B, U] = qr(A);                 % Doesn't need wrapping
+%               DB = size(U,1);
+%
+%           else
+%               end
+            if nargin==5					% these values are only used in this script if results are passed
+                vNE = vonNeumannEntropy(S);
+                sv = diag(S);
+            end
+            DB = size(S, 1);				% new a2 dimension of B
             para.D(sitej)=DB;
             B = reshape(B, [d, D1, DB]);
             B = permute(B, [2, 3, 1]);
-            U = S * U;
+            U = S * U;                      % only for SVD
         else
             A=permute(A,[3,1,2]);
             s=A(para.Anzilr{sitej});
@@ -66,8 +78,10 @@ switch direction
             A = permute(A, [1, 3, 2]);
             A = reshape(A, [D1, d * D2]);
             [U, S, B] = svd2(A);
-            vNE = vonNeumannEntropy(S);
-            sv = diag(S);
+	    if nargin==5					% only if results are passed
+		vNE = vonNeumannEntropy(S);
+		sv = diag(S);
+	    end
             DB = size(S, 1);
             B = reshape(B, [DB, d, D2]); B = permute(B, [1, 3, 2]);
             U = U * S;

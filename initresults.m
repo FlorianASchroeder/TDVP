@@ -22,4 +22,14 @@ r.leftge = zeros(L,1);
 r.geoffset=zeros(L,1);
 r.Eerror(1)=1;
 r.lastVmat_vNE=zeros(1,L);
+if para.logging
+    r.d_opt = cell(1);
+    r.d_opt{1} = para.d_opt;
+    r.D = cell(1);
+    r.D{1} = para.D;
+	r.dk = cell(1);
+    r.dk{1} = para.dk;
+    r.shift = cell(1);
+    r.shift{1} = para.shift;
+    r.Vmat_svLog = cell(1);
 end

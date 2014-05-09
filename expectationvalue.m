@@ -1,5 +1,6 @@
 function [e] = expectationvalue(hset,mps1,V1,mps0,V0)
-%Calculate the overlape <mps1|hset|mps0>
+% Calculate the overlape <mps1|hset|mps0>
+% can be used for multi-site expectation values!
 %If hset is empty then, it's eqvilent to calculate the overlap.
 
 [M, N] = size(hset);

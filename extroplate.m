@@ -1,6 +1,8 @@
 function [epsilon,t]=extroplate(epsilon,t,L)
-%This function is ued to get Wilson chain parameters and the chain lenth is very long and the Wilson chain parameters at the tail of chain is smaller than machine precision, where the normal numerics won't get the correct results.
-wp=1e-30; %Wrong precision. The inputing vectors goes wrong below this presion therefore need to be corrected.
+%This function is used to get Wilson chain parameters if the chain lenth is very long and the Wilson chain parameters
+%at the tail of chain are much smaller than machine precision, where the normal numerics won't get the correct results.
+
+wp=1e-30;                       %Wrong precision. The inputing vectors goes wrong below this presion therefore need to be corrected.
 a=max(find(epsilon>wp*1e5));
 b=max(find(epsilon>wp));
 if L>b
