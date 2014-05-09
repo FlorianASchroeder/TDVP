@@ -246,6 +246,46 @@ switch para.model
                     op.h2term{2,1,s} = para.tz(ss+1).*bm; op.h2term{2,2,s} = bp;
                 end
         end
+    case 'MLSpinBoson'
+        %%%%%%%%%%%%%%%%%%%Multi-Level Spin-boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % for use of this model:
+        %   para.hx: de
+        switch s
+            case 1                                                  % first chain pos = all spin sites!
+                [HS0, HSI] = MLSB_Operators(para);                  % uses local function
+                zm_spin=zeros(para.MLSB_Ls);
+                op.h1term{1}= HS0;
+                op.h2term{1,1,1} = para.t(1).*HSI; op.h2term{1,2,1} = zm_spin;		% was sigmaX
+                op.h2term{2,1,1} = para.t(1).*HSI; op.h2term{2,2,1} = zm_spin;		% was sigmaX
+            case para.L
+                [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
+                zm=sparse(size(bp,1),size(bp,1));
+                op.h1term{para.L}=para.epsilon(para.L-1).*n;
+                op.h2term{1,1,para.L} = zm; op.h2term{1,2,para.L} = bm;
+                op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bp;
+            otherwise
+                [bp,bm,n] = bosonop(para.dk(s),para.shift(s),para.parity);
+                op.h1term{s}=para.epsilon(s-1).*n;
+                op.h2term{1,1,s} = para.t(s).*bp; op.h2term{1,2,s} = bm;
+                op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 end
+end
+
+function [H0, HI] = MLSB_Operators(para)
+% calculates Energy levels H0 and couplings to bath HI
+% define modes and parameters in VMPS_MLSBM
+%
+% perhaps export to file
+switch para.MLSB_mode
+    case 1
+        assert(length(para.MLSB_Delta) == 1, 'Only one spacing Delta allowed');
+        assert(length(para.MLSB_t) == para.MLSB_Ls, 'All couplings t between system and bath must be defined');
+        H0 = diag(((para.MLSB_Ls:-1:1)- (para.MLSB_Ls+1)/2).*para.MLSB_Delta);
+        HI = diag(para.MLSB_t);
+    otherwise
+end
+
 end

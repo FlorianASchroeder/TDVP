@@ -1,6 +1,6 @@
 function [modelpara]=SBM_genpara(modelpara)
 %Calculate the wilson chain parameters for spin-boson model
-%See Appendix A of PRB 71, 045122 for details.
+%See Appendix A of Bulla 2005 PRB 71, 045122 for details.
 %
 % Modified:
 %   FS 19/02/2014:  - added automatic L for L = 0;

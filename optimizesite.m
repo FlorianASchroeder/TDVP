@@ -9,7 +9,7 @@ function [Aj,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,sitej)
 % Commented by Florian Schroeder 13/01/2014
 optV=1;
 while optV
-    if para.dk(sitej)>2 &&para.useVmat==1 % Only use Vmat{j} and optimize for the boson sites.
+    if  prod(sitej ~= para.spinposition) && para.useVmat==1              % Only use Vmat{j} and optimize for the boson sites. Old 05/05/14: (para.dk(sitej)>2 && para.useVmat == 1); Now: ready for array in spinposition
         [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);							% left-normalize A, as r -> l sweep did right normalize.
         Blaststep = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);							% set focus on Vmat
         [B,E] = minimizeE_onesiteVmat(op, Amat, Blaststep,para);							% first Energy Optimization

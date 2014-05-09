@@ -6,7 +6,7 @@ Vmat = cell(1, para.L);
 %Vmat{1}=[1 0;0 1];
 
 for i = 1:para.L
-    if para.useVmat==1 && i~=1
+    if para.useVmat==1 && prod(i~= para.spinposition)				% ready for array in spinposition
         if para.parity~='n'
             halfdkdim=para.dk(i)/2;
             halfddim=para.d_opt(i)/2;
