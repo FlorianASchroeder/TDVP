@@ -3,7 +3,7 @@ path = pwd;
 saveto = '..\..\Presentations\20140206 - Summary\';
 wantSave = 0;
 %% Plot Vmat contributions for different Sites i (normalized)
-i=2;
+i=6;
 plot(Vmat{1,i}(:,:))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
@@ -47,24 +47,24 @@ subplot(2,2,2);
     plot(para.trustsite);
     title('Trustsite')
 % 3D-version elucidating change:
-% subplot(2,2,3);
-%     surf(cell2mat(results.shift'))
-%     set(gca,'View',[-25 10]);
-%     shading interp
-%     title('Bosonic shift');
-% subplot(2,2,4);
-%     surf(cell2mat(results.d_opt'));
-%     shading interp
-%     set(gca,'View',[0 90]);
-%     title('OBB dim')
-% 2D-version showing final
 subplot(2,2,3);
-    plot(results.shift{end});
+    surf(cell2mat(results.shift'))
+    set(gca,'View',[-25 10]);
+    shading interp
     title('Bosonic shift');
 subplot(2,2,4);
-    plot(results.d_opt{end});
+    surf(cell2mat(results.d_opt'));
+    shading interp
+    set(gca,'View',[0 90]);
     title('OBB dim')
-    text(-80,-30,sprintf(para.filename(1:38)))
+% 2D-version showing final
+% subplot(2,2,3);
+%     plot(results.shift{end});
+%     title('Bosonic shift');
+% subplot(2,2,4);
+%     plot(results.d_opt{end});
+%     title('OBB dim')
+%     text(-80,-30,sprintf(para.filename(1:38)))
 if wantSave
     export_fig(sprintf('%sResultsSummary%s',saveto,para.filename(1:13)),'-transparent','-png','-painters')
 end

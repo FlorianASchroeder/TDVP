@@ -250,6 +250,7 @@ switch para.model
         %%%%%%%%%%%%%%%%%%%Multi-Level Spin-boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % for use of this model:
         %   para.hx: de
+        %   HSI is a matrix defining coupling of system to bath. Is scaled with para.t(1)
         switch s
             case 1                                                  % first chain pos = all spin sites!
                 [HS0, HSI] = MLSB_Operators(para);                  % uses local function
@@ -274,17 +275,24 @@ switch para.model
 end
 end
 
-function [H0, HI] = MLSB_Operators(para)
+function [H0, H1] = MLSB_Operators(para)
 % calculates Energy levels H0 and couplings to bath HI
 % define modes and parameters in VMPS_MLSBM
 %
 % perhaps export to file
 switch para.MLSB_mode
     case 1
+        %   Define equal spacing Delta between each level:  para.MLSB_Delta
+        %   Define couplings System-Bath as vector:         para.MLSB_t
+        %   Define Size of ML-System:                       para.MLSBM_Ls
+        %   Energy levels will be symmetrically aligned around 0
+        %   TODO: next-neighbour couping within system
         assert(length(para.MLSB_Delta) == 1, 'Only one spacing Delta allowed');
         assert(length(para.MLSB_t) == para.MLSB_Ls, 'All couplings t between system and bath must be defined');
         H0 = diag(((para.MLSB_Ls:-1:1)- (para.MLSB_Ls+1)/2).*para.MLSB_Delta);
-        HI = diag(para.MLSB_t);
+        H1 = diag(para.MLSB_t);
+    case 2  % Hamiltonian with rotational symmetry. Get from separate function
+        [H0, H1] = Hamiltonian_PPC(para);
     otherwise
 end
 

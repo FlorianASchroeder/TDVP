@@ -1,4 +1,4 @@
-function VMPS_MLSBM(s,alpha,delta)
+function VMPS_MLSBM()
 %Variational matrix product method to study spin-boson model. Rok's
 %logrithimic discretization and optimal boson basis are implemented in
 %this code.
@@ -20,21 +20,21 @@ format short e
 
 starttime = tic
 if isdeployed           % take care of command line arguments
-    if ischar(hx), hx = str2num(hx); end
-    if ischar(hz), hz = str2num(hz); end
-    if ischar(s), s = str2num(s); end
-    if ischar(alpha), alpha = str2num(alpha); end
-	if ischar(delta), delta = str2num(delta); end
-    if ischar(L), L = str2num(L); end
+%     if ischar(hx), hx = str2num(hx); end
+%     if ischar(hz), hz = str2num(hz); end
+%     if ischar(s), s = str2num(s); end
+%     if ischar(alpha), alpha = str2num(alpha); end
+%    if ischar(delta), delta = str2num(delta); end
+%    if ischar(L), L = str2num(L); end
 %    if ischar(Lambda), Lambda = str2num(Lambda); end
 %    if ischar(parity), parity = str2num(parity); end
 end
 
 %% Parameters
-para.hx=delta;                          % Splitting with sigma_X
-para.hz=0;                              % Splitting with sigma_Z
-para.s=s;                               % what???
-para.alpha=alpha;                       % What??
+%para.hx=delta;                          % Splitting with sigma_X
+%para.hz=0;                              % Splitting with sigma_Z
+%para.s=s;                               % what???
+%para.alpha=alpha;                       % What??
 para.Lambda=2;                          % Bath log Discretization parameter
 para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
 para.z=1;                               % z-shift of bath
@@ -45,6 +45,17 @@ L=para.L;
 
 para.model='MLSpinBoson';               % 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson'
 
+if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
+    % Model Definition para.MLSB_mode:
+    %   1:  from diagonalised, constant spacing Delta, predefined t=[t1 t2 t3 t4...]; energies symmetric about 0s
+    %       Needs Define: MLSB_Ls, MLSB_Delta, MLSB_t,
+    %       Automatically defined: SBM J(w)
+    %   2:  Hamiltonian with rotational symmetry. Read in data from file.
+    %       Needs Define: MLSBM_t, MLSB_system,
+    %       Automatically defined: MLSB_Ls, Renger2012 J(w),
+    para.MLSB_mode = 2;
+end
+
 para.foldedChain=0;                     % parameter to tell that Supersites for chain are used!
 para.spinposition=1;                    % The y chain is on the left and the z chain is on the right. (could be array ?)
 para.rescaling=1;                       % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
@@ -52,9 +63,10 @@ para.complex=0;
 para.resume=0;                          % Read from saved results if available.
 para.logging = 1;                       % Switch on logging and
 parity = 0;
-para.precision = 5e-15;                 % was 5e-15;
+para.precision = 5e-15;                 % was 5e-15; Determines chain length if L=0;
 
 %% %%%%%%% Calculate Wilson Chain parameters %%%%%%%%%%%%%%%%%%
+% needed here: para.model, [para.MLSB_mode]
 [para]=SBM_genpara(para);               % only need alpha, s, Lambda. Returns epsilon and t of Wilson chain. Auto choose L if L == 0
 if (L == 0)
     L = para.L;                         % Take best L if not specially defined
@@ -62,17 +74,17 @@ end
 
 %%
 para.M=2;                               % is number of terms in sum to address. Better: Number of 2-operator interaction terms per site in Hamiltonian. =2 for single chain; =4 for folded chain
-para.D=D*ones(1,L-1);                  % Bond dimension; starting dimension is 2. para.D(L) is useless in this program
+para.D=D*ones(1,L-1);                   % Bond dimension; starting dimension is 2. para.D(L) is useless in this program
 para.dk_start = dk;                     % local dimension per boson in bath. Will be increased effectively by oscillator shift.
 para.dk=para.dk_start*ones(1,L);
-para.dk(1)=2;                           %Impurity dimension
+para.dk(1)=2;                           % Impurity dimension
 para.increasedk = 0;					% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
-para.d_opt=d_opt*ones(1,L);                % Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
-para.d_opt(1)=2;                        %Optimal Impurity dimension
+para.d_opt=d_opt*ones(1,L);             % Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
+para.d_opt(1)=2;                        % Optimal Impurity dimension
 para.eigs_tol=1e-8;
 para.loopmax=600;
 
-if strcmp(para.model,'2SpinPhononModelfolded')
+if strcmp(para.model,'2SpinPhononModelfolded')      % could be removed
    para.Delta = 0;
    para.epsilon_spin = 0;
 end
@@ -87,17 +99,39 @@ if strcmp(para.model,'2SpinPhononModel')
    para.foldedChain=1;
 end
 
+%% Multi-Level Spin Boson Model for PPC
+
 if strcmp(para.model,'MLSpinBoson')
-    para.MLSB_mode = 1;
-    % Model Definition modes:
+    % Model Definition para.MLSB_mode:
     %   1:  from diagonalised, constant spacing Delta, predefined t=[t1 t2 t3 t4...]; energies symmetric about 0s
-    para.MLSB_Ls = 6;                       % number of levels in System, symmetric around E=0;
-    para.dk(1) = para.MLSB_Ls;              % also set dk properly
+    %       Needs Define: MLSB_Ls, MLSB_Delta, MLSB_t,
+    %       Automatically defined: SBM J(w)
+    %   2:  Hamiltonian with rotational symmetry. Read in data from file.
+    %       Needs Define: MLSBM_t, MLSB_system,
+    %       Automatically defined: MLSB_Ls, Renger2012 J(w),
+
+% All modes:
+%    para.MLSB_t = [-1 -1 -1 1 1 1];             % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
+    para.MLSB_t = @(x) cos(2*pi/2.*x);                % MLSB_t can be an anonymous function.
+
+    if para.MLSB_mode == 1
+        para.MLSB_Ls = 6;                           % number of levels in System, symmetric around E=0;
+        para.MLSB_Delta = para.hx;                  % level spacing in already diagonalized model
+    end
+
+    if para.MLSB_mode == 2
+        para.MLSB_system = 'RsMolischianumB850';
+            % Choose: 'RsMolischianumB850', 'RsMolischianumB800B850'
+        para.MLSB_Ls = length(Hamiltonian_PPC(para));
+            % Inherently defined within model
+    end
+
+% All modes:
+    para.dk(1) = para.MLSB_Ls;                  % also set dk properly
     para.d_opt(1) = para.MLSB_Ls;
 
-    para.MLSB_Delta = para.hx;              % level spacing in already diagonalized model
-    para.MLSB_t = [-1 -1 -1 1 1 1];         % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
 end
+%%
 
 para.SVDmethod = 'qr';                      % 'qr': uses QR instead of SVD wherever possible; 'svd': use SVD always (slower)
 para.svmaxtol=1e-6;
@@ -139,7 +173,7 @@ para.hasexpanded=0;
 para.useshift=1;
 % only choose one of the following Methods
 para.useFloShift = 0;
-para.useFloShift2 = 1;  para.FloShift2minSV = 0.995;     % shift everything if maximum Vmat SV fall below this value
+para.useFloShift2 = 1;  para.FloShift2minSV = 0.995;    % shift everything if maximum Vmat SV fall below this value
 para.useFloShift3 = 0;  para.FloShift3minMaxSV = 1;     % shift every 3rd loop. Shifts only sites where max SV worse than half of the worst SV
 para.FloShift3loops = 5;                                % FloShift3 needs logging of results.Vmat_sv!
 para.useChengShift=0;
@@ -147,7 +181,7 @@ para.useEveryShift=0;
 
 para.shift=zeros(1,para.L);
 para.relativeshift=zeros(1,para.L);
-para.relativeshiftprecision=0.01; %When the relative shift is below this value then stop shifting
+para.relativeshiftprecision=0.01;        %When the relative shift is below this value then stop shifting
 para=maxshift(para);
 
 %% calculate shift analytically  (for independent sub-ohmic model)
@@ -161,8 +195,8 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-s%.10galpha%.10gDelta%.10gdk%.10gD%.10gdopt%gL%d'],...
-    para.model,s,alpha,delta,dk,D,d_opt,L);
+para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-dk%.10gD%.10gdopt%gL%d'],...
+    para.model,dk,D,d_opt,L);
 para.filename=strcat(para.folder,'/results.mat');
 if ~exist(para.filename,'file')
     mkdir(para.folder);
