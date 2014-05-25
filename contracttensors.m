@@ -4,6 +4,8 @@ function [X, numindX] = contracttensors(X, numindX, indX, Y, numindY, indY)
 %	2. Reshapes X and Y into 2-dim matrices s.t. all not contracting dimension are in one dimension. All to be contracted dimensions are reshaped into the other dimension.
 % 	3. Matrixproduct X*Y
 %	4. Reshape result into remainders: dimXl x dimYr x 1  ; here contracted dimension is at the end
+%
+% eg: Cleft = contracttensors(conj(B), 3, [1, 3], Cleft, 3, [3, 1]);      % Cleft_fb = B*_dfe Cleft_ebd
 
 
 Xsize = ones(1, numindX); Xsize(1:ndims(X)) = size(X);
@@ -13,7 +15,7 @@ indXl = 1:numindX; indXl(indX) = []; 			% remove indX from index number array fo
 indYr = 1:numindY; indYr(indY) = [];
 
 sizeXl = Xsize(indXl);
-sizeX = Xsize(indX); 						% should be just a number otherwise have: indX = [2,5] ; indY = [1,3]  to contract about 2 dimensions simultaneously?
+sizeX = Xsize(indX); 						% should be just a number otherwise have: indX = [2,5] ; indY = [1,3]  to contract [2 with 1] and [5 with 3]
 sizeYr = Ysize(indYr);
 sizeY = Ysize(indY);
 
@@ -21,7 +23,7 @@ if prod(sizeX)~= prod(sizeY)
     error('indX and indY are not of same dimension.');
 end
 
-if isempty(indYr)
+if isempty(indYr) 								% if Y will be fully contracted
     if isempty(indXl) 							% if X and Y are to be fully contracted
         X = permute(X, indX); 					% permutes array dimensions
         X = reshape(X, [1, prod(sizeX)]); 			% rearranges columnwise into new stated array shape
@@ -41,6 +43,7 @@ if isempty(indYr)
     end
 end
 
+% if parts from X and Y will be left over
 X = permute(X, [indXl, indX]); X = reshape(X, [prod(sizeXl), prod(sizeX)]);
 Y = permute(Y, [indY, indYr]); Y = reshape(Y, [prod(sizeY), prod(sizeYr)]);
 

@@ -16,7 +16,7 @@ function [Cleft] = updateCleft(Cleft, B, BUb, X, A, AUb)
     newX = contracttensors(newX,2,1,AUb,2,1);
 
     % do contraction:  C_fb = B*_dfe  Xnew_ec  A_abc  C_da	where 3rd indices are running over n_k
-    Cleft = contracttensors(A, 3, 1, Cleft, 2, 2);
-    Cleft = contracttensors(newX, 2, 2, Cleft, 3, 2);
-    Cleft = contracttensors(conj(B), 3, [1, 3], Cleft, 3, [3, 1]);
+    Cleft = contracttensors(A, 3, 1, Cleft, 2, 2);                      % Cleft_bcd = A_abc C_da
+    Cleft = contracttensors(newX, 2, 2, Cleft, 3, 2);                   % Cleft_ebd = Xnew_ec Cleft_bcd
+    Cleft = contracttensors(conj(B), 3, [1, 3], Cleft, 3, [3, 1]);      % Cleft_fb = B*_dfe Cleft_ebd
 

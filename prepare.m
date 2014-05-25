@@ -1,5 +1,5 @@
 function [mps,Vmat,para] = prepare(mps,Vmat,para)
-% Does Sweep l->r and r->l
+% Does Sweep l->r (left normalization) and r->l (right normalization)
 % Calculates either using Vmat or without.
 % 1. sweep l->r  (with Vmat); 2.sweep, r->l  (without Vmat)
 % for each site:

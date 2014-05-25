@@ -56,6 +56,7 @@ while loop<=para.loopmax;
 	end
 	if para.logging
 		results.Vmat_svLog{para.loop} = cellfun(@(x) x(1,1), results.Vmat_sv(2:end));		% log the highest SV of Vmat
+		results.EvaluesLog{para.loop} = results.Evalues;
 	end
 	if para.useFloShift3
 		para.FloShift3minMaxSV = min(cellfun(@(x) x(1,1), results.Vmat_sv(2:end)));
@@ -64,6 +65,7 @@ while loop<=para.loopmax;
     results.Eerror(loop)=std(results.Evalues)/abs(mean(results.Evalues));
     fprintf('E_error =  %.16g\t',results.Eerror(loop));
     %Calculate the relative change of Vmat von Neumann entropy as one criteria for convergence check
+    % TODO: Need to exclude Vmat_vNE == 0 as this gives either inf or NaN
     vNEdiff=(results.Vmat_vNE(2:end)-results.lastVmat_vNE(2:end))./results.Vmat_vNE(2:end);
     vNEdiff=abs(vNEdiff)
     results.vNEdiff=vNEdiff;

@@ -44,6 +44,7 @@ if strcmp(modelpara.model,'MLSpinBoson') && modelpara.MLSB_mode == 2
 else
     %% use J(w) from A. Leggett et al., Rev. Mod. Phys. 59, 1 (1987). DOI: 10.1103/RevModPhys.59.1
     %           and R. Bulla, N.-H. Tong, and M. Vojta, Phys. Rev. Lett. 91, 170601 (2003). DOI: 10.1103/PhysRevLett.91.170601
+    %           and R. Žitko and T. Pruschke, Phys. Rev. B 79, 085106 (2009). DOI: 10.1103/PhysRevB.79.085106
     % TODO: bring onto form as above, to make readable and shorter!
 %    tic;modelpara.alpha = 0.5; modelpara.s = 1; modelpara.Lambda = 2; bigL = 511; z=1;       % testing
     fac=2*pi*modelpara.alpha/(1+modelpara.s);

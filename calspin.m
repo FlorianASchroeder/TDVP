@@ -1,9 +1,12 @@
 function spin=calspin(mps,Vmat,para,results)
 %Calculate the spin expectation value
 % Has to be modified if site 1 changes dimension!!
+% Modified:
+%   FS 24/05/2014:  excluded MLSpinBoson. Use with try-catch block
 
 N=para.L;
 assert(N==length(mps) && N==length(Vmat));
+assert(~strcmp(para.model,'MLSpinBoson'),'not possible for MLSBM');
 
 ndset=cell(1,N);
 

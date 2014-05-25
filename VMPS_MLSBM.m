@@ -31,19 +31,25 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Parameters
-%para.hx=delta;                          % Splitting with sigma_X
-%para.hz=0;                              % Splitting with sigma_Z
-%para.s=s;                               % what???
-%para.alpha=alpha;                       % What??
+para.model='MLSpinBoson';
+    % choose: 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson'
+
 para.Lambda=2;                          % Bath log Discretization parameter
+para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
 para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
-para.z=1;                               % z-shift of bath
+L=para.L;
+
+if ~strcmp(para.model,'MLSpinBoson')
+    para.hx=delta;                          % Splitting with sigma_X
+    para.hz=0;                              % Splitting with sigma_Z
+    para.s=s;                               % SBM spectral function power law behaviour
+    para.alpha=alpha;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+end
+
+%% Starting MPS Dimensions
 D = 5;
 dk = 20;
 d_opt = 5;
-L=para.L;
-
-para.model='MLSpinBoson';               % 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson'
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
     % Model Definition para.MLSB_mode:
@@ -214,7 +220,10 @@ save(para.filename,'para','Vmat','mps','results','op');
 %% Calculate Results
 results.nx=calbosonocc_SBM1(mps,Vmat,para,results);
 results.bosonshift=calbosonshift_SBM1(mps,Vmat,para,results);
-%results.spin=calspin(mps,Vmat,para,results);
+
+if strcmp(para.model,'MLSpinBoson')
+    results.participation = calParticipation(calReducedDensity(mps,Vmat,para,1));
+end
 %%
 results.time = toc(starttime)
 save(para.filename,'para','Vmat','mps','results','op');

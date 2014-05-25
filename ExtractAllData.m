@@ -2,6 +2,9 @@ function PlotData = ExtractAllData()
 % Used to get useful data from results.mat of each subfolder.
 % saves extractes data into file:
 % Makes Plot to visualize data
+%
+% Modified:
+%      FS 24/05/2014:   Started to include extraction of parameters for MLSBM
 %%
 % Overwrite extracted.mat ?
 overwrite = 0;
@@ -58,10 +61,15 @@ for i = 1:1:length(dirs)
             PlotData(i,9) = -1;     % dimension too high--> no calculation
         end
         PlotData(i,10) = max(abs(results.nx)); % Max(<n>) to see changes in chain population
-        clear('para','extracted','results');
     catch
 
     end
+    if strcmp(para.model,'MLSpinBoson')
+        PlotData(i,11) = extracted.participation;
+		plot(ans-min(ans))
+        %% not finished!!!
+    end
+    clear('para','extracted','results');
 end
 %dlmwrite('20140310-Delta-Alpha-Scan.txt',sortrows(PlotData,7));
 save('20140408-ExtractedResults.mat','PlotData');
@@ -150,59 +158,77 @@ else
 end
 E.loops = para.loop;
 %% Calculate Shift analytically for iSBM:
- t = para.t; e = para.epsilon;
- A = gallery('tridiag',t(2:end),e(1:end),t(2:end));      % creates tridiag for system A.(shiftVec) = (-t1*sigmaZ, 0,0,0,0,...)
- B = zeros(para.L-1,1);
- if isfield(results,'spin')                              % if spin was calculated in the end
-	 B(1) = -t(1)*(results.spin.sz);
- else
-	 B(1) = -t(1)*1;
- end
-%    E.ShiftCalc = results.shift{1};                       % this is analytical solution for spin.
-E.ShiftCalc = [0; A\B.*sqrt(2)]';
+    t = para.t; e = para.epsilon;
+    A = gallery('tridiag',t(2:end),e(1:end),t(2:end));      % creates tridiag for system A.(shiftVec) = (-t1*sigmaZ, 0,0,0,0,...)
+    B = zeros(para.L-1,1);
+    if isfield(results,'spin')                              % if spin was calculated in the end
+        B(1) = -t(1)*(results.spin.sz);
+    else
+        B(1) = -t(1)*1;
+    end
+    % E.ShiftCalc = results.shift{1};                        % this is analytical solution for spin.
+    E.ShiftCalc = [0; A\B.*sqrt(2)]';
 %% Compare analytical and simulated iSBM shift
-E.ShiftSim = para.shift;
-E.ShiftDeviation = E.ShiftCalc./E.ShiftSim-1;
-E.ShiftMaxError = max(abs(E.ShiftDeviation));           % Max absolute Error
-E.ShiftMeanError = mean(abs(E.ShiftDeviation(2:end)));  % Mean absolute Error
-E.ShiftMax = max(abs(E.ShiftCalc));                     % Max Shift
+    E.ShiftSim = para.shift;
+    E.ShiftDeviation = E.ShiftCalc./E.ShiftSim-1;
+    E.ShiftMaxError = max(abs(E.ShiftDeviation));           % Max absolute Error
+    E.ShiftMeanError = mean(abs(E.ShiftDeviation(2:end)));  % Mean absolute Error
+    E.ShiftMax = max(abs(E.ShiftCalc));                     % Max Shift
 %% Compare Occupation numbers
-E.NCalc = (E.ShiftCalc.*E.ShiftCalc./2);
-try
-	E.NSim = results.nx;
-	E.converged = 1;
-catch
-	E.converged = 0;
-	fprintf('%s is not converged\n',para.filename(1:58));
-	return;
-	if max(para.dk) < 1000
-		E.NSim = calbosonocc_SBM1(mps,Vmat,para,results);   % still calculate from approximate state, takes quite long in bad cases!
-	else
-		fprintf('%s has dk = %u\n',para.filename(1:58),max(para.dk));
-		return;
-	end
-end
-E.NDeviation = E.NCalc./E.NSim-1;
-E.NMaxError = max(abs(E.NDeviation));
-E.NMeanError = mean(abs(E.NDeviation(2:end)));
-E.NMaxCalc = max(abs(E.NCalc));
-E.NMaxSim = max(abs(E.NSim));
+    E.NCalc = (E.ShiftCalc.*E.ShiftCalc./2);
+    try
+        E.NSim = results.nx;
+        E.converged = 1;
+    catch
+        E.converged = 0;
+        fprintf('%s is not converged\n',para.filename(1:58));
+        return;
+        if max(para.dk) < 1000
+            E.NSim = calbosonocc_SBM1(mps,Vmat,para,results);   % still calculate from approximate state, takes quite long in bad cases!
+        else
+            fprintf('%s has dk = %u\n',para.filename(1:58),max(para.dk));
+            return;
+        end
+    end
+    E.NDeviation = E.NCalc./E.NSim-1;
+    E.NMaxError = max(abs(E.NDeviation));
+    E.NMeanError = mean(abs(E.NDeviation(2:end)));
+    E.NMaxCalc = max(abs(E.NCalc));
+    E.NMaxSim = max(abs(E.NSim));
 %% Save spin <sx> for Plot against alpha
-if E.converged
-	E.Sx = results.spin.sx;
-else
-	E.spin = calspin(mps,Vmat,para,results);
-	E.Sx = E.spin.sx;
-end
+% try because inapplicable to MLSBM
+    if E.converged
+        try
+            E.Sx = results.spin.sx;
+        catch
+        end
+    else
+        try
+            E.spin = calspin(mps,Vmat,para,results);
+            E.Sx = E.spin.sx;
+        catch
+        end
+    end
 %% Calculate <a_i a_i+1>, call aaCreationCorrelator
-if max(para.dk) < 1000
-    E.aaCreationCorrelator = calboson2siteCreationCorrelator_SBM1(mps,Vmat,para);   % calculated directly
-    E.aCreationCorrelator = calboson1siteCreationCorrelator_SBM1(mps,Vmat,para);    % <a^+_i>
-    E.aaCreationCorrelator2 = para.shift(1:end-1).*para.shift(2:end) - E.aCreationCorrelator(1:end-1).*E.aCreationCorrelator(2:end);            % calculated as f_i f_i+1 - <a^+_i><a^+_i+1>
-else
-    fprintf('%s has dk = %u\n',para.filename(1:58),max(para.dk));
-    return;
-end
+    if max(para.dk) < 1000
+        E.aaCreationCorrelator = calboson2siteCreationCorrelator_SBM1(mps,Vmat,para);   % calculated directly
+        E.aCreationCorrelator = calboson1siteCreationCorrelator_SBM1(mps,Vmat,para);    % <a^+_i>
+        E.aaCreationCorrelator2 = para.shift(1:end-1).*para.shift(2:end) - E.aCreationCorrelator(1:end-1).*E.aCreationCorrelator(2:end);            % calculated as f_i f_i+1 - <a^+_i><a^+_i+1>
+    else
+        fprintf('%s has dk = %u\n',para.filename(1:58),max(para.dk));
+        return;
+    end
+
+%% Results specifically for MLSBM
+    if strcmp(para.model,'MLSpinBoson')
+        try
+            E.participation = results.participation;
+        catch
+            E.participation = calParticipation(calReducedDensity(mps,Vmat,para,1));
+        end
+		E.EvaluesLog = cell2mat(results.EvaluesLog);
+		E.EnergyConvergence = E.EvaluesLog-min(E.EvaluesLog);					% Plot against log-axis therefore -min
+    end
 
 %% Save to file
 extracted = E;
