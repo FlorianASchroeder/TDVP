@@ -67,9 +67,11 @@ while loop<=para.loopmax;
     %Calculate the relative change of Vmat von Neumann entropy as one criteria for convergence check
     % TODO: Need to exclude Vmat_vNE == 0 as this gives either inf or NaN
     vNEdiff=(results.Vmat_vNE(2:end)-results.lastVmat_vNE(2:end))./results.Vmat_vNE(2:end);
-    vNEdiff=abs(vNEdiff)
+    vNEdiff(results.Vmat_vNE(2:end)==0) = 0;        % if Vmat_vNE == 0 set diff to 0 to fix inf & NaN
+    vNEdiff=abs(vNEdiff);
+    fprintf('vNEdiff = '); disp(mat2str(vNEdiff));
     results.vNEdiff=vNEdiff;
-    fprintf('para.shift = \n'); disp(para.shift);
+    fprintf('para.shift = \n'); disp(mat2str(para.shift));
     results.lastVmat_vNE=results.Vmat_vNE;
     para=trustsite(para,results);
     fprintf('precise_sites k <= %d\t',para.precisesite);
