@@ -1,5 +1,6 @@
 function [Aj,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,sitej)
-%
+% Uses Vmat only on not-spin-sites.
+% Uses shift only on not-spin-sites.
 % If at spinsite, sitej = 1: Amatlaststep = mps{sitej}; [Aj, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amatlaststep,para,sitej);
 % TODO: Improve speed for optV loop by using QR.
 %		SVD result needed in lines: 77-79, so perhaps do it before that in a single run only if useshift == 1?
@@ -7,8 +8,12 @@ function [Aj,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,sitej)
 %		QR usable in Lines: 13, 22
 %
 % Commented by Florian Schroeder 13/01/2014
+% Modified:
+%   FS 26/05/2014:  Shift only if sitej not in para.spinposition --> bosonic site.
+
 optV=1;
 while optV
+    % Use Vmat only for bosonic sites
     if  prod(sitej ~= para.spinposition) && para.useVmat==1              % Only use Vmat{j} and optimize for the boson sites. Old 05/05/14: (para.dk(sitej)>2 && para.useVmat == 1); Now: ready for array in spinposition
         [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);							% left-normalize A, as r -> l sweep did right normalize.
         Blaststep = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);							% set focus on Vmat
@@ -26,9 +31,9 @@ while optV
     end
     [Aj, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amatlaststep,para,sitej);
 
-% Shifting of bosons if trustsite > 0;  modify condition for sitej = 1, dk(1) = 4; perhaps: para.dk(sitej) > para.dk(para.spinposition)
-% Necessary: dk(j) always > spin dimension
-    if para.loop>1 && para.dk(sitej)>2 && para.useshift==1
+% Shifting basis of bosonic sites only. Different criteria explained in declaration file.
+% prod(sitej ~= para.spinposition) excludes all spin-sites
+    if para.loop>1 && para.useshift==1 && prod(sitej ~= para.spinposition)          % old: para.dk(sitej)>2
 		if para.useFloShift == 1 && ~(para.trustsite(end)>0)						% stop loops if criterium not fulfilled
 			optV = 0;
 %		elseif para.useFloShift2 == 1 && ~(min(cellfun(@(x) x(1,1), results.Vmat_sv(2:end))) < para.FloShift2minSV)	% cellfun takes all maximum SV of each site into an array

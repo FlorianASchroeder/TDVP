@@ -44,35 +44,49 @@ end
 
 %% generate Parameter and Essentials list
 PlotData = zeros(length(dirs),10);   % (s, alpha, log(shifterror))
+PPCWavefunction = zeros(length(dirs),16);   % only applies to Rs.Molischianum
 for i = 1:1:length(dirs)
     try
-        load([dirs{i},'/extracted.mat']);
-        PlotData(i,1) = para.s;
-        PlotData(i,2) = para.alpha;
-        PlotData(i,3) = -log10(extracted.ShiftMaxError);
-        PlotData(i,4) = -log10(extracted.NMaxError);
-        PlotData(i,5) = extracted.timeMins;
-        PlotData(i,6) = extracted.Sx;       % <sx>
-        PlotData(i,7) = para.hx;            % = delta
-        PlotData(i,8) = results.spin.sz;    % <sz>
-        if max(para.dk) < 1000
-            PlotData(i,9) = norm(abs(extracted.aaCreationCorrelator(1:end-1)-extracted.aaCreationCorrelator2));
+%        load([dirs{i},'/extracted.mat']);
+        load([dirs{i},'/results.mat']);
+        if ~strcmp(para.model,'MLSpinBoson')
+            PlotData(i,1) = para.s;
+            PlotData(i,2) = para.alpha;
+            PlotData(i,3) = -log10(extracted.ShiftMaxError);
+            PlotData(i,4) = -log10(extracted.NMaxError);
+            PlotData(i,5) = extracted.timeMins;
+            PlotData(i,6) = extracted.Sx;       % <sx>
+            PlotData(i,7) = para.hx;            % = delta
+            PlotData(i,8) = results.spin.sz;    % <sz>
+            if max(para.dk) < 1000
+                PlotData(i,9) = norm(abs(extracted.aaCreationCorrelator(1:end-1)-extracted.aaCreationCorrelator2));
+            else
+                PlotData(i,9) = -1;     % dimension too high--> no calculation
+            end
+            PlotData(i,10) = max(abs(results.nx)); % Max(<n>) to see changes in chain population
         else
-            PlotData(i,9) = -1;     % dimension too high--> no calculation
+            PlotData(i,1) = para.Lambda;
+            PlotData(i,2) = para.z;
+            PlotData(i,3) = results.participation;  % extracted.participation;
+            PlotData(i,4) = max(abs(results.nx));   % Max(<n>) to see changes in chain population
+            PlotData(i,5) = results.E;
+            PlotData(i,6) = para.MLSB_p;            % extracted.period;
+            if isfield(para,'MLSB_etaFactor')
+                PlotData(i,7) = para.MLSB_etaFactor;
+            else
+                PlotData(i,7) = 1;      % case before MLSB_etaFactor was introduced.
+            end
+            % copy the wavefunction of the ring
+            PPCWavefunction(i,:) = diag(calReducedDensity(mps,Vmat,para,1));
         end
-        PlotData(i,10) = max(abs(results.nx)); % Max(<n>) to see changes in chain population
     catch
 
     end
-    if strcmp(para.model,'MLSpinBoson')
-        PlotData(i,11) = extracted.participation;
-		plot(ans-min(ans))
-        %% not finished!!!
-    end
+
     clear('para','extracted','results');
 end
 %dlmwrite('20140310-Delta-Alpha-Scan.txt',sortrows(PlotData,7));
-save('20140408-ExtractedResults.mat','PlotData');
+save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData');
 
 if ~doPlot
 	return;
@@ -134,7 +148,97 @@ title('$Max(<n>)$ vs $\alpha$');
 xlabel('$\Delta$');
 ylabel('$\alpha$');
 zlabel('$Max(<n>)$');
+%% MLSBM from here:
+%  PlotData: 1 = Lambda; 2 = z; 3 = participation; 4 = Max(<n>); 5 = E0; 6 = period;
+%            7 = etaFactor;
 
+figure(1)
+scatter3(PlotData(:,1),PlotData(:,2),PlotData(:,3),10,PlotData(:,3),'fill')
+title('$Max(<n>)$ vs $\Lambda$ and z');
+xlabel('$\Lambda$');
+ylabel('$z$');
+zlabel('$Max(<n>)$');
+%% Plot Participation for entire Dataset.
+figure(2)
+plot(PlotData(:,3));
+%% Plot Max Chain Occupation vs. Period and Strength
+figure(2)
+scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,4),50,PlotData(:,4),'fill')
+xlabel('Period of $\eta$');
+ylabel('Factor of $\eta$')
+zlabel('$<n_1>$');;
+%% Plot Participation vs. Period and Strength
+figure(2)
+scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,3),50,PlotData(:,3),'fill')
+xlabel('Period of $\eta$');
+ylabel('Factor of $\eta$')
+zlabel('Participation');;
+%% Plot Participation vs. Period
+figure(2)
+%select = PlotData(:,6)==4;          % period == 4
+select = PlotData(:,7)==1;          % etaFactor == 4
+plot(PlotData(select,6),PlotData(select,3))
+xlabel('Period of $\eta$');
+ylabel('Participation');
+%% Plot Participation vs. Strength
+figure(2)
+hold on
+select = PlotData(:,6)==8 & PlotData(:,7)>=0;          % period == 4 or 16
+Indexed = [PlotData(select,7) PlotData(select,3)];
+Indexed = sortrows(Indexed,1);
+plot(Indexed(:,1),Indexed(:,2))
+xlabel('Factor of $\eta$');
+ylabel('Participation');
+formatPlot(2);
+line([0 5],[16 16],'LineWidth',1,'Color','black');
+%% Plot GS Energy vs. Period and Strength
+figure(3)
+scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,5),50,PlotData(:,5),'fill')
+xlabel('Period of $\eta$');
+ylabel('Factor of $\eta$')
+zlabel('$E_0$');
+
+%% Plot the wavefunction for different strengths
+% modify the required period
+select =  PlotData(:,6)==4;
+IndexedMatrix = [PlotData(select,7) PPCWavefunction(select,:)];
+IndexedMatrix = sortrows(IndexedMatrix,1);                      % sort with respect to y axis
+figure(4);
+surf(1:16,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
+xlabel('Site $k$');
+ylabel('$\eta$-Factor')
+zlabel('$|\Psi(k)|^2$')
+formatPlot(4)
+
+%% Plot the wavefunction for different periods
+select = PlotData(:,7)==3; %& PlotData(:,7) >=0;
+IndexedMatrix = [PlotData(select,6) PPCWavefunction(select,:)];
+IndexedMatrix = sortrows(IndexedMatrix,1);
+figure(4);
+surf(1:16,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
+xlabel('Site $k$');
+ylabel('$\eta$-Period')
+zlabel('$|\Psi(k)|^2$')
+
+%% Scatter interpolation
+%% using griddata
+figure
+[xi, yi] = meshgrid(1:0.5:29, -1:0.1:5);
+x = PlotData(:,6);
+y = PlotData(:,7);
+z = PlotData(:,3);
+zi = griddata(x,y,z, xi,yi);
+surf(xi,yi,zi);
+xlabel('Period'), ylabel('$\eta$-Factor'), zlabel('Participation')
+%% using Interpolant class
+F = scatteredInterpolant([x y],z)
+[Xq,Yq] = meshgrid(1:0.5:40, -1:0.1:5);
+F.Method = 'natural';
+Vq = F(Xq,Yq);
+surf(Xq,Yq,Vq);
+xlabel('X','fontweight','b'), ylabel('Y','fontweight','b');
+zlabel('Value - V','fontweight','b');
+title('Linear Interpolation Method','fontweight','b');
 end
 
 function ExtractOneData(path)
@@ -196,7 +300,7 @@ E.loops = para.loop;
     E.NMaxCalc = max(abs(E.NCalc));
     E.NMaxSim = max(abs(E.NSim));
 %% Save spin <sx> for Plot against alpha
-% try because inapplicable to MLSBM
+% try because not applicable to MLSBM
     if E.converged
         try
             E.Sx = results.spin.sx;
@@ -228,6 +332,8 @@ E.loops = para.loop;
         end
 		E.EvaluesLog = cell2mat(results.EvaluesLog);
 		E.EnergyConvergence = E.EvaluesLog-min(E.EvaluesLog);					% Plot against log-axis therefore -min
+        E.E0 = results.E;
+        E.period = para.MLSB_p;
     end
 
 %% Save to file

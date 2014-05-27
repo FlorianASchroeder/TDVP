@@ -1,5 +1,5 @@
 function para=trustsite(para,results)
-%Determin until which site in the Wilson chain the results are reliable
+%Determine until which site in the Wilson chain the results are reliable
 %The cretieria used here is the order of magnitude of the smallest singular value ssv should be
 %smaller than the order of magnitude of the coupling/onsite energy.
 
@@ -31,7 +31,7 @@ function para=trustsite(para,results)
  end
 
  if results.Eerror(end)<1e-4
- site2=max(find(para.epsilon>results.Eerror(end)));
+	site2=max(find(para.epsilon>results.Eerror(end)));
  else
 	 site2=1;
  end

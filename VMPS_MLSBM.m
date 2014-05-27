@@ -118,7 +118,9 @@ if strcmp(para.model,'MLSpinBoson')
 
 % All modes:
 %    para.MLSB_t = [-1 -1 -1 1 1 1];             % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
-    para.MLSB_t = @(x) cos(2*pi/2.*x);                % MLSB_t can be an anonymous function.
+    para.MLSB_p = 2;                            % period of coupling for cosine
+    para.MLSB_etaFactor = 1;                         % multiplier to increase system-bath coupling
+    para.MLSB_t = @(x) para.MLSB_etaFactor.*cos(2*pi/para.MLSB_p.*x);                % MLSB_t can be an anonymous function.
 
     if para.MLSB_mode == 1
         para.MLSB_Ls = 6;                           % number of levels in System, symmetric around E=0;
@@ -178,12 +180,12 @@ para.hasexpanded=0;
 % Introduces shift of bosonic oscillators to increase effective dk
 para.useshift=1;
 % only choose one of the following Methods
-para.useFloShift = 0;
+para.useFloShift = 0;                                   % shift all sites if trustsite > 0
 para.useFloShift2 = 1;  para.FloShift2minSV = 0.995;    % shift everything if maximum Vmat SV fall below this value
 para.useFloShift3 = 0;  para.FloShift3minMaxSV = 1;     % shift every 3rd loop. Shifts only sites where max SV worse than half of the worst SV
 para.FloShift3loops = 5;                                % FloShift3 needs logging of results.Vmat_sv!
-para.useChengShift=0;
-para.useEveryShift=0;
+para.useChengShift=0;                                   % shifts sites < trustsite
+para.useEveryShift=0;                                   % shift in every loop
 
 para.shift=zeros(1,para.L);
 para.relativeshift=zeros(1,para.L);

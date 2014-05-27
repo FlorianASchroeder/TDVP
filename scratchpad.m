@@ -1,9 +1,10 @@
 %% Path where to save figures
 path = pwd;
-saveto = '..\..\Presentations\20140206 - Summary\';
+%saveto = '..\..\Presentations\20140206 - Summary\';
+saveto = '..\..\Presentations\20140520 - MLSBM\20140525-CoupFunc\';
 wantSave = 0;
 %% Plot Vmat contributions for different Sites i (normalized)
-i=6;
+i=3;
 plot(Vmat{1,i}(:,:))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
@@ -11,6 +12,7 @@ xlabel('$d_k$')
 if wantSave
     export_fig(sprintf('%sVmatNormalized%s-%u',saveto,para.filename(1:13),i),'-transparent','-png','-eps')
 end
+
 %% Plot Vmat contributions for different Sites i (SV-weighted)
 i = 2;
 plot(Vmat{1,i}*diag(results.Vmat_sv{1,i}))
@@ -242,3 +244,34 @@ z = y.^(x./(1-x));
 plot(x,z);
 
 PlotData(:,PlotData(:,7)==0.001)
+
+%% For PPC MLSBM:
+
+%% Plot Energy convergence
+figure(1);
+plot(cell2mat(results.EvaluesLog)-min(cell2mat(results.EvaluesLog)));
+set(gca,'YScale','log');
+title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));
+xlabel('Site$\cdot$Loop');
+ylabel('$E-E_0$');
+formatPlot(1)
+yLim = get(gca,'YLim');
+for i = 1:para.loop
+    line([para.L*i para.L*i],yLim,'LineWidth',1,'Color','black');
+end
+if wantSave
+    export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
+end
+
+%% Get System-Bath coupling
+figure(2);
+plot(diag(op.h2term{1,1,1})./para.t(1));
+xlabel('Site k');
+ylabel('$\hat\eta$');
+formatPlot(2);
+
+%% Plot System Wavefunction
+figure(3);
+plot(diag(calReducedDensity(mps,Vmat,para,1)))
+%%
+%% Plot
