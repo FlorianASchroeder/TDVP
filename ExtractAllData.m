@@ -48,7 +48,7 @@ PPCWavefunction = zeros(length(dirs),16);   % only applies to Rs.Molischianum
 for i = 1:1:length(dirs)
     try
 %        load([dirs{i},'/extracted.mat']);
-        load([dirs{i},'/results.mat']);
+        load([dirs{i},'/results.mat']);         % for MLSBM
         if ~strcmp(para.model,'MLSpinBoson')
             PlotData(i,1) = para.s;
             PlotData(i,2) = para.alpha;
@@ -65,9 +65,12 @@ for i = 1:1:length(dirs)
             end
             PlotData(i,10) = max(abs(results.nx)); % Max(<n>) to see changes in chain population
         else
+            if ~isfield(results,'time');
+                continue;
+            end
             PlotData(i,1) = para.Lambda;
             PlotData(i,2) = para.z;
-            PlotData(i,3) = results.participation;  % extracted.participation;
+            PlotData(i,3) = results.participation;  % extracted.participation; = inverse participation of Cogdell 2006
             PlotData(i,4) = max(abs(results.nx));   % Max(<n>) to see changes in chain population
             PlotData(i,5) = results.E;
             PlotData(i,6) = para.MLSB_p;            % extracted.period;
@@ -76,6 +79,7 @@ for i = 1:1:length(dirs)
             else
                 PlotData(i,7) = 1;      % case before MLSB_etaFactor was introduced.
             end
+            PlotData(i,8) = para.loop;
             % copy the wavefunction of the ring
             PPCWavefunction(i,:) = diag(calReducedDensity(mps,Vmat,para,1));
         end
@@ -86,7 +90,7 @@ for i = 1:1:length(dirs)
     clear('para','extracted','results');
 end
 %dlmwrite('20140310-Delta-Alpha-Scan.txt',sortrows(PlotData,7));
-save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData');
+save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','PPCWavefunction');
 
 if ~doPlot
 	return;
@@ -164,60 +168,75 @@ plot(PlotData(:,3));
 %% Plot Max Chain Occupation vs. Period and Strength
 figure(2)
 scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,4),50,PlotData(:,4),'fill')
-xlabel('Period of $\eta$');
-ylabel('Factor of $\eta$')
-zlabel('$<n_1>$');;
+xlabel('$p$');
+ylabel('$\eta$')
+zlabel('$<n_1>$');
+%% Plot Loop vs. Period and Strength
+figure(2)
+scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,8),50,PlotData(:,8),'fill')
+xlabel('$p$');
+ylabel('$\eta$')
+zlabel('Loop');
+formatPlot(2)
 %% Plot Participation vs. Period and Strength
 figure(2)
 scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,3),50,PlotData(:,3),'fill')
-xlabel('Period of $\eta$');
-ylabel('Factor of $\eta$')
-zlabel('Participation');;
+xlabel('$p$');
+ylabel('$\eta$')
+zlabel('$P$');
+formatPlot(2)
 %% Plot Participation vs. Period
 figure(2)
 %select = PlotData(:,6)==4;          % period == 4
 select = PlotData(:,7)==1;          % etaFactor == 4
 plot(PlotData(select,6),PlotData(select,3))
-xlabel('Period of $\eta$');
-ylabel('Participation');
+xlabel('$p$');
+ylabel('$P$');
 %% Plot Participation vs. Strength
+defPeriods = [2,3,4,5,7,8,9,15,16];
+colors=jet(length(defPeriods));
 figure(2)
-hold on
-select = PlotData(:,6)==8 & PlotData(:,7)>=0;          % period == 4 or 16
-Indexed = [PlotData(select,7) PlotData(select,3)];
-Indexed = sortrows(Indexed,1);
-plot(Indexed(:,1),Indexed(:,2))
-xlabel('Factor of $\eta$');
-ylabel('Participation');
+hold all
+i=1;
+for periods = defPeriods
+    select = PlotData(:,6)==periods & PlotData(:,7)>=0;          % period == 4 or 16
+    Indexed = [PlotData(select,7) PlotData(select,3)];
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    i=i+1;
+end
+xlabel('$\eta$');
+ylabel('$P$');
+legend({'2','3','4','5','7','8','9','15','16'})
 formatPlot(2);
 line([0 5],[16 16],'LineWidth',1,'Color','black');
 %% Plot GS Energy vs. Period and Strength
 figure(3)
 scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,5),50,PlotData(:,5),'fill')
-xlabel('Period of $\eta$');
-ylabel('Factor of $\eta$')
+xlabel('$p$');
+ylabel('$\eta$')
 zlabel('$E_0$');
 
 %% Plot the wavefunction for different strengths
 % modify the required period
-select =  PlotData(:,6)==4;
+select =  PlotData(:,6)==16;
 IndexedMatrix = [PlotData(select,7) PPCWavefunction(select,:)];
 IndexedMatrix = sortrows(IndexedMatrix,1);                      % sort with respect to y axis
 figure(4);
 surf(1:16,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
 xlabel('Site $k$');
-ylabel('$\eta$-Factor')
+ylabel('$\eta$')
 zlabel('$|\Psi(k)|^2$')
 formatPlot(4)
 
 %% Plot the wavefunction for different periods
-select = PlotData(:,7)==3; %& PlotData(:,7) >=0;
+select = PlotData(:,7)==0; %& PlotData(:,7) >=0;
 IndexedMatrix = [PlotData(select,6) PPCWavefunction(select,:)];
 IndexedMatrix = sortrows(IndexedMatrix,1);
 figure(4);
 surf(1:16,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
 xlabel('Site $k$');
-ylabel('$\eta$-Period')
+ylabel('$p$')
 zlabel('$|\Psi(k)|^2$')
 
 %% Scatter interpolation
@@ -229,7 +248,7 @@ y = PlotData(:,7);
 z = PlotData(:,3);
 zi = griddata(x,y,z, xi,yi);
 surf(xi,yi,zi);
-xlabel('Period'), ylabel('$\eta$-Factor'), zlabel('Participation')
+xlabel('$p$'), ylabel('$\eta$'), zlabel('$P$')
 %% using Interpolant class
 F = scatteredInterpolant([x y],z)
 [Xq,Yq] = meshgrid(1:0.5:40, -1:0.1:5);

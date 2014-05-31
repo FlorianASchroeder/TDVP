@@ -4,8 +4,8 @@ path = pwd;
 saveto = '..\..\Presentations\20140520 - MLSBM\20140525-CoupFunc\';
 wantSave = 0;
 %% Plot Vmat contributions for different Sites i (normalized)
-i=3;
-plot(Vmat{1,i}(:,:))
+i=2;
+plot(real(Vmat{1,i}(:,:)))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
 xlabel('$d_k$')
@@ -15,7 +15,19 @@ end
 
 %% Plot Vmat contributions for different Sites i (SV-weighted)
 i = 2;
-plot(Vmat{1,i}*diag(results.Vmat_sv{1,i}))
+plot(real(Vmat{1,i}*diag(results.Vmat_sv{1,i})))
+title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
+ylabel('Contribution to OBB')
+xlabel('$d_k$')
+%print(gcf, [saveto,'VmatScaled',num2str(i),'.eps'],'-deps')
+if wantSave
+    export_fig(sprintf('%sVmatScaled%s-%u',saveto,para.filename(1:13),i),'-transparent','-png','-eps')
+end
+%% Plot Sum over Vmat
+i = 2;
+a=sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2);
+plot(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2))
+set(gca,'YScale','log')
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
 xlabel('$d_k$')
@@ -43,7 +55,7 @@ for i = 2:1:size(results.shift,2)
     end
 end
 subplot(2,2,1);
-    plot(results.nx);
+    plot(real(results.nx));
     title('$$<n_x(k)>$$');
 subplot(2,2,2);
     plot(para.trustsite);
@@ -190,9 +202,9 @@ shift = A\B.*sqrt(2);
 colors={[0 0 1];[0 1 0];[1 0 0];[1 1 0];[1 0 1];[0 1 1];[0 0 0]};
 hold all
 pl(1) = plot([0;shift]);
-set(pl(1), 'Marker', 'none','Color',colors{1}); % blue
+set(pl(1), 'Marker', 'none','Color',colors{1}); % blue my
 pl(2) = plot(para.shift);
-set(pl(2), 'Marker', 'none','Color',colors{2}); % green
+set(pl(2), 'Marker', 'none','Color',colors{2}); % green VMPS
 if wantSave
     export_fig(sprintf('%sAnalyticShift%s',saveto,para.filename(1:13)),'-transparent','-png','-eps')
 end
@@ -265,7 +277,7 @@ end
 
 %% Get System-Bath coupling
 figure(2);
-plot(diag(op.h2term{1,1,1})./para.t(1));
+plot(real(diag(op.h2term{1,1,1})./para.t(1)));
 xlabel('Site k');
 ylabel('$\hat\eta$');
 formatPlot(2);
@@ -274,4 +286,6 @@ formatPlot(2);
 figure(3);
 plot(diag(calReducedDensity(mps,Vmat,para,1)))
 %%
-%% Plot
+%% Plot Flowdiagram
+loop = 40;
+plot(results.flowdiag{1,loop});

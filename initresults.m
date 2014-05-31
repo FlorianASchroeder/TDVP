@@ -33,4 +33,5 @@ if para.logging
     r.shift{1} = para.shift;
     r.Vmat_svLog = cell(1);
 	r.EvaluesLog = cell(1);
+	r.flowdiag = cell(1);
 end

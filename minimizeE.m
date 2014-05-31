@@ -1,6 +1,8 @@
 function [mps,Vmat,para,results,op] = minimizeE(op,para)
 % Ground state calculation
-
+% Modified:
+%	FS 30/05/2014: - First verion of a energy flowdiagram added. See Cheng 2012 for more information.
+%
 % Commented ba Florian Schroeder 03/02/2014
 
 randn('state', 0)
@@ -48,6 +50,15 @@ while loop<=para.loopmax;
         op=updateop(op,mps,Vmat,j,para);						% calls updateHleft, updateCleft to update for next sweep
 		Hleft=op.Hlrstorage{j+1};
 		eigvalues=sort(eig((Hleft'+Hleft)/2));
+        % log the flowdiagram
+        if para.logging && j~=L                                                         % Last site has different length in EV
+            if j~=1            % check for different dimensions to apply vertcat
+                dimCat = min(size(results.flowdiag{loop},2),size(eigvalues,1));
+                results.flowdiag{loop} = [results.flowdiag{loop}(:,1:dimCat); eigvalues(1:dimCat)'];
+            else
+                results.flowdiag{loop} = [results.flowdiag{loop}; eigvalues'];
+            end
+        end
 		results.leftge(j+1)=eigvalues(1);
         results.Evalues = [results.Evalues, results.E];		% results.E from optimizesite()
     end

@@ -257,7 +257,7 @@ switch para.model
                 zm_spin=zeros(para.MLSB_Ls);
                 op.h1term{1}= HS0;
                 op.h2term{1,1,1} = para.t(1).*HSI; op.h2term{1,2,1} = zm_spin;		% was sigmaX
-                op.h2term{2,1,1} = para.t(1).*HSI; op.h2term{2,2,1} = zm_spin;		% was sigmaX
+                op.h2term{2,1,1} = para.t(1).*conj(HSI); op.h2term{2,2,1} = zm_spin;		% was sigmaX; conj() to still have hermitian Hamiltonian!
             case para.L
                 [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
                 zm=sparse(size(bp,1),size(bp,1));

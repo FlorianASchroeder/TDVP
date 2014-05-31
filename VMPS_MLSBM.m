@@ -1,4 +1,4 @@
-function VMPS_MLSBM()
+function VMPS_MLSBM(period,eta)
 %Variational matrix product method to study spin-boson model. Rok's
 %logrithimic discretization and optimal boson basis are implemented in
 %this code.
@@ -65,7 +65,7 @@ end
 para.foldedChain=0;                     % parameter to tell that Supersites for chain are used!
 para.spinposition=1;                    % The y chain is on the left and the z chain is on the right. (could be array ?)
 para.rescaling=1;                       % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
-para.complex=0;
+para.complex=1;							% set to 1 if any complex parameters are used.
 para.resume=0;                          % Read from saved results if available.
 para.logging = 1;                       % Switch on logging and
 parity = 0;
@@ -118,9 +118,9 @@ if strcmp(para.model,'MLSpinBoson')
 
 % All modes:
 %    para.MLSB_t = [-1 -1 -1 1 1 1];             % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
-    para.MLSB_p = 2;                            % period of coupling for cosine
-    para.MLSB_etaFactor = 1;                         % multiplier to increase system-bath coupling
-    para.MLSB_t = @(x) para.MLSB_etaFactor.*cos(2*pi/para.MLSB_p.*x);                % MLSB_t can be an anonymous function.
+    para.MLSB_p = period;                            % period of coupling for cosine
+    para.MLSB_etaFactor = eta;                         % multiplier to increase system-bath coupling
+    para.MLSB_t = @(x) para.MLSB_etaFactor.*exp(1i*2*pi/para.MLSB_p.*x);                % MLSB_t can be an anonymous function.
 
     if para.MLSB_mode == 1
         para.MLSB_Ls = 6;                           % number of levels in System, symmetric around E=0;
@@ -145,6 +145,7 @@ para.SVDmethod = 'qr';                      % 'qr': uses QR instead of SVD where
 para.svmaxtol=1e-6;
 para.svmintol=1e-8;                     %para.svmaxtol/2; %The lower limit for the smallest Vmat singular values.
 para.adjust=0;                          %Initialize as 0, no need the edit. To adjust D. Is set = 1 in minimizeE.m
+para.Dmin = 4;                          % set a minimum Bond dimension.
 para.dimlock=0;                         %set to 0 will change D and d_dop adaptively
 para.minDimChange = 0.01;               % sets dimlock = 1 if relative dimension change < minDimChange. (larger makes less loops)
 
@@ -170,15 +171,23 @@ para.useVmat=1;
 if para.useVmat==0
      assert(para.dk_start==max(para.d_opt));
 end
-%% %%%%%%%%%%%%%%%%%%Expansion of Vmat related parameters%%%%%%%
-para.useexpand=1;			% Was unused. Now to enable dk expansion, own algorithm.
-para.expandBelowSV = 0.995; % expand if largest SV of site is smaller than this thershold. EMPIRICAL. Below this value, Vmat seems to need higher dk
+para.d_opt_min = 2;                                     % minimum d_opt dimension
+%% %%%%%%%%%%%%%%%%%% Expansion of Vmat related parameters %%%%%%%
+para.useexpand=1;			% Enable dk expansion, own algorithm.
 para.dkmax=500;
 para.expandprecision =1e-5; % unused?
 para.hasexpanded=0;
+% Method 1:
+para.useDkExpand1 = 0;      % Expand dk if largest SV of site is smaller than this thershold. EMPIRICAL. Below this value, Vmat seems to need higher dk
+para.expandBelowSV = 0.995;
+% Method 2:
+para.useDkExpand2 = 1;        % Expand if wavefunction on site occupies the high energy dimensions
+para.dkEx2_tail   = 0.4;      % tail length of occupation to analyse
+para.dkEx2_maxDev = 1.5;      % if std(log10(tail)) < maxDev --> no increase; Measures orders of magnitude in fluctuations of tail.
+para.dkEx2_minExp = 13;       % if tail below this order than do not expand.
 %% %%%%%%%%%%%%%%%%%%Shifting related parameters%%%%%%%%%%%%%%%%
 % Introduces shift of bosonic oscillators to increase effective dk
-para.useshift=1;
+para.useshift=0;
 % only choose one of the following Methods
 para.useFloShift = 0;                                   % shift all sites if trustsite > 0
 para.useFloShift2 = 1;  para.FloShift2minSV = 0.995;    % shift everything if maximum Vmat SV fall below this value
@@ -203,8 +212,8 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-dk%.10gD%.10gdopt%gL%d'],...
-    para.model,dk,D,d_opt,L);
+para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-period%.10geta%.10gdk%.10gD%.10gdopt%gL%d'],...
+    para.model,period,eta,dk,D,d_opt,L);
 para.filename=strcat(para.folder,'/results.mat');
 if ~exist(para.filename,'file')
     mkdir(para.folder);

@@ -18,7 +18,7 @@ switch direction
             if sitej<=min(para.trustsite(end),para.L)
             %Truncate A dims
 				keepdims=find(sv>para.svmintol);
-				if length(keepdims)>1 && sitej<para.trustsite(end) %%D should be at least 2
+				if length(keepdims)>=para.Dmin && sitej<para.trustsite(end) %%D should be at least para.Dmin
 						S=S(keepdims,keepdims);
 						U=U(:,keepdims);
 						B=B(keepdims,:);

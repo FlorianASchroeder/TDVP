@@ -4,18 +4,25 @@ function [modelpara]=SBM_genpara(modelpara)
 %
 % Modified:
 %   FS 19/02/2014:  - added automatic L for L = 0;
-%
+%	FS 25/05/2014:	- added Spectral function of defined in Renger 2002, following Müh 2012
+%	FS 27/05/2014:	- Changed to J(w) as in Renger 2002. This defines for B777, a monomer of B850, while Müh 2012 needs a prefactor to use it for pigments in PSII
+
 z=modelpara.z;
 bigL=ceil(floor(-1*log(realmin)/log(modelpara.Lambda))/2) %Use a large enough start H to make sure the accuracy after transformed to Wilson chain
 
 function y = J_Renger(w,i)
     %% Section for Spectral function for LH2 of Rhodoblastus acidophilus from Renger 2002, Müh 2012
     % need for numerical integration.
+    % multiplied by \pi * \omega^2: \pi to equal out division of \sqrt\pi later in the \gamma. Problem due to different
+    %               definition of J(w) in Leggett et al.
+    %               \omega^2 because Leggett defined J(w) as spectrum of the dimension-ful coupling constant! Renger
+    %               took one \hbar\omega out.
+    % This J(w) gives a Huang-Rhys factor of 1.3
     % i to get function J*w^(-i)
 
-%    w=0:cmToeV(1):cmToeV(1000);                                                                % testing
-    y = 0.5/(0.8+0.5)*pi/(factorial(7)*2).*((0.8/cmToeV(0.56).^4 .* w.^(5-i).*exp(-(w/cmToeV(0.56)).^(1/2)))+(0.5/(cmToeV(1.94).^4) .* w.^(5-i).*exp(-(w/cmToeV(1.94)).^(1/2))));
-%    plot(y);xlabel('$\omega / cm^{-1}$');ylabel('$J(\omega)/eV$');                             % testing
+%    w=0:cmToeV(1):cmToeV(3000); i=0;                                                                % testing
+    y = pi/(factorial(7)*2).*((0.8/cmToeV(0.56).^4 .* w.^(5-i).*exp(-(w/cmToeV(0.56)).^(1/2)))+(0.5/(cmToeV(1.94).^4) .* w.^(5-i).*exp(-(w/cmToeV(1.94)).^(1/2))));
+%    plot(y);xlabel('$\omega / cm^{-1}$');ylabel('$J(\omega)/eV$'); formatPlot(1);                             % testing
 
     % original definition: J = @(w) 1/(factorial(7)*2).*((0.8/cmToeV(0.56).^4 .* w.^3.*exp(-(w/cmToeV(0.56)).^(1/2)))+(0.5/cmToeV(1.94).^4 .* w.^3.*exp(-(w/cmToeV(1.94)).^(1/2))));
     % from Cheng:
@@ -26,7 +33,9 @@ if strcmp(modelpara.model,'MLSpinBoson') && modelpara.MLSB_mode == 2
     %% use J(w) from: F. Müh and T. Renger, Biochim. Biophys. Acta 1817, 1446 (2012). DOI: 10.1016/j.bbabio.2012.02.016
     % this code section can be used with any definition of J(w)
 %    tic; modelpara.Lambda = 2; bigL = 511; z=1;        % testing
-    w_cutoff = cmToeV(1000);                            % upper cutoff frequency
+%   w_c = 1000; accurate up to 10^-3 eV; w_c = 2000: 10^-6 eV; w_c = 3000: 10^-8 eV
+    w_cutoff = cmToeV(3000);                            % upper cutoff frequency
+
     xi=zeros(bigL,1);
     gamma=zeros(bigL,1);
     w_limits = modelpara.Lambda.^(1-z-(0:bigL)).*w_cutoff;      % Define limits of all the discretization intervalls

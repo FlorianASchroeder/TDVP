@@ -22,7 +22,7 @@ end
 %   with Al = left-normalized, Ar: right-normalized.
 
 reducedDensity = contracttensors(mps{k},3,[1,2],conj(mps{k}),3,[1,2]);  % contract rD_nm = Mk_abn Mk*_abm
-reducedDensity = contracttensors(reducedDensity,2,2,Vmat{k},2,2);       % contract rD_nj = rD_nm Vmat*_jm
+reducedDensity = contracttensors(reducedDensity,2,2,conj(Vmat{k}),2,2);       % contract rD_nj = rD_nm Vmat*_jm
 reducedDensity = contracttensors(Vmat{k},2,2,reducedDensity,2,1);       % contract rD_ij = Vmat_in rd_nj
 
 % unnecessary, as does not save mps back:

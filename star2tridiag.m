@@ -1,16 +1,23 @@
 function [alpha,beta]=star2tridiag(indiag,inrow)
+% indiag(1) = inrow(1) = 0
+% Modified:
+%	FS 29/05/2014: replaced first loop to fill A
 
 reps=0.01*min([min(indiag),min(inrow)]);
 dim=length(indiag);
 
-A=zeros(dim);
+%A=zeros(dim);
 
-for n=1:dim
-    A(n,n)=indiag(n);
-    A(1,n)=inrow(n);
-    A(n,1)=A(1,n);
-end
+A = diag(indiag);
+A(1,:) = inrow;
+A(:,1) = inrow;
 
+% unnecessary slow for large dim:
+%for n=1:dim
+%    A(n,n)=indiag(n);
+%    A(1,n)=inrow(n);
+%    A(n,1)=A(1,n);
+%end
 
 alpha=zeros(dim,1);
 beta=zeros(dim,1);
