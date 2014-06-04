@@ -1,4 +1,6 @@
 function participation = calParticipation(rdm)
+%   DEPRECATED: Use getObservable()
+%
 % rdm: a reduced density matrix of a single site
 %   e.g. rdm = calReducedDensity(mps,Vmat,para,k)
 %

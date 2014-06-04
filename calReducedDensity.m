@@ -1,4 +1,6 @@
 function reducedDensity = calReducedDensity(mps,Vmat,para,k)
+%   DEPRECATED: Use getObservable()
+%
 % calculates the reduced density matrix of any single site, mps{k} for size(mps{k})=a_{k-1} x a_k x n_k
 %
 %   created 24/05/2014 by Florian Schroeder @ University of Cambridge

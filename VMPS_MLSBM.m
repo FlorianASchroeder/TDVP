@@ -177,7 +177,7 @@ if para.useVmat==0
 end
 para.d_opt_min = 2;                                     % minimum d_opt dimension
 %% %%%%%%%%%%%%%%%%%% Expansion of Vmat related parameters %%%%%%%
-para.useexpand=1;			% Enable dk expansion, own algorithm.
+para.useexpand=1;			% Enable dk expansion, own algorithm. Don't use for folded chain!!
 para.dkmax=500;
 para.expandprecision =1e-5; % unused?
 para.hasexpanded=0;
@@ -232,54 +232,16 @@ end
 
 save(para.filename,'para','Vmat','mps','results','op');
 
-%% Calculate Results
-results.nx=calbosonocc_SBM1(mps,Vmat,para,results);
-results.bosonshift=calbosonshift_SBM1(mps,Vmat,para,results);
+%% Calculate some Results
+results.nx         = getObservable({'occupation'},mps,Vmat,para);
+results.bosonshift = getObservable({'shift'},mps,Vmat,para);
 
 if strcmp(para.model,'MLSpinBoson')
     results.participation = getObservable({'participation'},mps,Vmat,para);
-    results.tunnelEnergy = getObservable({'tunnelenergy',op},mps,Vmat,para);
+    results.tunnelEnergy  = getObservable({'tunnelenergy',op},mps,Vmat,para);
 end
 %%
 results.time = toc(starttime)
 save(para.filename,'para','Vmat','mps','results','op');
-
-%if isdeployed              % don't plot if called from command line.
-    return;
-%end
-
-%% Plot Results
-f1=figure(1);
-subplot(2,2,1);
-    plot(results.nx);
-    title('$$<n_x(k)>$$');
-subplot(2,2,2);
-    plot(para.trustsite);
-    title('Trustsite')
-subplot(2,2,3);
-    plot(para.shift);
-    title('Bosonic shift');
-subplot(2,2,4);
-    surf(cell2mat(results.d_opt'));
-    shading interp
-    set(gca,'View',[0 90]);
-    title('OBB dim')
-saveas(f1,[para.folder,'/nx.fig'],'fig');
-%saveas(f1,['png/',para.folder,'-nx.png'],'png');
-export_fig(['png/',para.folder,'-nx.png'],'-transparent',f1)    % needs package export_fig
-sprintf('Sx = %.10g, Sy = %.10g, Sz = %.10g',results.spin.sx,results.spin.sy,results.spin.sz)
-
-%% Plot d_opt, D adjustments
-f2 = figure(2);
-subplot(1,2,1);
-surf(cell2mat(results.D'))
-shading interp
-title('Change in bond dimension D')
-subplot(1,2,2);
-surf(cell2mat(results.d_opt'))
-shading interp
-title('Change in $d_{opt}$')
-%set(gcf, 'Position', get(0,'Screensize')); % Maximize figure, to make caption readable
-%export_fig(['png/',para.folder,'-D-dopt.png'],'-transparent',f2)
 
 end

@@ -1,4 +1,6 @@
 function nx=calbosonocc_SBM1(mps0,Vmat0,para,results)
+%   DEPRECATED: Use getObservable()
+%
 %Calculate the boson occupation on x chain
 %The operator on the spin site is set to zero
 %modify this to get left and right chain occupation! perhaps in calbosonocc_SBM2.m

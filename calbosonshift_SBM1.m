@@ -1,4 +1,6 @@
 function bosonshift=calbosonshift_SBM1(mps0,Vmat0,para,results)
+%   DEPRECATED: Use getObservable()
+%
 %Calculate boson shift x, x^2, var(x)
 %The operator on the spin site is set to zero
 % Modified:

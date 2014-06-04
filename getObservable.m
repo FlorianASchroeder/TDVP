@@ -19,20 +19,20 @@ function out = getObservable(type,mps,Vmat,para)
 %
 %
 %   Created 03/06/2014 by Florian Schroeder @ University of Cambridge
-%
+%   TODO:   - Implement Boson Site Shift to export the routine from optimizesite.m. Only get a single shift value.
 %
 switch type{1}
     case 'spin'
         % applicable for spin-boson model and for folded SBM2
-        out = 0;
+        out = calSpin(mps,Vmat,para);
 
     case 'occupation'
         % applicable to all single stranded chains. Extensible to 2-chains
-        out = 0;
+        out = calBosonOcc(mps,Vmat,para);
 
     case 'shift'
         % applicable to all single stranded chains. Extensible to 2-chains
-        out = 0;
+        out = calBosonShift(mps,Vmat,para);
 
     case 'rdm'
         % applicable to all systems.
@@ -56,6 +56,130 @@ switch type{1}
         end
 end
 
+end
+
+function spin = calSpin(mps,Vmat,para)
+% Calculate the spin expectation value
+% Has to be modified if site 1 changes dimension!!
+% Modified:
+%   FS 24/05/2014:  excluded MLSpinBoson. Use with try-catch block
+%
+%   TODO: Needs extension to use information about dimension of spin site.
+%
+
+N=para.L;
+assert(N==length(mps) && N==length(Vmat));
+assert(~strcmp(para.model,'MLSpinBoson'),'not possible for MLSBM');
+
+ndset=cell(1,N);
+
+for j=1:N
+    ndset{1,j}=eye(size(Vmat{j},1));
+end
+sx=ndset;sy=sx;sz=sy;
+
+%debug:
+sx{1,1}
+
+[sigmaX,sigmaY,sigmaZ]=spinop(para.spinbase);
+sx{para.spinposition}=sigmaX;
+sy{para.spinposition}=sigmaY;
+sz{para.spinposition}=sigmaZ;
+if strcmp(para.model,'2SpinPhononModel')
+    sx{para.spinposition}=kron(sigmaZ,eye(2));  %measures excitation of site1
+    sz{para.spinposition}=kron(eye(2),sigmaZ);  %measures excitation of site2
+    %try to find a good way to measure this!
+    sy{para.spinposition}=kron(sigmaY,eye(2));  %measures only sy of site1
+end
+spin.sx=expectationvalue(sx,mps,Vmat,mps,Vmat);
+spin.sy=expectationvalue(sy,mps,Vmat,mps,Vmat);
+spin.sz=expectationvalue(sz,mps,Vmat,mps,Vmat);
+spin.sx=real(spin.sx);
+spin.sy=real(spin.sy);
+spin.sz=real(spin.sz);
+
+end
+
+function nx = calBosonOcc(mps,Vmat,para)
+% Calculate the boson occupation on x chain
+% The operator on the spin site is set to zero
+% modify this to get left and right chain occupation! perhaps in calbosonocc_SBM2.m
+%
+% Modified:
+%	FS 23/01/2014:	- Introduced '~' to ignore unused returned values
+%					- support for folded Chain models
+%   FS 10/03/2014:  - Using correlator_allsites which is more general
+%   FS 04/06/2014:  - updated for spinposition array.
+%
+
+n_op = cell(1,para.L);
+
+for j=1:para.L
+    if prod(j~=para.spinposition)
+        if para.foldedChain == 0
+            % 1-chain SBM
+            [~,~,n] = bosonop(para.dk(j),para.shift(j),para.parity);
+            n_op{j} = n;
+        %Modification for 2chain model!! Not perfect or right yet!
+        elseif para.foldedChain == 1
+            % only kron(n,1) chain occupation calculated.
+            if para.parity == 'n'
+                [~,~,n] = bosonop(sqrt(para.dk(j)),para.shift(j),para.parity);
+                idm = eye(size(n));
+                nr = kron(n,idm);
+            else
+                [bp,~,~] = bosonop(para.dk(j),para.shift(j),para.parity);   % Why without sqrt??
+                [~,~,nr,~,~,~]=paritykron(bp,para.bosonparity);
+            end
+            n_op{j} = nr;
+        else
+            disp('Not Implemented: getObservable, calBosonOcc, foldedchain >1');
+        end
+    else
+        n_op{j}=zeros(para.dk(j));      % don't measure spin.
+    end
+end
+
+%
+nx = correlator_allsites(n_op,mps,Vmat);
+
+end
+
+function bosonshift = calBosonShift(mps,Vmat,para)
+% Calculate boson shift x, x^2, var(x)
+% The operator on the spin site is set to zero
+% Modified:
+%	FS 22/01/2014:	- changed to using para.foldedChain.
+%   FS 04/06/2014:  - updated for spinposition array
+%
+% expectation_allsites is old and should be replaced by correlator_allsites
+
+x_opx=cell(1,para.L);
+x2_opx=cell(1,para.L);
+for j=1:para.L
+    if prod(j~=para.spinposition)
+        if para.foldedChain == 1
+            % Constructs Supersite Operators
+            % Only measures kron(x,1) chain part
+            [bp,~,n] = bosonop(sqrt(para.dk(j)),para.shift(j),para.parity);
+            idm = eye(size(n));
+            bpx = kron(bp,idm); bmx = bpx';         %nx = kron(n,idm); unused
+            x_opx{j}  = sqrt(2)/2.*(bpx+bmx);
+            x2_opx{j} = x_opx{j}*x_opx{j};
+        elseif para.foldedChain == 0
+            [bp,bm,~] = bosonop(para.dk(j),para.shift(j),para.parity);
+            x_opx{j}  = sqrt(2)/2.*(bp+bm);
+            x2_opx{j} = x_opx{j}*x_opx{j};
+        end
+    else
+        x_opx{j}  = zeros(para.dk(j));
+        x2_opx{j} = zeros(para.dk(j));
+    end
+end
+bosonshift.x        = expectation_allsites(x_opx,mps,Vmat);
+bosonshift.xsquare  = expectation_allsites(x2_opx,mps,Vmat);
+bosonshift.xvariant = sqrt(bosonshift.xsquare-bosonshift.x.^2);
+bosonshift.xerror   = mean(abs(para.shift-bosonshift.x));
 end
 
 function reducedDensity = calRDM(mps,Vmat,para,k)

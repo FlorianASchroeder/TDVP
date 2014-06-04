@@ -104,9 +104,10 @@ end
 
 
 %Calculate Results
-results.nx=calbosonocc_SBM1(mps,Vmat,para,results);
-results.bosonshift=calbosonshift_SBM1(mps,Vmat,para,results);
-results.spin=calspin(mps,Vmat,para,results);
+results.nx                = getObservable({'occupation'},mps,Vmat,para);
+results.bosonshift        = getObservable({'shift'},mps,Vmat,para);
+results.bosonshiftPerSpin = calbosonshiftperSpin_SBM1(mps,Vmat,para,results);
+results.spin              = getObservable({'spin'},mps,Vmat,para);
 
 save(para.filename,'para','Vmat','mps','results','op');
 

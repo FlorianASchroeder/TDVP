@@ -1,4 +1,6 @@
 function spin=calspin(mps,Vmat,para,results)
+%   DEPRECATED: Use getObservable()
+%
 %Calculate the spin expectation value
 % Has to be modified if site 1 changes dimension!!
 % Modified:
