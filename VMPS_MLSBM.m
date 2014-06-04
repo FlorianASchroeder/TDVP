@@ -44,6 +44,9 @@ if ~strcmp(para.model,'MLSpinBoson')
     para.hz=0;                              % Splitting with sigma_Z
     para.s=s;                               % SBM spectral function power law behaviour
     para.alpha=alpha;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+    if para.alpha == 0
+        para.L = 50;                        % otherwise encounter error
+    end
 end
 
 %% Starting MPS Dimensions
@@ -117,10 +120,11 @@ if strcmp(para.model,'MLSpinBoson')
     %       Automatically defined: MLSB_Ls, Renger2012 J(w),
 
 % All modes:
-%    para.MLSB_t = [-1 -1 -1 1 1 1];             % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
-    para.MLSB_p = period;                            % period of coupling for cosine
-    para.MLSB_etaFactor = eta;                         % multiplier to increase system-bath coupling
+%    para.MLSB_t = [-1 -1 -1 1 1 1];                 % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
+    para.MLSB_p = period;                           % period of coupling for cosine
+    para.MLSB_etaFactor = eta;                      % multiplier to increase system-bath coupling
     para.MLSB_t = @(x) para.MLSB_etaFactor.*exp(1i*2*pi/para.MLSB_p.*x);                % MLSB_t can be an anonymous function.
+    para.MLSB_tOff = 1;                             % 0=diag coupling; 1 = 1. off-diagonal n,n+1 coupling
 
     if para.MLSB_mode == 1
         para.MLSB_Ls = 6;                           % number of levels in System, symmetric around E=0;
@@ -233,7 +237,8 @@ results.nx=calbosonocc_SBM1(mps,Vmat,para,results);
 results.bosonshift=calbosonshift_SBM1(mps,Vmat,para,results);
 
 if strcmp(para.model,'MLSpinBoson')
-    results.participation = calParticipation(calReducedDensity(mps,Vmat,para,1));
+    results.participation = getObservable({'participation'},mps,Vmat,para);
+    results.tunnelEnergy = getObservable({'tunnelenergy',op},mps,Vmat,para);
 end
 %%
 results.time = toc(starttime)

@@ -3,8 +3,8 @@ function PlotData = ExtractAllData()
 % saves extractes data into file:
 % Makes Plot to visualize data
 %
-% Modified:
-%      FS 24/05/2014:   Started to include extraction of parameters for MLSBM
+% Revision: 02/06/2014 17:59
+%
 %%
 % Overwrite extracted.mat ?
 overwrite = 0;
@@ -43,12 +43,14 @@ end
 
 
 %% generate Parameter and Essentials list
-PlotData = zeros(length(dirs),10);   % (s, alpha, log(shifterror))
+PlotData = zeros(length(dirs),16);   % (s, alpha, log(shifterror))
 PPCWavefunction = zeros(length(dirs),16);   % only applies to Rs.Molischianum
+BosonChainOccupation = zeros(length(dirs),49);
 for i = 1:1:length(dirs)
     try
-%        load([dirs{i},'/extracted.mat']);
-        load([dirs{i},'/results.mat']);         % for MLSBM
+        load([dirs{i},'/extracted.mat']);
+%        load([dirs{i},'/results.mat']);         % for MLSBM
+        disp(dirs{i})
         if ~strcmp(para.model,'MLSpinBoson')
             PlotData(i,1) = para.s;
             PlotData(i,2) = para.alpha;
@@ -64,6 +66,13 @@ for i = 1:1:length(dirs)
                 PlotData(i,9) = -1;     % dimension too high--> no calculation
             end
             PlotData(i,10) = max(abs(results.nx)); % Max(<n>) to see changes in chain population
+            PlotData(i,11) = para.hz;           % = -epsilon
+            PlotData(i,12) = para.loop;
+            PlotData(i,13) = extracted.entropy; % Entanglement entropy (cf. Le Hur 2008)
+            PlotData(i,14) = results.Amat_vNE(1);
+            PlotData(i,15) = results.Vmat_vNE(2);
+            PlotData(i,16) = results.Vmat_sv{1, 2}(1);  % find relationship
+            BosonChainOccupation(i,:) = results.nx;      % save the entire chain occupation
         else
             if ~isfield(results,'time');
                 continue;
@@ -80,8 +89,13 @@ for i = 1:1:length(dirs)
                 PlotData(i,7) = 1;      % case before MLSB_etaFactor was introduced.
             end
             PlotData(i,8) = para.loop;
+            if isfield(results,'tunnelEnergy')
+                PlotData(i,9) = results.tunnelEnergy;
+            else
+                PlotData(i,9) = getObservable({'tunnelenergy',op},mps,Vmat,para);
+            end
             % copy the wavefunction of the ring
-            PPCWavefunction(i,:) = diag(calReducedDensity(mps,Vmat,para,1));
+            PPCWavefunction(i,:) = diag(getObservable({'rdm',1},mps,Vmat,para));
         end
     catch
 
@@ -90,7 +104,8 @@ for i = 1:1:length(dirs)
     clear('para','extracted','results');
 end
 %dlmwrite('20140310-Delta-Alpha-Scan.txt',sortrows(PlotData,7));
-save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','PPCWavefunction');
+%save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','PPCWavefunction');  % for MLSBM
+save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','BosonChainOccupation');
 
 if ~doPlot
 	return;
@@ -117,6 +132,30 @@ title('Time needed');
 xlabel('$\Delta$');
 ylabel('$\alpha$');
 zlabel('t in min');
+%% Select with respect to certain conditions:
+% Delta = 7; alpha = 2
+figure(50)
+hold all
+select = PlotData(:,2)==0.5;
+pd = sortrows(PlotData(select,:),-11);
+delta = pd(:,7); alpha = pd(:,2);
+reference = - 4./pi.*sqrt(delta.^(1./(1-alpha)).*(4/pi).^(1./alpha -1)).*log(delta.^(1./(1-alpha)).*(4/pi).^(1./alpha -1));
+%plot(-pd(:,11),(reference-pd(:,6))./reference)
+plot(-pd(:,11), pd(:,6));
+plot(-pd(:,11),reference)
+xlabel('$\varepsilon$')
+ylabel('$<\sigma_x>$')
+set(gca,'XScale','log');
+formatPlot(50)
+%%
+figure(51)
+hold all
+select = PlotData(:,2)==0.5;
+pd = sortrows(PlotData(select,:),-11);
+reference = -1+pd(:,7).^2.*log(-pd(:,11));
+plot(-pd(:,11),(reference-pd(:,6))./reference)
+set(gca,'XScale','log');
+%% Plot <sz> vs delta, alpha
 figure(4)
 scatter3(PlotData(:,7),PlotData(:,2),PlotData(:,6),30,PlotData(:,7),'fill')
 title('$<\sigma_x>$ vs $\alpha$');
@@ -138,6 +177,209 @@ title('$<\sigma_z>$ vs $\alpha$');
 xlabel('$\Delta$');
 ylabel('$\alpha$');
 zlabel('$<\sigma_z>$');
+%% Plot <sx> vs delta
+select =  PlotData(:,2)==0.5;
+IndexedMatrix = [PlotData(select,7) PlotData(select,6)];
+IndexedMatrix = sortrows(IndexedMatrix,1);                      % sort with respect to y axis
+figure(14);
+plot(IndexedMatrix(:,1),IndexedMatrix(:,2));
+xlabel('$\Delta$');
+ylabel('$<\sigma_x>$')
+formatPlot(14)
+%% Plot <sz> vs delta
+select =  PlotData(:,2)==0.5;
+IndexedMatrix = [PlotData(select,7) PlotData(select,8)];
+IndexedMatrix = sortrows(IndexedMatrix,1);                      % sort with respect to y axis
+figure(15);
+plot(IndexedMatrix(:,1),IndexedMatrix(:,2));
+xlabel('$\Delta$');
+ylabel('$<\sigma_z>$')
+formatPlot(15)
+%% Plot <sz> vs alpha, epsilon   USED
+%   Similar to Fig2 in Le Hur 2013
+defEpsilon = [1e-10,1e-8,1e-6,1e-4,1e-3,5e-3];
+colors=hsv(length(defEpsilon));
+figure(16);
+hold all
+i=1;                % count colors
+for epsilon = defEpsilon
+    select = PlotData(:,11) == -epsilon;          % select as binary array. can add other conditions
+    Indexed = [PlotData(select,2) -abs(PlotData(select,8))];          % dataset [x y]
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    i=i+1;
+end
+xlabel('$\alpha$');
+ylabel('$<\sigma_z>$')
+formatPlot(16)
+%legend({'$10^{-10}$','$10^{-8}$','$10^{-6}$','$10^{-4}$','$10^{-3}$','$0.005$'})
+%export_fig('20140601-Ohmic-sz-epsilon-alpha','-transparent','-pdf','-png','-painters')
+%% Plot <sz> vs alpha, delta
+%   Similar to ??
+alphaC = [0.74,0.81,0.84,0.88,0.91,0.93,0.94,0.95,0.96,0.97,0.98,0.99];
+defDelta = [1e-3,5e-3,10e-3,20e-3,30e-3,40e-3,50e-3,55e-3,65e-3,75e-3,85e-3,95e-3];
+figure(17);
+hold all
+plot(log(defDelta),log(alphaC),'Marker','*','LineStyle','none');
+%set(gca,'YScale','log','XScale','log');
+xlabel('$\Delta$');
+ylabel('$\alpha_c$')
+%text(0.03,0.9,'$\Delta/\omega_c$');
+formatPlot(17)
+%legend(leg,'Location','West');
+%export_fig('20140602-Ohmic-sz-delta-alpha','-transparent','-pdf','-png','-painters');
+%% Plot <sx> vs alpha, epsilon
+%   Similar to Fig2 in Le Hur 2013
+defEpsilon = [1e-10,1e-8,1e-6,1e-4,1e-3,5e-3];
+colors=hsv(length(defEpsilon));
+figure(17);
+hold all
+i=1;                % count colors
+for epsilon = defEpsilon
+    select = PlotData(:,11) == -epsilon;          % select as binary array. can add other conditions
+    Indexed = [PlotData(select,2) PlotData(select,6)];          % dataset [x y]
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    i=i+1;
+end
+xlabel('$\alpha$');
+ylabel('$<\sigma_x>$')
+text(0.5,0.9,'$\Delta/\omega_c=0.01$');
+text(0.85,0.8,'$\varepsilon/\omega_c$');
+formatPlot(17)
+legend({'$10^{-10}$','$10^{-8}$','$10^{-6}$','$10^{-4}$','$10^{-3}$','$0.005$'},'Location','East')
+%export_fig('20140601-Ohmic-sx-epsilon-alpha','-transparent','-pdf','-png','-painters')
+
+%% Plot <sx> vs epsilon at alpha == 1
+%   As mentioned in LeHur2008, Eq.37
+figure(17);
+select = PlotData(:,2)==1;     % select as binary array. can add other conditions
+Indexed = [-PlotData(select,11) PlotData(select,6)];          % dataset [x y]
+Indexed = sortrows(Indexed,1);
+plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none');
+set(gca,'XScale','log');
+xlabel('$\varepsilon$');
+ylabel('$<\sigma_x>$')
+formatPlot(17)
+
+%% Plot \delta <sx> vs alpha, epsilon  --diff to reference
+%  Plot error against formula.
+%  As mentioned in LeHur2008, Eq.37
+defEpsilon = [1e-10,1e-8,1e-6,1e-4,1e-3,5e-3];
+colors=hsv(length(defEpsilon));
+figure(17);
+hold all
+i=1;                % count colors
+for epsilon = defEpsilon
+    select = PlotData(:,11) == -epsilon & PlotData(:,2)>0.5;          % select as binary array. can add other conditions
+    reference = PlotData(select,7)./(2.*PlotData(select,2)-1);      % delta/(2*alpha-1)
+    Indexed = [PlotData(select,2) (reference-PlotData(select,6))./reference];          % dataset [x y]
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    i=i+1;
+end
+%set(gca,'YScale','log');
+xlabel('$\alpha$');
+ylabel('$\frac{<\sigma_{x,lit}>-<\sigma_{x,VMPS}>}{<\sigma_{x,lit}>}$')
+text(0.7,0.9,'$\Delta/\omega_c=0.01$');
+text(0.92,0.84,'$\varepsilon/\omega_c$');
+formatPlot(17)
+legend({'$10^{-10}$','$10^{-8}$','$10^{-6}$','$10^{-4}$','$10^{-3}$','$0.005$'},'Location','East')
+%export_fig('20140601-Ohmic-sx-epsilon-alpha','-transparent','-pdf','-png','-painters')
+
+%% Plot <sx> vs alpha, delta 2D
+%   Similar to ??
+defDelta = [1e-3,5e-3,10e-3,20e-3,30e-3,40e-3,55e-3,65e-3,75e-3,85e-3,95e-3]; %50e-3,
+colors=hsv(length(defDelta));
+figure(17);
+hold all
+i=1;                % count colors
+leg = cell(1);
+for delta = defDelta
+    select = PlotData(:,7) == delta;          % select as binary array. can add other conditions
+    sum(select)
+    Indexed = [PlotData(select,2) PlotData(select,6)];          % dataset [x y]
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    leg{i} = sprintf('%0.3f',delta);
+    i=i+1;
+end
+xlabel('$\alpha$');
+ylabel('$<\sigma_x>$')
+text(0.85,0.9,'$\Delta/\omega_c$');
+formatPlot(17)
+legend(leg,'Location','East');
+%export_fig('20140602-Ohmic-sx-delta-alpha','-transparent','-pdf','-png','-painters')
+%% Plot \delta <sx> vs alpha, delta    --diff to reference
+%   Similar to ??
+defDelta = [1e-3,5e-3,10e-3,20e-3,30e-3,40e-3,55e-3,65e-3,75e-3,85e-3,95e-3]; %50e-3,
+colors=hsv(length(defDelta));
+figure(19);
+hold all
+i=1;                % count colors
+leg = cell(1);
+for delta = defDelta
+    select = PlotData(:,7) == delta & PlotData(:,2)>0.7;          % select as binary array. can add other conditions
+    reference = PlotData(select,7)./(2.*PlotData(select,2)-1);      % delta/(2*alpha-1)
+    Indexed = [PlotData(select,2) (reference-PlotData(select,6))./reference];          % dataset [x y]
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    leg{i} = sprintf('%0.3f',delta);
+    i=i+1;
+end
+%set(gca,'YScale','log');
+xlabel('$\alpha$');
+ylabel('$\frac{<\sigma_{x,lit}>-<\sigma_{x,VMPS}>}{<\sigma_{x,lit}>}$')
+text(0.87,0.42,'$\Delta/\omega_c$');
+formatPlot(19)
+legend(leg,'Location','NorthEast');
+%export_fig('20140602-Ohmic-sx-delta-alpha','-transparent','-pdf','-png','-painters')
+%% Plot loop, time, Energy, Entropy, SV vs alpha, epsilon
+%   Similar to Fig2 in Le Hur 2013
+defEpsilon = [1e-10,1e-8,1e-6,1e-4,1e-3,5e-3];
+colors=hsv(length(defEpsilon));
+figure(18);
+% 12: loop, 5: time, 10: max(<n>), 13: Entropy, 14: Amat_vNE(1), 15: Vmat_vNE(2)
+%  6: sx, 8: sz, 16: max SV
+PlotDat=PlotData(:,13);
+hold all
+i=1;                % count colors
+for epsilon = defEpsilon
+    select = PlotData(:,11) == -epsilon;          % select as binary array. can add other conditions
+    Indexed = [PlotData(select,2) PlotDat(select)];          % dataset [x y]
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    i=i+1;
+end
+xlabel('$\alpha$');
+ylabel('$S$')
+formatPlot(18)
+%legend({'$10^{-10}$','$10^{-8}$','$10^{-6}$','$10^{-4}$','$10^{-3}$','$0.005$'})
+export_fig('20140601-Ohmic-S-epsilon-alpha','-transparent','-pdf','-png','-painters')
+%% Plot the chain occupation for increasing alpha 3D
+select = PlotData(:,11)==-1e-10;  % epsilon
+IndexedMatrix = [PlotData(select,2) BosonChainOccupation(select,:)];
+IndexedMatrix = sortrows(IndexedMatrix,1);
+figure(5);
+surf(1:49,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
+xlabel('Site $k$');
+ylabel('$\alpha$')
+zlabel('$<n>(k)$')
+%% Plot the chain occupation for increasing alpha 2D
+defEps = 1e-10;
+defAlpha = [4e-1, 5e-1, 89e-2, 99e-2];
+colors=lines(length(defAlpha));
+figure(19);
+hold all
+select = PlotData(:,11)==-defEps;  % epsilon
+IndexedMatrix = [PlotData(select,2) BosonChainOccupation(select,:)];
+IndexedMatrix = sortrows(IndexedMatrix,1);
+for a = defAlpha
+    plot(IndexedMatrix(IndexedMatrix(:,1)==a,2:end)','Marker','*','LineStyle','none');
+end
+xlabel('$\alpha$')
+ylabel('$<n>(k)$')
+
 %% Plot error in <a_i a_i+1> vs delta, alpha
 figure(6)
 scatter3(PlotData(:,7),PlotData(:,2),PlotData(:,9),10,PlotData(:,9),'fill')
@@ -152,50 +394,68 @@ title('$Max(<n>)$ vs $\alpha$');
 xlabel('$\Delta$');
 ylabel('$\alpha$');
 zlabel('$Max(<n>)$');
+
 %% MLSBM from here:
 %  PlotData: 1 = Lambda; 2 = z; 3 = participation; 4 = Max(<n>); 5 = E0; 6 = period;
-%            7 = etaFactor;
+%            7 = etaFactor;     8 = loop;          9 = tunnelE
 
+%% Plot Participation, Max <n>, E0 vs \Lambda, z    (scatter)
 figure(1)
 scatter3(PlotData(:,1),PlotData(:,2),PlotData(:,3),10,PlotData(:,3),'fill')
 title('$Max(<n>)$ vs $\Lambda$ and z');
 xlabel('$\Lambda$');
 ylabel('$z$');
 zlabel('$Max(<n>)$');
-%% Plot Participation for entire Dataset.
+%% Plot Max <n>, E0, vs. p, eta     (scatter)
+% intuitive scatter plot
+% no save
 figure(2)
-plot(PlotData(:,3));
-%% Plot Max Chain Occupation vs. Period and Strength
-figure(2)
-scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,4),50,PlotData(:,4),'fill')
+j = 3;
+selectObs = {3,'$P$'; 4,'$Max(<n>)$'; 5,'$E_0/eV$'; 8,'Loop'; 9,'$E_{tunnel}/eV$'};
+PlotDat=PlotData(:,j);
+scatter3(PlotData(:,6),PlotData(:,7),PlotDat,50,PlotDat,'fill')
 xlabel('$p$');
 ylabel('$\eta$')
-zlabel('$<n_1>$');
-%% Plot Loop vs. Period and Strength
-figure(2)
-scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,8),50,PlotData(:,8),'fill')
-xlabel('$p$');
-ylabel('$\eta$')
-zlabel('Loop');
-formatPlot(2)
-%% Plot Participation vs. Period and Strength
-figure(2)
-scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,3),50,PlotData(:,3),'fill')
-xlabel('$p$');
-ylabel('$\eta$')
-zlabel('$P$');
-formatPlot(2)
+zlabel(selectObs{cell2mat(selectObs(:,1)) == j,2});
+formatPlot(2);
+rotate3d on
+
+%% Plot Max <n>, E0, vs. eta, p     (2D)
+% intuitive scatter plot
+% no save
+j = 5;
+selectObs = {3,'$P$'; 4,'$Max(<n>)$'; 5,'$E_0/eV$'; 8,'Loop'; 9,'$E_{tunnel}/eV$'};
+defPeriods = [2,3,4,5,6,7,8,9,15,16,17];
+colors=hsv(length(defPeriods));
+figure(3)
+hold on
+i=1;
+for periods = defPeriods
+    select = PlotData(:,6)==periods & PlotData(:,7)>=0;          % period == 4 or 16
+    Indexed = [PlotData(select,7) PlotData(select,j)];
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    i=i+1;
+end
+
+xlabel('$\eta$');
+ylabel(selectObs{cell2mat(selectObs(:,1)) == j,2});
+formatPlot(3);
+
+legend({'2','3','4','5','6','7','8','9','15','16','17'},'Location','SouthWest')
+
+
 %% Plot Participation vs. Period
-figure(2)
+figure(4)
 %select = PlotData(:,6)==4;          % period == 4
 select = PlotData(:,7)==1;          % etaFactor == 4
 plot(PlotData(select,6),PlotData(select,3))
 xlabel('$p$');
 ylabel('$P$');
-%% Plot Participation vs. Strength
-defPeriods = [2,3,4,5,7,8,9,15,16];
-colors=jet(length(defPeriods));
-figure(2)
+%% Plot Participation vs. eta, p    2D
+defPeriods = [2,3,4,5,6,7,8,9,15,16,17];
+colors=hsv(length(defPeriods));
+figure(4)
 hold all
 i=1;
 for periods = defPeriods
@@ -207,27 +467,37 @@ for periods = defPeriods
 end
 xlabel('$\eta$');
 ylabel('$P$');
-legend({'2','3','4','5','7','8','9','15','16'})
-formatPlot(2);
+formatPlot(4);
+legend({'2','3','4','5','6','7','8','9','15','16','17'},'Location','SouthWest')
 line([0 5],[16 16],'LineWidth',1,'Color','black');
-%% Plot GS Energy vs. Period and Strength
-figure(3)
-scatter3(PlotData(:,6),PlotData(:,7),PlotData(:,5),50,PlotData(:,5),'fill')
-xlabel('$p$');
-ylabel('$\eta$')
-zlabel('$E_0$');
-
+%% Plot Tunneling Energy vs. eta, p     2D
+defPeriods = [2,3,4,5,6,7,8,9,15,16,17];
+colors=hsv(length(defPeriods));
+figure(5)
+hold all
+i=1;
+for periods = defPeriods
+    select = PlotData(:,6)==periods & PlotData(:,7)>=0;          % period == 4 or 16
+    Indexed = [PlotData(select,7) PlotData(select,9)];
+    Indexed = sortrows(Indexed,1);
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    i=i+1;
+end
+xlabel('$\eta$');
+ylabel('$E_{tunnel}/eV$');
+formatPlot(5);
+legend({'2','3','4','5','6','7','8','9','15','16','17'},'Location','NorthWest')
 %% Plot the wavefunction for different strengths
 % modify the required period
-select =  PlotData(:,6)==16;
+select =  PlotData(:,6)==17;
 IndexedMatrix = [PlotData(select,7) PPCWavefunction(select,:)];
 IndexedMatrix = sortrows(IndexedMatrix,1);                      % sort with respect to y axis
-figure(4);
+figure(6);
 surf(1:16,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
 xlabel('Site $k$');
 ylabel('$\eta$')
 zlabel('$|\Psi(k)|^2$')
-formatPlot(4)
+formatPlot(6)
 
 %% Plot the wavefunction for different periods
 select = PlotData(:,7)==0; %& PlotData(:,7) >=0;
@@ -278,6 +548,8 @@ if isfield(results,'time');
 	E.timeMins = results.time / 60;
 else
 	E.aborted = 1;
+    disp(['aborted: ',path]);
+    return;
 end
 E.loops = para.loop;
 %% Calculate Shift analytically for iSBM:
@@ -318,11 +590,15 @@ E.loops = para.loop;
     E.NMeanError = mean(abs(E.NDeviation(2:end)));
     E.NMaxCalc = max(abs(E.NCalc));
     E.NMaxSim = max(abs(E.NSim));
-%% Save spin <sx> for Plot against alpha
+%% Save spin <sx> and calculate entanglement entropy (see Le Hur 2008) for Plot against alpha
 % try because not applicable to MLSBM
     if E.converged
         try
-            E.Sx = results.spin.sx;
+            E.Sx  = results.spin.sx;
+            E.Sz  = results.spin.sz;
+            pUp   = (1+sqrt(E.Sx^2+E.Sz^2))/2;  % sy = 0
+            pDown = (1-sqrt(E.Sx^2+E.Sz^2))/2;
+            E.entropy = -pUp*log2(pUp)-pDown*log2(pDown);
         catch
         end
     else

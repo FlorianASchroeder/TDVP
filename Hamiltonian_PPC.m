@@ -7,12 +7,21 @@ switch para.MLSB_system
     otherwise
 end
 
-H1 =  diag(para.MLSB_t(1:size(H0)));
-    % produces a Diagonal matrix, defining the coupling between each system site and the first Wilson chain site.
-    % only define relative to para.t(1)
-    % para.MLSB_t should have some periodicity, n = #states;
-    % also works for MLSB_t = vector
-
+if para.MLSB_tOff == 0
+    H1  = diag(para.MLSB_t(1:size(H0)));
+        % produces a Diagonal matrix, defining the coupling between each system site and the first Wilson chain site.
+        % only define relative to para.t(1)
+        % para.MLSB_t should have some periodicity, n = #states;
+        % also works for MLSB_t = vector
+elseif para.MLSB_tOff >= 1
+        % para.MLSB_tOff defines the on which off diagonal the coupling should be applied
+        % could be combined with above code.
+    dim = size(H0,1);
+    H1  = diag(para.MLSB_t(1:dim));
+    H1  = [zeros(dim,para.MLSB_tOff), H1];
+    b1  = H1(:,dim+1:end);            % coupling to close ring
+    H1  = H1(1:dim,1:dim)+padarray(b1',[dim-size(b1',1) 0],'post');
+end
 end
 
 function H0 = RsMolischianumB850()

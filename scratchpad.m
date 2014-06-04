@@ -1,10 +1,10 @@
 %% Path where to save figures
 path = pwd;
-%saveto = '..\..\Presentations\20140206 - Summary\';
-saveto = '..\..\Presentations\20140520 - MLSBM\20140525-CoupFunc\';
+saveto = '..\Presentations\20140206 - Summary\';
+%saveto = '..\..\Presentations\20140520 - MLSBM\20140525-CoupFunc\';
 wantSave = 0;
 %% Plot Vmat contributions for different Sites i (normalized)
-i=2;
+i=4;
 plot(real(Vmat{1,i}(:,:)))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
@@ -24,7 +24,7 @@ if wantSave
     export_fig(sprintf('%sVmatScaled%s-%u',saveto,para.filename(1:13),i),'-transparent','-png','-eps')
 end
 %% Plot Sum over Vmat
-i = 2;
+i = 5;
 a=sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2);
 plot(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2))
 set(gca,'YScale','log')
@@ -208,27 +208,41 @@ set(pl(2), 'Marker', 'none','Color',colors{2}); % green VMPS
 if wantSave
     export_fig(sprintf('%sAnalyticShift%s',saveto,para.filename(1:13)),'-transparent','-png','-eps')
 end
-%% Plot deviation from calculated occupation
-nx = [0 (shift.*shift./2)'];
-%plot(nx)
-%plot(results.nx)
-plot((nx-results.nx));
-title('Absolute Deviation of $<n_k>$');
-xlabel('site k');
-ylabel('$\Delta <n_k>$')
+%% Plot < n > of chain
+figure(1)
+pl(1) = plot(results.nx);
+%set(gca,'YScale','log');
+xlabel('Site k')
+ylabel('$<n_{k,VMPS}>$')
+formatPlot(1)
 if wantSave
-    export_fig(sprintf('%sAbsoluteDeviationN%s',saveto,para.filename(1:13)),'-transparent','-png','-eps')
+    export_fig(sprintf('%s%s-Occupation',saveto,para.filename(1:13)),'-transparent','-png','-pdf','-painters')
+end
+%% Plot relative deviation from calculated < n >
+%  Much more important as here the Wavefunction corrects also for different shift.
+nx = [0 (shift.*shift./2)'];
+figure(1)
+plot((nx-results.nx)./nx,'LineStyle','none','Marker','*');
+set(gca,'YScale','log');
+%title('Relative Deviation of $<n_k>$');
+xlabel('Site k');
+ylabel('$\frac{<n_k>-<n_{k,VMPS}>}{<n_k>}$')
+formatPlot(1)
+if wantSave
+    export_fig(sprintf('%s%s-RelativeDeviationN',saveto,para.filename(1:13)),'-transparent','-png','-pdf','-painters')
 end
 %% Plot relative deviation of shift
 relShift = ((shift-para.shift(2:end)')./shift);
-pl(1) = plot([0; relShift])
-title('Relative deviation of shift from calculation')
-xlabel('site k')
+figure(1)
+pl(1) = plot([0; relShift],'LineStyle','none','Marker','*');
+set(gca,'YScale','log');
+%title('Relative deviation of shift from calculation')
+xlabel('Site k')
 ylabel('$\frac{\delta_k-\delta_{k,VMPS}}{\delta_k}$')
+formatPlot(1)
 if wantSave
-    export_fig(sprintf('%sRelativeDeviationShift%s',saveto,para.filename(1:13)),'-transparent','-png','-eps')
+    export_fig(sprintf('%sRelativeDeviationShift%s',saveto,para.filename(1:13)),'-transparent','-png','-pdf','-painters')
 end
-
 %% Plot ShiftUp vs ShiftDown
 figure(5);
 wantSave=0;
@@ -287,5 +301,5 @@ figure(3);
 plot(diag(calReducedDensity(mps,Vmat,para,1)))
 %%
 %% Plot Flowdiagram
-loop = 40;
+loop = para.loop;
 plot(results.flowdiag{1,loop});
