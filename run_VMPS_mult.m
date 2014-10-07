@@ -1,7 +1,7 @@
 function run_VMPS_mult(p, eta)
 
-for  period = p
-    for factor = eta
+for  factor = eta
+    for period = p
 		try
 			VMPS_MLSBM(period,factor)
        	catch err

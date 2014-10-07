@@ -1,10 +1,23 @@
 function [H0, H1] = Hamiltonian_PPC(para)
+% Creates the Hamiltonian for a PPC. Uses Cyclic symmetry
+%
+% Modified:
+%   FS 20140609:    - Can apply diagonal static disorder using para.MLSB_disDiag and para.MLSB_staticDisorder
+%
+%
+% zero disorder Hamiltonian:
 switch para.MLSB_system
     case 'RsMolischianumB850'
         H0 = RsMolischianumB850();
     case 'RsMolischianumB800B850'
         H0 = RsMolischianumB800B850();
     otherwise
+end
+
+% apply disorder:
+if isfield(para,'MLSB_staticDisorder') && para.MLSB_staticDisorder == 1
+    % apply diagonal disorder
+    H0 = H0 + diag(cmToeV(para.MLSB_disDiag));
 end
 
 if para.MLSB_tOff == 0
@@ -21,6 +34,9 @@ elseif para.MLSB_tOff >= 1
     H1  = [zeros(dim,para.MLSB_tOff), H1];
     b1  = H1(:,dim+1:end);            % coupling to close ring
     H1  = H1(1:dim,1:dim)+padarray(b1',[dim-size(b1',1) 0],'post');
+% comment following line if jaynes-cummings type coupling is desired!
+% Symmetrize H1:
+    H1  = H1+H1' -diag(diag(H1));            % right-triangular to symmetric H0
 end
 end
 

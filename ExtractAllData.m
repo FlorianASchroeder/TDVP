@@ -3,7 +3,7 @@ function PlotData = ExtractAllData()
 % saves extractes data into file:
 % Makes Plot to visualize data
 %
-% Revision: 02/06/2014 17:59
+% Revision: 23/06/2014 15:41
 %
 %%
 % Overwrite extracted.mat ?
@@ -19,6 +19,9 @@ regexpLINUX = ['[^:;]*'];
 regexpWIN = ['[^;]*'];
 
 doPlot = 0;
+doAverage = 0;          % set = 1 for average over static disorder! 0 else
+hasDisorder = 0;
+loadResults = 1;
 
 if strfind(system_dependent('getos'),'Windows')
     regexpUSE = regexpWIN;
@@ -31,26 +34,30 @@ dirs = regexp(genpath(pwd),regexpUSE,'match');      % get all subfolders of curr
 dirs = dirs(2:end);                                 % remove current folder
 
 %%
-for i = 1:1:length(dirs)
-    if (overwrite == 0 && exist([dirs{i},saveDataToFile],'file')) || ~exist([dirs{i},loadDataFromFile],'file')
-        continue
+if ~loadResults
+    for i = 1:1:length(dirs)
+        if (overwrite == 0 && exist([dirs{i},saveDataToFile],'file')) || ~exist([dirs{i},loadDataFromFile],'file')
+            continue
+        end
+        % Extract Data and save to File, per folder
+        ExtractOneData(dirs{i});
     end
-    % Extract Data and save to File, per folder
-	ExtractOneData(dirs{i});
 end
-
 %% Load already existing PlotData??
 
-
-%% generate Parameter and Essentials list
+% generate Parameter and Essentials list
 PlotData = zeros(length(dirs),16);   % (s, alpha, log(shifterror))
 PPCWavefunction = zeros(length(dirs),16);   % only applies to Rs.Molischianum
-BosonChainOccupation = zeros(length(dirs),49);
+BosonChainOccupation = zeros(length(dirs),47);
 for i = 1:1:length(dirs)
     try
-        load([dirs{i},'/extracted.mat']);
-%        load([dirs{i},'/results.mat']);         % for MLSBM
-        disp(dirs{i})
+        if loadResults
+            load([dirs{i},'/results.mat']);         % for MLSBM
+        else
+            load([dirs{i},'/extracted.mat']);
+        end
+
+        %disp(dirs{i})                          % only disp if data is corrupt or not readably.
         if ~strcmp(para.model,'MLSpinBoson')
             PlotData(i,1) = para.s;
             PlotData(i,2) = para.alpha;
@@ -75,6 +82,7 @@ for i = 1:1:length(dirs)
             BosonChainOccupation(i,:) = results.nx;      % save the entire chain occupation
         else
             if ~isfield(results,'time');
+                disp(['Incomplete: ',dirs{i}]);
                 continue;
             end
             PlotData(i,1) = para.Lambda;
@@ -94,8 +102,16 @@ for i = 1:1:length(dirs)
             else
                 PlotData(i,9) = getObservable({'tunnelenergy',op},mps,Vmat,para);
             end
+            PlotData(i,10) = -log10(results.E- min(cell2mat(results.EvaluesLog)));   % Deviation from lowest energy
+            if isfield(para,'MLSB_disSDV')
+                PlotData(i,11) = para.MLSB_disSDV;      % strength of disorder
+            else
+                PlotData(i,11) = 0;
+            end
+            PlotData(i,12) = results.Amat_vNE(1);       % prop to entanglement entropy
             % copy the wavefunction of the ring
             PPCWavefunction(i,:) = diag(getObservable({'rdm',1},mps,Vmat,para));
+            BosonChainOccupation(i,:) = results.nx;      % save the entire chain occupation
         end
     catch
 
@@ -104,8 +120,29 @@ for i = 1:1:length(dirs)
     clear('para','extracted','results');
 end
 %dlmwrite('20140310-Delta-Alpha-Scan.txt',sortrows(PlotData,7));
-%save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','PPCWavefunction');  % for MLSBM
-save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','BosonChainOccupation');
+save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','PPCWavefunction','BosonChainOccupation');  % for MLSBM
+%save([datestr(now,'yyyymmdd'),'-ExtractedResults.mat'],'PlotData','BosonChainOccupation');
+
+%% Execute this to AVERAGE over DISORDER
+%   Use Variables later by assigning PlotData = PlotDataAvg;
+if doAverage && hasDisorder
+    uniqueCombinations = unique([PlotData(:,6), PlotData(:,7),PlotData(:,11)],'rows');
+    PlotDataAvg = zeros(size(uniqueCombinations,1),size(PlotData,2));
+    PPCWavefunctionAvg = zeros(size(uniqueCombinations,1),size(PPCWavefunction,2));
+    % uncomment if not working:
+    BosonChainOccupationAvg = zeros(size(uniqueCombinations,1),size(BosonChainOccupation,2));
+
+    for i = 1:size(uniqueCombinations,1)
+        id = PlotData(:,6)==uniqueCombinations(i,1) & PlotData(:,7)==uniqueCombinations(i,2) ...
+            &PlotData(:,11)==uniqueCombinations(i,3);
+        PlotDataAvg(i,:) = mean(PlotData(id,:));
+        PPCWavefunctionAvg(i,:) = mean(PPCWavefunction(id,:));
+        BosonChainOccupationAvg(i,:) = mean(BosonChainOccupation(id,:));
+    end
+    PlotDataAll = PlotData;
+    PPCWavefunctionAll = PPCWavefunction;
+    BosonChainOccupationAll = BosonChainOccupation;
+end
 
 if ~doPlot
 	return;
@@ -397,7 +434,8 @@ zlabel('$Max(<n>)$');
 
 %% MLSBM from here:
 %  PlotData: 1 = Lambda; 2 = z; 3 = participation; 4 = Max(<n>); 5 = E0; 6 = period;
-%            7 = etaFactor;     8 = loop;          9 = tunnelE
+%            7 = etaFactor;     8 = loop;          9 = tunnelE ; 10 = log(E0-Emin);
+%           11 = Disorder SDV; 12 = Entropy;
 
 %% Plot Participation, Max <n>, E0 vs \Lambda, z    (scatter)
 figure(1)
@@ -409,9 +447,10 @@ zlabel('$Max(<n>)$');
 %% Plot Max <n>, E0, vs. p, eta     (scatter)
 % intuitive scatter plot
 % no save
-figure(2)
-j = 3;
-selectObs = {3,'$P$'; 4,'$Max(<n>)$'; 5,'$E_0/eV$'; 8,'Loop'; 9,'$E_{tunnel}/eV$'};
+figure(2); rotate3d off
+j = 9;
+selectObs = {3,'$P$'; 4,'$Max(<n>)$'; 5,'$E_0/eV$'; 8,'Loop'; 9,'$<H_{s,int}>/eV$';...
+    10,'$log_{10}(E_0-E_{min})$'; 11, '$\sigma_{\Delta E}$'; 12, 'S'};
 PlotDat=PlotData(:,j);
 scatter3(PlotData(:,6),PlotData(:,7),PlotDat,50,PlotDat,'fill')
 xlabel('$p$');
@@ -421,20 +460,35 @@ formatPlot(2);
 rotate3d on
 
 %% Plot Max <n>, E0, vs. eta, p     (2D)
-% intuitive scatter plot
-% no save
-j = 5;
-selectObs = {3,'$P$'; 4,'$Max(<n>)$'; 5,'$E_0/eV$'; 8,'Loop'; 9,'$E_{tunnel}/eV$'};
-defPeriods = [2,3,4,5,6,7,8,9,15,16,17];
+j = 12;
+selectObs = {3,'$P$'; 4,'$Max(<n>)$'; 5,'$E_0/eV$'; 8,'Loop'; 9,'$<H_{s,int}>/eV$';...
+    10,'$log_{10}(E_0-E_{min})$'; 11, '$\sigma_{\Delta E}$'; 12, 'S'};
+criteria = ones(size(PlotData,1),1);
+if hasDisorder
+    if doAverage
+        PlotData = PlotDataAvg;
+    else
+        PlotData = PlotDataAll;
+    end
+    defSDV = unique(PlotData(:,11))';
+    criteria = criteria & round(real(PlotData(:,11))) == round(real(defSDV(2)));
+end
+defPeriods = unique(PlotData(:,6))';     % obtains all existing values
 colors=hsv(length(defPeriods));
 figure(3)
 hold on
 i=1;
+legLabels = cell(1);
 for periods = defPeriods
-    select = PlotData(:,6)==periods & PlotData(:,7)>=0;          % period == 4 or 16
-    Indexed = [PlotData(select,7) PlotData(select,j)];
+    select = PlotData(:,6) == periods & PlotData(:,7)>=0 & criteria;     % period == 4 or 16
+    if sum(select) == 0
+        continue
+    end
+    Indexed = [PlotData(select,7) real(PlotData(select,j))];
+    fprintf('Sum of Imaginary values: %.5e\n',sum(imag(PlotData(select,j))));
     Indexed = sortrows(Indexed,1);
-    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','Color',colors(i,:));
+    legLabels{i} = sprintf('%d',periods);
     i=i+1;
 end
 
@@ -442,7 +496,7 @@ xlabel('$\eta$');
 ylabel(selectObs{cell2mat(selectObs(:,1)) == j,2});
 formatPlot(3);
 
-legend({'2','3','4','5','6','7','8','9','15','16','17'},'Location','SouthWest')
+legend(legLabels,'Location','SouthWest')
 
 
 %% Plot Participation vs. Period
@@ -452,62 +506,122 @@ select = PlotData(:,7)==1;          % etaFactor == 4
 plot(PlotData(select,6),PlotData(select,3))
 xlabel('$p$');
 ylabel('$P$');
-%% Plot Participation vs. eta, p    2D
-defPeriods = [2,3,4,5,6,7,8,9,15,16,17];
+%% Plot Participation vs. eta, p    2D  -- pdf, png export!
+defPeriods = unique(PlotData(PlotData(:,6)>0,6))';     % obtains all existing values
 colors=hsv(length(defPeriods));
 figure(4)
 hold all
 i=1;
+legLabels = cell(1);
 for periods = defPeriods
-    select = PlotData(:,6)==periods & PlotData(:,7)>=0;          % period == 4 or 16
+    select = PlotData(:,6)==periods & PlotData(:,7)<4.4;          % period == 4 or 16
     Indexed = [PlotData(select,7) PlotData(select,3)];
     Indexed = sortrows(Indexed,1);
-    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','Color',colors(i,:));
+    legLabels{i} = sprintf('%d',periods);
     i=i+1;
 end
 xlabel('$\eta$');
 ylabel('$P$');
 formatPlot(4);
-legend({'2','3','4','5','6','7','8','9','15','16','17'},'Location','SouthWest')
+legend(legLabels,'Location','SouthWest')
 line([0 5],[16 16],'LineWidth',1,'Color','black');
 %% Plot Tunneling Energy vs. eta, p     2D
-defPeriods = [2,3,4,5,6,7,8,9,15,16,17];
+defPeriods = unique(PlotData(:,6))';     % obtains all existing values
 colors=hsv(length(defPeriods));
 figure(5)
 hold all
 i=1;
+legLabels = cell(1);
 for periods = defPeriods
     select = PlotData(:,6)==periods & PlotData(:,7)>=0;          % period == 4 or 16
     Indexed = [PlotData(select,7) PlotData(select,9)];
     Indexed = sortrows(Indexed,1);
-    plot(Indexed(:,1),Indexed(:,2),'Marker','*','LineStyle','none','Color',colors(i,:));
+    plot(Indexed(:,1),Indexed(:,2),'Marker','*','Color',colors(i,:));
+    legLabels{i} = sprintf('%d',periods);
     i=i+1;
 end
 xlabel('$\eta$');
 ylabel('$E_{tunnel}/eV$');
 formatPlot(5);
-legend({'2','3','4','5','6','7','8','9','15','16','17'},'Location','NorthWest')
+legend(legLabels,'Location','NorthWest')
 %% Plot the wavefunction for different strengths
 % modify the required period
-select =  PlotData(:,6)==17;
+
+period = 9;        % change to select wavefunction
+% variable to add criteria for select
+criteria = ones(size(PlotData,1),1);
+if hasDisorder
+    if doAverage
+        PlotData = PlotDataAvg; PPCWavefunction = PPCWavefunctionAvg;
+    else
+        PlotData = PlotDataAll; PPCWavefunction = PPCWavefunctionAll;
+    end
+    defSDV = unique(PlotData(:,11))';
+    criteria = criteria & round(real(PlotData(:,11))) == round(real(defSDV(2)));
+end
+
+select =  PlotData(:,6)==period & criteria;
 IndexedMatrix = [PlotData(select,7) PPCWavefunction(select,:)];
 IndexedMatrix = sortrows(IndexedMatrix,1);                      % sort with respect to y axis
-figure(6);
-surf(1:16,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
+if hasDisorder && ~doAverage
+    IndexedMatrix(:,1) = 1:sum(select);                         % plot against increment
+end
+figure(6); rotate3d off; clf;
+surf(1:size(IndexedMatrix,2)-1,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
+%shading interp
 xlabel('Site $k$');
 ylabel('$\eta$')
 zlabel('$|\Psi(k)|^2$')
 formatPlot(6)
+axis tight
+rotate3d on
 
-%% Plot the wavefunction for different periods
-select = PlotData(:,7)==0; %& PlotData(:,7) >=0;
+%% Plot the wavefunction for different periods --- can be removed?
+select = PlotData(:,7)==3; %& PlotData(:,7) >=0;
 IndexedMatrix = [PlotData(select,6) PPCWavefunction(select,:)];
 IndexedMatrix = sortrows(IndexedMatrix,1);
 figure(4);
+rotate3d off
 surf(1:16,IndexedMatrix(:,1),IndexedMatrix(:,2:end));
 xlabel('Site $k$');
 ylabel('$p$')
 zlabel('$|\Psi(k)|^2$')
+formatPlot(4)
+rotate3d on
+
+%% Plot the Boson Occupation for different strengths
+% modify the required period
+
+period = 8;        % change to select wavefunction
+% variable to add criteria for select
+criteria = ones(size(PlotData,1),1);
+if hasDisorder
+    if doAverage
+        PlotData = PlotDataAvg; BosonChainOccupation = BosonChainOccupationAvg;
+    else
+        PlotData = PlotDataAll; BosonChainOccupation = BosonChainOccupationAll;
+    end
+    defSDV = unique(PlotData(:,11))';
+    criteria = criteria & round(real(PlotData(:,11))) == round(real(defSDV(2)));
+end
+
+select =  PlotData(:,6)==period & criteria;
+IndexedMatrix = [PlotData(select,7) BosonChainOccupation(select,:)];
+IndexedMatrix = sortrows(IndexedMatrix,1);                      % sort with respect to y axis
+if hasDisorder && ~doAverage
+    IndexedMatrix(:,1) = 1:sum(select);                         % plot against increment
+end
+figure(6); rotate3d off; clf;
+surf(1:size(IndexedMatrix,2)-1,IndexedMatrix(:,1),real(IndexedMatrix(:,2:end)));
+%shading interp
+set(gca,'View',[47 47]);
+xlabel('Site $k$');
+ylabel('$\eta$')
+zlabel('$|\Psi(k)|^2$')
+formatPlot(6)
+axis tight;
+rotate3d on
 
 %% Scatter interpolation
 %% using griddata
@@ -518,16 +632,21 @@ y = PlotData(:,7);
 z = PlotData(:,3);
 zi = griddata(x,y,z, xi,yi);
 surf(xi,yi,zi);
+shading interp
 xlabel('$p$'), ylabel('$\eta$'), zlabel('$P$')
+rotate3d on
 %% using Interpolant class
+figure
 F = scatteredInterpolant([x y],z)
-[Xq,Yq] = meshgrid(1:0.5:40, -1:0.1:5);
+[Xq,Yq] = meshgrid(2:0.5:16, 0:0.1:5);
 F.Method = 'natural';
 Vq = F(Xq,Yq);
 surf(Xq,Yq,Vq);
-xlabel('X','fontweight','b'), ylabel('Y','fontweight','b');
-zlabel('Value - V','fontweight','b');
-title('Linear Interpolation Method','fontweight','b');
+xlabel('p'), ylabel('$\eta$');
+zlabel('P');
+shading interp
+formatPlot(1)
+rotate3d on
 end
 
 function ExtractOneData(path)

@@ -4,7 +4,7 @@ saveto = '..\Presentations\20140206 - Summary\';
 %saveto = '..\..\Presentations\20140520 - MLSBM\20140525-CoupFunc\';
 wantSave = 0;
 %% Plot Vmat contributions for different Sites i (normalized)
-i=4;
+i=9;
 plot(real(Vmat{1,i}(:,:)))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
@@ -24,7 +24,7 @@ if wantSave
     export_fig(sprintf('%sVmatScaled%s-%u',saveto,para.filename(1:13),i),'-transparent','-png','-eps')
 end
 %% Plot Sum over Vmat
-i = 5;
+i = 2;
 a=sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2);
 plot(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2))
 set(gca,'YScale','log')
@@ -35,6 +35,33 @@ xlabel('$d_k$')
 if wantSave
     export_fig(sprintf('%sVmatScaled%s-%u',saveto,para.filename(1:13),i),'-transparent','-png','-eps')
 end
+%% Plot Sum over Vmat in 3D
+plotMat = [];
+rotate3d off
+zeroVals = -50;             % value of zeros for padding and -inf replacement
+for i = 2:length(Vmat)
+    if size(Vmat{1,i},2) < size(results.Vmat_sv{1,i},1)
+        a = log10(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}(1:size(Vmat{1,i},2),:)))),2));
+    else
+        a = log10(sum(abs(real(Vmat{1,i}(:,1:size(results.Vmat_sv{1,i},1))*diag(results.Vmat_sv{1,i}))),2));
+    end
+    a(a==-inf)=zeroVals;
+    %a = log10(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2));
+    dim = max(length(a),size(plotMat,1));
+    if length(a)< dim
+        a = padarray(a,dim-length(a),zeroVals,'pre');
+    elseif size(plotMat,1) < dim
+        plotMat = padarray(plotMat,dim-size(plotMat,1),zeroVals,'pre');
+    end
+    plotMat = [plotMat,a];
+end
+surf(plotMat)
+title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
+ylabel('Contribution to OBB')
+xlabel('$d_k$')
+set(gca,'View',[9.5 40]);
+formatPlot(1)
+rotate3d on
 
 %% Plot Results
 f1=figure(1);
@@ -61,11 +88,13 @@ subplot(2,2,2);
     plot(para.trustsite);
     title('Trustsite')
 % 3D-version elucidating change:
-subplot(2,2,3);
-    surf(cell2mat(results.shift'))
-    set(gca,'View',[-25 10]);
-    shading interp
-    title('Bosonic shift');
+if para.useshift
+    subplot(2,2,3);
+        surf(cell2mat(results.shift'))
+        set(gca,'View',[-25 10]);
+        shading interp
+        title('Bosonic shift');
+end
 subplot(2,2,4);
     surf(cell2mat(results.d_opt'));
     shading interp
@@ -112,6 +141,7 @@ surf(cell2mat(results.dk'))
 set(gca,'View',[0 90]);
 shading interp
 title('Change in $d_{k}$')
+rotate3d on
 %set(gcf, 'Position', get(0,'Screensize')); % Maximize figure, to make caption readable
 %export_fig(['png/',para.folder,'-D-dopt.png'],'-transparent',f2)
 if wantSave
@@ -185,6 +215,7 @@ zlabel('SV')
 set(gca,'View',[0 90]); %top
 %set(gca,'View',[90 0]); %side
 % set(gcf, 'Position', get(0,'Screensize')); % Maximize figure, to make caption readable
+rotate3d on
 if wantSave
     export_fig(sprintf('%sChangeOfVmatSV%s',saveto,para.filename(1:13)),'-transparent','-png')
 end
@@ -210,7 +241,7 @@ if wantSave
 end
 %% Plot < n > of chain
 figure(1)
-pl(1) = plot(results.nx);
+pl(1) = plot(real(results.nx));
 %set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$<n_{k,VMPS}>$')
@@ -222,8 +253,8 @@ end
 %  Much more important as here the Wavefunction corrects also for different shift.
 nx = [0 (shift.*shift./2)'];
 figure(1)
-plot((nx-results.nx)./nx,'LineStyle','none','Marker','*');
-set(gca,'YScale','log');
+plot((nx-real(results.nx))./nx,'LineStyle','none','Marker','*');
+%set(gca,'YScale','log');
 %title('Relative Deviation of $<n_k>$');
 xlabel('Site k');
 ylabel('$\frac{<n_k>-<n_{k,VMPS}>}{<n_k>}$')
@@ -276,6 +307,7 @@ PlotData(:,PlotData(:,7)==0.001)
 %% Plot Energy convergence
 figure(1);
 plot(cell2mat(results.EvaluesLog)-min(cell2mat(results.EvaluesLog)));
+disp(sprintf('%.15e',results.E))
 set(gca,'YScale','log');
 title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));
 xlabel('Site$\cdot$Loop');
@@ -299,6 +331,10 @@ formatPlot(2);
 %% Plot System Wavefunction
 figure(3);
 plot(diag(calReducedDensity(mps,Vmat,para,1)))
+if para.MLSB_staticDisorder
+    hold all
+    plot(para.MLSB_disDiag/500);        % /500 scales to see both
+end
 %%
 %% Plot Flowdiagram
 loop = para.loop;

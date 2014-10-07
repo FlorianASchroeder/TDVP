@@ -118,8 +118,10 @@ if strcmp(para.model,'MLSpinBoson')
     %   2:  Hamiltonian with rotational symmetry. Read in data from file.
     %       Needs Define: MLSBM_t, MLSB_system,
     %       Automatically defined: MLSB_Ls, Renger2012 J(w),
+    %       Can be affected with static random disorder
 
 % All modes:
+% System-Bath coupling:
 %    para.MLSB_t = [-1 -1 -1 1 1 1];                 % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
     para.MLSB_p = period;                           % period of coupling for cosine
     para.MLSB_etaFactor = eta;                      % multiplier to increase system-bath coupling
@@ -138,7 +140,13 @@ if strcmp(para.model,'MLSpinBoson')
             % Inherently defined within model
     end
 
-% All modes:
+%% random static disorder:
+    para.MLSB_staticDisorder = 1;
+    para.MLSB_disSDV = 200/2.3548;         % standard deviation of disorder; FWHM = 200 cm^-1; FWHM = 2.3548*SDV;
+    % Vector with absolute values of disorder in cm^-1:
+    para.MLSB_disDiag = para.MLSB_disSDV.*randn(para.MLSB_Ls,1);        % set to 0 if no diag disorder wanted
+
+%% All modes:
     para.dk(1) = para.MLSB_Ls;                  % also set dk properly
     para.d_opt(1) = para.MLSB_Ls;
 

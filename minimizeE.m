@@ -2,7 +2,8 @@ function [mps,Vmat,para,results,op] = minimizeE(op,para)
 % Ground state calculation
 % Modified:
 %	FS 30/05/2014: - First verion of a energy flowdiagram added. See Cheng 2012 for more information.
-%
+%   FS 06/06/2014: - 'para.loop == 20 && size(results.d_opt,2) < 2' added to adjustdopt.m criterium, as wrongly chosen
+%                    initial D, d_opt or dk can prevent convergence!
 % Commented ba Florian Schroeder 03/02/2014
 
 randn('state', 0)
@@ -88,8 +89,11 @@ while loop<=para.loopmax;
     fprintf('precise_sites k <= %d\t',para.precisesite);
     fprintf('trustable_sites k <= %d\t',para.trustsite(loop));
 
-    if (para.dimlock==0 && para.trustsite(end)>3 && mod(loop,2)==0) || results.Eerror(end)<para.precision %&& para.trustsite(end)/para.precisesite>0.6 && sqrt(var(para.trustsite(end-2:end)))/mean(para.trustsite(end-2:end))<0.1 %The trust site has not been improved during the last 2 sweeps
-         %%Expand or Truncate D and d_opt
+    if (para.dimlock==0 && para.trustsite(end)>3 && mod(loop,2)==0) || results.Eerror(end)<para.precision || para.loop == 20 && size(results.d_opt,2) < 2 %&& para.trustsite(end)/para.precisesite>0.6 && sqrt(var(para.trustsite(end-2:end)))/mean(para.trustsite(end-2:end))<0.1 %The trust site has not been improved during the last 2 sweeps
+        if para.loop == 20 && size(results.d_opt,2) < 2
+            para.trustsite(end) = 5;        % arbitrary setting to cause an optimization!
+        end
+        %%Expand or Truncate D and d_opt
          para.adjust=1;
 %		 if results.Eerror(end)<para.precision						% PERHAPS GOOD STATEMENT!! TEST THIS! ADD 1 sweep after that before exit!
 %			para.trustsite(end) = para.L;								% this ensures last adjustment of dimensions before finishing minimizeE.m
