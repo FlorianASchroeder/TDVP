@@ -1,6 +1,6 @@
 function [Amat, V, vNE] = prepare_onesiteAmat(Amat,para,sitej)
 % Prepare the MPS matrices A for the subsequent updating of Ub
-% (left?) normalize A
+% left normalize A, SVD in n to set focus on Vmat
 % TODO: replace SVD by QR, if nargout == 2.
 
 [D1, D2, d_opt] = size(Amat);

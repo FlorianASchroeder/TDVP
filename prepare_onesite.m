@@ -1,13 +1,24 @@
-function [B, U, para,results] = prepare_onesite(A, direction,para,sitej,results)
+function [B, U, para,results] = prepare_onesite(A,para,sitej,results)
+% Does SVD on the A-MPS matrix
+% 1. prepare_onesite(A,para,sitej)
+%       is enough for right-norm A
+%       sitej only for logging purposes
+% 2. prepare_onesite(A,para,sitej,results)
+%       writes SV and vNE into results.**{sitej}
+%
+%   Changed:
+%       - FS 20/10/2014: replaced direction by para.sweepto
 %
 % TODO: Use QR instead of SVD to speed up if SV and nVE are not needed
 % 		Use [Q, R] = qr(A,0) for vertical matrix to get only Q1 and R from (Q1 Q2) (R 0).
+
 [D1, D2, d] = size(A);					% d is site dimension
 method = 'qr';
 
-switch direction
-    case 'lr'
-        if para.parity=='n'
+switch para.sweepto
+    case 'r'
+        if para.parity == 'n'
+            %% normal parity
             A = permute(A, [3, 1, 2]);
             A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
             [B, S, U] = svd2(A);			% Could also use QR decomposition if nargin !=5
@@ -17,7 +28,7 @@ switch direction
 %
 %           else
 %               end
-            if nargin==5					% these values are only used in this script if results are passed
+            if nargin == 4					% these values are only used in this script if results are passed
                 vNE = vonNeumannEntropy(S);
                 sv = diag(S);
             end
@@ -26,7 +37,9 @@ switch direction
             B = reshape(B, [d, D1, DB]);
             B = permute(B, [2, 3, 1]);
             U = S * U;                      % only for SVD
+
         else
+            %% special parity
             A=permute(A,[3,1,2]);
             s=A(para.Anzilr{sitej});
             %s=nonzeros(A);
@@ -73,19 +86,26 @@ switch direction
             U=blkdiag(S_odd*U_odd,S_even*U_even);
 
         end
-    case 'rl'
-        if para.parity=='n'
+    case 'l'
+        if para.parity == 'n'
+            %% normal parity
             A = permute(A, [1, 3, 2]);
             A = reshape(A, [D1, d * D2]);
-            [U, S, B] = svd2(A);
-	    if nargin==5					% only if results are passed
-		vNE = vonNeumannEntropy(S);
-		sv = diag(S);
-	    end
+
+            % decompose: A_(l,r*n) = U_(l,a')*S_(a',a)*B_(a,r*n)
+            [U, S, B] = svd2(A);            % since m<n: B = new A
+            if nargin == 4					% only if results are passed
+                vNE = vonNeumannEntropy(S);
+                sv = diag(S);
+            end
             DB = size(S, 1);
             B = reshape(B, [DB, d, D2]); B = permute(B, [1, 3, 2]);
+
+            % create focused center: C(n)_(l,a) = U_(l,a')*S_(a',a)
             U = U * S;
+
         else
+            %% special parity
             A=permute(A,[2,3,1]);
             s=A(para.Anzirl{sitej});
             %s=nonzeros(A);
@@ -126,10 +146,9 @@ switch direction
             U=blkdiag(S_odd*U_odd,S_even*U_even);
             U=transpose(U);
 
-
         end
 end
-if nargin==5
+if nargin == 4
     results.Amat_vNE(sitej) =vNE;
     if length(sv)==para.D(sitej) || (length(sv)==para.D(sitej)/2 && (para.parity~='n'))
         results.Amat_sv{sitej}=sv;

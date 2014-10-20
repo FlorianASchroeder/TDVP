@@ -1,14 +1,15 @@
-function [B, U, para, results] = prepare_onesite_truncate(A, direction,para,sitej,results)
+function [B, U, para, results] = prepare_onesite_truncate(A,para,sitej,results)
 % Truncate Bond dimension via SV of A
 %
-%
+% Changed:
+%   - FS 20/10/2014: removed explicit direction, using para.sweepto now!
 
 [D1, D2, d] = size(A);
 D_old=para.D;
-switch direction
-    case 'lr'
+switch para.sweepto
+    case 'r'
         error('Haven not implemented yet!');
-    case 'rl'
+    case 'l'
         if para.parity=='n'
             A = permute(A, [1, 3, 2]);
             A = reshape(A, [D1, d * D2]);

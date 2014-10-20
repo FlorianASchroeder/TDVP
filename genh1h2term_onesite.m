@@ -18,7 +18,7 @@ switch para.model
         %%%%%%%%%%%%%%%%%%%Spin-boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         switch s
             case 1                                                  % first chain pos = all spin sites!
-                [sigmaX,sigmaY,sigmaZ]=spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
+                [sigmaX,~,sigmaZ]=spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
                 zm_spin=zeros(2);
                 op.h1term{1}=-para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
                 op.h2term{1,1,1} = para.t(1).*sigmaZ; op.h2term{1,2,1} = zm_spin;		% was sigmaX
@@ -50,7 +50,7 @@ switch para.model
                 op.h2term{3,1,1} = para.t(1).*sigmaY; op.h2term{3,2,1} = zm_spin;
                 op.h2term{4,1,1} = para.t(1).*sigmaY; op.h2term{4,2,1} = zm_spin;   %to the left
             case para.L
-                [bp,bm,n] = bosonop(sqrt(para.dk(para.L)),para.shift(para.L),para.parity);
+                [bp,~,n] = bosonop(sqrt(para.dk(para.L)),para.shift(para.L),para.parity);  % gives [bp, bm, n]
                 if para.parity=='n'
                     idm=eye(size(n));
                     bpx=kron(bp,idm);bmx=bpx';nx=kron(n,idm);
@@ -65,7 +65,7 @@ switch para.model
                 op.h2term{3,1,para.L} = zm; op.h2term{3,2,para.L} = bmy;
                 op.h2term{4,1,para.L} = zm; op.h2term{4,2,para.L} = bpy;
             otherwise
-                [bp,bm,n] = bosonop(sqrt(para.dk(s)),para.shift(s),para.parity);
+                [bp,~,n] = bosonop(sqrt(para.dk(s)),para.shift(s),para.parity);
                 if para.parity=='n'
                     idm=eye(size(n));
                     bpx=kron(bp,idm);bmx=bpx';nx=kron(n,idm);
@@ -157,8 +157,8 @@ switch para.model
                         % start off with only one site and extend it for later!
                         % possibly wrong: COUPLING in Prior, Chin 10: parallel to energy splitting! so sigmaZ
                 [sigmaX,sigmaY,sigmaZ]=spinop(para.spinbase);
-                sigmaPlus = (sigmaX+i.*sigmaY)./2;
-                sigmaMinus = (sigmaX - i.*sigmaY)./2;
+                sigmaPlus = (sigmaX+1i.*sigmaY)./2;
+                sigmaMinus = (sigmaX - 1i.*sigmaY)./2;
                 zm_spin=zeros(4);
                 %assert(para.Delta==0);
                 %op.h1term{1}=-para.hx./2.*sigmaX-para.hy./2.*sigmaY-para.hz./2.*sigmaZ;
@@ -171,7 +171,7 @@ switch para.model
                 op.h2term{3,1,1} = para.t(1)./4.*kron(eye(2),eye(2)+sigmaZ); op.h2term{3,2,1} = zm_spin;
                 op.h2term{4,1,1} = para.t(1)./4.*kron(eye(2),eye(2)+sigmaZ); op.h2term{4,2,1} = zm_spin; %to the left
             case para.L
-                [bp,bm,n] = bosonop(sqrt(para.dk(para.L)),para.shift(para.L),para.parity);
+                [bp,~,n] = bosonop(sqrt(para.dk(para.L)),para.shift(para.L),para.parity);
                 if para.parity=='n'     % always use n (might be easier?)
                     idm=eye(size(n));
                     bpr=kron(bp,idm);   bmr=bpr';   nr=kron(n,idm);     % matrices for right    (=x)
@@ -186,7 +186,7 @@ switch para.model
                 op.h2term{3,1,para.L} = zm; op.h2term{3,2,para.L} = bml;
                 op.h2term{4,1,para.L} = zm; op.h2term{4,2,para.L} = bpl;
             otherwise
-                [bp,bm,n] = bosonop(sqrt(para.dk(s)),para.shift(s),para.parity);
+                [bp,~,n] = bosonop(sqrt(para.dk(s)),para.shift(s),para.parity);
                 if para.parity=='n'
                     idm=eye(size(n));
                     bpr=kron(bp,idm);   bmr=bpr';   nr=kron(n,idm);
@@ -271,6 +271,32 @@ switch para.model
                 op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    case 'ImpurityQTN'
+        %%%%%%%%%%%%%%%%%%%Impurity coupled to Quantum Telegraph Noise Model%%%%%%%%%%%%%%%%%%%
+        % for use of this model:
+        %   TODO: this is by far not completed!!! and ready to use..
+        %
+        switch s
+            case 1                                                  % first chain pos = all spin sites!
+                [sigmaX,~,sigmaZ]=spinop(para.spinbase);            % gives XYZ operators with respect to specific main base
+                zm_spin=zeros(2);
+                op.h1term{1}=para.hz./2.*sigmaZ;
+                op.h2term{1,1,1} = para.t(1).*sigmaZ; op.h2term{1,2,1} = zm_spin;		% was sigmaX
+                op.h2term{2,1,1} = para.t(1).*sigmaZ; op.h2term{2,2,1} = zm_spin;		% was sigmaX
+            case para.L                                             % last chain pos: only one coupling?
+                [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
+                zm=sparse(size(bp,1),size(bp,1));
+                op.h1term{para.L}=para.epsilon(para.L-1).*n;
+                op.h2term{1,1,para.L} = zm; op.h2term{1,2,para.L} = bm;
+                op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bp;
+            otherwise
+                [bp,bm,n] = bosonop(para.dk(s),para.shift(s),para.parity);
+                op.h1term{s}=para.epsilon(s-1).*n;
+                op.h2term{1,1,s} = para.t(s).*bp; op.h2term{1,2,s} = bm;
+                op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
+        end
+
+
 
 end
 end

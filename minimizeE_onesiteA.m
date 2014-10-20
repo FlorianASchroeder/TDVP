@@ -6,7 +6,7 @@ function [A, E] = minimizeE_onesiteA(op, B, Alaststep,para,sitej)
 
 % ******************** one-site optimization ***********************
 tol=para.eigs_tol;
-DAl = size(op.Hleft, 1);						% Bond dimension Dleft of A to left
+DAl = size(op.Hleft, 1);					% Bond dimension Dleft of A to left
 DAr = size(op.Hright, 1);					% Bond dimension Dright of A to right
 d = size(B, 2);								% = d_opt of Vmat
 [ll,rr,dd] = size(Alaststep);				% = Dleft, Dright, d_opt	from A
@@ -18,8 +18,8 @@ end
 M = size(op.h2j, 1);
 
 % transform all bare H terms of sitej into OBB
-op.h1j = contracttensors(op.h1j,2,2,B,2,1);
-op.h1j = contracttensors(conj(B),2,1,op.h1j,2,1);
+op.h1j = contracttensors(op.h1j,2,2,B,2,1);             % = h1_ab V_bd
+op.h1j = contracttensors(conj(B),2,1,op.h1j,2,1);       % -> h1'_cd = V*_ac h1_ab V_bd
 
 for i=1:M
     op.h2j{i,1} = contracttensors(op.h2j{i,1},2,2,B,2,1);

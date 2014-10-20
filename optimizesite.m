@@ -14,10 +14,10 @@ function [Aj,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,sitej)
 optV=1;
 while optV
     % Use Vmat only for bosonic sites
-    if  prod(sitej ~= para.spinposition) && para.useVmat==1              % Only use Vmat{j} and optimize for the boson sites. Old 05/05/14: (para.dk(sitej)>2 && para.useVmat == 1); Now: ready for array in spinposition
-        [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);							% left-normalize A, as r -> l sweep did right normalize.
-        Blaststep = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);							% set focus on Vmat
-        [B,E] = minimizeE_onesiteVmat(op, Amat, Blaststep,para);							% first Energy Optimization
+    if  prod(sitej ~= para.spinposition) && para.useVmat==1                 % Only use Vmat{j} and optimize for the boson sites. Old 05/05/14: (para.dk(sitej)>2 && para.useVmat == 1); Now: ready for array in spinposition
+        [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);				% left-normalize A, as r -> l sweep did right normalize.
+        Blaststep = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);			% set focus on Vmat
+        [B,E] = minimizeE_onesiteVmat(op, Amat, Blaststep,para);			% first Energy Optimization
 %         if sitej>=3 && para.rescaling==1
 %             results.geoffset(sitej)=(results.geoffset(sitej-1)+results.leftge(sitej))*para.Lambda;
 %             E=(E+results.geoffset(sitej))./(para.Lambda.^(sitej-2));
@@ -84,13 +84,14 @@ while optV
 			temp=contracttensors(Aj,3,3,temp,2,2);
 			shift=real(contracttensors(temp,3,[1,2,3],conj(Aj),3,[1,2,3]));					% calculate shift after current optimization
 			para.relativeshift(sitej)=abs(shift-para.shift(sitej))/para.maxshift(sitej);
-			if  para.relativeshift(sitej)>para.relativeshiftprecision									% if relevant shift, update and rerun optimization
+			if  para.relativeshift(sitej)>para.relativeshiftprecision                       % if relevant shift, update and rerun optimization
 				para.shift(sitej)=shift;
 				para.shifted = 1;
 				op=update_sitej_h1h2(para,op,sitej);		% shift boson operators
 				mps{sitej}=Aj;								% store Aj in mps to use in next loop
 			else
 				optV=0;
+                % Aj will be returned and normalised + saved later!
 			end
 		end
     else

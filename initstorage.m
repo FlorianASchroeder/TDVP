@@ -2,8 +2,12 @@ function [op] = initstorage(mps, Vmat,op,para)
 % op.Hlrstorage stores the sub hamiltonian of the (left?) and right block.
 % op.Opstorage stores the operators in the (left?) and right bases.
 % sweeps from right to left.
+% Only use with rightnormalised MPS
 
 % Commented by Florian Schroeder 29/01/2014
+% Changed:
+%   FS 20/10/2014: - use op = updateop() instead of explicit calculations
+%                    to remove redundancy
 
 Lam=para.Lambda;			% unused! can be deleted
 L=length(mps);
@@ -26,14 +30,9 @@ for m=1:M
     op.Opstorage{m,2,L+1}=0;
 end
 
+para.sweepto = 'l';
+
 % middle terms builds from r->l
 for j = L-1:-1:2
-    for m=1:M
-        op.Opstorage{m,2,j}=updateCright([],mps{j},Vmat{j},op.h2term{m,2,j},mps{j},Vmat{j});
-		% 2nd term of interaction term into ef. basis of r_j-1; (1st is already in site basis.)
-    end
-
-    h2j=op.h2term(:,1,j);
-    op.Hlrstorage{j} = updateHright(op.Hlrstorage{j + 1}, op.h1term{j}, op.Opstorage(:,2,j+1), mps{j}, Vmat{j},h2j, mps{j}, Vmat{j},M);
-	% collects all j-1 < parts of Hamiltonian which are not interacting with j-1, and transforms into eff basis r_{j-1}
+    op = updateop(op,mps,Vmat,j,para);
 end

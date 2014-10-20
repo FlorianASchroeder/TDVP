@@ -29,7 +29,7 @@ end
 
 
 d = size(op.HlOPB, 1); 							% = d_opt
-Db = size(op.h2j{1,1}, 1); 					% = dk
+Db = size(op.h2j{1,1}, 1);                      % = dk
 
 
 % projection on orthogonal subspace

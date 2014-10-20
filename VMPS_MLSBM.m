@@ -32,7 +32,7 @@ end
 
 %% Parameters
 para.model='MLSpinBoson';
-    % choose: 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson'
+    % choose: 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson','ImpurityQTN'
 
 para.Lambda=2;                          % Bath log Discretization parameter
 para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
@@ -66,7 +66,7 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
 end
 
 para.foldedChain=0;                     % parameter to tell that Supersites for chain are used!
-para.spinposition=1;                    % The y chain is on the left and the z chain is on the right. (could be array ?)
+para.spinposition=1;                    % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
 para.rescaling=1;                       % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
 para.complex=1;							% set to 1 if any complex parameters are used.
 para.resume=0;                          % Read from saved results if available.
@@ -102,7 +102,7 @@ if strcmp(para.model,'2SpinPhononModel')
    %para.hz = para.hx;                  % use hz as level splitting. hx = hy = 0
    %para.hx = 0;
    para.hy = 0.1;                       % coupling between the 2 spin sites = J
-   para.M = 4;				% 4 terms in sum per site
+   para.M = 4;                          % 4 terms in sum per site
    para.dk(1) = 4;                      % As kron(site1,site2), dim=4 on first site!
    para.d_opt(1) = 4;
    para.foldedChain=1;
@@ -236,7 +236,7 @@ end
 
 %% Start Calculation
 [op,para]=genh1h2term(para);
-[mps, Vmat,para,results] = minimizeE(op,para);
+[mps, Vmat,para,results,op] = minimizeE(op,para);
 
 save(para.filename,'para','Vmat','mps','results','op');
 

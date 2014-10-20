@@ -4,6 +4,8 @@ function [mps,Vmat,para,results,op] = minimizeE(op,para)
 %	FS 30/05/2014: - First verion of a energy flowdiagram added. See Cheng 2012 for more information.
 %   FS 06/06/2014: - 'para.loop == 20 && size(results.d_opt,2) < 2' added to adjustdopt.m criterium, as wrongly chosen
 %                    initial D, d_opt or dk can prevent convergence!
+%   FS 20/10/2014: - using para.sweepto everywhere.
+%
 % Commented ba Florian Schroeder 03/02/2014
 
 randn('state', 0)
@@ -24,7 +26,7 @@ para=gennonzeroindex(mps,Vmat,para);
 para
 
 [mps,Vmat,para] = prepare(mps,Vmat,para);
-% storage-initialization
+% storage-initialization sweep l <- r
 [op] = initstorage(mps, Vmat, op,para);
 
 %The relative change of d_opt and D, 1 means 100%.
@@ -39,17 +41,20 @@ while loop<=para.loopmax;
     results.flowdiag{loop} = [];
     % ********* cycle 1: j ? j + 1 (from 1 to L - 1)*********
     for j = 1:L
-        fprintf('%g-', j); para.sweepto='r';
-        op=gen_sitej_op(op,para,j,results.leftge,'lr');					% take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
+        fprintf('%g-', j); para.sweepto = 'r';
+        op=gen_sitej_op(op,para,j,results.leftge);  					% take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
         [Aj,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,j);
         if j~=L
-            [mps{j}, U, para,results] = prepare_onesite(Aj, 'lr',para,j,results);
+            [mps{j}, U, para,results] = prepare_onesite(Aj,para,j,results);
             mps{j+1} = contracttensors(U,2,2,mps{j+1},3,1);
         else
             mps{j}=Aj;
         end
-        op=updateop(op,mps,Vmat,j,para);						% calls updateHleft, updateCleft to update for next sweep
-		Hleft=op.Hlrstorage{j+1};
+        op=updateop(op,mps,Vmat,j,para);                                % calls updateHleft, updateCleft to update for next sweep
+        % sweep finished
+
+		% get Energy eigenvalues for analysis
+        Hleft=op.Hlrstorage{j+1};
 		eigvalues=sort(eig((Hleft'+Hleft)/2));
         % log the flowdiagram
         if para.logging && j~=L                                                         % Last site has different length in EV
@@ -89,6 +94,9 @@ while loop<=para.loopmax;
     fprintf('precise_sites k <= %d\t',para.precisesite);
     fprintf('trustable_sites k <= %d\t',para.trustsite(loop));
 
+    %% start sweep l <- r
+    para.sweepto = 'l';
+
     if (para.dimlock==0 && para.trustsite(end)>3 && mod(loop,2)==0) || results.Eerror(end)<para.precision || para.loop == 20 && size(results.d_opt,2) < 2 %&& para.trustsite(end)/para.precisesite>0.6 && sqrt(var(para.trustsite(end-2:end)))/mean(para.trustsite(end-2:end))<0.1 %The trust site has not been improved during the last 2 sweeps
         if para.loop == 20 && size(results.d_opt,2) < 2
             para.trustsite(end) = 5;        % arbitrary setting to cause an optimization!
@@ -111,6 +119,7 @@ while loop<=para.loopmax;
         para.adjust=0;
         [mps,Vmat] = rightnormA(mps,Vmat,para,results);			%	sweeps r->l to right-normalize A matrices.
     end
+
     [op] = initstorage(mps, Vmat, op,para);							%	recreate operators for next optimization sweep
 
     fprintf('d_opt_change=%g\t',para.d_opt_change);
