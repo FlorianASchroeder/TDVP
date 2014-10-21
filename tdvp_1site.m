@@ -1,6 +1,7 @@
-function [mps, Vmat] = tdvp_1site(mps,Vmat,para,results,op)
+function [mps, Vmat, para, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op)
 %% VMPS Time-dependent variational principle
 %   implementation following Haegeman et al. 2014, arXiv:1408.5056
+%   using Expokit for expv()
 %
 %   (only use without OBB (Vmat) at the moment!)
 %
@@ -10,9 +11,18 @@ function [mps, Vmat] = tdvp_1site(mps,Vmat,para,results,op)
 
 %% 0. Parameter settings:
 
-para.tdvp.tmax = 1;
+para.tdvp.tmax = 10;
+    % For PPC:
+    %   H defined in eV, h\bar left out
+    %   -> real tmax = T * 6.58211928(15)×10?16
 para.tdvp.deltaT = 0.1;                 % size of timeslice in units:
-para.tdvp.maxExpMDim = 2*10^3;          % maximum allowed a_n*a_(n+1)*d_k
+para.tdvp.maxExpMDim = 10^0;            % maximum allowed a_n*a_(n+1)*d_k.
+para.tdvp.expvTol = 1e-9;               % error tolerance of expv(); default: 1e-7
+para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
+    % Sets threshold size for matrix exponential:
+    %   if dim(A) < : use built-in expm(At)*v
+    %   else        : use Expokit expv(t,A,v, expvTol, expvM)
+    %   set maxExpMDim = 0 to only use expv()
 para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
 para.rescaling = para.tdvp.rescaling;
 bondDim = [1 results.D{end} 1];
@@ -31,10 +41,14 @@ end
     %
     % also prepare other stuff
 
+    % initial time values
+    tmps(1, :) = mps;
+    tVmat(1,:) = Vmat;
 %% 2. time sweep
 
 for timeslice = 1:(para.tdvp.tmax/para.tdvp.deltaT)
     para.sweepto = 'r';
+    fprintf('t = %g\n', timeslice * para.tdvp.deltaT);
     % sweep l->r and time evolve each site
     for sitej = 1:para.L
         fprintf('%g', sitej);
@@ -110,8 +124,10 @@ for timeslice = 1:(para.tdvp.tmax/para.tdvp.deltaT)
     end
 
     % finished with both sweeps, focused on A(1) after time-evolution
-
+    fprintf('\n');
     %% calculate time-dependent expectation values
+    tmps(timeslice+1, :) = mps;
+    tVmat(timeslice+1,:) = Vmat;
 end
 
 

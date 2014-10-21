@@ -1,5 +1,6 @@
 function [H0, H1] = Hamiltonian_PPC(para)
 % Creates the Hamiltonian for a PPC. Uses Cyclic symmetry
+%   H entries in units of eV
 %
 % Modified:
 %   FS 20140609:    - Can apply diagonal static disorder using para.MLSB_disDiag and para.MLSB_staticDisorder

@@ -148,6 +148,7 @@ switch para.model
                 op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     case '2SpinPhononModel'
         %%%%%%%%%%%%%%%%%%%2-State Phonon Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % copied from SpinDoubleBoson. This is indeed the folded model, as the bosonic sites have kron()
@@ -317,7 +318,9 @@ switch para.MLSB_mode
         assert(length(para.MLSB_t) == para.MLSB_Ls, 'All couplings t between system and bath must be defined');
         H0 = diag(((para.MLSB_Ls:-1:1)- (para.MLSB_Ls+1)/2).*para.MLSB_Delta);
         H1 = diag(para.MLSB_t);
-    case 2  % Hamiltonian with rotational symmetry. Get from separate function
+    case 2
+        % Hamiltonian with rotational symmetry. Get from separate function
+        % untis in eV
         [H0, H1] = Hamiltonian_PPC(para);
     otherwise
 end

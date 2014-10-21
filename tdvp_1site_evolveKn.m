@@ -28,8 +28,13 @@ switch para.sweepto
 
         %% Take and apply Matrix exponential
         % C(n,t) = exp(+ i K(n) dt)_(rl'*r',rl*r) * C(n,t+dt)_(rl*r)
-        Cn = reshape(Cn,[BondDimRight^2,1]);
-        Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *Cn;
+        if size(Kn,1) <= para.tdvp.maxExpMDim
+            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[BondDimRight^2,1]);
+        else
+            Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
+                reshape(Cn,[BondDimRight^2,1]),...
+                para.tdvp.expvTol, para.tdvp.expvM);
+        end
         Cn = reshape(Cn, [BondDimRight, BondDimRight]);
         clear('Kn', 'Hn');
 
@@ -55,8 +60,13 @@ switch para.sweepto
 
         %% Take and apply Matrix exponential
         % C(n,t+dt/2) = exp(+ i K(n) dt/2)_(l'*lr',l*lr) * C(n,t+dt)_(l*lr)
-        Cn = reshape(Cn,[OldDimLeft^2,1]);
-        Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *Cn;
+        if size(Kn,1) <= para.tdvp.maxExpMDim
+            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[OldDimLeft^2,1]);
+        else
+            Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
+                reshape(Cn,[OldDimLeft^2,1]),...
+                para.tdvp.expvTol, para.tdvp.expvM);
+        end
         Cn = reshape(Cn, [OldDimLeft, OldDimLeft]);
         clear('Kn', 'Hn');
 

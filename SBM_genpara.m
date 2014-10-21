@@ -4,8 +4,11 @@ function [modelpara]=SBM_genpara(modelpara)
 %
 % Modified:
 %   FS 19/02/2014:  - added automatic L for L = 0;
-%	FS 25/05/2014:	- added Spectral function of defined in Renger 2002, following Müh 2012
-%	FS 27/05/2014:	- Changed to J(w) as in Renger 2002. This defines for B777, a monomer of B850, while Müh 2012 needs a prefactor to use it for pigments in PSII
+%	FS 25/05/2014:	- added Spectral function of defined in Renger 2002,
+%                     following Müh 2012
+%	FS 27/05/2014:	- Changed to J(w) as in Renger 2002. This defines for
+%                     B777, a monomer of B850, while Müh 2012 needs a
+%                     prefactor to use it for pigments in PSII
 
 z=modelpara.z;
 bigL=ceil(floor(-1*log(realmin)/log(modelpara.Lambda))/2) %Use a large enough start H to make sure the accuracy after transformed to Wilson chain
@@ -32,13 +35,15 @@ end
 if strcmp(modelpara.model,'MLSpinBoson') && modelpara.MLSB_mode == 2
     %% use J(w) from: F. Müh and T. Renger, Biochim. Biophys. Acta 1817, 1446 (2012). DOI: 10.1016/j.bbabio.2012.02.016
     % this code section can be used with any definition of J(w)
+    % Units: eV
+
 %    tic; modelpara.Lambda = 2; bigL = 511; z=1;        % testing
 %   w_c = 1000; accurate up to 10^-3 eV; w_c = 2000: 10^-6 eV; w_c = 3000: 10^-8 eV
     w_cutoff = cmToeV(3000);                            % upper cutoff frequency
 
     xi=zeros(bigL,1);
     gamma=zeros(bigL,1);
-    w_limits = modelpara.Lambda.^(1-z-(0:bigL)).*w_cutoff;      % Define limits of all the discretization intervalls
+    w_limits = modelpara.Lambda.^(1-z-(0:bigL)).*w_cutoff;      % Define limits of all the discretization intervals
     w_limits(1) = w_cutoff;
     for j=1:bigL
         intJ = integral(@(w) J_Renger(w,0),w_limits(j+1),w_limits(j));

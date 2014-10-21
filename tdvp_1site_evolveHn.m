@@ -64,10 +64,16 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 
     %% Take matrix exponential
     % V(t+dt) = exp(-i HAA dt)_(n',n~',n,n~) * V(t)_(n,n~)
-    HAAexp = expm(- 1i .* HAA .*para.tdvp.deltaT./2);
-    Vmat_focused = HAAexp * reshape(Vmat_focused,[dk*OBBDim,1]);
+    if size(HAA,1) <= para.tdvp.maxExpMDim
+        Vmat_focused = expm(- 1i .* HAA .*para.tdvp.deltaT./2) * reshape(Vmat_focused,[dk*OBBDim,1]);
+    else
+        % Do approximation of exp(A)*v
+        Vmat_focused = expv(- 1i*para.tdvp.deltaT./2,HAA,...
+            reshape(Vmat_focused,[dk*OBBDim,1]),...
+            para.tdvp.expvTol, para.tdvp.expvM);
+    end
     Vmat_focused = reshape(Vmat_focused,[dk,OBBDim]);
-    clear('HAAexp','HAA');
+    clear('HAA');
 
     %% normalise Vmat and take focus to A
     [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);  % TODO: enable
@@ -118,13 +124,21 @@ end
 % Last site special, see Haegeman 2014
 % TODO: change expm() with threshold
 if sitej ~= para.L
-    Hnexp = expm(- 1i .* Hn .*para.tdvp.deltaT./2);
+    t = para.tdvp.deltaT./2;
 else
-    Hnexp = expm(- 1i .* Hn .*para.tdvp.deltaT);
+    t = para.tdvp.deltaT;
 end
-mpsNew = Hnexp * reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]);
+
+if size(Hn,1) <= para.tdvp.maxExpMDim
+    mpsNew = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]);
+else
+    mpsNew = expv(- 1i*t, Hn,...
+        reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]),...
+        para.tdvp.expvTol, para.tdvp.expvM);
+end
+
 mps{sitej} = reshape(mpsNew,[BondDimLeft,BondDimRight,OBBDim]);
-clear('Hnexp','mpsNew');
+clear('mpsNew');
 % now: A and V are time-evolved, A is focused
 % if sitej = L, then start lr sweep with decomposition of mps
 
