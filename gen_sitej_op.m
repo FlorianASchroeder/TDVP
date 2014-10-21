@@ -32,7 +32,12 @@ switch para.sweepto
         % Get rescaled bare h1 and h2 terms of current site in on-site basis. (of h2term, only {m,1,j} are rescaled)
         op = gen_sitej_h1h2(op,para,sitej);
     case 'l'
-        % needs to be implemented
+        % Does exactly same as 'r' sweep
+        op.Opleft = op.Opstorage(:,1,sitej);				% empty in first l -> r sweep.	From updateop()
+        op.Opright = op.Opstorage(:,2,sitej+1);             % interaction term op of next site. In eff basis of current r_j
+        op.Hleft = op.Hlrstorage{sitej};					% =0 for j = 1 in first sweep.	From updateop()
+        op.Hright = op.Hlrstorage{sitej + 1};				% H_r which is non-interacting with site j, In eff basis of current r_j
+        op = gen_sitej_h1h2(op,para,sitej);
 end
 
 end

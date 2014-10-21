@@ -8,6 +8,7 @@ function [op] = initstorage(mps, Vmat,op,para)
 % Changed:
 %   FS 20/10/2014: - use op = updateop() instead of explicit calculations
 %                    to remove redundancy
+%                  - moved separate treatment of L into for-loop
 
 Lam=para.Lambda;			% unused! can be deleted
 L=length(mps);
@@ -19,12 +20,14 @@ op.Opstorage = cell(M, 2, L+1);
 op.Hlrstorage{1, 1} = 0;
 op.Hlrstorage{1, L + 1} = 0;
 
-op.Hlrstorage{L} = updateHright(op.Hlrstorage{L + 1}, op.h1term{L}, op.Opstorage(:,2,L+1), mps{L}, Vmat{L}, op.h2term(:,1,L), mps{L}, Vmat{L},M);
+% moved to updateop():
+% op.Hlrstorage{L} = updateHright(op.Hlrstorage{L + 1}, op.h1term{L}, op.Opstorage(:,2,L+1), mps{L}, Vmat{L}, op.h2term(:,1,L), mps{L}, Vmat{L},M);
 	% gives h1term{L} in effective basis of r_L-1 as:
 	% op.Hlrstorage{l+1} = 0; op.h1term{L} = exists ; op.Opstorage(:,2,L+1) = [], op.h2term(:,1,L) = 0;
 
 for m=1:M
-    op.Opstorage{m,2,L}=updateCright([],mps{L},Vmat{L},op.h2term{m,2,L},mps{L},Vmat{L});
+    % moved to updateop():
+%     op.Opstorage{m,2,L}=updateCright([],mps{L},Vmat{L},op.h2term{m,2,L},mps{L},Vmat{L});
 	% transforms interaction terms into r_L-1 ef. basis
     op.Opstorage{m,1,1}=0;
     op.Opstorage{m,2,L+1}=0;
@@ -33,6 +36,6 @@ end
 para.sweepto = 'l';
 
 % middle terms builds from r->l
-for j = L-1:-1:2
+for j = L:-1:2
     op = updateop(op,mps,Vmat,j,para);
 end

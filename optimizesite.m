@@ -1,4 +1,4 @@
-function [Aj,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,sitej)
+function [Amat_focused,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,sitej)
 % Uses Vmat only on not-spin-sites.
 % Uses shift only on not-spin-sites.
 % If at spinsite, sitej = 1: Amatlaststep = mps{sitej}; [Aj, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amatlaststep,para,sitej);
@@ -16,20 +16,21 @@ while optV
     % Use Vmat only for bosonic sites
     if  prod(sitej ~= para.spinposition) && para.useVmat==1                 % Only use Vmat{j} and optimize for the boson sites. Old 05/05/14: (para.dk(sitej)>2 && para.useVmat == 1); Now: ready for array in spinposition
         [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);				% left-normalize A, as r -> l sweep did right normalize.
-        Blaststep = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);			% set focus on Vmat
-        [B,E] = minimizeE_onesiteVmat(op, Amat, Blaststep,para);			% first Energy Optimization
+        Vmat_focused = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);			% set focus on Vmat
+        [Vmat_focused,E] = minimizeE_onesiteVmat(op, Amat, Vmat_focused,para);			% first Energy Optimization
 %         if sitej>=3 && para.rescaling==1
 %             results.geoffset(sitej)=(results.geoffset(sitej-1)+results.leftge(sitej))*para.Lambda;
 %             E=(E+results.geoffset(sitej))./(para.Lambda.^(sitej-2));
 %         end
 %         %results.leftge(sitej)
 %         fprintf('\nE = %.10g\n', E);
-        [Vmat{sitej}, V, results] = prepare_onesiteVmat(B,para,results,sitej);
-        Amatlaststep = contracttensors(Amat, 3, 3, V, 2, 2);
+        [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);
+        Amat_focused = contracttensors(Amat, 3, 3, V, 2, 2);
+        clear('Vmat_focused');
     else
-        Amatlaststep = mps{sitej}; optV=0;
+        Amat_focused = mps{sitej}; optV=0;
     end
-    [Aj, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amatlaststep,para,sitej);
+    [Amat_focused, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amat_focused,para,sitej);
 
 % Shifting basis of bosonic sites only. Different criteria explained in declaration file.
 % prod(sitej ~= para.spinposition) excludes all spin-sites
@@ -65,12 +66,12 @@ while optV
 					[bp,bm,n] = bosonop(sqrt(para.dk(sitej)),para.shift(sitej),para.parity);
 					if para.parity=='n'
 						idm=eye(size(n));
-						bpr=kron(bp,idm);   bmr=bpr';   nr=kron(n,idm);		% right chain
-						bpl=kron(idm,bp);   bml=bpl';   nl=kron(idm,n);		% left chain
+						bpr=kron(bp,idm);   bmr=bpr';   nr=kron(n,idm);     % right chain
+						bpl=kron(idm,bp);   bml=bpl';   nl=kron(idm,n);     % left chain
 					else
 						[bpr,bmr,nr,bpl,bml,nl]=paritykron(bp,para.bosonparity);
 					end
-					x = sqrt(2)/2*(bpr+bmr);								% why only evaluate it for right part?
+					x = sqrt(2)/2*(bpr+bmr);                                % why only evaluate it for right part?
 				otherwise
 					[bp,bm,n] = bosonop(para.dk(sitej),para.shift(sitej),para.parity);
 					x=sqrt(2)/2*(bp+bm);
@@ -81,17 +82,17 @@ while optV
 			else
 				temp=x;
 			end
-			temp=contracttensors(Aj,3,3,temp,2,2);
-			shift=real(contracttensors(temp,3,[1,2,3],conj(Aj),3,[1,2,3]));					% calculate shift after current optimization
+			temp=contracttensors(Amat_focused,3,3,temp,2,2);
+			shift=real(contracttensors(temp,3,[1,2,3],conj(Amat_focused),3,[1,2,3]));       % calculate shift after current optimization
 			para.relativeshift(sitej)=abs(shift-para.shift(sitej))/para.maxshift(sitej);
 			if  para.relativeshift(sitej)>para.relativeshiftprecision                       % if relevant shift, update and rerun optimization
 				para.shift(sitej)=shift;
 				para.shifted = 1;
-				op=update_sitej_h1h2(para,op,sitej);		% shift boson operators
-				mps{sitej}=Aj;								% store Aj in mps to use in next loop
+				op=update_sitej_h1h2(para,op,sitej);                    % shift boson operators
+				mps{sitej}=Amat_focused;								% store Amat in mps to use in next loop
 			else
 				optV=0;
-                % Aj will be returned and normalised + saved later!
+                % Amat will be returned and normalised + saved later!
 			end
 		end
     else

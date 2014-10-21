@@ -43,12 +43,12 @@ while loop<=para.loopmax;
     for j = 1:L
         fprintf('%g-', j); para.sweepto = 'r';
         op=gen_sitej_op(op,para,j,results.leftge);  					% take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
-        [Aj,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,j);
+        [Amat,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,j);
         if j~=L
-            [mps{j}, U, para,results] = prepare_onesite(Aj,para,j,results);
+            [mps{j}, U, para,results] = prepare_onesite(Amat,para,j,results);
             mps{j+1} = contracttensors(U,2,2,mps{j+1},3,1);
         else
-            mps{j}=Aj;
+            mps{j}=Amat;
         end
         op=updateop(op,mps,Vmat,j,para);                                % calls updateHleft, updateCleft to update for next sweep
         % sweep finished
