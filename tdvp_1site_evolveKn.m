@@ -8,34 +8,34 @@ function [mps, Vmat] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn)
 switch para.sweepto
     case'r'
         %% Get Dimensions
-        BondDimLeft  = size(op.Hlrstorage{sitej},1);
-        BondDimRight = results.D{end}(sitej);   % or size(op.Hlrstorage{sitej+1},1), if results.D is not properly written. But should work always since any last change to D is also last entry in that cell array!
-        dk           = results.dk{end}(sitej);
-        if para.useVmat
-            OBBDim      = results.d_opt{end}(sitej);
-        else
-            OBBDim      = dk;
-        end
+        % A(n) = A_(l,r,n), C(n) = C_(cl,cr);  dim(r) == dim(cl)
+        % Where: - A(n) - C(n) - A(n+1) -
+        %           |             |
+        %           n            n+1
+        [BondDimCLeft, BondDimCRight] = size(Cn);                       % BondDimCRight == true right bond dimension of non-site center
+        [BondDimALeft, BondDimARight, OBBDim] = size(mps{sitej});       % if no Vmat, then this = dk
+        assert(BondDimCLeft == BondDimARight);
 
         %% prepare K(n) from H(n)
         % through contraction with A(t+dt)
         % K(n)_(rl',r',rl,r) = [A*_(l',rl',n') * H(n)_(l',r',n',l,r,n)]_(rl',r',l,r,n) * A_(l,rl,n)
-        Hn = reshape(Hn, [BondDimLeft, BondDimRight, OBBDim, BondDimLeft, BondDimRight, OBBDim]);
-        Kn = contracttensors(conj(mps{sitej}),3,[1 3], Hn,6,[1 3]);
-        Kn = contracttensors(Kn,5,[3 5], mps{sitej},3,[1 3]);                   % K(n)_(rl',r',r,rl)
-        Kn = permute(Kn,[1,2,4,3]);                                             % K(n)_(rl',r',rl,r)
-        Kn = reshape(Kn,[BondDimRight^2, BondDimRight^2]);                      % K(n)_(rl'r',rlr)
+        Hn = reshape(Hn, [BondDimALeft, BondDimCRight, OBBDim, BondDimALeft, BondDimCRight, OBBDim]);
+            % Hn has dimensions like focused A(n)
+        Kn = contracttensors(conj(mps{sitej}),3,[1 3], Hn,6,[1 3]);                 % K(n)_(rl',r',l,r,n)
+        Kn = contracttensors(Kn,5,[3 5], mps{sitej},3,[1 3]);                       % K(n)_(rl',r',r,rl)
+        Kn = permute(Kn,[1,2,4,3]);                                                 % K(n)_(rl',r',rl,r)
+        Kn = reshape(Kn,[BondDimCLeft*BondDimCRight, BondDimCLeft*BondDimCRight]);  % K(n)_(rl'r',rlr)
 
         %% Take and apply Matrix exponential
         % C(n,t) = exp(+ i K(n) dt)_(rl'*r',rl*r) * C(n,t+dt)_(rl*r)
         if size(Kn,1) <= para.tdvp.maxExpMDim
-            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[BondDimRight^2,1]);
+            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[BondDimCLeft*BondDimCRight,1]);
         else
             Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
-                reshape(Cn,[BondDimRight^2,1]),...
+                reshape(Cn,[BondDimCLeft*BondDimCRight,1]),...
                 para.tdvp.expvTol, para.tdvp.expvM);
         end
-        Cn = reshape(Cn, [BondDimRight, BondDimRight]);
+        Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
         clear('Kn', 'Hn');
 
         %% Multiply Ac(n+1) = C(n) * Ar(n+1)
@@ -45,29 +45,34 @@ switch para.sweepto
         clear('Cn');
     case 'l'
         %% Get Dimensions
-        [OldDimLeft, OldDimRight, OldOBBDim] = size(mps{sitej+1});              % needed to reshape H(n+1)
-%         BondDimRight = OldDimLeft;                                              % should always hold! since A|l-r|A
+        % A(n+1) = A_(l,r,n+1), C(n) = C_(cl,cr);  dim(l) == dim(cr)
+        % Where: - A(n) - C(n) - A(n+1) -
+        %           |             |
+        %           n            n+1
+        [BondDimCLeft, BondDimCRight] = size(Cn);
+        [BondDimALeft, BondDimARight, OBBDim] = size(mps{sitej+1});         % needed to reshape H(n+1)
+        assert(BondDimCRight == BondDimALeft);
 
         %% prepare K(n) from H(n+1)
         % through contraction with A(t+dt)
         % H(n) still persistent from previous sweep
         % K(n)_(l',lr',l,lr) = [A*_(lr',r',n') * H(n+1)_(l',r',n',l,r,n)]_(lr',l',l,r,n) * A_(lr,r,n)
-        Hn = reshape(Hn, [OldDimLeft, OldDimRight, OldOBBDim, OldDimLeft, OldDimRight, OldOBBDim]);
-        Kn = contracttensors(conj(mps{sitej+1}),3,[2 3], Hn,6,[2 3]);       % K(n)_(lr',l',l,r,n)
-        Kn = contracttensors(Kn,5,[4 5], mps{sitej+1},3,[2 3]);             % K(n)_(lr',l',l,lr)
-        Kn = permute(Kn,[2,1,3,4]);                                         % K(n)_(l',lr',l,lr)
-        Kn = reshape(Kn,[OldDimLeft^2, OldDimLeft^2]);                      % K(n)_(l'*lr',l*lr)
+        Hn = reshape(Hn, [BondDimCLeft, BondDimARight, OBBDim, BondDimCLeft, BondDimARight, OBBDim]);
+        Kn = contracttensors(conj(mps{sitej+1}),3,[2 3], Hn,6,[2 3]);                   % K(n)_(lr',l',l,r,n)
+        Kn = contracttensors(Kn,5,[4 5], mps{sitej+1},3,[2 3]);                         % K(n)_(lr',l',l,lr)
+        Kn = permute(Kn,[2,1,3,4]);                                                     % K(n)_(l',lr',l,lr)
+        Kn = reshape(Kn,[BondDimCLeft*BondDimCRight, BondDimCLeft*BondDimCRight]);      % K(n)_(l'*lr',l*lr)
 
         %% Take and apply Matrix exponential
         % C(n,t+dt/2) = exp(+ i K(n) dt/2)_(l'*lr',l*lr) * C(n,t+dt)_(l*lr)
         if size(Kn,1) <= para.tdvp.maxExpMDim
-            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[OldDimLeft^2,1]);
+            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[BondDimCLeft*BondDimCRight,1]);
         else
             Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
-                reshape(Cn,[OldDimLeft^2,1]),...
+                reshape(Cn,[BondDimCLeft*BondDimCRight,1]),...
                 para.tdvp.expvTol, para.tdvp.expvM);
         end
-        Cn = reshape(Cn, [OldDimLeft, OldDimLeft]);
+        Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
         clear('Kn', 'Hn');
 
         %% Multiply Ac(n) = Al(n) * C(n)

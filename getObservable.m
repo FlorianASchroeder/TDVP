@@ -10,7 +10,7 @@ function out = getObservable(type,mps,Vmat,para)
 %           getObservable({'tunnelenergy',op},mps,Vmat,para)
 %
 %   The output 'out' can be of different form:
-%       'spin':             cell, fields: sx, sy, sz
+%       'spin':             struct, fields: sx, sy, sz
 %       'occupation':       array
 %       'shift':            array
 %       'rdm':              matrix
@@ -79,7 +79,7 @@ end
 sx=ndset;sy=sx;sz=sy;
 
 %debug:
-sx{1,1}
+% sx{1,1}
 
 [sigmaX,sigmaY,sigmaZ]=spinop(para.spinbase);
 sx{para.spinposition}=sigmaX;

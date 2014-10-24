@@ -11,12 +11,12 @@ function [mps, Vmat, para, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op)
 
 %% 0. Parameter settings:
 
-para.tdvp.tmax = 10;
+para.tdvp.tmax = 300;
     % For PPC:
     %   H defined in eV, h\bar left out
-    %   -> real tmax = T * 6.58211928(15)×10?16
-para.tdvp.deltaT = 0.1;                 % size of timeslice in units:
-para.tdvp.maxExpMDim = 10^0;            % maximum allowed a_n*a_(n+1)*d_k.
+    %   -> real tmax = T * 6.58211928(15)×10^-16
+para.tdvp.deltaT = 10;                 % size of timeslice in units:
+para.tdvp.maxExpMDim = 10^2;            % maximum allowed a_n*a_(n+1)*d_k.
 para.tdvp.expvTol = 1e-9;               % error tolerance of expv(); default: 1e-7
 para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
     % Sets threshold size for matrix exponential:
@@ -25,9 +25,10 @@ para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); defa
     %   set maxExpMDim = 0 to only use expv()
 para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
 para.rescaling = para.tdvp.rescaling;
-bondDim = [1 results.D{end} 1];
 
 % estimate the actual dimension in expm() from MPS dimensions.
+% Not really needed now.
+bondDim = [1 results.D{end} 1];
 if para.useVmat
     para.tdvp.currentExpMDim = results.d_opt{end}.*bondDim(1:end-1).*bondDim(2:end);
 else
