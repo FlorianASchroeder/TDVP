@@ -9,20 +9,20 @@ function [mps,Vmat,para,results,op] = minimizeE(op,para)
 % Commented ba Florian Schroeder 03/02/2014
 
 randn('state', 0)
-L=para.L;
+L = para.L;
 M = size(op.h2term,1);
 
-if para.resume==1 && para.savedexist==1
+if para.resume == 1 && para.savedexist==1
     [Vmat,mps,loop,para,results,op]=loadsaved(para);
 else
     loop=1;
-    Vmat = createrandomVmat(para);
-    mps = createrandommps(para);
+    Vmat    = createrandomVmat(para);
+    mps     = createrandommps(para);
     %Preassign space for the results structure.
-    results=initresults(para);
+    results = initresults(para);
 end
 
-para=gennonzeroindex(mps,Vmat,para);
+para = gennonzeroindex(mps,Vmat,para);
 para
 
 [mps,Vmat,para] = prepare(mps,Vmat,para);
@@ -102,19 +102,19 @@ while loop<=para.loopmax;
             para.trustsite(end) = 5;        % arbitrary setting to cause an optimization!
         end
         %%Expand or Truncate D and d_opt
-         para.adjust=1;
+        para.adjust = 1;
 %		 if results.Eerror(end)<para.precision						% PERHAPS GOOD STATEMENT!! TEST THIS! ADD 1 sweep after that before exit!
 %			para.trustsite(end) = para.L;								% this ensures last adjustment of dimensions before finishing minimizeE.m
 %		 end
-         [op,para,results,mps,Vmat]=adjustdopt(op,para,results,mps,Vmat);
-         [mps,Vmat,para, results] = rightnormA(mps,Vmat,para,results);				% changed to also update results
-         %para.trustsite(loop)=0;
-         fprintf('d_opt = ');
-         disp(mat2str(para.d_opt));
-         fprintf('para.D = ');
-         disp(mat2str(para.D));
-		 dispif('para.dk = ', para.useexpand);
-         dispif(mat2str(para.dk),para.useexpand);
+        [op,para,results,mps,Vmat] = adjustdopt(op,para,results,mps,Vmat);      % optimise d_opt and dk
+        [mps,Vmat,para, results]   = rightnormA(mps,Vmat,para,results);         % changed to also update results
+        %para.trustsite(loop)=0;
+        fprintf('d_opt = ');
+        disp(mat2str(para.d_opt));
+        fprintf('para.D = ');
+        disp(mat2str(para.D));
+		dispif('para.dk = ', para.useexpand);
+        dispif(mat2str(para.dk),para.useexpand);
      else
         para.adjust=0;
         [mps,Vmat] = rightnormA(mps,Vmat,para,results);			%	sweeps r->l to right-normalize A matrices.

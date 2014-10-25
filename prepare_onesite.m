@@ -5,6 +5,12 @@ function [B, U, para,results] = prepare_onesite(A,para,sitej,results)
 %       sitej only for logging purposes
 % 2. prepare_onesite(A,para,sitej,results)
 %       writes SV and vNE into results.**{sitej}
+% Usage for 'r' sweep:
+%   [mps{sitej}, Cn, para,results] = prepare_onesite(mps{sitej}, para,sitej,results);
+% -> Saves new Bond dimension in para.D(sitej)!
+% Usage for 'l' sweep:
+%   [mps{sitej}, Cn, para,results] = prepare_onesite(mps{sitej},para,sitej,results);
+% -> Saves new Bond dimension in para.D(sitej-1)!
 %
 %   Changed:
 %       - FS 20/10/2014: replaced direction by para.sweepto
@@ -99,7 +105,7 @@ switch para.sweepto
                 sv = diag(S);
             end
             DB = size(S, 1);
-            para.D(sitej-1)=DB;
+            para.D(sitej-1) = DB;
             B = reshape(B, [DB, d, D2]); B = permute(B, [1, 3, 2]);
 
             % create focused center: C(n)_(l,a) = U_(l,a')*S_(a',a)

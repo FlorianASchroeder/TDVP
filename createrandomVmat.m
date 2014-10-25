@@ -17,7 +17,7 @@ for i = 1:para.L
             Vmat{i} = randn(para.dk(i), para.d_opt(i))./sqrt(para.dk(i)*para.d_opt(i));
         end
     else
-        Vmat{i} = eye(para.dk(i), para.d_opt(i));
+        Vmat{i} = eye(para.dk(i), para.d_opt(i));                   % why still para.d_opt??
     end
 end
 end

@@ -57,8 +57,8 @@ for i = 2:length(Vmat)
 end
 surf(plotMat)
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
-ylabel('Contribution to OBB')
-xlabel('$d_k$')
+ylabel('$d_k$')
+xlabel('Site $k$')
 set(gca,'View',[9.5 40]);
 formatPlot(1)
 rotate3d on
@@ -339,3 +339,49 @@ end
 %% Plot Flowdiagram
 loop = para.loop;
 plot(results.flowdiag{1,loop});
+
+%% For TDVP analysis:
+
+%% Plot evolution of the spin
+figure(1); clf;
+hold all
+sphereon = true;
+if sphereon
+    sphere
+    daspect([1 1 1])
+    alpha(0.2)
+end
+col = parula(size(tmps,1));
+scatter3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz,20,col,'filled');
+% plot3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz);
+set(gca,'xlim',[-1,1]);
+set(gca,'ylim',[-1,1]);
+set(gca,'zlim',[-1,1]);
+
+%% Plot Visibility / Coherence
+figure(2);
+% plot(para.tdvp.t, tresults.spin.visibility);
+plot(para.tdvp.t, tresults.spin.sz);
+xlabel('t');
+ylabel('$<s_z>$');
+%% Plot environment
+figure(3); clf;
+surf(real(tresults.nx))
+% shading interp
+
+%% Plot temporal change in Vmat SV
+figure(4); clf;
+ax = axes('units','pixels');
+pl = surf(cell2mat(results.tVmat_sv(1,:)));
+set(gca,'View',[150 0]);
+set(gca,'zscale','log');
+set(gca,'zlimmode','manual');
+set(gca,'zlim',[1e-15,1]);
+xlabel('Site $k$');
+ylabel('OBB Dimension');
+% shading interp
+sld = uicontrol('Style', 'slider',...
+        'Min',1,'Max',size(tmps,1),'Value',1,...
+        'Position', [400 20 120 20],...
+        'Callback', @(source,callbackdata) set(pl,'zdata',cell2mat(results.tVmat_sv(round(source.Value),:))));
+

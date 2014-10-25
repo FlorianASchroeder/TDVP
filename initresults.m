@@ -1,4 +1,7 @@
-function r=initresults(para)
+function r = initresults(para)
+%
+% Modified:
+%   FS 25/10/2014: - added line for ~para.useVmat to prepare Vmat_sv == 1
 
 L=para.L;
 d_opt=para.d_opt;
@@ -16,6 +19,13 @@ else
     %r.Vmat_sv=zeros(L,max(d_opt));
     r.Amat_sv=cell(1,L-1);
     %r.Amat_sv=zeros(L,D);
+end
+
+if ~para.useVmat
+    % initialise with any dummy values to prevent error
+    for i = 1:L
+        r.Vmat_sv{i} = eye(para.dk(i));
+    end
 end
 
 r.leftge = zeros(L,1);

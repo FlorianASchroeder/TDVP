@@ -54,6 +54,9 @@ switch type{1}
         else
             out = calTunnelingEnergy(mps,Vmat,para);
         end
+    case 'coherence'
+        % only for spin in SBM
+
 end
 
 end

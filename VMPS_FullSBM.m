@@ -1,4 +1,4 @@
-function VMPS_FullSBM(s,alpha,delta, epsilon)
+function VMPS_FullSBM(s,alpha,delta,epsilon)
 %Variational matrix product method to study spin-boson model. Rok's
 %logrithimic discretization and optimal boson basis are implemented in
 %this code.
@@ -152,6 +152,29 @@ if strcmp(para.model,'MLSpinBoson')
     para.d_opt(1) = para.MLSB_Ls;
 
 end
+
+if strcmp(para.model,'SpinBoson')
+%% Set-up parameters for specific ground state preparation!
+    para.SpinBoson.GroundStateMode = 'decoupled';
+        % choose: 'decoupled', 'coupled';
+    para.SpinBoson.InitialState = 'sz';
+
+    if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
+        para.SpinBoson.t1 = para.t(1);
+        para.t(1) = 0;                              % switches off interaction with bath
+    end
+    if strcmp(para.SpinBoson.InitialState, 'sx')
+        para.SpinBoson.hx = para.hx;
+        para.SpinBoson.hz = para.hz;
+        para.hz = 0;
+        para.hx = 10;                               % some value to do a sx splitting
+    elseif strcmp(para.SpinBoson.InitialState, 'sz')
+        para.SpinBoson.hx = para.hx;
+        para.SpinBoson.hz = para.hz;
+        para.hz = 10;                               % some value to get sz+ eigenstate
+        para.hx = 0;
+    end
+end
 %%
 
 para.SVDmethod = 'qr';                      % 'qr': uses QR instead of SVD wherever possible; 'svd': use SVD always (slower)
@@ -180,8 +203,10 @@ if para.parity~='n'
 end
 %% %%%%%%%%%%%%%%%%%%Vmat related parameters%%%%%%%%%%%%%%%%%%%%
 % Introduces Optimal Bosonic Basis (OBB)
-para.useVmat=1;
+para.useVmat=0;
 if para.useVmat==0
+    % then: d_opt = dk
+    para.d_opt = para.dk;
      assert(para.dk_start==max(para.d_opt));
 end
 para.d_opt_min = 2;                                     % minimum d_opt dimension
@@ -191,13 +216,19 @@ para.dkmax=500;
 para.expandprecision =1e-5; % unused?
 para.hasexpanded=0;
 % Method 1:
+% needs para.useVmat = 1
 para.useDkExpand1 = 0;      % Expand dk if largest SV of site is smaller than this thershold. EMPIRICAL. Below this value, Vmat seems to need higher dk
 para.expandBelowSV = 0.995;
 % Method 2:
+% needs para.useVmat = 1
 para.useDkExpand2 = 1;        % Expand if wavefunction on site occupies the high energy dimensions
-para.dkEx2_tail   = 0.4;      % tail length of occupation to analyse
+para.dkEx2_tail   = 0.4;      % tail length [0 1] of occupation in Vmat to analyse
 para.dkEx2_maxDev = 1.5;      % if std(log10(tail)) < maxDev --> no increase; Measures orders of magnitude in fluctuations of tail.
 para.dkEx2_minExp = 13;       % if tail below this order than do not expand.
+% Method 3:
+% TODO:
+%  analyse based on Amat (in case para.useVmat == 0)
+
 %% %%%%%%%%%%%%%%%%%%Shifting related parameters%%%%%%%%%%%%%%%%
 % Introduces shift of bosonic oscillators to increase effective dk
 para.useshift=0;
@@ -238,6 +269,21 @@ end
 %% Start Calculation
 [op,para]=genh1h2term(para);
 [mps, Vmat,para,results,op] = minimizeE(op,para);
+
+if strcmp(para.model,'SpinBoson')
+%% Reset original parameters after specific ground state preparation!
+    if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
+        para.t(1) = para.SpinBoson.t1;
+    end
+    if strcmp(para.SpinBoson.InitialState, 'sx') || strcmp(para.SpinBoson.InitialState, 'sz')
+        para.hx = para.SpinBoson.hx;
+        para.hz = para.SpinBoson.hz;
+    end
+    [op,para]   = genh1h2term(para);                % restore operators!
+    [op]        = initstorage(mps, Vmat, op,para);
+
+end
+
 
 save(para.filename,'para','Vmat','mps','results','op');
 

@@ -3,8 +3,10 @@ function [bp,bm,n]=bosonop(dim,shift,parity)
 % shift sets only offset to diagonal entries
 % Modified:
 %       FS 24/05/2014: replaced slow for-loop by gallery() to create bp
+%       FS 25/10/2014: replaced slow gallery by faster direct sparse
 
-bp = gallery('tridiag',zeros(1,dim-1),zeros(1,dim),sqrt(dim-1:-1:1));
+% bp = gallery('tridiag',zeros(1,dim-1),zeros(1,dim),sqrt(dim-1:-1:1));
+bp = sparse(1:dim-1, 2:dim, sqrt(dim-1:-1:1), dim, dim);
 
 if parity~='n'
     bp=parityorderOP(bp);

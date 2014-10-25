@@ -1,4 +1,4 @@
-function [mps, Vmat, para, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op)
+function [mps, Vmat, para, results, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op)
 %% VMPS Time-dependent variational principle
 %   implementation following Haegeman et al. 2014, arXiv:1408.5056
 %   using Expokit for expv()
@@ -10,22 +10,22 @@ function [mps, Vmat, para, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op)
 %
 
 %% 0. Parameter settings:
-
-para.tdvp.tmax = 300;
-    % For PPC:
-    %   H defined in eV, h\bar left out
-    %   -> real tmax = T * 6.58211928(15)×10^-16
-para.tdvp.deltaT = 10;                 % size of timeslice in units:
-para.tdvp.maxExpMDim = 10^2;            % maximum allowed a_n*a_(n+1)*d_k.
-para.tdvp.expvTol = 1e-9;               % error tolerance of expv(); default: 1e-7
-para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
-    % Sets threshold size for matrix exponential:
-    %   if dim(A) < : use built-in expm(At)*v
-    %   else        : use Expokit expv(t,A,v, expvTol, expvM)
-    %   set maxExpMDim = 0 to only use expv()
-para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
-para.rescaling = para.tdvp.rescaling;
-
+if ~isfield(para,'tdvp')
+    para.tdvp.tmax = 300;
+        % For PPC:
+        %   H defined in eV, h\bar left out
+        %   -> real tmax = T * 6.58211928(15)×10^-16
+    para.tdvp.deltaT = 10;                 % size of timeslice in units:
+    para.tdvp.maxExpMDim = 10^1;            % maximum allowed a_n*a_(n+1)*d_k.
+    para.tdvp.expvTol = 1e-9;               % error tolerance of expv(); default: 1e-7
+    para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
+        % Sets threshold size for matrix exponential:
+        %   if dim(A) < : use built-in expm(At)*v
+        %   else        : use Expokit expv(t,A,v, expvTol, expvM)
+        %   set maxExpMDim = 0 to only use expv()
+    para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
+    para.rescaling = para.tdvp.rescaling;
+end
 % estimate the actual dimension in expm() from MPS dimensions.
 % Not really needed now.
 bondDim = [1 results.D{end} 1];
@@ -45,6 +45,7 @@ end
     % initial time values
     tmps(1, :) = mps;
     tVmat(1,:) = Vmat;
+    results.tVmat_sv(1,:) = results.Vmat_sv;
 %% 2. time sweep
 
 for timeslice = 1:(para.tdvp.tmax/para.tdvp.deltaT)
@@ -101,7 +102,8 @@ for timeslice = 1:(para.tdvp.tmax/para.tdvp.deltaT)
         %% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
         % normalisation needed for updateop()!
         % Applies to bond n -> use sitej for result storage
-        [mps{sitej+1}, Cn, para,results] = prepare_onesite(mps{sitej+1},para,sitej,results);
+        [mps{sitej+1}, Cn, para] = prepare_onesite(mps{sitej+1},para,sitej+1);
+        % if A SV needed: [mps{sitej+1}, Cn, para,results] = prepare_onesite(mps{sitej+1},para,sitej+1,results);
 
         %% Do the time-evolution of C
         % evolve non-site center between sitej and sitej+1
@@ -129,6 +131,7 @@ for timeslice = 1:(para.tdvp.tmax/para.tdvp.deltaT)
     %% calculate time-dependent expectation values
     tmps(timeslice+1, :) = mps;
     tVmat(timeslice+1,:) = Vmat;
+    results.tVmat_sv(timeslice+1,:) = results.Vmat_sv;
 end
 
 
