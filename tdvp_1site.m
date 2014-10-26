@@ -5,6 +5,11 @@ function [mps, Vmat, para, results, tmps, tVmat] = tdvp_1site(mps,Vmat,para,resu
 %
 %   (only use without OBB (Vmat) at the moment!)
 %
+%   To continue a calculation use:
+%       inarg: tmps instead of mps, tVmat instead of Vmat. reorganization
+%              will be done in code under 0.
+%       para.tdvp.slices = size(tmps,1):para.tdvp.tmax/para.tdvp.deltaT has
+%              to be given
 %   Created by Florian Schroeder 07/10/2014
 %
 %
@@ -26,6 +31,20 @@ if ~isfield(para,'tdvp')
     para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
     para.rescaling = para.tdvp.rescaling;
 end
+
+if size(mps,1) ~= 1 && size(Vmat,1) ~= 1
+    %%
+    tmps = mps;
+    tVmat = Vmat;
+    mps = tmps(end,:);
+    Vmat = tVmat(end,:);
+    para.tdvp.slices = size(tmps,1):para.tdvp.tmax/para.tdvp.deltaT;
+   % assert(para.tdvp.slices(1) == size(mps,1),'Ensure that para.tdvp.slices is properly defined to continue the calculation!');
+else
+    % For fresh starts, define the timeslices
+    para.tdvp.slices = 1:(para.tdvp.tmax/para.tdvp.deltaT);
+end
+
 % estimate the actual dimension in expm() from MPS dimensions.
 % Not really needed now.
 bondDim = [1 results.D{end} 1];
@@ -41,14 +60,15 @@ end
     % is already done in op.opstorage and op.hlrstorage
     %
     % also prepare other stuff
-
-    % initial time values
+if ~exist('tmps','var')
+    % initial time values for saving
     tmps(1, :) = mps;
     tVmat(1,:) = Vmat;
     results.tVmat_sv(1,:) = results.Vmat_sv;
+end
 %% 2. time sweep
 
-for timeslice = 1:(para.tdvp.tmax/para.tdvp.deltaT)
+for timeslice = para.tdvp.slices
     para.sweepto = 'r';
     fprintf('t = %g\n', timeslice * para.tdvp.deltaT);
     % sweep l->r and time evolve each site

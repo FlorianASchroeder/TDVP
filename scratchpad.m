@@ -343,7 +343,7 @@ plot(results.flowdiag{1,loop});
 %% For TDVP analysis:
 
 %% Plot evolution of the spin
-figure(1); clf;
+figure(1);clf;
 hold all
 sphereon = true;
 if sphereon
@@ -362,12 +362,16 @@ set(gca,'zlim',[-1,1]);
 figure(2);
 % plot(para.tdvp.t, tresults.spin.visibility);
 plot(para.tdvp.t, tresults.spin.sz);
+set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
 %% Plot environment
 figure(3); clf;
-surf(real(tresults.nx))
-% shading interp
+surf(1:para.L,para.tdvp.t,real(tresults.nx))
+xlabel('Site $k$');
+ylabel('Time $t$');
+zlabel('$<n_k>$');
+shading interp
 
 %% Plot temporal change in Vmat SV
 figure(4); clf;

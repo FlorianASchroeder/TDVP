@@ -5,14 +5,14 @@
 % iSBM:
 % load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141024-1851-SpinBoson-alpha0.01delta0epsilon0.01dk20D5dopt5L49\results.mat');
 % Orth 2010 + Vmat:
-load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49\results.mat')
+% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49\results.mat')
 % Orth 2010 without Vmat:
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141025-1750-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49\results.mat')
-para.tdvp.tmax = 50;
+load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141025-1750-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49\results.mat')
+para.tdvp.tmax = 100;
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
-para.tdvp.deltaT = 0.4;                 % size of timeslice in units:
+para.tdvp.deltaT = 10;                 % size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.maxExpMDim = 10^1;            % maximum allowed a_n*a_(n+1)*d_k.
 para.tdvp.expvTol = 1e-15;               % error tolerance of expv(); default: 1e-7

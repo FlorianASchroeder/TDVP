@@ -8,7 +8,8 @@ function [mps,Vmat,para,results,op] = minimizeE(op,para)
 %
 % Commented ba Florian Schroeder 03/02/2014
 
-randn('state', 0)
+% randn('state', 0)   %% why this line? this always generates the same random Vmat and MPS
+rng(0,'v5normal');     %% should be replaced by: rng(0);
 L = para.L;
 M = size(op.h2term,1);
 
@@ -54,8 +55,8 @@ while loop<=para.loopmax;
         % sweep finished
 
 		% get Energy eigenvalues for analysis
-        Hleft=op.Hlrstorage{j+1};
-		eigvalues=sort(eig((Hleft'+Hleft)/2));
+        Hleft     = op.Hlrstorage{j+1};
+		eigvalues = sort(eig((Hleft'+Hleft)/2));
         % log the flowdiagram
         if para.logging && j~=L                                                         % Last site has different length in EV
             if j~=1            % check for different dimensions to apply vertcat
