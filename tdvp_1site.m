@@ -3,16 +3,19 @@ function [mps, Vmat, para, results, tmps, tVmat] = tdvp_1site(mps,Vmat,para,resu
 %   implementation following Haegeman et al. 2014, arXiv:1408.5056
 %   using Expokit for expv()
 %
-%   (only use without OBB (Vmat) at the moment!)
+%   Expands OBB on sitej upon entering mps{sitej}, before SVD to Vmat
+%   Truncates OBB on sitej after focusing the next mps site
+%
 %
 %   To continue a calculation use:
 %       inarg: tmps instead of mps, tVmat instead of Vmat. reorganization
 %              will be done in code under 0.
-%       para.tdvp.slices = size(tmps,1):para.tdvp.tmax/para.tdvp.deltaT has
-%              to be given
+%
 %   Created by Florian Schroeder 07/10/2014
 %
-%
+%   TODO:
+%       - Bond dimension expansion / truncation
+%       - dk expansion / truncation
 
 %% 0. Parameter settings:
 if ~isfield(para,'tdvp')
@@ -64,7 +67,13 @@ if ~exist('tmps','var')
     % initial time values for saving
     tmps(1, :) = mps;
     tVmat(1,:) = Vmat;
-    results.tVmat_sv(1,:) = results.Vmat_sv;
+    if para.logging
+        results.tdvp.Vmat_sv(1,:) = results.Vmat_sv;
+        results.tdvp.Amat_sv(1,:) = results.Amat_sv;
+        results.tdvp.d_opt(1,:)   = para.d_opt;
+        results.tdvp.D(1,:)       = para.D;
+        results.tdvp.dk(1,:)      = para.dk;
+    end
 end
 %% 2. time sweep
 
@@ -82,6 +91,8 @@ for timeslice = para.tdvp.slices
         [mps, Vmat, para, results, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
 
         % now: A and V are time-evolved, A is focused
+        % OBBDim has increased by 50%. This must be truncated in the next
+        % step again!
         % if sitej = L, then start lr sweep with decomposition of mps
 
         %% Take focus to next site, evolve with K(n)
@@ -92,10 +103,13 @@ for timeslice = para.tdvp.slices
 
             %% Do the time-evolution of C
             % evolve non-site center between sitej and sitej+1
-            % and focus A(n)
+            % and focus A(n+1)
             [mps, Vmat] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
             clear('Hn','Cn');
 
+            if para.useVmat
+                truncateOBB(sitej);
+            end
 
             %% update Left Hamiltonian operators
             op = updateop(op,mps,Vmat,sitej,para);
@@ -131,6 +145,10 @@ for timeslice = para.tdvp.slices
         [mps, Vmat] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
         clear('Hn','Cn');
 
+        if para.useVmat
+            truncateOBB(sitej+1);
+        end
+
         fprintf('%g', sitej);
 
         %% update right Hamiltonian operators
@@ -148,11 +166,39 @@ for timeslice = para.tdvp.slices
 
     % finished with both sweeps, focused on A(1) after time-evolution
     fprintf('\n');
-    %% calculate time-dependent expectation values
+    %% save tmps and tVmat and log parameters
     tmps(timeslice+1, :) = mps;
     tVmat(timeslice+1,:) = Vmat;
-    results.tVmat_sv(timeslice+1,:) = results.Vmat_sv;
+    if para.logging
+        results.tdvp.Vmat_sv(timeslice+1,:) = results.Vmat_sv;
+        results.tdvp.Amat_sv(timeslice+1,:) = results.Amat_sv;
+        results.tdvp.d_opt(timeslice+1,:)   = para.d_opt;
+        results.tdvp.D(timeslice+1,:)       = para.D;
+        results.tdvp.dk(timeslice+1,:)      = para.dk;
+    end
 end
 
+    function truncateOBB(sitej)
+        %% Truncate OBB of mps{sitej}
+        % code taken from adjustdopt.m
+        % only apply if also expanded OBB before
+        discarddims     = find(results.Vmat_sv{sitej} < para.svmintol);
+        if ~isempty(discarddims) && para.tdvp.expandOBB
+            if results.Vmat_sv{sitej}(discarddims(1)-1) > para.svmaxtol     % if next highest not-discarded element too large (causing expansion in next sweep)
+                discarddims = discarddims(2:end);                           % always keep one element < svmaxtol
+            end
+            % if Dif > 0: would remove too many dims; if Dif < 0, no
+            % problem so set Dif = 0
+            difference = para.d_opt_min + length(discarddims) - para.d_opt(sitej);
+            if difference <= 0      % discarddims does not violate d_opt_min
+                difference = 0;
+            end                     % else: discarddims would remove too much by amount = diff;
+%                 dispif('remove dims in d_opt',para.logging)
+            Vmat{sitej}(:,discarddims(difference+1:end))=[];                          % only cut the end
+            mps{sitej}(:,:,discarddims(difference+1:end))=[];
+            para.d_opt(sitej)=size(Vmat{sitej},2);
+            results.Vmat_sv{sitej}(discarddims(difference+1:end))=[];
+        end
+    end
 
 end

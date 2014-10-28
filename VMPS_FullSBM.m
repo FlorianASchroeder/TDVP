@@ -203,7 +203,7 @@ if para.parity~='n'
 end
 %% %%%%%%%%%%%%%%%%%%Vmat related parameters%%%%%%%%%%%%%%%%%%%%
 % Introduces Optimal Bosonic Basis (OBB)
-para.useVmat=0;
+para.useVmat=1;
 if para.useVmat==0
     % then: d_opt = dk
     para.d_opt = para.dk;

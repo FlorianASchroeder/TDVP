@@ -16,6 +16,20 @@ M = size(op.h2j,1);
 
 %% If using Vmat, evolve it first, only BOSON!
 if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bosonic site only!
+    %% expand OBB in A and V by 50%
+    % since this expansion is temporarily, save change later.
+    % expand always BEFORE SVD
+    if (dk ~= OBBDim) && para.tdvp.expandOBB
+        mps{sitej} = cat(3,mps{sitej},zeros(BondDimLeft, BondDimRight, min([floor(OBBDim*0.5),dk-OBBDim,BondDimLeft*BondDimRight-OBBDim])));
+        Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, min([floor(OBBDim*0.5),dk-OBBDim,BondDimLeft*BondDimRight-OBBDim])));
+        [BondDimLeft, BondDimRight, OBBDim]  = size(mps{sitej});
+        para.d_opt(sitej) = OBBDim;
+%     else
+%         Anew = mps{sitej};
+%         Vmatnew = Vmat{sitej};
+    end
+
+    %% SVD to set focus on Vmat
     [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);              % left-normalize A, SVD in n.
     Vmat_focused = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);         % set focus on Vmat: V_(n,n~)
     clear('V');
@@ -73,13 +87,24 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
             para.tdvp.expvTol, para.tdvp.expvM);
     end
     Vmat_focused = reshape(Vmat_focused,[dk,OBBDim]);
-    clear('HAA');
+%     clear('HAA');
 
     %% normalise Vmat and take focus to A
     [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);  % TODO: enable
-%     [Vmat_focused, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);  % TODO: disable
+    % V_(n^,n~)
+    % evolve center backward in time:
+    % HAV_(n^',n~',n^,n~) = Vmat*_(n',n^')* HAA_(n',n~',n,n~) Vmat_(n,n^)
+    HAA = reshape(HAA,[dk,OBBDim,dk,OBBDim]);
+    HAV = contracttensors(conj(Vmat{sitej}),2,1, HAA,4,1);
+    HAV = contracttensors(HAV,4,3, Vmat{sitej},2,1);
+    HAV = permute(HAV,[1,2,4,3]);
+    [n1,n2,n3,n4] = size(HAV);
+    HAV = reshape(HAV, [n1*n2,n3*n4]);
+    V = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
+            reshape(V,[n1*n2,1]),...
+            para.tdvp.expvTol, para.tdvp.expvM);
+    V = reshape(V,[n1,n2]);
     mps{sitej} = contracttensors(Amat, 3, 3, V, 2, 2);     % TODO: enable later
-%     Amat = contracttensors(Amat, 3, 3, V, 2, 2);            % TODO: disable
     clear('Amat','Vmat_focused','V');
 
 end
@@ -91,7 +116,7 @@ end
 if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat = eye
     % h1term to OBB, h1j can be rescaled
     % h1j_(n~',n~) = V*_(n',n~') [h1j_(n',n) V_(n,n~)]_(n',n~)
-    h1j = contracttensors(op.h1j,2,2,Vmat{sitej},2,1);            % h1j_(n',n~)  = h1j_(n',n) V_(n,n~)
+    h1j = contracttensors(op.h1j,2,2,Vmat{sitej},2,1);          % h1j_(n',n~)  = h1j_(n',n) V_(n,n~)
     h1j = contracttensors(conj(Vmat{sitej}),2,1,h1j,2,1);       % h1j_(n~',n~) = V*_(n',n~') h1j_(n',n~)
 
     % h2term to OBB, h2j can be rescaled
