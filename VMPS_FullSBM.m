@@ -66,14 +66,24 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
     para.MLSB_mode = 2;
 end
 
-para.foldedChain=0;                     % parameter to tell that Supersites for chain are used!
-para.spinposition=1;                    % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
-para.rescaling=1;                       % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
-para.complex=0;							% set to 1 if any complex parameters are used.
-para.resume=0;                          % Read from saved results if available.
-para.logging = 1;                       % Switch on logging and
+para.discretization = 'OrthogonalPolynomials';  % choose: 'OrthogonalPolynomials','LogZitko'
+para.foldedChain=0;                             % parameter to tell that Supersites for chain are used!
+para.spinposition=1;                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
+para.rescaling=1;                               % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
+para.complex=0;                                 % set to 1 if any complex parameters are used.
+para.resume=0;                                  % Read from saved results if available.
+para.logging = 1;                               % Switch on logging and
 parity = 0;
-para.precision = 5e-15;                 % was 5e-15; Determines chain length if L=0;
+para.precision = 5e-15;                         % was 5e-15; Determines chain length if L=0;
+
+if strcmp(para.discretization,'OrthogonalPolynomials')
+    % now only for SBM, to be extended for any J(w)
+    % no need to define:
+    % z, Lambda
+    % since site energies converge to w_c/2 = 0.5, Optimum chain length can
+    % not easily be determined -> give para.L
+    para.L = 50;
+end
 
 %% %%%%%%% Calculate Wilson Chain parameters %%%%%%%%%%%%%%%%%%
 % needed here: para.model, [para.MLSB_mode]
@@ -158,6 +168,7 @@ if strcmp(para.model,'SpinBoson')
     para.SpinBoson.GroundStateMode = 'decoupled';
         % choose: 'decoupled', 'coupled';
     para.SpinBoson.InitialState = 'sz';
+        % choose: 'sz', 'sx'
 
     if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
         para.SpinBoson.t1 = para.t(1);
@@ -177,7 +188,9 @@ if strcmp(para.model,'SpinBoson')
 end
 %%
 
-para.SVDmethod = 'qr';                      % 'qr': uses QR instead of SVD wherever possible; 'svd': use SVD always (slower)
+para.SVDmethod = 'qr';                      % 'qr': uses QR instead of SVD wherever possible; 'svd': use SVD always (slower) (Not working now)
+% smallest SV shall lie between [max, min] otherwise truncate or expand
+% the smaller the higher accuracy
 para.svmaxtol=1e-6;
 para.svmintol=1e-8;                     %para.svmaxtol/2; %The lower limit for the smallest Vmat singular values.
 para.adjust=0;                          %Initialize as 0, no need the edit. To adjust D. Is set = 1 in minimizeE.m
@@ -206,6 +219,7 @@ end
 para.useVmat=1;
 if para.useVmat==0
     % then: d_opt = dk
+    fprintf('Not using Vmat and OBB!\n');
     para.d_opt = para.dk;
      assert(para.dk_start==max(para.d_opt));
 end

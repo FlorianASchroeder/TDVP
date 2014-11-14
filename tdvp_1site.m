@@ -23,8 +23,8 @@ if ~isfield(para,'tdvp')
         % For PPC:
         %   H defined in eV, h\bar left out
         %   -> real tmax = T * 6.58211928(15)×10^-16
-    para.tdvp.deltaT = 10;                 % size of timeslice in units:
-    para.tdvp.maxExpMDim = 10^1;            % maximum allowed a_n*a_(n+1)*d_k.
+    para.tdvp.deltaT = 10;                  % size of timeslice in units:
+    para.tdvp.maxExpMDim = 10^2;            % For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
     para.tdvp.expvTol = 1e-9;               % error tolerance of expv(); default: 1e-7
     para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
         % Sets threshold size for matrix exponential:
@@ -34,6 +34,7 @@ if ~isfield(para,'tdvp')
     para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
     para.rescaling = para.tdvp.rescaling;
 end
+para.trustsite(end) = para.L;       % necessary to enable several truncation / expansion mechanisms
 
 if size(mps,1) ~= 1 && size(Vmat,1) ~= 1
     %%
@@ -99,7 +100,8 @@ for timeslice = para.tdvp.slices
         if sitej ~= para.L
             fprintf('-');
             %% Left-normalize A and get Center matrix C(n,t+dt)_(rl,r)
-            [mps{sitej}, Cn, para,results] = prepare_onesite(mps{sitej}, para,sitej,results);
+            % expand/truncate BondDimensions here?
+            [mps{sitej}, Cn, para,results] = prepare_onesite_truncate(mps{sitej}, para,sitej,results);
 
             %% Do the time-evolution of C
             % evolve non-site center between sitej and sitej+1

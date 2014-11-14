@@ -21,8 +21,8 @@ switch para.model
                 [sigmaX,~,sigmaZ]=spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
                 zm_spin=zeros(2);
                 op.h1term{1}=-para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
-                op.h2term{1,1,1} = para.t(1).*sigmaZ; op.h2term{1,2,1} = zm_spin;		% was sigmaX
-                op.h2term{2,1,1} = para.t(1).*sigmaZ; op.h2term{2,2,1} = zm_spin;		% was sigmaX
+                op.h2term{1,1,1} = para.t(1).*sigmaZ; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+                op.h2term{2,1,1} = para.t(1).*sigmaZ; op.h2term{2,2,1} = zm_spin;
             case para.L                                             % last chain pos: only one coupling?
                 [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
                 zm=sparse(size(bp,1),size(bp,1));
@@ -31,8 +31,8 @@ switch para.model
                 op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bp;
             otherwise
                 [bp,bm,n] = bosonop(para.dk(s),para.shift(s),para.parity);
-                op.h1term{s}=para.epsilon(s-1).*n;
-                op.h2term{1,1,s} = para.t(s).*bp; op.h2term{1,2,s} = bm;
+                op.h1term{s}=para.epsilon(s-1).*n;                          % e(1) == w(0)
+                op.h2term{1,1,s} = para.t(s).*bp; op.h2term{1,2,s} = bm;    % t(2) == t(n=0)
                 op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -257,7 +257,7 @@ switch para.model
                 [HS0, HSI] = MLSB_Operators(para);                  % uses local function
                 zm_spin=zeros(para.MLSB_Ls);
                 op.h1term{1}= HS0;
-                op.h2term{1,1,1} = para.t(1).*HSI; op.h2term{1,2,1} = zm_spin;		% was sigmaX
+                op.h2term{1,1,1} = para.t(1).*HSI; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi) only for J_Renger!
                 op.h2term{2,1,1} = para.t(1).*conj(HSI'); op.h2term{2,2,1} = zm_spin;		% was sigmaX; conj() to still have hermitian Hamiltonian!
             case para.L
                 [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);

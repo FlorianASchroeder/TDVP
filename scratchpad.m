@@ -220,7 +220,6 @@ if wantSave
     export_fig(sprintf('%sChangeOfVmatSV%s',saveto,para.filename(1:13)),'-transparent','-png')
 end
 
-
 %% plotting first rows of uneven cell arrays
 cellfun(@(x) x(1,1), results.Vmat_sv(2:end))
 %% try to calculate Shift analytically:
@@ -342,7 +341,7 @@ plot(results.flowdiag{1,loop});
 
 %% For TDVP analysis:
 
-%% Plot evolution of the spin
+%% TDVP SBM: Plot evolution of the spin
 figure(1);clf;
 hold all
 sphereon = true;
@@ -358,22 +357,23 @@ set(gca,'xlim',[-1,1]);
 set(gca,'ylim',[-1,1]);
 set(gca,'zlim',[-1,1]);
 
-%% Plot Visibility / Coherence
+%% TDVP SBM: Plot Visibility / Coherence
 figure(2);
 % plot(para.tdvp.t, tresults.spin.visibility);
 plot(para.tdvp.t, tresults.spin.sz);
 set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
-%% Plot environment
+%% TDVP: Plot environment
 figure(3); clf;
 surf(1:para.L,para.tdvp.t,real(tresults.nx))
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$<n_k>$');
-shading interp
-
-%% Plot temporal change in Vmat SV
+% shading interp
+rotate3d on
+axis tight
+%% TDVP: Plot temporal change in Vmat SV
 figure(4); clf;
 ax = axes('units','pixels');
 pl = surf(cell2mat(results.tVmat_sv(1,:)));
@@ -389,3 +389,84 @@ sld = uicontrol('Style', 'slider',...
         'Position', [400 20 120 20],...
         'Callback', @(source,callbackdata) set(pl,'zdata',cell2mat(results.tVmat_sv(round(source.Value),:))));
 
+%% TDVP: Plot Norm of Amat SV over time
+figure(5);clf;
+surf(1:(para.L-1),para.tdvp.t,cellfun(@norm, results.tdvp.Amat_sv))
+xlabel('Site $k$');
+ylabel('Time $t$');
+axis tight
+rotate3d on
+%% TDVP: Plot Norm of Vmat SV over time
+figure(5);clf;
+surf(1:(para.L-1),para.tdvp.t,cellfun(@norm, results.tdvp.Vmat_sv(:,2:end)))
+xlabel('Site $k$');
+ylabel('Time $t$');
+axis tight
+rotate3d on
+
+%% TDVP: Plot Sum over Vmat in 3D - analyse dk expand
+figure(6);
+rotate3d off
+zeroVals = -50;             % value of zeros for padding and -inf replacement
+plotMatTime = cell(size(tmps,1),1);
+for j = 1:size(tmps,1)      % timeslices
+    Vmatj = tVmat(j,:);
+    Vmatj_sv = results.tdvp.Vmat_sv(j,:);
+    plotMat = [];
+for i = 2:length(Vmatj)
+    if size(Vmatj{1,i},2) < size(Vmatj_sv{1,i},1)
+        a = log10(sum(abs(real(Vmatj{1,i}*diag(Vmatj_sv{1,i}(1:size(Vmatj{1,i},2),:)))),2));
+    else
+        a = log10(sum(abs(real(Vmatj{1,i}(:,1:size(Vmatj_sv{1,i},1))*diag(Vmatj_sv{1,i}))),2));
+    end
+    a(a==-inf)=zeroVals;
+    %a = log10(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2));
+    dim = max(length(a),size(plotMat,1));
+    if length(a)< dim
+        a = padarray(a,dim-length(a),zeroVals,'pre');
+    elseif size(plotMat,1) < dim
+        plotMat = padarray(plotMat,dim-size(plotMat,1),zeroVals,'pre');
+    end
+    plotMat = [plotMat,a];
+end
+plotMatTime{j} = plotMat;
+end
+pl = surf(plotMatTime{1});
+title('Temporal change of OBB')
+ylabel('$d_k$')
+xlabel('Site $k$')
+set(gca,'View',[9.5 40]);
+formatPlot(6)
+axis tight
+rotate3d on
+sld = uicontrol('Style', 'slider',...
+        'Min',1,'Max',size(tmps,1),'Value',1,...
+        'Position', [1100 20 120 20],...
+        'Callback', @(source,callbackdata) set(pl,'zdata',plotMatTime{round(source.Value)}));
+
+%% TDVP z-averaging in files
+% naming scheme to find files:
+%   take series filename and replace z-value by *
+folder = '20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49';
+filescheme = 'results-Till325Step4z*-OBBExpand-noBondExpand.mat';
+files = dir(sprintf('%s/%s',folder,filescheme));
+PlotData.spin.sz = [];
+PlotData.z = [];
+for k = 1:length(files)
+    load([folder,'/',files(k).name]);
+    PlotData.spin.sz(k,:) = tresults.spin.sz;
+    PlotData.z(k) = para.z;
+end
+PlotData.t = para.tdvp.t;
+plot(PlotData.t,[PlotData.spin.sz;mean(PlotData.spin.sz)]);
+ylim([-1,1]);
+legLabels = strsplit(sprintf('%.10g ',PlotData.z)); legLabels{end} = 'z-Ave';
+legend(legLabels);
+set(gca,'color','none');
+xlabel('t');
+ylabel('$<s_z>$');
+%% Plot only z-averaged sz
+plot(PlotData.t,mean(PlotData.spin.sz));
+ylim([-1,1]);set(gca,'color','none');
+xlabel('t');
+ylabel('$<s_z>$');

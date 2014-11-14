@@ -10,8 +10,30 @@ function [modelpara]=SBM_genpara(modelpara)
 %                     B777, a monomer of B850, while Müh 2012 needs a
 %                     prefactor to use it for pigments in PSII
 
-z=modelpara.z;
+s = modelpara.s;
+if strcmp(modelpara.discretization,'OrthogonalPolynomials')
+	assert(isfield(modelpara,'L'),'Please state required chain length!');
+    assert(modelpara.L>1,'Please give finite value for chain length!');
+    assert(isfield(modelpara,'alpha'),'Please state para.alpha, the strength of coupling!');
+    [modelpara.epsilon, modelpara.t] = chainParams_OrthogonalPolynomials();
+    return;
+end
+    function [w, t] = chainParams_OrthogonalPolynomials()
+        %% returns w = epsilon and t for J(w) from A. Leggett
+        % using orthogonal polynomial mapping from A. W. Chin et al. J. Math. Phys. 51, 092109 (2010). DOI: 10.1063/1.3490188
+        % No need for tridiagonalization since analytical result.
+        % t(1) == sqrt(eta_0/pi)/2
+        wc = 1;     % cutoff is set to 1 always!
+        n = 0:modelpara.L-2;
+        w = wc/2.*(1+ (s^2./((s+2.*n).*(2+s+2.*n))));                                       % w(1) = w(n=0)
+        t = (wc.*(1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));     % t(1) = t(n=0) != coupling to system
+        t = [ sqrt(2*pi*modelpara.alpha*wc^2/(1+s))/(2*sqrt(pi)), t(1:end-1)];              % t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
+    end
+
+z = modelpara.z;
 bigL=ceil(floor(-1*log(realmin)/log(modelpara.Lambda))/2) %Use a large enough start H to make sure the accuracy after transformed to Wilson chain
+
+
 
 function y = J_Renger(w,i)
     %% Section for Spectral function for LH2 of Rhodoblastus acidophilus from Renger 2002, Müh 2012

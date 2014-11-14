@@ -31,6 +31,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 
     %% SVD to set focus on Vmat
     [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);              % left-normalize A, SVD in n.
+    [BondDimLeft, BondDimRight, OBBDim]  = size(Amat);
     Vmat_focused = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);         % set focus on Vmat: V_(n,n~)
     clear('V');
     % Amat = MPS{sitej} left normalised;
