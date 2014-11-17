@@ -178,6 +178,9 @@ for timeslice = para.tdvp.slices
         results.tdvp.D(timeslice+1,:)       = para.D;
         results.tdvp.dk(timeslice+1,:)      = para.dk;
     end
+	if mod(timeslice,5)
+		save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat');
+	end
 end
 
     function truncateOBB(sitej)

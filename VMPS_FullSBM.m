@@ -19,7 +19,7 @@ function VMPS_FullSBM(s,alpha,delta,epsilon)
 maxNumCompThreads(1);
 format short e
 
-starttime = tic
+starttime = tic;
 if isdeployed           % take care of command line arguments
 %     if ischar(hx), hx = str2num(hx); end
 %     if ischar(hz), hz = str2num(hz); end
@@ -66,7 +66,9 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
     para.MLSB_mode = 2;
 end
 
-para.discretization = 'OrthogonalPolynomials';  % choose: 'OrthogonalPolynomials','LogZitko'
+% para.chainMapping = 'LogDiscrZitko';
+para.chainMapping = 'OrthogonalPolynomials';
+    % choose: 'OrthogonalPolynomials','LogDiscrZitko'
 para.foldedChain=0;                             % parameter to tell that Supersites for chain are used!
 para.spinposition=1;                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
 para.rescaling=1;                               % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
@@ -76,7 +78,7 @@ para.logging = 1;                               % Switch on logging and
 parity = 0;
 para.precision = 5e-15;                         % was 5e-15; Determines chain length if L=0;
 
-if strcmp(para.discretization,'OrthogonalPolynomials')
+if strcmp(para.chainMapping,'OrthogonalPolynomials')
     % now only for SBM, to be extended for any J(w)
     % no need to define:
     % z, Lambda

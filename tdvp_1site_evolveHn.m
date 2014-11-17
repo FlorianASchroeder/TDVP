@@ -20,6 +20,8 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     % since this expansion is temporarily, save change later.
     % expand always BEFORE SVD
     if (dk ~= OBBDim) && para.tdvp.expandOBB
+        % next line: argument ,BondDimLeft*BondDimRight-OBBDim in min() is
+        % wrong I think. can be removed, but has to be checked again!
         mps{sitej} = cat(3,mps{sitej},zeros(BondDimLeft, BondDimRight, min([floor(OBBDim*0.5),dk-OBBDim,BondDimLeft*BondDimRight-OBBDim])));
         Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, min([floor(OBBDim*0.5),dk-OBBDim,BondDimLeft*BondDimRight-OBBDim])));
         [BondDimLeft, BondDimRight, OBBDim]  = size(mps{sitej});

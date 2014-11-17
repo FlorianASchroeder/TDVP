@@ -248,6 +248,22 @@ formatPlot(1)
 if wantSave
     export_fig(sprintf('%s%s-Occupation',saveto,para.filename(1:13)),'-transparent','-png','-pdf','-painters')
 end
+%% Plot Chain epsilon-t
+figure(2)
+title('Chain hopping and site energies');
+subplot(1,2,1)
+pl(1) = plot(para.t);
+set(gca,'YScale','log');
+xlabel('Site k')
+ylabel('$t_k$')
+subplot(1,2,2)
+pl(2) = plot(para.epsilon);
+set(gca,'YScale','log');
+xlabel('Site k')
+ylabel('$\epsilon_k$')
+
+formatPlot(2)
+
 %% Plot relative deviation from calculated < n >
 %  Much more important as here the Wavefunction corrects also for different shift.
 nx = [0 (shift.*shift./2)'];
@@ -356,6 +372,7 @@ scatter3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz,20,col,'filled');
 set(gca,'xlim',[-1,1]);
 set(gca,'ylim',[-1,1]);
 set(gca,'zlim',[-1,1]);
+rotate3d on
 
 %% TDVP SBM: Plot Visibility / Coherence
 figure(2);
@@ -364,7 +381,8 @@ plot(para.tdvp.t, tresults.spin.sz);
 set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
-%% TDVP: Plot environment
+
+%% TDVP: Plot <n> environment
 figure(3); clf;
 surf(1:para.L,para.tdvp.t,real(tresults.nx))
 xlabel('Site $k$');
@@ -373,6 +391,7 @@ zlabel('$<n_k>$');
 % shading interp
 rotate3d on
 axis tight
+
 %% TDVP: Plot temporal change in Vmat SV
 figure(4); clf;
 ax = axes('units','pixels');
@@ -447,8 +466,9 @@ sld = uicontrol('Style', 'slider',...
 %% TDVP z-averaging in files
 % naming scheme to find files:
 %   take series filename and replace z-value by *
-folder = '20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49';
-filescheme = 'results-Till325Step4z*-OBBExpand-noBondExpand.mat';
+% folder = '20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49';
+folder = '20141115-1639-SpinBoson-alpha0.1delta0.1epsilon9dk20D5dopt5L49';%'20141114-2019-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49';
+filescheme = 'results-Till325Step4*-OBBExpand-noBondExpand*.mat';
 files = dir(sprintf('%s/%s',folder,filescheme));
 PlotData.spin.sz = [];
 PlotData.z = [];
@@ -468,5 +488,36 @@ ylabel('$<s_z>$');
 %% Plot only z-averaged sz
 plot(PlotData.t,mean(PlotData.spin.sz));
 ylim([-1,1]);set(gca,'color','none');
+xlabel('t');
+ylabel('$<s_z>$');
+
+%% TDVP z-averaging create Orth 2010
+% naming scheme to find files:
+%   take series filename and replace z-value by *
+folder = {'20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49',...
+          '20141114-2019-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49',...
+          '20141115-1639-SpinBoson-alpha0.1delta0.1epsilon9dk20D5dopt5L49',...
+          '20141115-1639-SpinBoson-alpha0.15delta0.1epsilon9dk20D5dopt5L49',...
+          '20141115-1640-SpinBoson-alpha0.2delta0.1epsilon9dk20D5dopt5L49'};
+filescheme = 'results-Till325Step4*-OBBExpand-noBondExpand*.mat';
+PlotData.spin.meanSz = [];
+PlotData.alpha = [];
+
+for k = 1:length(folder)
+    PlotData.spin.sz = [];
+    files = dir(sprintf('%s/%s',folder{k},filescheme));
+    for l = 1:length(files)
+        load([folder{k},'/',files(l).name]);
+        PlotData.spin.sz(l,:) = tresults.spin.sz;
+    end
+    PlotData.alpha(k) = para.alpha;
+    PlotData.spin.meanSz(k,:) = mean(PlotData.spin.sz);
+end
+PlotData.t = para.tdvp.t;
+plot(PlotData.t,PlotData.spin.meanSz);
+ylim([-1,1]);
+legLabels = strsplit(sprintf('%.10g ',PlotData.alpha)); legLabels{end} = 'z-Ave';
+legend(legLabels);
+set(gca,'color','none');
 xlabel('t');
 ylabel('$<s_z>$');

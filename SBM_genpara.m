@@ -11,7 +11,7 @@ function [modelpara]=SBM_genpara(modelpara)
 %                     prefactor to use it for pigments in PSII
 
 s = modelpara.s;
-if strcmp(modelpara.discretization,'OrthogonalPolynomials')
+if strcmp(modelpara.chainMapping,'OrthogonalPolynomials')
 	assert(isfield(modelpara,'L'),'Please state required chain length!');
     assert(modelpara.L>1,'Please give finite value for chain length!');
     assert(isfield(modelpara,'alpha'),'Please state para.alpha, the strength of coupling!');
