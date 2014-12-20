@@ -1,4 +1,4 @@
-function [mps, Vmat, para, results, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op)
+function tdvp_1site(mps,Vmat,para,results,op)
 %% VMPS Time-dependent variational principle
 %   implementation following Haegeman et al. 2014, arXiv:1408.5056
 %   using Expokit for expv()
@@ -14,7 +14,6 @@ function [mps, Vmat, para, results, tmps, tVmat] = tdvp_1site(mps,Vmat,para,resu
 %   Created by Florian Schroeder 07/10/2014
 %
 %   TODO:
-%       - Bond dimension expansion / truncation
 %       - dk expansion / truncation
 
 %% 0. Parameter settings:
@@ -36,14 +35,22 @@ if ~isfield(para,'tdvp')
 end
 para.trustsite(end) = para.L;       % necessary to enable several truncation / expansion mechanisms
 
+% open file for writing results
+assert(isfield(para.tdvp,'filename'),'Need definition of para.tdvp.filename to save results!');
+outFile = matfile(para.tdvp.filename,'Writable',true);
+
 if size(mps,1) ~= 1 && size(Vmat,1) ~= 1
-    %%
+    %% If continue previous TDVP
     tmps = mps;
     tVmat = Vmat;
     mps = tmps(end,:);
     Vmat = tVmat(end,:);
     para.tdvp.slices = size(tmps,1):para.tdvp.tmax/para.tdvp.deltaT;
    % assert(para.tdvp.slices(1) == size(mps,1),'Ensure that para.tdvp.slices is properly defined to continue the calculation!');
+   if ~isprop(outFile,'mps')
+	   outFile.mps = tmps(1,:);				% save the starting mps / Vmat, necessary for new files
+	   outFile.Vmat = tVmat(1,:);
+   end
 else
     % For fresh starts, define the timeslices
     para.tdvp.slices = 1:(para.tdvp.tmax/para.tdvp.deltaT);
@@ -66,7 +73,7 @@ end
     % also prepare other stuff
 if ~exist('tmps','var')
     % initial time values for saving
-    tmps(1, :) = mps;
+    tmps(1,:) = mps;
     tVmat(1,:) = Vmat;
     if para.logging
         results.tdvp.Vmat_sv(1,:) = results.Vmat_sv;
@@ -74,8 +81,12 @@ if ~exist('tmps','var')
         results.tdvp.d_opt(1,:)   = para.d_opt;
         results.tdvp.D(1,:)       = para.D;
         results.tdvp.dk(1,:)      = para.dk;
+		results.tdvp.expvTime     = [];
     end
 end
+outFile.tmps = tmps;
+outFile.tVmat = tVmat;
+clear('tmps','tVmat');
 %% 2. time sweep
 
 for timeslice = para.tdvp.slices
@@ -169,8 +180,8 @@ for timeslice = para.tdvp.slices
     % finished with both sweeps, focused on A(1) after time-evolution
     fprintf('\n');
     %% save tmps and tVmat and log parameters
-    tmps(timeslice+1, :) = mps;
-    tVmat(timeslice+1,:) = Vmat;
+    outFile.tmps(timeslice+1, :) = mps;					% writes to File
+    outFile.tVmat(timeslice+1,:) = Vmat;				% writes to File
     if para.logging
         results.tdvp.Vmat_sv(timeslice+1,:) = results.Vmat_sv;
         results.tdvp.Amat_sv(timeslice+1,:) = results.Amat_sv;
@@ -178,8 +189,9 @@ for timeslice = para.tdvp.slices
         results.tdvp.D(timeslice+1,:)       = para.D;
         results.tdvp.dk(timeslice+1,:)      = para.dk;
     end
-	if mod(timeslice,5)
-		save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat');
+	if mod(timeslice,5) == 0 || timeslice ==  para.tdvp.slices(end)
+		%% backup results, op and para less often than tmps and tVmat
+		save(para.tdvp.filename,'para','results','op','-append');
 	end
 end
 

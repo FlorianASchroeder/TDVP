@@ -3,6 +3,9 @@ function [A, E] = minimizeE_onesiteA(op, B, Alaststep,para,sitej)
 
 
 % Commented by Florian Schroeder 31/01/2014
+% Modified:
+%	- FS 01/12/2014: replaced OBB transformation by matrix products.
+%					 10x faster! A' = conjugate transpose!
 
 % ******************** one-site optimization ***********************
 tol=para.eigs_tol;
@@ -18,22 +21,24 @@ end
 M = size(op.h2j, 1);
 
 % transform all bare H terms of sitej into OBB
-op.h1j = contracttensors(op.h1j,2,2,B,2,1);             % = h1_ab V_bd
-op.h1j = contracttensors(conj(B),2,1,op.h1j,2,1);       % -> h1'_cd = V*_ac h1_ab V_bd
+op.h1j = B'*op.h1j*B;									% faster and more accurate
+% op.h1j = contracttensors(op.h1j,2,2,B,2,1);             % = h1_ab V_bd
+% op.h1j = contracttensors(conj(B),2,1,op.h1j,2,1);       % -> h1'_cd = V*_ac h1_ab V_bd
 
 for i=1:M
-    op.h2j{i,1} = contracttensors(op.h2j{i,1},2,2,B,2,1);
-    op.h2j{i,1} = contracttensors(conj(B),2,1,op.h2j{i,1},2,1);
-
-    op.h2j{i,2} = contracttensors(op.h2j{i,2},2,2,B,2,1);
-    op.h2j{i,2} = contracttensors(conj(B),2,1,op.h2j{i,2},2,1);
+	op.h2j{i,1} = B'*op.h2j{i,1}*B;									% faster and more accurate
+%     op.h2j{i,1} = contracttensors(op.h2j{i,1},2,2,B,2,1);
+%     op.h2j{i,1} = contracttensors(conj(B),2,1,op.h2j{i,1},2,1);
+    op.h2j{i,2} = B'*op.h2j{i,2}*B;									% faster and more accurate
+%     op.h2j{i,2} = contracttensors(op.h2j{i,2},2,2,B,2,1);
+%     op.h2j{i,2} = contracttensors(conj(B),2,1,op.h2j{i,2},2,1);
 end
 
 
 % projection on orthogonal subspace
 %if ~isempty(P), Heff = P' * Heff * P; end
 
-% optimization
+%% optimization
 
 % options for eigs()
 opts.disp = 0;

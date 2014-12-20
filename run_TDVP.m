@@ -1,49 +1,63 @@
-function run_TDVP()
+function run_TDVP(alpha)
 %% start ground state calculations
-% VMPS_FullSBM(1,0.2,0.1,0)     % VMPS_FullSBM(s,alpha,delta,epsilon)
+fileName =  VMPS_FullSBM(1,alpha,0.1,0)     % VMPS_FullSBM(s,alpha,delta,epsilon)
 
+% load(fileName);
 
 %% Define GS configuration for TDVP
 % Decoupled System-environment:
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141028-1325-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49\results.mat');
+% load('20141028-1325-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49/results.mat');
 
 % iSBM:
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141024-1851-SpinBoson-alpha0.01delta0epsilon0.01dk20D5dopt5L49\results.mat');
+% load('20141024-1851-SpinBoson-alpha0.01delta0epsilon0.01dk20D5dopt5L49/results.mat');
 
 % Orth 2010 + Vmat:
 % alpha = 0.01
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49\results.mat')
+% load('20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49/results.mat')
 % alpha = 0.05
 % load('20141114-2019-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49\results.mat')
 % alpha = 0.1
-% load('20141115-1639-SpinBoson-alpha0.1delta0.1epsilon9dk20D5dopt5L49\results.mat')
+% load('20141117-0405-SpinBoson-alpha0.1delta0.1epsilon0dk20D5dopt5L49/results.mat')
 % alpha = 0.15
-% load('20141115-1639-SpinBoson-alpha0.15delta0.1epsilon9dk20D5dopt5L49\results.mat')
+% load('20141117-0406-SpinBoson-alpha0.15delta0.1epsilon0dk20D5dopt5L49/results.mat')
 % alpha = 0.2
-% load('20141115-1640-SpinBoson-alpha0.2delta0.1epsilon9dk20D5dopt5L49\results.mat')
+% load('20141117-0406-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L49/results.mat')
+% load('20141117-0531-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L84/results.mat')
 
 % Orth 2010 without Vmat:
 % alpha = 0.01:
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141025-1750-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49\results.mat')
+% load('20141025-1750-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49/results.mat')
 % alpha = 0.05:
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141026-2259-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49\results.mat')
+% load('20141026-2259-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49/results.mat')
 
 % Orthogonal Polynomials, Orth 2010 + Vmat
 % alpha = 0.01:
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1625-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat')
+load('20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat')
+% load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
+
 % alpha = 0.05:
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1617-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L50\results.mat')
+% load('20141114-1617-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L50/results.mat')
+% alpha = 0.1:
+% load('20141117-0641-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L50/results.mat')
+% alpha = 0.15:
+% load('20141117-0642-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L50/results.mat')
 % alpha = 0.2:
-load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141116-0229-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L50\results.mat')
+% load('20141116-0229-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L50/results.mat')
+
 %% Define TDVP parameters
-para.tdvp.tmax = 325;
+para.tdvp.tmax = 20;
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.deltaT = 4;                 % size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
-para.tdvp.maxExpMDim = 10^2;            % For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
-para.tdvp.expvTol = 1e-15;               % error tolerance of expv(); default: 1e-7
+para.tdvp.maxExpMDim = 10^2;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
+para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800
+para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
+para.tdvp.expvCustomNow = 0;			% only set inside the program
+para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
+para.complex = 1;
+para.tdvp.expvTol = 1e-15;              % error tolerance of expv(); default: 1e-7
 para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
     % Sets threshold size for matrix exponential:
     %   if dim(A) < : use built-in expm(At)*v
@@ -59,7 +73,29 @@ para.tdvp.truncateExpandBonds = 0;
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
 para.tdvp.maxBondDim = 20;
 
-para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%d-noOBBExpand-noBondExpand.mat'],para.tdvp.tmax,para.tdvp.deltaT);
+%% Format Filename
+if isfield(para.tdvp,'filename')
+	%% Continued TDVP
+	para.tdvp.fromFilename = para.tdvp.filename;		% save the reference to continued file
+	% input the TDVP matrices!
+	mps = tmps;
+	Vmat = tVmat;
+end
+
+para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%d.mat'],para.tdvp.tmax,para.tdvp.deltaT);
+if para.tdvp.expandOBB
+	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-OBBExpand.mat']);
+else
+	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-noOBBExpand.mat']);
+end
+if para.tdvp.truncateExpandBonds
+	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-BondExpand%d.mat'],para.tdvp.maxBondDim);
+else
+	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-noBondExpand.mat']);
+end
+if para.tdvp.expvCustom
+	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-expvCustom%d.mat'],para.tdvp.maxExpVDim);
+end
 
 % z-Averaging for log-Discretization
 para.tdvp.zAveraging = 0;
@@ -68,14 +104,26 @@ if para.tdvp.zAveraging
 
 end
 
+%% Copy to scratch for computation
+if ~strcmp(computer,'PCWIN64')
+	save([para.tdvp.filname(1:end-4),'-incomplete.mat'],'para','results');
+	tempDir = '/scratch/fayns2/TDVPtemp/';tempFold = fileparts(para.filename);
+	currentDir = pwd;
+	addpath(currentDir);
+	mkdir([tempDir,tempFold]);
+	copyfile(para.filename,[tempDir,tempFold]);
+	cd(tempDir);
+end
+
 %% Do Time-Evolution with 1-site TDVP
 if para.tdvp.zAveraging == 0
     starttime = tic;
-    [~, ~, para, results, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op);
-    results.tdvp.time = toc(starttime);
-    save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat');
+    tdvp_1site(mps,Vmat,para,results,op);
+    load(para.tdvp.filename,'para','tmps','tVmat','results');
+	results.tdvp.time = toc(starttime);
     tresults = calTimeObservables(tmps,tVmat,para);
-    save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat','tresults');
+    save(para.tdvp.filename,'tresults','-append');
+	save([para.tdvp.filename(1:end-4),'-small.mat'],'para','results','tresults');
 else
 	basename = para.tdvp.filename;
     for z = 1:-para.tdvp.zStep:1e-5
@@ -88,20 +136,28 @@ else
 
         %% Do time-evolution and save results
         starttime = tic;
-        [mps1, Vmat1, para, results, tmps, tVmat] = tdvp_1site(mps,Vmat,para,results,op);
-        results.tdvp.time = toc(starttime);
-        save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat');
+        tdvp_1site(mps,Vmat,para,results,op);
+        load(para.tdvp.filename,'para','tmps','tVmat','results');
+		results.tdvp.time = toc(starttime);
         tresults = calTimeObservables(tmps,tVmat,para);
-        save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat','tresults');
+        save(para.tdvp.filename,'tresults','-append');
+		save([para.tdvp.filename(1:end-4),'-small.mat'],'para','results','tresults');
 
+		if ~strcmp(computer,'PCWIN64')
+			copyfile([para.tdvp.filename(1:end-4),'-small.mat'],[currentDir,'/',para.tdvp.filename(1:end-4),'-small.mat']);
+		end
         %% clear all results from sweep
         clear('tmps','tVmat','mps1','Vmat1');
         results.tdvp = struct();
     end
 end
+if ~strcmp(computer,'PCWIN64')
+	copyfile([para.tdvp.filename(1:end-4),'-small.mat'],[currentDir,'/',para.tdvp.filename(1:end-4),'-small.mat']);
+	exit;
+end
 return;
 
-%% calculate observables afterwards:
+%% calculate observables afterwards in z:
 folders = {'20141115-1639-SpinBoson-alpha0.1delta0.1epsilon9dk20D5dopt5L49',...
            '20141115-1639-SpinBoson-alpha0.15delta0.1epsilon9dk20D5dopt5L49',...
            '20141115-1640-SpinBoson-alpha0.2delta0.1epsilon9dk20D5dopt5L49'};
@@ -115,5 +171,7 @@ for k = 1:length(folders)
         save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat','tresults');
     end
 end
+
+
 
 end

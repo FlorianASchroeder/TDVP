@@ -1,4 +1,4 @@
-function VMPS_FullSBM(s,alpha,delta,epsilon)
+function fileName = VMPS_FullSBM(s,alpha,delta,epsilon)
 %Variational matrix product method to study spin-boson model. Rok's
 %logrithimic discretization and optimal boson basis are implemented in
 %this code.
@@ -31,13 +31,29 @@ if isdeployed           % take care of command line arguments
 %    if ischar(parity), parity = str2num(parity); end
 end
 
-%% Parameters
+%% Choose model and chain mapping
 para.model='SpinBoson';
     % choose: 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson','ImpurityQTN'
+% para.chainMapping = 'LogDiscrZitko';
+para.chainMapping = 'OrthogonalPolynomials';
+    % choose: 'OrthogonalPolynomials','LogDiscrZitko'
 
-para.Lambda=2;                          % Bath log Discretization parameter
-para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
-para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
+%% Parameters
+if strcmp(para.chainMapping,'OrthogonalPolynomials')
+    %% now only for SBM, to be extended for any J(w)
+    % no need to define:
+    % z, Lambda
+    % since site energies converge to w_c/2 = 0.5, Optimum chain length can
+    % not easily be determined -> give para.L
+    para.L = 50;
+	para.rescaling = 0;						% only for LogDiscrZitko applicable
+elseif strcmp(para.chainMapping,'LogDiscrZitko')
+    %%
+    para.Lambda=2;                          % Bath log Discretization parameter
+    para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
+    para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
+	para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
+end
 L=para.L;
 
 if ~strcmp(para.model,'MLSpinBoson')
@@ -45,7 +61,7 @@ if ~strcmp(para.model,'MLSpinBoson')
     para.hz = -epsilon;                     % Splitting with sigma_Z
     para.s  = s;                            % SBM spectral function power law behaviour
     para.alpha=alpha;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
-    if para.alpha == 0
+    if para.alpha == 0 && para.L == 0
         para.L = 50;                        % otherwise encounter error
     end
 end
@@ -56,7 +72,7 @@ dk = 20;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
-    % Model Definition para.MLSB_mode:
+    % Phonon Model Definition para.MLSB_mode:
     %   1:  from diagonalised, constant spacing Delta, predefined t=[t1 t2 t3 t4...]; energies symmetric about 0s
     %       Needs Define: MLSB_Ls, MLSB_Delta, MLSB_t,
     %       Automatically defined: SBM J(w)
@@ -66,26 +82,14 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
     para.MLSB_mode = 2;
 end
 
-% para.chainMapping = 'LogDiscrZitko';
-para.chainMapping = 'OrthogonalPolynomials';
-    % choose: 'OrthogonalPolynomials','LogDiscrZitko'
 para.foldedChain=0;                             % parameter to tell that Supersites for chain are used!
 para.spinposition=1;                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
-para.rescaling=1;                               % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
 para.complex=0;                                 % set to 1 if any complex parameters are used.
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
 parity = 0;
 para.precision = 5e-15;                         % was 5e-15; Determines chain length if L=0;
 
-if strcmp(para.chainMapping,'OrthogonalPolynomials')
-    % now only for SBM, to be extended for any J(w)
-    % no need to define:
-    % z, Lambda
-    % since site energies converge to w_c/2 = 0.5, Optimum chain length can
-    % not easily be determined -> give para.L
-    para.L = 50;
-end
 
 %% %%%%%%% Calculate Wilson Chain parameters %%%%%%%%%%%%%%%%%%
 % needed here: para.model, [para.MLSB_mode]
@@ -272,7 +276,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
+para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-OrthPol-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
     para.model,alpha,delta,epsilon,dk,D,d_opt,L);
 para.filename=strcat(para.folder,'/results.mat');
 if ~exist(para.filename,'file')
@@ -319,4 +323,5 @@ end
 results.time = toc(starttime)
 save(para.filename,'para','Vmat','mps','results','op');
 
+fileName = para.filename;
 end

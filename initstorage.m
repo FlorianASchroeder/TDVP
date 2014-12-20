@@ -10,7 +10,6 @@ function [op] = initstorage(mps, Vmat,op,para)
 %                    to remove redundancy
 %                  - moved separate treatment of L into for-loop
 
-Lam=para.Lambda;			% unused! can be deleted
 L=length(mps);
 M = size(op.h2term,1); 		% number of terms in sum per site
 op.Hlrstorage = cell(1, L + 1);

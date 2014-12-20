@@ -377,14 +377,15 @@ rotate3d on
 %% TDVP SBM: Plot Visibility / Coherence
 figure(2);
 % plot(para.tdvp.t, tresults.spin.visibility);
-plot(para.tdvp.t, tresults.spin.sz);
+plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sz);
 set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
 
 %% TDVP: Plot <n> environment
 figure(3); clf;
-surf(1:para.L,para.tdvp.t,real(tresults.nx))
+n = size(tresults.nx,1);
+surf(1:para.L,para.tdvp.t(1:n),real(tresults.nx))
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$<n_k>$');
@@ -463,11 +464,13 @@ sld = uicontrol('Style', 'slider',...
         'Position', [1100 20 120 20],...
         'Callback', @(source,callbackdata) set(pl,'zdata',plotMatTime{round(source.Value)}));
 
-%% TDVP z-averaging in files
+%% TDVP z-averaging in one file
 % naming scheme to find files:
 %   take series filename and replace z-value by *
-% folder = '20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49';
-folder = '20141115-1639-SpinBoson-alpha0.1delta0.1epsilon9dk20D5dopt5L49';%'20141114-2019-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49';
+folder = '20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49';
+figure(7);clf;
+% folder = '20141117-0531-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L84';
+% folder = '20141117-0406-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L49';
 filescheme = 'results-Till325Step4*-OBBExpand-noBondExpand*.mat';
 files = dir(sprintf('%s/%s',folder,filescheme));
 PlotData.spin.sz = [];
@@ -491,33 +494,90 @@ ylim([-1,1]);set(gca,'color','none');
 xlabel('t');
 ylabel('$<s_z>$');
 
-%% TDVP z-averaging create Orth 2010
+%% TDVP (8) z-averaging create Orth 2010
 % naming scheme to find files:
 %   take series filename and replace z-value by *
+figure(8);clf;
 folder = {'20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49',...
           '20141114-2019-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49',...
-          '20141115-1639-SpinBoson-alpha0.1delta0.1epsilon9dk20D5dopt5L49',...
-          '20141115-1639-SpinBoson-alpha0.15delta0.1epsilon9dk20D5dopt5L49',...
-          '20141115-1640-SpinBoson-alpha0.2delta0.1epsilon9dk20D5dopt5L49'};
+          '20141117-0405-SpinBoson-alpha0.1delta0.1epsilon0dk20D5dopt5L49',...
+          '20141117-0406-SpinBoson-alpha0.15delta0.1epsilon0dk20D5dopt5L49',...
+          '20141117-0406-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L49'};
 filescheme = 'results-Till325Step4*-OBBExpand-noBondExpand*.mat';
-PlotData.spin.meanSz = [];
-PlotData.alpha = [];
 
-for k = 1:length(folder)
-    PlotData.spin.sz = [];
-    files = dir(sprintf('%s/%s',folder{k},filescheme));
-    for l = 1:length(files)
-        load([folder{k},'/',files(l).name]);
-        PlotData.spin.sz(l,:) = tresults.spin.sz;
-    end
-    PlotData.alpha(k) = para.alpha;
-    PlotData.spin.meanSz(k,:) = mean(PlotData.spin.sz);
+if ~exist('PlotData8','var')
+    PlotData8.spin.meanSz = [];
+    PlotData8.alpha = [];
 end
-PlotData.t = para.tdvp.t;
-plot(PlotData.t,PlotData.spin.meanSz);
+if isempty(PlotData8.spin.meanSz)
+    for k = 1:length(folder)
+        PlotData8.spin.sz = [];
+        files = dir(sprintf('%s/%s',folder{k},filescheme));
+        for l = 1:length(files)
+            load([folder{k},'/',files(l).name]);
+            PlotData8.spin.sz(l,:) = tresults.spin.sz;
+        end
+        PlotData8.alpha(k) = para.alpha;
+        PlotData8.spin.meanSz(k,:) = mean(PlotData8.spin.sz);
+    end
+end
+
+PlotData8.t = para.tdvp.t;
+plot(PlotData8.t,PlotData8.spin.meanSz);
 ylim([-1,1]);
-legLabels = strsplit(sprintf('%.10g ',PlotData.alpha)); legLabels{end} = 'z-Ave';
+legLabels = strsplit(sprintf('%.10g ',PlotData8.alpha)); legLabels{end} = 'z-Ave';
 legend(legLabels);
 set(gca,'color','none');
 xlabel('t');
 ylabel('$<s_z>$');
+
+%% TDVP (9) Orthogonal Polynomials L = 50: Orth 2010
+figN = 10;
+figure(figN); clf;
+folder50 = {'20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50',...
+            '20141114-1617-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L50',...
+            '20141117-0641-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L50',...
+            '20141117-0642-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L50',...
+            '20141116-0229-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L50'};
+if ~exist('PlotData9','var')
+    PlotData9.sz = [];
+    PlotData9.alpha = [];
+end
+if isempty(PlotData9.sz)
+    for k = 1:length(folder50)
+		% No OBB No Bond Expand:
+%         filename = dir(sprintf('%s/results-Till325Step4-noOBBExpand-noBondExpand.mat',folder50{k}));
+		% OBB and Bond Expand, max Bond 20
+		filename = dir(sprintf('%s/results-Till325Step4-OBBandBondExpand20*.mat',folder50{k}));
+		try
+	        load(sprintf('%s/%s',folder50{k},filename.name),'tresults','para');
+		catch
+			continue
+		end
+        PlotData9.sz(k,1:length(tresults.spin.sz)) = tresults.spin.sz;
+        PlotData9.alpha(k) = para.alpha;
+    end
+    PlotData9.t = para.tdvp.t;
+end
+plot(PlotData9.t,PlotData9.sz);
+ylim([-1,1]);
+legLabels = strsplit(sprintf('%.10g ',PlotData9.alpha));
+legend(legLabels(1:end-1));
+set(gca,'color','none');
+xlabel('t');
+ylabel('$<s_z>$');
+formatPlot(figN);
+
+%% TDVP (10) expvCustom Benchmarking
+figure(10);clf;
+hold all
+scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,1),'+');
+scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,3),'*');
+% scatter(sqrt(results.tdvp.expvTime(:,3)),results.tdvp.expvTime(:,2),'*');
+% scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,3));
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+legend('Custom Krylov e^{At}v','Expokit')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(10)

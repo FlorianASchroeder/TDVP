@@ -46,8 +46,13 @@ end
 % if parts from X and Y will be left over
 X = permute(X, [indXl, indX]); X = reshape(X, [prod(sizeXl), prod(sizeX)]);
 Y = permute(Y, [indY, indYr]); Y = reshape(Y, [prod(sizeY), prod(sizeYr)]);
+% sprintf('cond(X) = %.10g, cond(Y) = %.10g', cond(X),cond(Y))
+% a=norm(full(X));b=norm(full(Y));
+% sprintf('norm(X) = %.10g, norm(Y) = %.10g', a,b)
 
 X = X * Y;
+% fprintf('||X|| ||Y|| /||XY|| = %.10g\n', a*b/norm(full(X)))
+
 Xsize = [Xsize(indXl), Ysize(indYr)]; 			% new array dimensions are from X to the left, and Y to the right
 numindX = length(Xsize); 					% new total dimension number
 X = reshape(X, [Xsize, 1]);					% why 1 at the end? To conserve the other dimensions?

@@ -9,6 +9,8 @@ function [modelpara]=SBM_genpara(modelpara)
 %	FS 27/05/2014:	- Changed to J(w) as in Renger 2002. This defines for
 %                     B777, a monomer of B850, while Müh 2012 needs a
 %                     prefactor to use it for pigments in PSII
+%   FS 16/11/2014:  - Added analytical result for Orthogonal Polynomial
+%                     chain mapping of J(w) of the SBM.
 
 s = modelpara.s;
 if strcmp(modelpara.chainMapping,'OrthogonalPolynomials')
@@ -18,6 +20,7 @@ if strcmp(modelpara.chainMapping,'OrthogonalPolynomials')
     [modelpara.epsilon, modelpara.t] = chainParams_OrthogonalPolynomials();
     return;
 end
+
     function [w, t] = chainParams_OrthogonalPolynomials()
         %% returns w = epsilon and t for J(w) from A. Leggett
         % using orthogonal polynomial mapping from A. W. Chin et al. J. Math. Phys. 51, 092109 (2010). DOI: 10.1063/1.3490188
@@ -108,7 +111,7 @@ end
 indiag=zeros(bigL,1);
 inrow=indiag;
 
-inrow(2:bigL)  = gamma(1:bigL-1)./(2*sqrt(pi));
+inrow(2:bigL)  = gamma(1:bigL-1)./(2*sqrt(pi));                         % factor of 1/2 will only affect t(1) -> can be moved into Hamiltonian
 indiag(2:bigL) = xi(1:bigL-1);
 
 [epsilon,t]=star2tridiag(indiag,inrow);
