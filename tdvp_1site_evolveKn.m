@@ -45,7 +45,9 @@ switch para.sweepto
 				Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
 					reshape(Cn,[BondDimCLeft*BondDimCRight,1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
-% 				dispif(rms(Cn-Cn1),para.tdvp.expvCustomTestAccuracy);		% debug
+				if para.tdvp.expvCustomTestAccuracyRMS
+					disp(rms(Cn-Cn1));		% debug
+				end
 			end
         end
         Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
@@ -92,7 +94,9 @@ switch para.sweepto
 				Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
 					reshape(Cn,[BondDimCLeft*BondDimCRight,1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
-% 				dispif(rms(Cn-Cn1),para.tdvp.expvCustomTestAccuracy);		% debug
+				if para.tdvp.expvCustomTestAccuracyRMS
+					disp(rms(Cn-Cn1));		% debug
+				end
 			end
 		else
 			Cn = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...

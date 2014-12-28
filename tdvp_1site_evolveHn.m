@@ -94,25 +94,27 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 	end
     %% Take matrix exponential
     % V(t+dt) = exp(-i HAA dt)_(n',n~',n,n~) * V(t)_(n,n~)
-    if para.tdvp.expvCustomNow == 0 && size(HAA,1) <= para.tdvp.maxExpMDim
-        Vmat_focused = expm(- 1i .* HAA .*para.tdvp.deltaT./2) * reshape(Vmat_focused,[dk*OBBDim,1]);
-    else
-        % Do approximation of exp(A)*v
-		if para.tdvp.expvCustomNow
-			Vmat_focused = expvCustom(- 1i*para.tdvp.deltaT./2,'HAA',...
-				reshape(Vmat_focused,[dk*OBBDim,1]),...
-				Amat, [], para, op);
+    if para.tdvp.expvCustomNow == 0
+		if size(HAA,1) <= para.tdvp.maxExpMDim
+			Vmat_focused = expm(- 1i .* HAA .*para.tdvp.deltaT./2) * reshape(Vmat_focused,[dk*OBBDim,1]);
 		else
+			% Do approximation of exp(A)*v
 			if para.tdvp.expvCustomTestAccuracy
 				V1 = expvCustom(- 1i*para.tdvp.deltaT./2,'HAA',...
-				reshape(Vmat_focused,[dk*OBBDim,1]),...
-				Amat, [], para, op);
+					 reshape(Vmat_focused,[dk*OBBDim,1]),...
+					 Amat, [], para, op);
 			end
 			Vmat_focused = expv(- 1i*para.tdvp.deltaT./2,HAA,...
-				reshape(Vmat_focused,[dk*OBBDim,1]),...
-				para.tdvp.expvTol, para.tdvp.expvM);
-% 			dispif(rms(Vmat_focused-V1),para.tdvp.expvCustomTestAccuracy);
+						   reshape(Vmat_focused,[dk*OBBDim,1]),...
+						   para.tdvp.expvTol, para.tdvp.expvM);
+ 			if para.tdvp.expvCustomTestAccuracyRMS
+				disp(rms(Vmat_focused-V1));
+			end
 		end
+	else
+		Vmat_focused = expvCustom(- 1i*para.tdvp.deltaT./2,'HAA',...
+					   reshape(Vmat_focused,[dk*OBBDim,1]),...
+					   Amat, [], para, op);
     end
     Vmat_focused = reshape(Vmat_focused,[dk,OBBDim]);
 %     clear('HAA');
@@ -141,7 +143,9 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			V = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
 					reshape(V,[numel(V),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
-% 			dispif(rms(V-V1),para.tdvp.expvCustomTestAccuracy);
+			if para.tdvp.expvCustomTestAccuracyRMS
+				disp(rms(V-V1));
+			end
 		end
 	else
 		V = expvCustom(+ 1i*para.tdvp.deltaT./2,'HAV',...
@@ -202,37 +206,42 @@ else
     t = para.tdvp.deltaT;
 end
 
-if  para.tdvp.expvCustomNow == 0 && size(Hn,1) <= para.tdvp.maxExpMDim
-    mpsNew = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]);
-else
-	% Do approximation of exp(A)*v
-	if para.tdvp.expvCustomNow
-		mpsNew = expvCustom(- 1i*t, 'Hn',...
-			reshape(mps{sitej},[numel(mps{sitej}),1]),...
-			[],[],para,op);
-		Hn = [];		% dummy return value;
+if  para.tdvp.expvCustomNow == 0
+	if size(Hn,1) <= para.tdvp.maxExpMDim
+		mpsNew = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]);
 	else
 		if para.tdvp.expvCustomTestAccuracy									% debug
 			tempT = tic;
 			mpsNew1 = expvCustom(- 1i*t, 'Hn',...
-				reshape(mps{sitej},[numel(mps{sitej}),1]),...
-				[],[],para,op);
+					  reshape(mps{sitej},[numel(mps{sitej}),1]),...
+					  [],[],para,op);
 			t1 = toc(tempT);
 		end
 		tempT = tic;
 		mpsNew = expv(- 1i*t, Hn,...
-			reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]),...
-			para.tdvp.expvTol, para.tdvp.expvM);
+				 reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]),...
+				 para.tdvp.expvTol, para.tdvp.expvM);
 		t2 = toc(tempT);
-% 		dispif(rms(mpsNew-mpsNew1),para.tdvp.expvCustomTestAccuracy);	% debug
-		if para.tdvp.expvCustomTestAccuracy
-			results.tdvp.expvTime = [results.tdvp.expvTime; t1, t2,t3, numel(Hn)];
+		if para.tdvp.expvCustomTestAccuracyRMS
+			disp(rms(mpsNew-mpsNew1));	% debug
 		end
+		if para.tdvp.expvCustomTestAccuracy
+			results.tdvp.expvTime = [results.tdvp.expvTime; t1, t2, t3, numel(Hn)];
+		end
+	end
+else
+	tempT = tic;
+	mpsNew = expvCustom(- 1i*t, 'Hn',...
+		reshape(mps{sitej},[numel(mps{sitej}),1]),...
+		[],[],para,op);
+	Hn = [];		% dummy return value;
+	t1 = toc(tempT);
+	if para.tdvp.expvCustomTestAccuracy
+		results.tdvp.expvTime = [results.tdvp.expvTime; t1,0,0,BondDimLeft*BondDimRight*OBBDim];
 	end
 end
 
 mps{sitej} = reshape(mpsNew,[BondDimLeft,BondDimRight,OBBDim]);
-clear('mpsNew');
 % now: A and V are time-evolved, A is focused
 % if sitej = L, then start lr sweep with decomposition of mps
 

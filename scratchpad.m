@@ -324,7 +324,8 @@ figure(1);
 plot(cell2mat(results.EvaluesLog)-min(cell2mat(results.EvaluesLog)));
 disp(sprintf('%.15e',results.E))
 set(gca,'YScale','log');
-title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));
+try
+title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));catch end
 xlabel('Site$\cdot$Loop');
 ylabel('$E-E_0$');
 formatPlot(1)
@@ -358,7 +359,7 @@ plot(results.flowdiag{1,loop});
 %% For TDVP analysis:
 
 %% TDVP SBM: Plot evolution of the spin
-figure(1);clf;
+figure(2);clf;
 hold all
 sphereon = true;
 if sphereon
@@ -366,7 +367,7 @@ if sphereon
     daspect([1 1 1])
     alpha(0.2)
 end
-col = parula(size(tmps,1));
+col = parula(size(tresults.spin.sx,1));
 scatter3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz,20,col,'filled');
 % plot3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz);
 set(gca,'xlim',[-1,1]);
@@ -547,7 +548,7 @@ if isempty(PlotData9.sz)
     for k = 1:length(folder50)
 		% No OBB No Bond Expand:
 %         filename = dir(sprintf('%s/results-Till325Step4-noOBBExpand-noBondExpand.mat',folder50{k}));
-		% OBB and Bond Expand, max Bond 20
+		% OBB and Bond Expand, max Bond 20;
 		filename = dir(sprintf('%s/results-Till325Step4-OBBandBondExpand20*.mat',folder50{k}));
 		try
 	        load(sprintf('%s/%s',folder50{k},filename.name),'tresults','para');
@@ -568,16 +569,50 @@ xlabel('t');
 ylabel('$<s_z>$');
 formatPlot(figN);
 
-%% TDVP (10) expvCustom Benchmarking
-figure(10);clf;
+%% TDVP (10) Orthogonal Polynomials L = 200: Orth 2010
+figN = 10;
+figure(figN); clf;
+folder50 = {'20141221-0148-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200',...
+            '20141221-0148-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L200',...
+            '20141221-0151-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L200',...
+            '20141221-0151-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L200',...
+            '20141221-0153-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L200'};
+if ~exist('PlotData9','var')
+    PlotData9.sz = [];
+    PlotData9.alpha = [];
+end
+if isempty(PlotData9.sz)
+    for k = 1:length(folder50)
+		% OBB and Bond Expand, max Bond 20;
+		filename = dir(sprintf('%s/results-Till325Step4-OBB*Expand20*.mat',folder50{k}))
+		try
+	        load(sprintf('%s/%s',folder50{k},filename.name),'tresults','para');
+		catch
+			continue
+		end
+        PlotData9.sz(k,1:length(tresults.spin.sz)) = tresults.spin.sz;
+        PlotData9.alpha(k) = para.alpha;
+    end
+    PlotData9.t = para.tdvp.t;
+end
+plot(PlotData9.t,PlotData9.sz);
+ylim([-1,1]);
+legLabels = strsplit(sprintf('%.10g ',PlotData9.alpha));
+legend(legLabels(1:end-1));
+set(gca,'color','none');
+xlabel('t');
+ylabel('$<s_z>$');
+formatPlot(figN);
+%% TDVP (11) expvCustom Benchmarking
+figure(9);clf;
 hold all
 scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,1),'+');
 scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,3),'*');
-% scatter(sqrt(results.tdvp.expvTime(:,3)),results.tdvp.expvTime(:,2),'*');
+% scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,2),'*');
 % scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,3));
 set(gca,'yscale','log')
 set(gca,'xscale','log')
 legend('Custom Krylov e^{At}v','Expokit')
 xlabel('Matrix dimension n')
 ylabel('Time/s')
-formatPlot(10)
+formatPlot(9)

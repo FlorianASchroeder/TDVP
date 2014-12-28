@@ -179,6 +179,10 @@ for timeslice = para.tdvp.slices
 
     % finished with both sweeps, focused on A(1) after time-evolution
     fprintf('\n');
+	completePercent = round(timeslice./length(para.tdvp.slices)*1000)./10;
+	hoursElapsed = toc(para.tdvp.starttime)./3600;
+	hoursLeft = hoursElapsed./completePercent.*(100-completePercent);
+	fprintf('Completed: %d%%, Time elapsed: %.2gh, Time left: %.2gh\n', completePercent, hoursElapsed, hoursLeft);
     %% save tmps and tVmat and log parameters
     outFile.tmps(timeslice+1, :) = mps;					% writes to File
     outFile.tVmat(timeslice+1,:) = Vmat;				% writes to File

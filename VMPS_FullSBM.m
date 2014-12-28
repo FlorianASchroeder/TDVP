@@ -45,8 +45,10 @@ if strcmp(para.chainMapping,'OrthogonalPolynomials')
     % z, Lambda
     % since site energies converge to w_c/2 = 0.5, Optimum chain length can
     % not easily be determined -> give para.L
-    para.L = 50;
-	para.rescaling = 0;						% only for LogDiscrZitko applicable
+    para.L = 200;
+	para.rescaling = 1;						% only for LogDiscrZitko applicable
+	para.Lambda=2;                          % Bath log Discretization parameter
+    para.z=1;
 elseif strcmp(para.chainMapping,'LogDiscrZitko')
     %%
     para.Lambda=2;                          % Bath log Discretization parameter

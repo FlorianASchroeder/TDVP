@@ -21,6 +21,8 @@ function out = getObservable(type,mps,Vmat,para)
 %   Created 03/06/2014 by Florian Schroeder @ University of Cambridge
 %   TODO:   - Implement Boson Site Shift to export the routine from optimizesite.m. Only get a single shift value.
 %
+% Modified:
+%	- 21/12/14 FS: replaced OBB contractions with faster matrix products.
 switch type{1}
     case 'spin'
         % applicable for spin-boson model and for folded SBM2
@@ -208,9 +210,10 @@ end
 % now in form: Al{1}...Al{k-1} M{k} Ar{k+1}...Ar{L}
 %   with Al = left-normalized, Ar: right-normalized.
 
-reducedDensity = contracttensors(mps{k},3,[1,2],conj(mps{k}),3,[1,2]);  % contract rD_nm = Mk_abn Mk*_abm
-reducedDensity = contracttensors(reducedDensity,2,2,conj(Vmat{k}),2,2);       % contract rD_nj = rD_nm Vmat*_jm
-reducedDensity = contracttensors(Vmat{k},2,2,reducedDensity,2,1);       % contract rD_ij = Vmat_in rd_nj
+reducedDensity = contracttensors(mps{k},3,[1,2],conj(mps{k}),3,[1,2]);		% contract rD_nm = Mk_abn Mk*_abm
+reducedDensity = Vmat{k} * reducedDensity * Vmat{k}';
+% reducedDensity = contracttensors(reducedDensity,2,2,conj(Vmat{k}),2,2);     % contract rD_nj = rD_nm Vmat*_jm
+% reducedDensity = contracttensors(Vmat{k},2,2,reducedDensity,2,1);			% contract rD_ij = Vmat_in rd_nj
 
 end
 

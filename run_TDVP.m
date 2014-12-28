@@ -1,6 +1,10 @@
 function run_TDVP(alpha)
+try
+% needed if started from command line:
+if ischar(alpha), alpha = str2num(alpha); end
+
 %% start ground state calculations
-fileName =  VMPS_FullSBM(1,alpha,0.1,0)     % VMPS_FullSBM(s,alpha,delta,epsilon)
+% fileName =  VMPS_FullSBM(1,alpha,0.1,0)     % VMPS_FullSBM(s,alpha,delta,epsilon)
 
 % load(fileName);
 
@@ -30,11 +34,10 @@ fileName =  VMPS_FullSBM(1,alpha,0.1,0)     % VMPS_FullSBM(s,alpha,delta,epsilon
 % alpha = 0.05:
 % load('20141026-2259-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49/results.mat')
 
-% Orthogonal Polynomials, Orth 2010 + Vmat
+% Orthogonal Polynomials, Orth 2010 + Vmat, L=50 & old
 % alpha = 0.01:
-load('20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat')
+% load('20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat')
 % load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
-
 % alpha = 0.05:
 % load('20141114-1617-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L50/results.mat')
 % alpha = 0.1:
@@ -44,34 +47,49 @@ load('20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50/re
 % alpha = 0.2:
 % load('20141116-0229-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L50/results.mat')
 
+% Orthogonal Polynomials, Orth 2010 + OBB, L=200
+if alpha == 0.01
+	load('20141221-0148-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
+elseif alpha == 0.05
+	load('20141221-0148-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L200/results.mat')
+elseif alpha == 0.1
+	load('20141221-0151-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L200/results.mat')
+elseif alpha == 0.15
+	load('20141221-0151-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L200/results.mat')
+elseif alpha == 0.2
+	load('20141221-0153-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L200/results.mat')
+end
+
 %% Define TDVP parameters
-para.tdvp.tmax = 20;
+para.tdvp.tmax = 325;
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.deltaT = 4;                 % size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.maxExpMDim = 10^2;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
-para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800
+para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
-para.tdvp.expvCustomNow = 0;			% only set inside the program
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
-para.complex = 1;
+para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
 para.tdvp.expvTol = 1e-15;              % error tolerance of expv(); default: 1e-7
 para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
     % Sets threshold size for matrix exponential:
     %   if dim(A) < : use built-in expm(At)*v
     %   else        : use Expokit expv(t,A,v, expvTol, expvM)
     %   set maxExpMDim = 0 to only use expv()
-para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
-para.rescaling = para.tdvp.rescaling;
 % OBB settings
-para.tdvp.expandOBB = 0;
+para.tdvp.expandOBB = 1;
 % Bond-Dim settings
-para.tdvp.truncateExpandBonds = 0;
+para.tdvp.truncateExpandBonds = 1;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 20;
+para.tdvp.maxBondDim = 15;
+% z-Averaging for log-Discretization
+para.tdvp.zAveraging = 0;
+if para.tdvp.zAveraging
+    para.tdvp.zStep = 0.2;          % Step size for different z values, only for Log-discretization
+end
 
 %% Format Filename
 if isfield(para.tdvp,'filename')
@@ -97,16 +115,25 @@ if para.tdvp.expvCustom
 	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-expvCustom%d.mat'],para.tdvp.maxExpVDim);
 end
 
-% z-Averaging for log-Discretization
-para.tdvp.zAveraging = 0;
-if para.tdvp.zAveraging
-    para.tdvp.zStep = 0.2;          % Step size for different z values, only for Log-discretization
-
+%% Check for valid simulation arguments and declare unsettables
+if para.tdvp.expvCustomTestAccuracyRMS
+	assert(para.tdvp.expvCustomTestAccuracy == 1, 'Only set para.tdvp.expvCustomTestAccuracyRMS == 1 if para.tdvp.expvCustomTestAccuracy == 1');
 end
+if para.tdvp.zAveraging
+	assert(strcmp(para.chainMapping,'LogDiscrZitko'),'Use z-Averaging only with Logarithmic Discretization!');
+end
+if para.tdvp.expvCustom
+	assert(para.tdvp.maxExpMDim <= para.tdvp.maxExpVDim,'maxExpMDim <= maxExpVDim ! Everything else has no sense.');
+end
+
+para.tdvp.expvCustomNow = 0;			% only used inside the program
+para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP; needs to be off since H in exponent!
+para.rescaling = para.tdvp.rescaling;
+para.complex = 1;
 
 %% Copy to scratch for computation
 if ~strcmp(computer,'PCWIN64')
-	save([para.tdvp.filname(1:end-4),'-incomplete.mat'],'para','results');
+	save([para.tdvp.filename(1:end-4),'-incomplete.mat'],'para','results');
 	tempDir = '/scratch/fayns2/TDVPtemp/';tempFold = fileparts(para.filename);
 	currentDir = pwd;
 	addpath(currentDir);
@@ -117,10 +144,10 @@ end
 
 %% Do Time-Evolution with 1-site TDVP
 if para.tdvp.zAveraging == 0
-    starttime = tic;
+    para.tdvp.starttime = tic;
     tdvp_1site(mps,Vmat,para,results,op);
     load(para.tdvp.filename,'para','tmps','tVmat','results');
-	results.tdvp.time = toc(starttime);
+	results.tdvp.time = toc(para.tdvp.starttime);
     tresults = calTimeObservables(tmps,tVmat,para);
     save(para.tdvp.filename,'tresults','-append');
 	save([para.tdvp.filename(1:end-4),'-small.mat'],'para','results','tresults');
@@ -135,10 +162,10 @@ else
         para.tdvp.filename = sprintf([basename(1:end-4),'-z%.10g.mat'],para.z);
 
         %% Do time-evolution and save results
-        starttime = tic;
+        para.tdvp.starttime = tic;
         tdvp_1site(mps,Vmat,para,results,op);
         load(para.tdvp.filename,'para','tmps','tVmat','results');
-		results.tdvp.time = toc(starttime);
+		results.tdvp.time = toc(para.tdvp.starttime);
         tresults = calTimeObservables(tmps,tVmat,para);
         save(para.tdvp.filename,'tresults','-append');
 		save([para.tdvp.filename(1:end-4),'-small.mat'],'para','results','tresults');
@@ -153,6 +180,9 @@ else
 end
 if ~strcmp(computer,'PCWIN64')
 	copyfile([para.tdvp.filename(1:end-4),'-small.mat'],[currentDir,'/',para.tdvp.filename(1:end-4),'-small.mat']);
+	delete([currentDir,'/',para.tdvp.filename(1:end-4),'-incomplete.mat']);
+	sendmailCAM('fayns2@cam.ac.uk',...
+         'TDVP job completed',sprintf('The job \n %s\nHas successfully completed.',para.tdvp.filename));
 	exit;
 end
 return;
@@ -171,7 +201,8 @@ for k = 1:length(folders)
         save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat','tresults');
     end
 end
-
-
-
+catch
+	sendmailCAM('fayns2@cam.ac.uk',...
+         'TDVP job ERROR',sprintf('The job \n %s\nHas encountered an error.',para.tdvp.filename));
+end
 end
