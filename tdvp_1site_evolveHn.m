@@ -134,7 +134,10 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		[n1,n2,n3,n4] = size(HAV);
 		HAV = reshape(HAV, [n1*n2,n3*n4]);
 		if size(HAV,1) <= para.tdvp.maxExpMDim
-			V = expm( 1i.* para.tdvp.deltaT./2.*HAV) * reshape(V,[numel(V),1]);
+% 			V = expm( 1i.* para.tdvp.deltaT./2.*HAV) * reshape(V,[numel(V),1]);
+			V = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
+					reshape(V,[numel(V),1]),...
+					para.tdvp.expvTol, para.tdvp.expvM);
 		else
 			if para.tdvp.expvCustomTestAccuracy
 				V1 = expvCustom(+ 1i*para.tdvp.deltaT./2,'HAV',...
@@ -173,13 +176,13 @@ if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat
     % h2term to OBB, h2j can be rescaled
     % h2j_(n~',n~) = V*_(n',n~') [h2j_(n',n) V_(n,n~)]_(n',n~)
     for i=1:M
-% 		op.h2j{i,1} = Vmat{sitej}' * (op.h2j{i,1} * Vmat{sitej});
-% 		op.h2j{i,2} = Vmat{sitej}' * (op.h2j{i,2} * Vmat{sitej});
 		op.h2j{i,1} = contracttensors(op.h2term{i,1,sitej},2,2,Vmat{sitej},2,1);
         op.h2j{i,1} = contracttensors(conj(Vmat{sitej}),2,1,op.h2j{i,1},2,1);
+% 		op.h2j{i,1} = Vmat{sitej}' * (op.h2j{i,1} * Vmat{sitej});
 
         op.h2j{i,2} = contracttensors(op.h2term{i,2,sitej},2,2,Vmat{sitej},2,1);
         op.h2j{i,2} = contracttensors(conj(Vmat{sitej}),2,1,op.h2j{i,2},2,1);
+% 		op.h2j{i,2} = Vmat{sitej}' * (op.h2j{i,2} * Vmat{sitej});
     end
 else                % no OBB, then OBBDim = dk
 %     h1j = op.h1j;
