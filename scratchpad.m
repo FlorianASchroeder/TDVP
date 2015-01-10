@@ -244,6 +244,7 @@ pl(1) = plot(real(results.nx));
 %set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$<n_{k,VMPS}>$')
+set(gca,'yscale','log')
 formatPlot(1)
 if wantSave
     export_fig(sprintf('%s%s-Occupation',saveto,para.filename(1:13)),'-transparent','-png','-pdf','-painters')
@@ -331,7 +332,7 @@ ylabel('$E-E_0$');
 formatPlot(1)
 yLim = get(gca,'YLim');
 for i = 1:para.loop
-    line([para.L*i para.L*i],yLim,'LineWidth',1,'Color','black');
+%     line([para.L*i para.L*i],yLim,'LineWidth',1,'Color','black');
 end
 if wantSave
     export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
@@ -366,17 +367,18 @@ if sphereon
     sphere
     daspect([1 1 1])
     alpha(0.2)
+	set(get(gca,'children'),'linestyle',':')
 end
 col = parula(size(tresults.spin.sx,1));
 scatter3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz,20,col,'filled');
-% plot3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz);
+plot3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz);
 set(gca,'xlim',[-1,1]);
 set(gca,'ylim',[-1,1]);
 set(gca,'zlim',[-1,1]);
 rotate3d on
 
 %% TDVP SBM: Plot Visibility / Coherence
-figure(2);
+figure(2); hold all;
 % plot(para.tdvp.t, tresults.spin.visibility);
 plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sz);
 set(gca,'ylim',[-1,1]);
@@ -384,7 +386,7 @@ xlabel('t');
 ylabel('$<s_z>$');
 
 %% TDVP: Plot <n> environment
-figure(3); clf;
+figure(4); clf;
 n = size(tresults.nx,1);
 surf(1:para.L,para.tdvp.t(1:n),real(tresults.nx))
 xlabel('Site $k$');
@@ -616,3 +618,21 @@ legend('Custom Krylov e^{At}v','Expokit')
 xlabel('Matrix dimension n')
 ylabel('Time/s')
 formatPlot(9)
+
+%% TDVP (12) prepare artificial GroundState
+mps{1} = reshape([1,0,0,0],[1,para.D(1),para.d_opt(1)]);
+for j=2:para.L-1
+	mps{j} = reshape([-1, zeros(1,numel(mps{j})-1)],para.D(j-1),para.D(j),para.d_opt(j));
+	Vmat{j} = zeros(para.dk(j),para.d_opt(j));
+	Vmat{j}(para.dk(j):-1:para.dk(j)-para.d_opt(j)+1,1:para.d_opt(j)) = -eye(para.d_opt(j));
+end
+mps{200} = reshape([-1, zeros(1,numel(mps{200})-1)],para.D(199),1,para.d_opt(200));
+Vmat{200} = zeros(para.dk(200),para.d_opt(200));
+Vmat{200}(para.dk(200):-1:para.dk(200)-para.d_opt(200)+1,1:para.d_opt(200)) = -eye(para.d_opt(200));
+
+results.nx         = getObservable({'occupation'},mps,Vmat,para);
+results.bosonshift = getObservable({'shift'},mps,Vmat,para);
+
+if strcmp(para.model,'SpinBoson')
+    results.spin   = getObservable({'spin'},mps,Vmat,para);
+end

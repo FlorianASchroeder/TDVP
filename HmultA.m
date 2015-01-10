@@ -16,10 +16,10 @@ end
 out=0;
 
 % collect non-interacting parts of Hamiltonian:
-out   = out + contracttensors(op.Hleft,2,2,inA,3,1);		% out += Hleft_(l',l) * A_(l,r,n) * 1_(r',r) *1_(n',n)
+outHl = contracttensors(op.Hleft,2,2,inA,3,1);				% out += Hleft_(l',l) * A_(l,r,n) * 1_(r',r) *1_(n',n)
 outHr = contracttensors(inA,3,2,op.Hright,2,2);				% ()_(l',n',r') = A_(l,r,n) * Hright_(r',r) * 1_(l',l) *1_(n',n)
 outHr = permute(outHr,[1,3,2]);								% += ()_(l',r',n')
-out   = out+outHr;
+out   = out+outHr+outHl;
 if ~isempty(op.h1j)
     out = out+contracttensors(inA,3,3,op.h1j,2,2);
 end

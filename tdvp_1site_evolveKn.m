@@ -30,7 +30,7 @@ switch para.sweepto
         %% Take and apply Matrix exponential
         % C(n,t) = exp(+ i K(n) dt)_(rl'*r',rl*r) * C(n,t+dt)_(rl*r)
         if para.tdvp.expvCustomNow == 0 && size(Kn,1) <= para.tdvp.maxExpMDim
-            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) * reshape(Cn,[BondDimCLeft*BondDimCRight,1]);
+            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) * reshape(Cn,[numel(Cn),1]);
 		else
 			if para.tdvp.expvCustomNow
 				Cn = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
@@ -43,7 +43,7 @@ switch para.sweepto
 						mps{sitej},Vmat{sitej},para,op);
 				end
 				Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
-					reshape(Cn,[BondDimCLeft*BondDimCRight,1]),...
+					reshape(Cn,[numel(Cn),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 				if para.tdvp.expvCustomTestAccuracyRMS
 					disp(rms(Cn-Cn1));		% debug
@@ -84,7 +84,7 @@ switch para.sweepto
         % C(n,t+dt/2) = exp(+ i K(n) dt/2)_(l'*lr',l*lr) * C(n,t+dt)_(l*lr)
 		if para.tdvp.expvCustomNow == 0
 			if size(Kn,1) <= para.tdvp.maxExpMDim
-				Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[BondDimCLeft*BondDimCRight,1]);
+				Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[numel(Cn),1]);
 			else
 				if para.tdvp.expvCustomTestAccuracy								% debug
 					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
@@ -92,7 +92,7 @@ switch para.sweepto
 						mps{sitej+1},Vmat{sitej+1},para,op);
 				end
 				Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
-					reshape(Cn,[BondDimCLeft*BondDimCRight,1]),...
+					reshape(Cn,[numel(Cn),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 				if para.tdvp.expvCustomTestAccuracyRMS
 					disp(rms(Cn-Cn1));		% debug

@@ -12,6 +12,7 @@ function [Cleft] = updateCleft(Cleft, B, BUb, X, A, AUb)
     if isempty(Cleft), Cleft=eye(size(B,1)); end
 
 	% transform X into OBB using Vmat
+% 	newX = (BUb' * X) * AUb;
     newX = contracttensors(X,2,1,conj(BUb),2,1);
     newX = contracttensors(newX,2,1,AUb,2,1);
 

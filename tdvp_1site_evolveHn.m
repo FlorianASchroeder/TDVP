@@ -36,8 +36,9 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     %% SVD to set focus on Vmat
     [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);              % left-normalize A, SVD in n.
     [BondDimLeft, BondDimRight, OBBDim]  = size(Amat);
-    Vmat_focused = Vmat{sitej} * transpose(V);							% set focus on Vmat: V_(n,n~)
-    clear('V');
+%	Vmat_focused = Vmat{sitej} * transpose(V);							% set focus on Vmat: V_(n,n~)
+	Vmat_focused = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);
+%	clear('V');
     % Amat = MPS{sitej} left normalised;
 
 	%% if HAA or any other operators have size < 1GB, construct them explicitly.
@@ -165,13 +166,20 @@ end
 if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat = eye
     % h1term to OBB, h1j can be rescaled
     % h1j_(n~',n~) = V*_(n',n~') [h1j_(n',n) V_(n,n~)]_(n',n~)
-    op.h1j = Vmat{sitej}' * op.h1j * Vmat{sitej};
+% 	op.h1j = Vmat{sitej}' * (op.h1j * Vmat{sitej});
+	op.h1j = contracttensors(op.h1j,2,2,Vmat{sitej},2,1);			% h1j_(n',n~)  = h1j_(n',n) V_(n,n~)
+    op.h1j = contracttensors(conj(Vmat{sitej}),2,1,op.h1j,2,1);		% h1j_(n~',n~) = V*_(n',n~') h1j_(n',n~)
 
     % h2term to OBB, h2j can be rescaled
     % h2j_(n~',n~) = V*_(n',n~') [h2j_(n',n) V_(n,n~)]_(n',n~)
     for i=1:M
-        op.h2j{i,1} = Vmat{sitej}' * op.h2j{i,1} * Vmat{sitej};
-        op.h2j{i,2} = Vmat{sitej}' * op.h2j{i,2} * Vmat{sitej};
+% 		op.h2j{i,1} = Vmat{sitej}' * (op.h2j{i,1} * Vmat{sitej});
+% 		op.h2j{i,2} = Vmat{sitej}' * (op.h2j{i,2} * Vmat{sitej});
+		op.h2j{i,1} = contracttensors(op.h2term{i,1,sitej},2,2,Vmat{sitej},2,1);
+        op.h2j{i,1} = contracttensors(conj(Vmat{sitej}),2,1,op.h2j{i,1},2,1);
+
+        op.h2j{i,2} = contracttensors(op.h2term{i,2,sitej},2,2,Vmat{sitej},2,1);
+        op.h2j{i,2} = contracttensors(conj(Vmat{sitej}),2,1,op.h2j{i,2},2,1);
     end
 else                % no OBB, then OBBDim = dk
 %     h1j = op.h1j;
@@ -208,7 +216,7 @@ end
 
 if  para.tdvp.expvCustomNow == 0
 	if size(Hn,1) <= para.tdvp.maxExpMDim
-		mpsNew = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]);
+		mpsNew = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[numel(mps{sitej}),1]);
 	else
 		if para.tdvp.expvCustomTestAccuracy									% debug
 			tempT = tic;
@@ -219,7 +227,7 @@ if  para.tdvp.expvCustomNow == 0
 		end
 		tempT = tic;
 		mpsNew = expv(- 1i*t, Hn,...
-				 reshape(mps{sitej},[BondDimLeft*BondDimRight*OBBDim,1]),...
+				 reshape(mps{sitej},[numel(mps{sitej}),1]),...
 				 para.tdvp.expvTol, para.tdvp.expvM);
 		t2 = toc(tempT);
 		if para.tdvp.expvCustomTestAccuracyRMS

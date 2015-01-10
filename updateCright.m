@@ -26,9 +26,9 @@ function [Cright] = updateCright(Cright, B, BUb, X, A, AUb)
         else
 			% do (Vmat^†) . X . Vmat.
 			% express X in OBB by applying Vmat
-			newX = BUb' * X * AUb;
-% 			newX = contracttensors(X,2,1,conj(BUb),2,1);			% newX_nk = X_mn * conj(BUb)_mk = T(X)_nm * conj(BUb)_mk
-% 			newX = contracttensors(newX,2,1,AUb,2,1);				% newX = newX_nk * AUb_nl = adj(BUb)_km * X_mn * AUb_nl;
+% 			newX = (BUb' * X) * AUb;
+			newX = contracttensors(X,2,1,conj(BUb),2,1);			% newX_nk = X_mn * conj(BUb)_mk = T(X)_nm * conj(BUb)_mk
+			newX = contracttensors(newX,2,1,AUb,2,1);				% newX = newX_nk * AUb_nl = adj(BUb)_km * X_mn * AUb_nl;
 		end
 
     % if Cright = eye: contract X (in OBB)  with A matrices to transform into effective basis representation.

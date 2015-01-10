@@ -37,7 +37,7 @@ if ischar(alpha), alpha = str2num(alpha); end
 % Orthogonal Polynomials, Orth 2010 + Vmat, L=50 & old
 % alpha = 0.01:
 % load('20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat')
-% load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
+load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
 % alpha = 0.05:
 % load('20141114-1617-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L50/results.mat')
 % alpha = 0.1:
@@ -48,17 +48,17 @@ if ischar(alpha), alpha = str2num(alpha); end
 % load('20141116-0229-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L50/results.mat')
 
 % Orthogonal Polynomials, Orth 2010 + OBB, L=200
-if alpha == 0.01
-	load('20141221-0148-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
-elseif alpha == 0.05
-	load('20141221-0148-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L200/results.mat')
-elseif alpha == 0.1
-	load('20141221-0151-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L200/results.mat')
-elseif alpha == 0.15
-	load('20141221-0151-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L200/results.mat')
-elseif alpha == 0.2
-	load('20141221-0153-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L200/results.mat')
-end
+% if alpha == 0.01
+% 	load('20141221-0148-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
+% elseif alpha == 0.05
+% 	load('20141221-0148-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L200/results.mat')
+% elseif alpha == 0.1
+% 	load('20141221-0151-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L200/results.mat')
+% elseif alpha == 0.15
+% 	load('20141221-0151-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L200/results.mat')
+% elseif alpha == 0.2
+% 	load('20141221-0153-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L200/results.mat')
+% end
 
 %% Define TDVP parameters
 para.tdvp.tmax = 325;
@@ -69,7 +69,7 @@ para.tdvp.deltaT = 4;                 % size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.maxExpMDim = 10^2;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; maxExpMDim < maxExpVDim
-para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
+para.tdvp.expvCustom = 0;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
 para.tdvp.expvTol = 1e-15;              % error tolerance of expv(); default: 1e-7
@@ -79,12 +79,12 @@ para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); defa
     %   else        : use Expokit expv(t,A,v, expvTol, expvM)
     %   set maxExpMDim = 0 to only use expv()
 % OBB settings
-para.tdvp.expandOBB = 1;
+para.tdvp.expandOBB = 0;
 % Bond-Dim settings
-para.tdvp.truncateExpandBonds = 1;
+para.tdvp.truncateExpandBonds = 0;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 15;
+para.tdvp.maxBondDim = 20;
 % z-Averaging for log-Discretization
 para.tdvp.zAveraging = 0;
 if para.tdvp.zAveraging
@@ -100,7 +100,7 @@ if isfield(para.tdvp,'filename')
 	Vmat = tVmat;
 end
 
-para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%d.mat'],para.tdvp.tmax,para.tdvp.deltaT);
+para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%dv23.mat'],para.tdvp.tmax,para.tdvp.deltaT);
 if para.tdvp.expandOBB
 	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-OBBExpand.mat']);
 else
