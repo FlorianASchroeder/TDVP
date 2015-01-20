@@ -679,6 +679,8 @@ res{5,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20
 res{5,2} = 'GS Exp.v21, rescaling = 1';
 res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2118-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
 res{6,2} = 'GS Exp.v20, rescaling = 1';
+res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2255-SpinBoson-OrthPol-rev27-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{7,2} = 'GS Exp.v27, rescaling = 1';
 
 %% TDVP SBM multi: Plot Visibility / Coherence
 fignum = 1; figure(fignum); clf; hold all;
