@@ -1,4 +1,4 @@
-function fileName = VMPS_FullSBM(s,alpha,delta,epsilon)
+function fileName = VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 %Variational matrix product method to study spin-boson model. Rok's
 %logrithimic discretization and optimal boson basis are implemented in
 %this code.
@@ -45,9 +45,15 @@ if strcmp(para.chainMapping,'OrthogonalPolynomials')
     % z, Lambda
     % since site energies converge to w_c/2 = 0.5, Optimum chain length can
     % not easily be determined -> give para.L
-    para.L = 200;
-	para.rescaling = 1;						% only for LogDiscrZitko applicable
-	para.Lambda=2;                          % Bath log Discretization parameter
+    para.L = 200;							% default chain length
+    if L ~= 0								% chain length override
+    	para.L = L;
+    end
+	para.rescaling = 0;						% only for LogDiscrZitko applicable
+	if rescaling == 1						% rescaling override
+		para.rescaling = rescaling;
+	end
+	para.Lambda=2;                          % Bath log Discretization parameters in case rescaling = 1
     para.z=1;
 elseif strcmp(para.chainMapping,'LogDiscrZitko')
     %%

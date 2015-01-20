@@ -4,7 +4,9 @@ try
 if ischar(alpha), alpha = str2num(alpha); end
 
 %% start ground state calculations
-% fileName =  VMPS_FullSBM(1,alpha,0.1,0)     % VMPS_FullSBM(s,alpha,delta,epsilon)
+% fileName =  VMPS_FullSBM(1,alpha,0.1,0,200,1)     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+
+%maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 
 % load(fileName);
 
@@ -37,7 +39,8 @@ if ischar(alpha), alpha = str2num(alpha); end
 % Orthogonal Polynomials, Orth 2010 + Vmat, L=50 & old
 % alpha = 0.01:
 % load('20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat')
-load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
+% load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
+% load('20150110-1317-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
 % alpha = 0.05:
 % load('20141114-1617-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L50/results.mat')
 % alpha = 0.1:
@@ -98,6 +101,8 @@ if isfield(para.tdvp,'filename')
 	% input the TDVP matrices!
 	mps = tmps;
 	Vmat = tVmat;
+else
+	para.tdvp.fromFilename = para.filename;				% or reference to VMPS Ground State File!
 end
 
 para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%dv24.mat'],para.tdvp.tmax,para.tdvp.deltaT);
@@ -114,6 +119,7 @@ end
 if para.tdvp.expvCustom
 	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-expvCustom%d.mat'],para.tdvp.maxExpVDim);
 end
+para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-%dcore.mat'],maxNumCompThreads);
 
 %% Check for valid simulation arguments and declare unsettables
 if para.tdvp.expvCustomTestAccuracyRMS
@@ -133,7 +139,9 @@ para.complex = 1;
 
 %% Copy to scratch for computation
 if ~strcmp(computer,'PCWIN64')
-	save([para.tdvp.filename(1:end-4),'-incomplete.mat'],'para','results');
+	[~, name] = system('hostname');
+	para.tdvp.hostname = name;
+	save(sprintf([para.tdvp.filename(1:end-4),'-incomplete-%s.mat'],para.tdvp.hostname),'para','results');
 	tempDir = '/scratch/fayns2/TDVPtemp/';tempFold = fileparts(para.filename);
 	currentDir = pwd;
 	addpath(currentDir);

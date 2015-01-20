@@ -239,7 +239,7 @@ if wantSave
     export_fig(sprintf('%sAnalyticShift%s',saveto,para.filename(1:13)),'-transparent','-png','-eps')
 end
 %% Plot < n > of chain
-figure(1)
+figure(1); hold on;
 pl(1) = plot(real(results.nx));
 %set(gca,'YScale','log');
 xlabel('Site k')
@@ -375,23 +375,27 @@ plot3(tresults.spin.sx,tresults.spin.sy,tresults.spin.sz);
 set(gca,'xlim',[-1,1]);
 set(gca,'ylim',[-1,1]);
 set(gca,'zlim',[-1,1]);
+set(gca,'view',[-29,16]);
 rotate3d on
 
 %% TDVP SBM: Plot Visibility / Coherence
 figure(2); hold all;
 % plot(para.tdvp.t, tresults.spin.visibility);
-plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sz);
-set(gca,'ylim',[-1,1]);
+plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sz-tresults.spin.sz(1));
+% set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
 
 %% TDVP: Plot <n> environment
 figure(4); clf;
 n = size(tresults.nx,1);
-surf(1:para.L,para.tdvp.t(1:n),real(tresults.nx))
+% surf(1:para.L,para.tdvp.t(1:n),real(tresults.nx))
+surf(1:para.L,para.tdvp.t(1:n),abs(real(tresults.nx)-ones(size(tresults.nx,1),1)*real(tresults.nx(1,:))))
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$<n_k>$');
+set(gca,'zscale','log');
+set(gca,'View',[0 42]);
 % shading interp
 rotate3d on
 axis tight
@@ -636,3 +640,38 @@ results.bosonshift = getObservable({'shift'},mps,Vmat,para);
 if strcmp(para.model,'SpinBoson')
     results.spin   = getObservable({'spin'},mps,Vmat,para);
 end
+%% TDVP SBM multi load files
+res = {};
+res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{1,2} = 'rev22 multi-core, 1pass, rescaling=0';
+res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{2,2} = 'rev22 multi-core, restarted, rescaling=0';
+res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{3,2} = 'rev22 single-core, 1pass, rescaling=1';
+res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
+res{4,2} = 'rev22 single-core, restarted, rescaling=1';
+res{5,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{5,2} = 'rev22 single-core, 1pass, rescaling=0';
+res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
+res{6,2} = 'rev22 single-core, restarted, rescaling=0';
+res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand25-expvCustom800-small.mat');
+res{7,2} = 'rev22 multi-core, restarted, rescaling=0, Bond25';
+res{8,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
+res{8,2} = 'perfect';
+res{9,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-expvCustom800-small.mat');
+res{9,2} = 'rev22,expvCustom800,Bond15';
+res{10,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-small.mat');
+res{10,2}= 'rev22,noExvpVCustom,Bond15';
+
+cell2mat(cellfun(@(x) [x.results.time,x.results.tdvp.time], res(:,1), 'UniformOutput', false))
+
+%% TDVP SBM multi: Plot Visibility / Coherence
+
+figure(2); clf; hold all;
+% plot(para.tdvp.t, tresults.spin.visibility);
+cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)), x.tresults.spin.sz), res(:,1), 'UniformOutput', false)
+set(gca,'ylim',[-1,1]);
+xlabel('t');
+ylabel('$<s_z>$');
+legend(res{:,2});
+
