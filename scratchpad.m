@@ -640,7 +640,7 @@ results.bosonshift = getObservable({'shift'},mps,Vmat,para);
 if strcmp(para.model,'SpinBoson')
     results.spin   = getObservable({'spin'},mps,Vmat,para);
 end
-%% TDVP SBM multi load files
+%% TDVP SBM multi load files: OrthPol rev22 threading vs perfect L=200
 res = {};
 res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
 res{1,2} = 'rev22 multi-core, 1pass, rescaling=0';
@@ -665,13 +665,63 @@ res{10,2}= 'rev22,noExvpVCustom,Bond15';
 
 cell2mat(cellfun(@(x) [x.results.time,x.results.tdvp.time], res(:,1), 'UniformOutput', false))
 
-%% TDVP SBM multi: Plot Visibility / Coherence
+%% TDVP SBM multi load files: OrthPol compare L = 50 rev20, rev22 vs
+res = {};
+res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results-Till325Step4-noOBBExpand-noBondExpand.mat');
+res{1,2} = '14/11/2014, noExpands, Exp.v19?';
+res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-1952-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
+res{2,2} = 'GS Exp.v25, rescaling = 1';
+res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2047-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
+res{3,2} = 'GS Exp.v23, rescaling = 1';
+res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2034-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
+res{4,2} = 'GS Exp.v22, rescaling = 1';
+res{5,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2059-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
+res{5,2} = 'GS Exp.v21, rescaling = 1';
+res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2118-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
+res{6,2} = 'GS Exp.v20, rescaling = 1';
 
-figure(2); clf; hold all;
-% plot(para.tdvp.t, tresults.spin.visibility);
-cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)), x.tresults.spin.sz), res(:,1), 'UniformOutput', false)
+%% TDVP SBM multi: Plot Visibility / Coherence
+fignum = 1; figure(fignum); clf; hold all;
+% pick = [1:length(res)];			% plot all
+pick = [8,3,5];						% plot selective
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)), x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
 set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
-legend(res{:,2});
+legend([ph{:}],res{pick,2},'location','best');
+formatPlot(fignum);
+
+%% TDVP SBM multi: Plot VMPS GS <n>
+fignum = 2; figure(fignum); clf; hold all;
+pick = [1:length(res)];			% plot all
+% pick = [8,3,5];						% plot selective
+ph = cellfun(@(x) plot(real(x.results.nx)), res(pick,1), 'UniformOutput', false);
+set(gca,'YScale','log');
+xlabel('Site k')
+ylabel('$<n_{k,VMPS}>$')
+set(gca,'yscale','log')
+legend([ph{:}],res{pick,2},'location','best');
+formatPlot(fignum)
+
+%% TDVP SBM multi: Plot GS Energy convergence
+fignum = 3; figure(fignum); clf; hold all;
+pick = [1:length(res)];			% plot all
+% pick = [8,3,5];						% plot selective
+ph = cellfun(@(x) plot(cell2mat(x.results.EvaluesLog)-min(cell2mat(x.results.EvaluesLog))), res(pick,1), 'UniformOutput', false);
+%disp(sprintf('%.15e',results.E))
+set(gca,'YScale','log');
+% try
+% title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));catch end
+xlabel('Site$\cdot$Loop');
+ylabel('$E-E_0$');
+legend([ph{:}],res{pick,2},'location','best');
+formatPlot(fignum)
+yLim = get(gca,'YLim');
+for i = 1:para.loop
+%     line([para.L*i para.L*i],yLim,'LineWidth',1,'Color','black');
+end
+if wantSave
+    export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
+end
+
 
