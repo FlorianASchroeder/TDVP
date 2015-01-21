@@ -691,6 +691,14 @@ res{11,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20
 res{11,2} = 'GS to22.v29, rescaling = 0';
 res{12,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-0156-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{12,2} = 'GS to22.v28, rescaling = 0';
+res{13,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1602-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{13,2} = 'GS to22.v30, rescaling = 1';
+res{14,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1634-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{14,2} = 'GS to22.v30, rescaling = 0';
+res{15,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1817-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{15,2} = 'GS to22.v31, rescaling = 1';
+res{16,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1821-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{16,2} = 'GS to22.v31, rescaling = 0';
 
 %% TDVP SBM multi: Plot Visibility / Coherence
 fignum = 1; figure(fignum); clf; hold all;
@@ -706,7 +714,7 @@ formatPlot(fignum);
 %% TDVP SBM multi: Plot VMPS GS <n>
 fignum = 2; figure(fignum); clf; hold all;
 % pick = [1:length(res)];			% plot all
-pick = [6,4,9,10,11,12];						% plot selective
+pick = [6,4,9,13,14,15,16];						% plot selective
 ph = cellfun(@(x) plot(real(x.results.nx)), res(pick,1), 'UniformOutput', false);
 set(gca,'YScale','log');
 xlabel('Site k')
@@ -718,7 +726,7 @@ formatPlot(fignum)
 %% TDVP SBM multi: Plot GS Energy convergence
 fignum = 3; figure(fignum); clf; hold all;
 % pick = [1:length(res)];			% plot all
-pick = [6,4,9,10,11,12];						% plot selective
+pick = [6,4,9,13,14,15,16];						% plot selective
 ph = cellfun(@(x) plot(cell2mat(x.results.EvaluesLog)-min(cell2mat(x.results.EvaluesLog))), res(pick,1), 'UniformOutput', false);
 % disp(sprintf('%.15e\n',cell2mat(cellfun(@(x) x.results.E, res(pick,1), 'UniformOutput', false))))
 set(gca,'YScale','log');
