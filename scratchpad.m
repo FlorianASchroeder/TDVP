@@ -680,7 +680,17 @@ res{5,2} = 'GS Exp.v21, rescaling = 1';
 res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2118-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
 res{6,2} = 'GS Exp.v20, rescaling = 1';
 res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2255-SpinBoson-OrthPol-rev27-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
-res{7,2} = 'GS Exp.v27, rescaling = 1';
+res{7,2} = 'GS to22.v27, rescaling = 1';
+res{8,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2310-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{8,2} = 'GS to22.v28, rescaling = 1';
+res{9,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2321-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{9,2} = 'GS to22.v29, rescaling = 1';
+res{10,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2346-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{10,2} = 'GS to22.v29, rescaling = 1, higher precision';
+res{11,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-0138-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{11,2} = 'GS to22.v29, rescaling = 0';
+res{12,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-0156-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{12,2} = 'GS to22.v28, rescaling = 0';
 
 %% TDVP SBM multi: Plot Visibility / Coherence
 fignum = 1; figure(fignum); clf; hold all;
@@ -695,8 +705,8 @@ formatPlot(fignum);
 
 %% TDVP SBM multi: Plot VMPS GS <n>
 fignum = 2; figure(fignum); clf; hold all;
-pick = [1:length(res)];			% plot all
-% pick = [8,3,5];						% plot selective
+% pick = [1:length(res)];			% plot all
+pick = [6,4,9,10,11,12];						% plot selective
 ph = cellfun(@(x) plot(real(x.results.nx)), res(pick,1), 'UniformOutput', false);
 set(gca,'YScale','log');
 xlabel('Site k')
@@ -707,10 +717,10 @@ formatPlot(fignum)
 
 %% TDVP SBM multi: Plot GS Energy convergence
 fignum = 3; figure(fignum); clf; hold all;
-pick = [1:length(res)];			% plot all
-% pick = [8,3,5];						% plot selective
+% pick = [1:length(res)];			% plot all
+pick = [6,4,9,10,11,12];						% plot selective
 ph = cellfun(@(x) plot(cell2mat(x.results.EvaluesLog)-min(cell2mat(x.results.EvaluesLog))), res(pick,1), 'UniformOutput', false);
-%disp(sprintf('%.15e',results.E))
+% disp(sprintf('%.15e\n',cell2mat(cellfun(@(x) x.results.E, res(pick,1), 'UniformOutput', false))))
 set(gca,'YScale','log');
 % try
 % title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));catch end
