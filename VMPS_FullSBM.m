@@ -284,7 +284,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-OrthPol-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
+para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-OrthPol-exp.v35-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
     para.model,alpha,delta,epsilon,dk,D,d_opt,L);
 para.filename=strcat(para.folder,'/results.mat');
 if ~exist(para.filename,'file')

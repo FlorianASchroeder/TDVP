@@ -20,11 +20,11 @@ op.OpleftOPB= cell(M,1);
 op.OprightOPB= cell(M,1);
 
 for m=1:M
-op.OpleftOPB{m}= contracttensors(op.Opleft{m}, 2,2, A,3,1);
-op.OpleftOPB{m}= contracttensors(conj(A),3,[1,2],op.OpleftOPB{m},3,[1,2]);
+	op.OpleftOPB{m}= contracttensors(op.Opleft{m}, 2,2, A,3,1);
+	op.OpleftOPB{m}= contracttensors(conj(A),3,[1,2],op.OpleftOPB{m},3,[1,2]);
 
-op.OprightOPB{m} = contracttensors(A,3,2,op.Opright{m},2,2);
-op.OprightOPB{m} = contracttensors(conj(A),3,[1,2],op.OprightOPB{m},3,[1,3]);
+	op.OprightOPB{m} = contracttensors(A,3,2,op.Opright{m},2,2);
+	op.OprightOPB{m} = contracttensors(conj(A),3,[1,2],op.OprightOPB{m},3,[1,3]);
 end
 
 

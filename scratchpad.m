@@ -643,27 +643,40 @@ end
 %% TDVP SBM multi load files: OrthPol rev22 threading vs perfect L=200
 res = {};
 res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
-res{1,2} = 'rev22 multi-core, 1pass, rescaling=0';
+res{1,2} = 'v22 multi-core, 1pass, rescaling=0';
 res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
-res{2,2} = 'rev22 multi-core, restarted, rescaling=0';
+res{2,2} = 'v22 multi-core, restarted, rescaling=0';
 res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
-res{3,2} = 'rev22 single-core, 1pass, rescaling=1';
+res{3,2} = 'v22 single-core, 1pass, rescaling=1';
 res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
-res{4,2} = 'rev22 single-core, restarted, rescaling=1';
+res{4,2} = 'v22 single-core, restarted, rescaling=1';
 res{5,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
-res{5,2} = 'rev22 single-core, 1pass, rescaling=0';
+res{5,2} = 'v22 single-core, 1pass, rescaling=0';
 res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
-res{6,2} = 'rev22 single-core, restarted, rescaling=0';
+res{6,2} = 'v22 single-core, restarted, rescaling=0';
 res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand25-expvCustom800-small.mat');
-res{7,2} = 'rev22 multi-core, restarted, rescaling=0, Bond25';
+res{7,2} = 'v22 multi-core, restarted, rescaling=0, Bond25';
 res{8,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
 res{8,2} = 'perfect';
 res{9,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-expvCustom800-small.mat');
-res{9,2} = 'rev22,expvCustom800,Bond15';
+res{9,2} = 'v22,expvCustom800,Bond15';
 res{10,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-small.mat');
-res{10,2}= 'rev22,noExvpVCustom,Bond15';
+res{10,2}= 'v22,noExvpVCustom,Bond15';
+res{11,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1237-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{11,2}= 'v35, rescaling = 1, Lappy';
+res{12,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1326-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{12,2}= 'v35, rescaling = 0, Lappy';
+res{13,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1431-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{13,2}= 'v35, rescaling = 1, TCM';
+res{14,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1432-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{14,2}= 'v35, rescaling = 0, TCM';
+res{15,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1509-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{15,2}= 'v20, rescaling = 1, TCM';
+res{16,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1510-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{16,2}= 'v20, rescaling = 0, TCM';
 
-cell2mat(cellfun(@(x) [x.results.time,x.results.tdvp.time], res(:,1), 'UniformOutput', false))
+
+% cell2mat(cellfun(@(x) [x.results.time,x.results.tdvp.time], res(:,1), 'UniformOutput', false))
 
 %% TDVP SBM multi load files: OrthPol compare L = 50 rev20, rev22 vs
 res = {};
@@ -679,6 +692,46 @@ res{5,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20
 res{5,2} = 'GS Exp.v21, rescaling = 1';
 res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2118-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
 res{6,2} = 'GS Exp.v20, rescaling = 1';
+res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2255-SpinBoson-OrthPol-rev27-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{7,2} = 'GS to22.v27, rescaling = 1';
+res{8,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2310-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{8,2} = 'GS to22.v28, rescaling = 1';
+res{9,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2321-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{9,2} = 'GS to22.v29, rescaling = 1';
+res{10,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2346-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{10,2} = 'GS to22.v29, rescaling = 1, higher precision';
+res{11,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-0138-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{11,2} = 'GS to22.v29, rescaling = 0';
+res{12,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-0156-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{12,2} = 'GS to22.v28, rescaling = 0';
+res{13,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1602-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{13,2} = 'GS to22.v30, rescaling = 1';
+res{14,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1634-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{14,2} = 'GS to22.v30, rescaling = 0';
+res{15,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1817-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{15,2} = 'GS to22.v31, rescaling = 1';
+res{16,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1821-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{16,2} = 'GS to22.v31, rescaling = 0';
+res{17,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-2152-SpinBoson-OrthPol-rev32-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{17,2} = 'GS to22.v32, rescaling = 1';
+res{18,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-2203-SpinBoson-OrthPol-rev32-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{18,2} = 'GS to22.v32, rescaling = 1, no braces';
+res{19,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150122-0006-SpinBoson-OrthPol-rev33-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{19,2} = 'GS to22.v33, rescaling = 1, HmultA sum';
+res{20,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150122-0018-SpinBoson-OrthPol-rev34-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{20,2} = 'GS to22.v34, rescaling = 1';
+res{21,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1444-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{21,2} = 'GS Exp.v35, rescaling = 1';
+res{22,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1447-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{22,2} = 'GS Exp.v35, rescaling = 0';
+res{23,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1436-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{23,2} = 'GS Exp.v35, rescaling = 1, TCM';
+res{24,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1438-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{24,2} = 'GS Exp.v35, rescaling = 0, TCM';
+res{25,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1507-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{25,2} = 'GS Exp.v20, rescaling = 1, TCM';
+res{26,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1508-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{26,2} = 'GS Exp.v20, rescaling = 0, TCM';
 
 %% TDVP SBM multi: Plot Visibility / Coherence
 fignum = 1; figure(fignum); clf; hold all;
@@ -693,9 +746,12 @@ formatPlot(fignum);
 
 %% TDVP SBM multi: Plot VMPS GS <n>
 fignum = 2; figure(fignum); clf; hold all;
-pick = [1:length(res)];			% plot all
-% pick = [8,3,5];						% plot selective
+% pick = [1:length(res)];			% plot all
+pick = [6,12,21,22,23,24,25,26];						% plot selective
+% pick = [8,15,16,11,12,13,14];
 ph = cellfun(@(x) plot(real(x.results.nx)), res(pick,1), 'UniformOutput', false);
+ph{3}.LineStyle = ':';				%temp
+ph{4}.LineStyle = ':';				%temp
 set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$<n_{k,VMPS}>$')
@@ -705,10 +761,10 @@ formatPlot(fignum)
 
 %% TDVP SBM multi: Plot GS Energy convergence
 fignum = 3; figure(fignum); clf; hold all;
-pick = [1:length(res)];			% plot all
-% pick = [8,3,5];						% plot selective
+% pick = [1:length(res)];			% plot all
+pick = [8,15,16,11,12,13,14];						% plot selective
 ph = cellfun(@(x) plot(cell2mat(x.results.EvaluesLog)-min(cell2mat(x.results.EvaluesLog))), res(pick,1), 'UniformOutput', false);
-%disp(sprintf('%.15e',results.E))
+% disp(sprintf('%.15e\n',cell2mat(cellfun(@(x) x.results.E, res(pick,1), 'UniformOutput', false))))
 set(gca,'YScale','log');
 % try
 % title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));catch end

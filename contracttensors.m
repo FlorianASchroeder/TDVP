@@ -1,4 +1,4 @@
-function [X, numindX] = contracttensors(X, numindX, indX, Y, numindY, indY)
+function X = contracttensors(X, numindX, indX, Y, numindY, indY)
 % Contracts tensors X and Y about the indices (dimensions) indX, indY
 %	1. Permutes dimensions indX to the last and indY to the first place of X and Y respectively
 %	2. Reshapes X and Y into 2-dim matrices s.t. all not contracting dimension are in one dimension. All to be contracted dimensions are reshaped into the other dimension.
@@ -53,6 +53,6 @@ Y = permute(Y, [indY, indYr]); Y = reshape(Y, [prod(sizeY), prod(sizeYr)]);
 X = X * Y;
 % fprintf('||X|| ||Y|| /||XY|| = %.10g\n', a*b/norm(full(X)))
 
-Xsize = [Xsize(indXl), Ysize(indYr)]; 			% new array dimensions are from X to the left, and Y to the right
-numindX = length(Xsize); 					% new total dimension number
-X = reshape(X, [Xsize, 1]);					% why 1 at the end? To conserve the other dimensions?
+% Xsize = [Xsize(indXl), Ysize(indYr)]; 			% new array dimensions are from X to the left, and Y to the right
+% numindX = length(Xsize); 					% new total dimension number
+X = reshape(X, [Xsize(indXl), Ysize(indYr)]);					% why 1 at the end? To conserve the other dimensions?
