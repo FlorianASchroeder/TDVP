@@ -14,10 +14,10 @@ for i = 1:para.L
             Vmat{i}(1:halfdkdim,1:halfddim)=randn(halfdkdim,halfddim)./sqrt(halfdkdim*halfddim);
             Vmat{i}(halfdkdim+1:end,halfddim+1:end)=randn(halfdkdim,halfddim)./sqrt(halfdkdim*halfddim);
         else
-            Vmat{i} = randn(para.dk(i), para.d_opt(i))./sqrt(para.dk(i)*para.d_opt(i));
+            Vmat{i} = vpa(randn(para.dk(i), para.d_opt(i))./sqrt(para.dk(i)*para.d_opt(i)),para.vpaD);
         end
     else
-        Vmat{i} = eye(para.dk(i), para.d_opt(i));                   % why still para.d_opt??
+        Vmat{i} = vpa(eye(para.dk(i), para.d_opt(i)),para.vpaD);                   % why still para.d_opt??
     end
 end
 end

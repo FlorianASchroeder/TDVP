@@ -28,9 +28,9 @@ end
         % t(1) == sqrt(eta_0/pi)/2
         wc = 1;     % cutoff is set to 1 always!
         n = 0:modelpara.L-2;
-        w = wc/2.*(1+ (s^2./((s+2.*n).*(2+s+2.*n))));                                       % w(1) = w(n=0)
-        t = (wc.*(1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));     % t(1) = t(n=0) != coupling to system
-        t = [ sqrt(2*pi*modelpara.alpha*wc^2/(1+s))/(2*sqrt(pi)), t(1:end-1)];              % t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
+        w = vpa(wc/2.*(1+ (s^2./((s+2.*n).*(2+s+2.*n)))),modelpara.vpaD);                                       % w(1) = w(n=0)
+        t = vpa((wc.*(1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n)),modelpara.vpaD);     % t(1) = t(n=0) != coupling to system
+        t = vpa([ sqrt(2*pi*modelpara.alpha*wc^2/(1+s))/(2*sqrt(pi)), t(1:end-1)],modelpara.vpaD);              % t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
     end
 
 z = modelpara.z;

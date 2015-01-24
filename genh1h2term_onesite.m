@@ -20,7 +20,7 @@ switch para.model
             case 1                                                  % first chain pos = all spin sites!
                 [sigmaX,~,sigmaZ]=spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
                 zm_spin=zeros(2);
-                op.h1term{1}=-para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+                op.h1term{1}= vpa(-para.hx./2.*sigmaX-para.hz./2.*sigmaZ,para.vpaD);
                 op.h2term{1,1,1} = para.t(1).*sigmaZ; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
                 op.h2term{2,1,1} = para.t(1).*sigmaZ; op.h2term{2,2,1} = zm_spin;
             case para.L                                             % last chain pos: only one coupling?

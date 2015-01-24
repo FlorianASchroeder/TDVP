@@ -14,6 +14,8 @@ function fileName = VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 % mod by Florian Schroeder @Cambridge
 % 23 October 2014 -
 % copied from MLSBM 23/10/14
+% Modification 24/01/15: use Variable precision arithmetic for
+%						 computations in OrthPol, SBM
 
 
 maxNumCompThreads(1);
@@ -21,14 +23,16 @@ format short e
 
 starttime = tic;
 if isdeployed           % take care of command line arguments
-%     if ischar(hx), hx = str2num(hx); end
-%     if ischar(hz), hz = str2num(hz); end
-%     if ischar(s), s = str2num(s); end
-%     if ischar(alpha), alpha = str2num(alpha); end
-%    if ischar(delta), delta = str2num(delta); end
-%    if ischar(L), L = str2num(L); end
-%    if ischar(Lambda), Lambda = str2num(Lambda); end
-%    if ischar(parity), parity = str2num(parity); end
+% 	if ischar(hx), hx = str2num(hx); end
+% 	if ischar(hz), hz = str2num(hz); end
+	if ischar(s), s = str2num(s); end
+	if ischar(alpha), alpha = str2num(alpha); end
+	if ischar(delta), delta = str2num(delta); end
+	if ischar(L), L = str2num(L); end
+	if ischar(epsilon), epsilon = str2num(epsilon); end
+	if ischar(rescaling), rescaling = str2num(rescaling); end
+% 	if ischar(Lambda), Lambda = str2num(Lambda); end
+% 	if ischar(parity), parity = str2num(parity); end
 end
 
 %% Choose model and chain mapping
@@ -97,7 +101,7 @@ para.resume=0;                                  % Read from saved results if ava
 para.logging = 1;                               % Switch on logging and
 parity = 0;
 para.precision = 5e-15;                         % was 5e-15; Determines chain length if L=0;
-
+para.vpaD = 25;									% used for variable precision arithmetic!
 
 %% %%%%%%% Calculate Wilson Chain parameters %%%%%%%%%%%%%%%%%%
 % needed here: para.model, [para.MLSB_mode]
@@ -284,8 +288,8 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-OrthPol-rev31-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
-    para.model,alpha,delta,epsilon,dk,D,d_opt,L);
+para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-OrthPol-v36TCM-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%dtesc%d'],...
+    para.model,alpha,delta,epsilon,dk,D,d_opt,L,rescaling);
 para.filename=strcat(para.folder,'/results.mat');
 if ~exist(para.filename,'file')
     mkdir(para.folder);
