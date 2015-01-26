@@ -1,16 +1,37 @@
-function run_TDVP(alpha)
+function run_TDVP(alpha,OBB,Bond)
 try
 % needed if started from command line:
-if ischar(alpha), alpha = str2num(alpha); end
+if isdeployed
+	if ischar(alpha), alpha = str2num(alpha); end
+	if ischar(OBB), 	OBB 	= str2num(OBB); end
+	if ischar(Bond), 	Bond 	= str2num(Bond); end
+end
 
 %% start ground state calculations
-% fileName =  VMPS_FullSBM(1,alpha,0.1,0,200,1)     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+% fileName =  VMPS_FullSBM(1,alpha,0.1,0,30,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
+maxNumCompThreads(1);						% safer in terms of results!
 
 % load(fileName);
 
-%% Define GS configuration for TDVP
+%% Define GS config
+
+% LogZ SBM Orth10 Lambda=2:
+% load('20150126-2247-SpinBoson-LogZ-v37TCM66-alpha0.2delta0.1epsilon0dk20D5dopt5L49/results.mat');
+% load('20150126-2247-SpinBoson-LogZ-v37TCM66-alpha0.2delta0.1epsilon0dk20D5dopt5L49-artificial/results.mat');
+
+% OrthPol SBM Orth2010 L=50:
+% alpha = 0.01
+% load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results.mat');
+
+% OrthPol SBM Orth2010 L=200:
+% alpha = 0.01
+% load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat');
+% load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200-artificial/results.mat');
+
+%% Define GS configuration for TDVP (old)
 % Decoupled System-environment:
 % load('20141028-1325-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49/results.mat');
 
@@ -70,7 +91,7 @@ para.tdvp.tmax = 325;
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.deltaT = 4;                 % size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
-para.tdvp.maxExpMDim = 10^2;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
+para.tdvp.maxExpMDim = 260;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 0;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
@@ -82,12 +103,12 @@ para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); defa
     %   else        : use Expokit expv(t,A,v, expvTol, expvM)
     %   set maxExpMDim = 0 to only use expv()
 % OBB settings
-para.tdvp.expandOBB = 0;
+para.tdvp.expandOBB = OBB;
 % Bond-Dim settings
-para.tdvp.truncateExpandBonds = 0;
+para.tdvp.truncateExpandBonds = Bond;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 20;
+para.tdvp.maxBondDim = 15;
 % z-Averaging for log-Discretization
 para.tdvp.zAveraging = 0;
 if para.tdvp.zAveraging
@@ -105,7 +126,7 @@ else
 	para.tdvp.fromFilename = para.filename;				% or reference to VMPS Ground State File!
 end
 
-para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%dv24.mat'],para.tdvp.tmax,para.tdvp.deltaT);
+para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%dv37.mat'],para.tdvp.tmax,para.tdvp.deltaT);
 if para.tdvp.expandOBB
 	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-OBBExpand.mat']);
 else
@@ -135,12 +156,12 @@ end
 para.tdvp.expvCustomNow = 0;			% only used inside the program
 para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP; needs to be off since H in exponent!
 para.rescaling = para.tdvp.rescaling;
-para.complex = 1;
+para.complex = 1;						% necessary since time-evolution is complex
 
 %% Copy to scratch for computation
 if ~strcmp(computer,'PCWIN64')
 	[~, name] = system('hostname');
-	para.tdvp.hostname = name;
+	para.tdvp.hostname = strtrim(name);
 	save(sprintf([para.tdvp.filename(1:end-4),'-incomplete-%s.mat'],para.tdvp.hostname),'para','results');
 	tempDir = '/scratch/fayns2/TDVPtemp/';tempFold = fileparts(para.filename);
 	currentDir = pwd;
@@ -188,7 +209,7 @@ else
 end
 if ~strcmp(computer,'PCWIN64')
 	copyfile([para.tdvp.filename(1:end-4),'-small.mat'],[currentDir,'/',para.tdvp.filename(1:end-4),'-small.mat']);
-	delete([currentDir,'/',para.tdvp.filename(1:end-4),'-incomplete.mat']);
+	%delete([currentDir,'/',para.tdvp.filename(1:end-4),'-incomplete.mat']);
 	sendmailCAM('fayns2@cam.ac.uk',...
          'TDVP job completed',sprintf('The job \n %s\nHas successfully completed.',para.tdvp.filename));
 	exit;
@@ -209,8 +230,9 @@ for k = 1:length(folders)
         save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat','tresults');
     end
 end
-catch
+catch err
+	fprintf([getReport(err),'\n']);
 	sendmailCAM('fayns2@cam.ac.uk',...
-         'TDVP job ERROR',sprintf('The job \n %s\nHas encountered an error.',para.tdvp.filename));
+         'TDVP job ERROR',sprintf('The job \n %s\nHas encountered an error:\n%s',para.tdvp.filename,getReport(err)));
 end
 end

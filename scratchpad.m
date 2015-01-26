@@ -381,16 +381,16 @@ rotate3d on
 %% TDVP SBM: Plot Visibility / Coherence
 figure(2); hold all;
 % plot(para.tdvp.t, tresults.spin.visibility);
-plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sz-tresults.spin.sz(1));
-% set(gca,'ylim',[-1,1]);
+plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sz);
+set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
 
 %% TDVP: Plot <n> environment
-figure(4); clf;
+figure(3); clf;
 n = size(tresults.nx,1);
-% surf(1:para.L,para.tdvp.t(1:n),real(tresults.nx))
-surf(1:para.L,para.tdvp.t(1:n),abs(real(tresults.nx)-ones(size(tresults.nx,1),1)*real(tresults.nx(1,:))))
+surf(1:para.L,para.tdvp.t(1:n),real(tresults.nx))
+% surf(1:para.L,para.tdvp.t(1:n),abs(real(tresults.nx)-ones(size(tresults.nx,1),1)*real(tresults.nx(1,:))))
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$<n_k>$');
@@ -400,6 +400,23 @@ set(gca,'View',[0 42]);
 rotate3d on
 axis tight
 
+%% TDVP: Draw <n> propagation
+figure(3); clf;
+n = size(tresults.nx,1); nCont = 30;
+contourf(1:para.L,para.tdvp.t(1:n),real(tresults.nx),nCont)
+
+coneParam = zeros(2,n);
+hold on
+for m=1:8
+	[coneParam(1,m),coneParam(2,m)] = ginput(1);
+	plot(coneParam(1,m),coneParam(2,m),'ko','markerSize',10,'lineWidth',1,'markerFaceColor','w');
+end
+%%
+pf = polyfit(coneParam(1,:),coneParam(2,:),3);
+coneFunct = polyval(pf,para.tdvp.t(1:n));
+plot(coneFunct,para.tdvp.t(1:n),'w','linewidth',4)
+plot(coneFunct,para.tdvp.t(1:n),'k','linewidth',2)
+hold off
 %% TDVP: Plot temporal change in Vmat SV
 figure(4); clf;
 ax = axes('units','pixels');
@@ -474,17 +491,20 @@ sld = uicontrol('Style', 'slider',...
 %% TDVP z-averaging in one file
 % naming scheme to find files:
 %   take series filename and replace z-value by *
-folder = '20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49';
+folder = '20150131-1447-SpinBoson-LogZ-v37TCM67-alpha0.2delta0.1epsilon0dk20D5dopt5L30-artificial';
 figure(7);clf;
 % folder = '20141117-0531-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L84';
 % folder = '20141117-0406-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L49';
-filescheme = 'results-Till325Step4*-OBBExpand-noBondExpand*.mat';
-files = dir(sprintf('%s/%s',folder,filescheme));
-PlotData.spin.sz = [];
+filescheme = 'results-Till325Step4*-OBBExpand-noBondExpand*-small.mat';
+files = ls(sprintf('%s/%s',folder,filescheme));
+PlotData.spin.sz = [];PlotData.spin.sx = []; PlotData.spin.sy = []; PlotData.nx = [];
 PlotData.z = [];
-for k = 1:length(files)
-    load([folder,'/',files(k).name]);
+for k = 1:size(files,1)
+    load([folder,'/',files(k,:)]);
+	PlotData.spin.sx(k,:) = tresults.spin.sx;
+	PlotData.spin.sy(k,:) = tresults.spin.sy;
     PlotData.spin.sz(k,:) = tresults.spin.sz;
+	PlotData.nx(:,:,k)    = tresults.nx;
     PlotData.z(k) = para.z;
 end
 PlotData.t = para.tdvp.t;
@@ -495,6 +515,15 @@ legend(legLabels);
 set(gca,'color','none');
 xlabel('t');
 ylabel('$<s_z>$');
+para.tdvp.filename = [para.tdvp.filename(1:end-5),'Avg.mat'];
+tresults.spin.sx = mean(PlotData.spin.sx,1);
+tresults.spin.sy = mean(PlotData.spin.sy,1);
+tresults.spin.sz = mean(PlotData.spin.sz,1);
+tresults.nx = mean(PlotData.nx,3);
+if ~exist(para.tdvp.filename,'file')
+	save(para.tdvp.filename, 'para','results','tresults');
+end
+
 %% Plot only z-averaged sz
 plot(PlotData.t,mean(PlotData.spin.sz));
 ylim([-1,1]);set(gca,'color','none');
@@ -624,22 +653,31 @@ ylabel('Time/s')
 formatPlot(9)
 
 %% TDVP (12) prepare artificial GroundState
-mps{1} = reshape([1,0,0,0],[1,para.D(1),para.d_opt(1)]);
+% clear Workspace, load old result.mat and execute. Saves into new folder
+% for fresh start! Initializes Spin in +Sz
+para.folder = [para.folder,'-artificial'];
+para.filename = sprintf('%s/results.mat',para.folder);
+mps{1} = reshape([1,zeros(1,numel(mps{1})-1)],[1,para.D(1),para.d_opt(1)]);
+Vmat{1} = eye(para.dk(1));
 for j=2:para.L-1
-	mps{j} = reshape([-1, zeros(1,numel(mps{j})-1)],para.D(j-1),para.D(j),para.d_opt(j));
-	Vmat{j} = zeros(para.dk(j),para.d_opt(j));
-	Vmat{j}(para.dk(j):-1:para.dk(j)-para.d_opt(j)+1,1:para.d_opt(j)) = -eye(para.d_opt(j));
+	mps{j} = reshape([1, zeros(1,numel(mps{j})-1)],para.D(j-1),para.D(j),para.d_opt(j));
+	Vmat{j} = [zeros(para.dk(j)-para.d_opt(j),para.d_opt(j));...
+		fliplr(eye(para.d_opt(j)))];
 end
-mps{200} = reshape([-1, zeros(1,numel(mps{200})-1)],para.D(199),1,para.d_opt(200));
-Vmat{200} = zeros(para.dk(200),para.d_opt(200));
-Vmat{200}(para.dk(200):-1:para.dk(200)-para.d_opt(200)+1,1:para.d_opt(200)) = -eye(para.d_opt(200));
+mps{para.L} = reshape([1, zeros(1,numel(mps{para.L})-1)],para.D(para.L-1),1,para.d_opt(para.L));
+Vmat{para.L} = [zeros(para.dk(para.L)-para.d_opt(para.L),para.d_opt(para.L));...
+		fliplr(eye(para.d_opt(para.L)))];
+% Vmat{para.L}(para.dk(para.L):-1:para.dk(para.L)-para.d_opt(para.L)+1,1:para.d_opt(para.L)) = -eye(para.d_opt(para.L));
 
-results.nx         = getObservable({'occupation'},mps,Vmat,para);
-results.bosonshift = getObservable({'shift'},mps,Vmat,para);
+% results.nx         = getObservable({'occupation'},mps,Vmat,para);
+% results.bosonshift = getObservable({'shift'},mps,Vmat,para);
 
 if strcmp(para.model,'SpinBoson')
-    results.spin   = getObservable({'spin'},mps,Vmat,para);
+%     results.spin   = getObservable({'spin'},mps,Vmat,para);
 end
+% mkdir(para.folder);
+% save(para.filename,'mps','Vmat','para','results','op');
+
 %% TDVP SBM multi load files: OrthPol rev22 threading vs perfect L=200
 res = {};
 res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
@@ -677,6 +715,38 @@ res{16,2}= 'v20, rescaling = 0, TCM';
 
 
 % cell2mat(cellfun(@(x) [x.results.time,x.results.tdvp.time], res(:,1), 'UniformOutput', false))
+
+%% TDVP SBM multi load files: OrthPol L=200 rev20 vs rev35 GS
+res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
+res{1,2} = 'perfect v19';
+res{2,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1509-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{2,2}= 'v20, rescaling = 1, TCM';
+res{3,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1510-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{3,2}= 'v20, rescaling = 0, TCM';
+res{4,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1602-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{4,2}= 'v26, rescaling = 1, TCM';
+res{5,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1602-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{5,2}= 'v26, rescaling = 0, TCM';
+res{6,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1554-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{6,2}= 'v27, rescaling = 1, TCM';
+res{7,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1555-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{7,2}= 'v27, rescaling = 0, TCM';
+res{8,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1607-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{8,2}= 'v28, rescaling = 1, TCM';
+res{9,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1609-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{9,2}= 'v28, rescaling = 0, TCM';
+res{10,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1614-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{10,2}= 'v30, rescaling = 1, TCM';
+res{11,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{11,2}= 'v30, rescaling = 0, TCM';
+res{12,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1237-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{12,2}= 'v35, rescaling = 1, Lappy';
+res{13,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1326-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{13,2}= 'v35, rescaling = 0, Lappy';
+res{14,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1431-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{14,2}= 'v35, rescaling = 1, TCM';
+res{15,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1432-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{15,2}= 'v35, rescaling = 0, TCM';
 
 %% TDVP SBM multi load files: OrthPol compare L = 50 rev20, rev22 vs
 res = {};
@@ -732,12 +802,201 @@ res{25,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20
 res{25,2} = 'GS Exp.v20, rescaling = 1, TCM';
 res{26,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1508-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{26,2} = 'GS Exp.v20, rescaling = 0, TCM';
+res{27,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1600-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{27,2} = 'GS Exp.v26, rescaling = 1, TCM';
+res{28,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1600-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{28,2} = 'GS Exp.v26, rescaling = 0, TCM';
+res{29,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1552-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{29,2} = 'GS Exp.v27, rescaling = 1, TCM';
+res{30,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1553-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{30,2} = 'GS Exp.v27, rescaling = 0, TCM';
+res{31,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1605-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{31,2} = 'GS Exp.v28, rescaling = 1, TCM';
+res{32,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1608-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{32,2} = 'GS Exp.v28, rescaling = 0, TCM';
+res{33,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{33,2} = 'GS Exp.v30, rescaling = 1, TCM';
+res{34,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1611-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{34,2} = 'GS Exp.v30, rescaling = 0, TCM';
+res{35,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150126-1511-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{35,2} = 'GS Exp.v35, rescaling = 1, TCM,prec';
 
+%% TDVP SBM multi load files: OrthPol L= 50 rev28, rev30 architecture sweep
+res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1605-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{1,2} = 'GS Exp.v28, rescaling = 1, Haswell';
+res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1608-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{2,2} = 'GS Exp.v28, rescaling = 0, Haswell';
+res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{3,2} = 'GS Exp.v30, rescaling = 1, Haswell';
+res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1611-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{4,2} = 'GS Exp.v30, rescaling = 0, Haswell';
+res{5,1} = load([ls('201501*OrthPol*v28TCM*Sandy*L50resc1'),'/results.mat']);
+res{5,2} = 'GS Exp.v28, rescaling = 1, Sandy';
+res{6,1} = load([ls('201501*OrthPol*v28TCM*Sandy*L50resc0'),'/results.mat']);
+res{6,2} = 'GS Exp.v28, rescaling = 0, Sandy';
+res{7,1} = load([ls('201501*OrthPol*v30TCM*Sandy*L50resc1'),'/results.mat']);
+res{7,2} = 'GS Exp.v30, rescaling = 1, Sandy';
+res{8,1} = load([ls('201501*OrthPol*v30TCM*Sandy*L50resc0'),'/results.mat']);
+res{8,2} = 'GS Exp.v30, rescaling = 0, Sandy';
+res{9,1} = load([ls('201501*OrthPol*v28TCM*Nehalem*L50resc1'),'/results.mat']);
+res{9,2} = 'GS Exp.v28, rescaling = 1, Nehalem';
+res{10,1} = load([ls('201501*OrthPol*v28TCM*Nehalem*L50resc0'),'/results.mat']);
+res{10,2} = 'GS Exp.v28, rescaling = 0, Nehalem';
+res{11,1} = load([ls('201501*OrthPol*v30TCM*Nehalem*L50resc1'),'/results.mat']);
+res{11,2} = 'GS Exp.v30, rescaling = 1, Nehalem';
+res{12,1} = load([ls('201501*OrthPol*v30TCM*Nehalem*L50resc0'),'/results.mat']);
+res{12,2} = 'GS Exp.v30, rescaling = 0, Nehalem';
+res{13,1} = load([ls('201501*OrthPol*v28TCM*Core2*L50resc1'),'/results.mat']);
+res{13,2} = 'GS Exp.v28, rescaling = 1, Core2';
+res{14,1} = load([ls('201501*OrthPol*v28TCM*Core2*L50resc0'),'/results.mat']);
+res{14,2} = 'GS Exp.v28, rescaling = 0, Core2';
+res{15,1} = load([ls('201501*OrthPol*v30TCM*Core2*L50resc1'),'/results.mat']);
+res{15,2} = 'GS Exp.v30, rescaling = 1, Core2';
+res{16,1} = load([ls('201501*OrthPol*v30TCM*Core2*L50resc0'),'/results.mat']);
+res{16,2} = 'GS Exp.v30, rescaling = 0, Core2';
+%% TDVP SBM multi load files: OrthPol L=200 rev28, rev30 architecture sweep
+res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1607-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1/results.mat');
+res{1,2} = 'GS Exp.v28, rescaling = 1, Haswell';
+res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1609-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0/results.mat');
+res{2,2} = 'GS Exp.v28, rescaling = 0, Haswell';
+res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1614-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1/results.mat');
+res{3,2} = 'GS Exp.v30, rescaling = 1, Haswell';
+res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0/results.mat');
+res{4,2} = 'GS Exp.v30, rescaling = 0, Haswell';
+res{5,1} = load([ls('201501*OrthPol*v28TCM*Sandy*L200resc1'),'/results.mat']);
+res{5,2} = 'GS Exp.v28, rescaling = 1, Sandy';
+res{6,1} = load([ls('201501*OrthPol*v28TCM*Sandy*L200resc0'),'/results.mat']);
+res{6,2} = 'GS Exp.v28, rescaling = 0, Sandy';
+res{7,1} = load([ls('201501*OrthPol*v30TCM*Sandy*L200resc1'),'/results.mat']);
+res{7,2} = 'GS Exp.v30, rescaling = 1, Sandy';
+res{8,1} = load([ls('201501*OrthPol*v30TCM*Sandy*L200resc0'),'/results.mat']);
+res{8,2} = 'GS Exp.v30, rescaling = 0, Sandy';
+res{9,1} = load([ls('201501*OrthPol*v28TCM*Nehalem*L200resc1'),'/results.mat']);
+res{9,2} = 'GS Exp.v28, rescaling = 1, Nehalem';
+res{10,1} = load([ls('201501*OrthPol*v28TCM*Nehalem*L200resc0'),'/results.mat']);
+res{10,2} = 'GS Exp.v28, rescaling = 0, Nehalem';
+res{11,1} = load([ls('201501*OrthPol*v30TCM*Nehalem*L200resc1'),'/results.mat']);
+res{11,2} = 'GS Exp.v30, rescaling = 1, Nehalem';
+res{12,1} = load([ls('201501*OrthPol*v30TCM*Nehalem*L200resc0'),'/results.mat']);
+res{12,2} = 'GS Exp.v30, rescaling = 0, Nehalem';
+res{13,1} = load([ls('201501*OrthPol*v28TCM*Core2*L200resc1'),'/results.mat']);
+res{13,2} = 'GS Exp.v28, rescaling = 1, Core2';
+res{14,1} = load([ls('201501*OrthPol*v28TCM*Core2*L200resc0'),'/results.mat']);
+res{14,2} = 'GS Exp.v28, rescaling = 0, Core2';
+res{15,1} = load([ls('201501*OrthPol*v30TCM*Core2*L200resc1'),'/results.mat']);
+res{15,2} = 'GS Exp.v30, rescaling = 1, Core2';
+res{16,1} = load([ls('201501*OrthPol*v30TCM*Core2*L200resc0'),'/results.mat']);
+res{16,2} = 'GS Exp.v30, rescaling = 0, Core2';
+
+%% TDVP SBM multi load files: OrthPol/LogZ v37: proper L=50, L=200 Sweep!
+% OrthPol-TDVP-Benchmark-Sz-L50-v37:				1,3:6
+% OrthPol-TDVP-Benchmark-Sz-L200-v37:				1,7:9
+% OrthPol-TDVP-Benchmark-Sz-L50-artificial-v37:		1,10:14
+% OrthPol-TDVP-Benchmark-Sz-L200-artificial-v37:	1,15:18
+% Legend font size: 16 or 18
+res{1,1} = load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
+res{1,2} = 'v19, Perfect';
+res{2,1} = load('20150126-1800-SpinBoson-LogZ-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L49/results-Till325Step4v37-OBBExpand-noBondExpand-1core-zAvg.mat');
+res{2,2} = '\Lambda=2, z_{Avg}=0.2, OBB no Bond';
+res{3,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results-Till325Step4v37-noOBBExpand-noBondExpand-1core-small.mat');
+res{3,2} = 'OrthPol L=50, no Expand';
+res{4,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results-Till325Step4v37-OBBExpand-noBondExpand-1core-small.mat');
+res{4,2} = 'OrthPol L=50, OBB no Bond';
+res{5,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results-Till325Step4v37-noOBBExpand-BondExpand15-1core-small.mat');
+res{5,2} = 'OrthPol L=50, Bond no OBB';
+res{6,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results-Till325Step4v37-OBBExpand-BondExpand15-expvCustom800-1core-small.mat');
+res{6,2} = 'OrthPol L=50, All Expand';
+res{7,1} = load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v37-noOBBExpand-noBondExpand-1core-small.mat');
+res{7,2} = 'OrthPol L=200, no Expand';
+res{8,1} = load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v37-OBBExpand-noBondExpand-1core-small.mat');
+res{8,2} = 'OrthPol L=200, OBB no Bond';
+res{9,1} = load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v37-OBBExpand-BondExpand15-expvCustom800-1core-small.mat');
+res{9,2} = 'OrthPol L=200, All Expand';
+res{10,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial\results-Till325Step4v37-noOBBExpand-noBondExpand-1core-small.mat');
+res{10,2} = 'OrthPol L=50, Art, no Expand';
+res{11,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial\results-Till325Step4v37-OBBExpand-noBondExpand-1core-small.mat');
+res{11,2} = 'OrthPol L=50, Art, OBB no Bond';
+res{12,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial\results-Till325Step4v37-noOBBExpand-BondExpand15-1core-small.mat');
+res{12,2} = 'OrthPol L=50, Art, Bond no OBB';
+res{13,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial\results-Till325Step4v37-OBBExpand-BondExpand15-expvCustom800-1core-small.mat');
+res{13,2} = 'OrthPol L=50, Art, All, expvCustom800';
+res{14,1} = load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial\results-Till325Step4v37-OBBExpand-BondExpand15-expvCustom1-1core-small.mat');
+res{14,2} = 'OrthPol L=50, Art, All, expvCustom1';
+res{15,1} = load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200-artificial\results-Till325Step4v37-noOBBExpand-noBondExpand-1core-small.mat');
+res{15,2} = 'OrthPol L=200,Art,no Expand';
+res{16,1} = load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200-artificial\results-Till325Step4v37-OBBExpand-noBondExpand-1core-small.mat');
+res{16,2} = 'OrthPol L=200,Art, OBB no Bond';
+res{17,1} = load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200-artificial\results-Till325Step4v37-noOBBExpand-BondExpand15-1core-small.mat');
+res{17,2} = 'OrthPol L=200,Art, Bond no OBB';
+res{18,1} = load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200-artificial\results-Till325Step4v37-OBBExpand-BondExpand15-expvCustom800-1core-small.mat');
+res{18,2} = 'OrthPol L=200,Art, All';
+res{19,1} = load('20150126-2247-SpinBoson-LogZ-v37TCM66-alpha0.2delta0.1epsilon0dk20D5dopt5L49/results-Till325Step4v37-OBBExpand-noBondExpand-1core-zAvg.mat');
+res{19,2} = '\Lambda=2, z_{Avg}=0.2, OBB no Bond';
+res{20,1} = load('20150126-2247-SpinBoson-LogZ-v37TCM66-alpha0.2delta0.1epsilon0dk20D5dopt5L49-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-1core-zAvg.mat');
+res{20,2} = '\Lambda=2, z_{Avg}=0.2, OBB no Bond, Art';
+
+%% TDVP SBM multi load files: Orth2010, OrthPol, artificial, L=50, L=200
+res{ 1,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 1,2} = '\alpha = 0.01';
+res{ 2,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.05delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 2,2} = '\alpha = 0.05';
+res{ 3,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.1delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 3,2} = '\alpha = 0.1';
+res{ 4,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.15delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 4,2} = '\alpha = 0.15';
+res{ 5,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.2delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 5,2} = '\alpha = 0.2';
+res{ 6,1} = load('20150130-1531-SpinBoson-OrthPol-v37TCM33-alpha0.01delta0.1epsilon0dk20D5dopt5L200-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 6,2} = '\alpha = 0.01';
+res{ 7,1} = load('20150130-1531-SpinBoson-OrthPol-v37TCM33-alpha0.05delta0.1epsilon0dk20D5dopt5L200-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 7,2} = '\alpha = 0.05';
+res{ 8,1} = load('20150130-1531-SpinBoson-OrthPol-v37TCM33-alpha0.1delta0.1epsilon0dk20D5dopt5L200-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 8,2} = '\alpha = 0.1';
+res{ 9,1} = load('20150130-1531-SpinBoson-OrthPol-v37TCM33-alpha0.15delta0.1epsilon0dk20D5dopt5L200-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 9,2} = '\alpha = 0.15';
+res{10,1} = load('20150130-1531-SpinBoson-OrthPol-v37TCM33-alpha0.2delta0.1epsilon0dk20D5dopt5L200-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{10,2} = '\alpha = 0.2';
+
+%% TDVP SBM multi load files: Architecture sweep, OrthPol, artificial, L=50
+res{ 1,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 1,2} = '\alpha = 0.01, Haswell';
+res{ 2,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.05delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 2,2} = '\alpha = 0.05, Haswell';
+res{ 3,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.1delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 3,2} = '\alpha = 0.1, Haswell';
+res{ 4,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.15delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 4,2} = '\alpha = 0.15, Haswell';
+res{ 5,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.2delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 5,2} = '\alpha = 0.2, Haswell';
+res{ 6,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 6,2} = '\alpha = 0.01, Sandy';
+res{ 7,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.05delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 7,2} = '\alpha = 0.05, Sandy';
+res{ 8,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.1delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 8,2} = '\alpha = 0.1, Sandy';
+res{ 9,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.15delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{ 9,2} = '\alpha = 0.15, Sandy';
+res{10,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.2delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{10,2} = '\alpha = 0.2, Sandy';
+res{11,1} = load('20150201-1747-SpinBoson-OrthPol-v37TCM14-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{11,2} = '\alpha = 0.01, Nehalem';
+res{12,1} = load('20150201-1747-SpinBoson-OrthPol-v37TCM14-alpha0.05delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{12,2} = '\alpha = 0.05, Nehalem';
+res{13,1} = load('20150201-1747-SpinBoson-OrthPol-v37TCM14-alpha0.1delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{13,2} = '\alpha = 0.1, Nehalem';
+res{14,1} = load('20150201-1747-SpinBoson-OrthPol-v37TCM14-alpha0.15delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{14,2} = '\alpha = 0.15, Nehalem';
+res{15,1} = load('20150201-1747-SpinBoson-OrthPol-v37TCM14-alpha0.2delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{15,2} = '\alpha = 0.2, Nehalem';
+res{16,1} = load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
+res{16,2} = 'v19, Perfect';
 %% TDVP SBM multi: Plot Visibility / Coherence
-fignum = 1; figure(fignum); clf; hold all;
+fignum = 2; figure(fignum); clf; hold all;
 % pick = [1:length(res)];			% plot all
-pick = [8,3,5];						% plot selective
+pick = [1,15:18];						% plot selective
+plot(1:400,zeros(1,400),'black');
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)), x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
+% ph{8}.LineStyle = ':';				%temp
 set(gca,'ylim',[-1,1]);
 xlabel('t');
 ylabel('$<s_z>$');
@@ -746,12 +1005,14 @@ formatPlot(fignum);
 
 %% TDVP SBM multi: Plot VMPS GS <n>
 fignum = 2; figure(fignum); clf; hold all;
-% pick = [1:length(res)];			% plot all
-pick = [6,12,21,22,23,24,25,26];						% plot selective
+pick = [1:length(res)];			% plot all
+% pick = [8:11];
+% pick = [23,35];
+% pick = [6,12,21,22,23,24,25,26];						% plot selective
 % pick = [8,15,16,11,12,13,14];
 ph = cellfun(@(x) plot(real(x.results.nx)), res(pick,1), 'UniformOutput', false);
-ph{3}.LineStyle = ':';				%temp
-ph{4}.LineStyle = ':';				%temp
+% ph{2}.LineStyle = ':';				%temp
+% ph{4}.LineStyle = ':';				%temp
 set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$<n_{k,VMPS}>$')
@@ -762,7 +1023,9 @@ formatPlot(fignum)
 %% TDVP SBM multi: Plot GS Energy convergence
 fignum = 3; figure(fignum); clf; hold all;
 % pick = [1:length(res)];			% plot all
-pick = [8,15,16,11,12,13,14];						% plot selective
+% pick = [8,15,16,11,12,13,14];						% plot selective
+% pick = [8:11];
+% pick = [23,35];
 ph = cellfun(@(x) plot(cell2mat(x.results.EvaluesLog)-min(cell2mat(x.results.EvaluesLog))), res(pick,1), 'UniformOutput', false);
 % disp(sprintf('%.15e\n',cell2mat(cellfun(@(x) x.results.E, res(pick,1), 'UniformOutput', false))))
 set(gca,'YScale','log');

@@ -191,12 +191,12 @@ hump = hump / normv;
 			% Opleft_(n~',n~) = A*_(l',r,n~') [Opleft_(l',l) * A_(l,r,n~)]_(l',r,n~)
 			Opleft = contracttensors(op.Opleft{k},2,2,mps,3,1);				% Opleft_(l',r,n~) = Opleft_(l',l) * A_(l,r,n~)
 			Opleft = contracttensors(Opleft,3,[1 2],conj(mps),3,[1 2]);		% Opleft_(n~,n~')  = Opleft_(l',r,n~) * A*_(l',r,n~')
-			w	   = w + op.h2j{k,2} * V * Opleft;							% w_(n',n~')      += H2j_(n',n) * V_(n,n~) * Opleft_(n~,n~')
+			w	   = w + (op.h2j{k,2} * V) * Opleft;						% w_(n',n~')      += H2j_(n',n) * V_(n,n~) * Opleft_(n~,n~')
 
 			% Opright_(n~',n~) = A*_(l,r',n~') [Opright_(r',r) * A_(l,r,n~)]_(r',l,n~)
 			Opright = contracttensors(op.Opright{k},2,2, mps,3,2);			% Opright_(r',l,n~) = Opright_(r',r) * A_(l,r,n~)
 			Opright = contracttensors(Opright,3,[2 1],conj(mps),3,[1 2]);	% Opright_(n~,n~')  = Opright_(r',l,n~) * A*_(l',r',n~')
-			w       = w + op.h2j{k,1} * V  * Opright;						% w_(n',n~')       += H2j_(n',n) * V_(n,n~) * Opright_(n~,n~')
+			w       = w + (op.h2j{k,1} * V)  * Opright;						% w_(n',n~')       += H2j_(n',n) * V_(n,n~) * Opright_(n~,n~')
 		end
 
 		%% reshape w into vector

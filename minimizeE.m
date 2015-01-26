@@ -26,6 +26,30 @@ end
 para = gennonzeroindex(mps,Vmat,para);
 para
 
+%% Override if preparing artificial vacuum Ground State
+if strcmp(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
+	%% prepare +Sz eigenstate
+	if strcmp(para.SpinBoson.InitialState, 'sz')
+		mps{1} = reshape([1,zeros(1,numel(mps{1})-1)],[1,para.D(1),para.d_opt(1)]);
+		Vmat{1} = eye(para.dk(1));
+	else
+		error('VMPS:minimzeE:DefineInitialState','only InitialState=sz is implemented yet');
+	end
+	for j = 2:para.L-1
+		mps{j} = reshape([1, zeros(1,numel(mps{j})-1)],para.D(j-1),para.D(j),para.d_opt(j));
+		Vmat{j} = [zeros(para.dk(j)-para.d_opt(j),para.d_opt(j));...
+				   fliplr(eye(para.d_opt(j)))];
+	end
+	mps{para.L} = reshape([1, zeros(1,numel(mps{para.L})-1)],para.D(para.L-1),1,para.d_opt(para.L));
+	Vmat{para.L} = [zeros(para.dk(para.L)-para.d_opt(para.L),para.d_opt(para.L));...
+					fliplr(eye(para.d_opt(para.L)))];
+	[op] = initstorage(mps, Vmat, op,para);
+	para.trustsite = para.L;		% needed for TDVP
+	return;
+	% exit the function here since no optimization is necessary!
+end
+
+
 [mps,Vmat,para] = prepare(mps,Vmat,para);
 % storage-initialization sweep l <- r
 [op] = initstorage(mps, Vmat, op,para);

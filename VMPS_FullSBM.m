@@ -21,21 +21,23 @@ format short e
 
 starttime = tic;
 if isdeployed           % take care of command line arguments
-%     if ischar(hx), hx = str2num(hx); end
-%     if ischar(hz), hz = str2num(hz); end
-%     if ischar(s), s = str2num(s); end
-%     if ischar(alpha), alpha = str2num(alpha); end
-%    if ischar(delta), delta = str2num(delta); end
-%    if ischar(L), L = str2num(L); end
-%    if ischar(Lambda), Lambda = str2num(Lambda); end
-%    if ischar(parity), parity = str2num(parity); end
+% 	if ischar(hx), hx = str2num(hx); end
+% 	if ischar(hz), hz = str2num(hz); end
+	if ischar(s), s = str2num(s); end
+	if ischar(alpha), alpha = str2num(alpha); end
+	if ischar(delta), delta = str2num(delta); end
+	if ischar(epsilon), epsilon = str2num(epsilon); end
+	if ischar(L), L = str2num(L); end
+	if ischar(rescaling), rescaling = str2num(rescaling); end
+% 	if ischar(Lambda), Lambda = str2num(Lambda); end
+% 	if ischar(parity), parity = str2num(parity); end
 end
 
 %% Choose model and chain mapping
 para.model='SpinBoson';
     % choose: 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson','ImpurityQTN'
 % para.chainMapping = 'LogDiscrZitko';
-para.chainMapping = 'OrthogonalPolynomials';
+para.chainMapping = 'LogDiscrZitko';
     % choose: 'OrthogonalPolynomials','LogDiscrZitko'
 
 %% Parameters
@@ -46,7 +48,7 @@ if strcmp(para.chainMapping,'OrthogonalPolynomials')
     % since site energies converge to w_c/2 = 0.5, Optimum chain length can
     % not easily be determined -> give para.L
     para.L = 200;							% default chain length
-    if L ~= 0								% chain length override
+    if L > 0								% chain length override
     	para.L = L;
     end
 	para.rescaling = 0;						% only for LogDiscrZitko applicable
@@ -57,9 +59,12 @@ if strcmp(para.chainMapping,'OrthogonalPolynomials')
     para.z=1;
 elseif strcmp(para.chainMapping,'LogDiscrZitko')
     %%
-    para.Lambda=2;                          % Bath log Discretization parameter
+    para.Lambda=1.2;                          % Bath log Discretization parameter
     para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
     para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
+	if L > 0								% chain length override
+    	para.L = L;
+    end
 	para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
 end
 L=para.L;
@@ -96,7 +101,7 @@ para.complex=0;                                 % set to 1 if any complex parame
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
 parity = 0;
-para.precision = 5e-15;                         % was 5e-15; Determines chain length if L=0;
+para.precision = 5e-15;                         % was 5e-15; Determines chain length if L=0; Also E-convergence
 
 
 %% %%%%%%% Calculate Wilson Chain parameters %%%%%%%%%%%%%%%%%%
@@ -179,21 +184,24 @@ end
 
 if strcmp(para.model,'SpinBoson')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'decoupled';
-        % choose: 'decoupled', 'coupled';
+    para.SpinBoson.GroundStateMode = 'artificial';
+        % choose: 'decoupled', 'coupled', 'artificial';
+		% -artificial does no optimization! this only sets up an artificial
+		%		ground state with <n> = 0 on chain and InitialState 'sz'
     para.SpinBoson.InitialState = 'sz';
         % choose: 'sz', 'sx'
+		% works with 'decoupled' and 'coupled'
 
     if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
         para.SpinBoson.t1 = para.t(1);
         para.t(1) = 0;                              % switches off interaction with bath
     end
-    if strcmp(para.SpinBoson.InitialState, 'sx')
+    if strcmp(para.SpinBoson.InitialState, 'sx') && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
         para.SpinBoson.hx = para.hx;
         para.SpinBoson.hz = para.hz;
         para.hz = 0;
         para.hx = 10;                               % some value to do a sx splitting
-    elseif strcmp(para.SpinBoson.InitialState, 'sz')
+    elseif strcmp(para.SpinBoson.InitialState, 'sz') && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
         para.SpinBoson.hx = para.hx;
         para.SpinBoson.hz = para.hz;
         para.hz = 10;                               % some value to get sz+ eigenstate
@@ -282,10 +290,23 @@ para=maxshift(para);
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+[~, name] = system('hostname');
+para.hostname = strtrim(name);						% save hostname for later reference
+para.version = 'v37';
+if ~strcmp(computer,'PCWIN64')
+	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
+end
+if strcmp(para.chainMapping,'OrthogonalPolynomials')
+	para.version = ['OrthPol-',para.version];
+elseif strcmp(para.chainMapping,'LogDiscrZitko')
+	para.version = ['LogZ-',para.version];
+end
 
-
-para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-OrthPol-exp.v35-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
-    para.model,alpha,delta,epsilon,dk,D,d_opt,L);
+para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
+    para.model,para.version,alpha,delta,epsilon,dk,D,d_opt,L);
+if strcmp(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
+	para.folder = sprintf('%s-artificial',para.folder);
+end
 para.filename=strcat(para.folder,'/results.mat');
 if ~exist(para.filename,'file')
     mkdir(para.folder);
@@ -301,9 +322,10 @@ end
 if strcmp(para.model,'SpinBoson')
 %% Reset original parameters after specific ground state preparation!
     if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
+		% restore coupling to chain
         para.t(1) = para.SpinBoson.t1;
     end
-    if strcmp(para.SpinBoson.InitialState, 'sx') || strcmp(para.SpinBoson.InitialState, 'sz')
+    if (strcmp(para.SpinBoson.InitialState, 'sx') || strcmp(para.SpinBoson.InitialState, 'sz')) && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
         para.hx = para.SpinBoson.hx;
         para.hz = para.SpinBoson.hz;
     end
@@ -329,7 +351,7 @@ if strcmp(para.model,'MLSpinBoson')
 end
 %%
 results.time = toc(starttime)
-save(para.filename,'para','Vmat','mps','results','op');
+save(para.filename,'results','-append');
 
 fileName = para.filename;
 end
