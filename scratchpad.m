@@ -1043,4 +1043,31 @@ if wantSave
     export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
 end
 
-
+%% TEST SBM_genpara:
+para1.chain.mapping = 'OrthogonalPolynomials';	para1.chain.spectralDensity = 'Leggett_Hard'; para1.chain.discrMethod = 'Analytic';
+para1.chain.discretization = 'None';			para1.chain.method = 'Analytic';
+para1.Lambda = 2; para1.z = 1; para1.L = 100; para1.s = 1; para1.alpha = 0.1;
+para1 = SBM_genpara(para1);
+para2.chain.mapping = 'OrthogonalPolynomials';	para2.chain.spectralDensity = 'Leggett_Hard'; para2.chain.discrMethod = 'Numeric';
+para2.chain.discretization = 'LogZ';			para2.chain.method = 'Stieltjes';
+para2.Lambda = 2; para2.z = 1; para2.L = 100; para2.s = 1; para2.alpha = 0.1;
+para2 = SBM_genpara(para2);
+%%
+% clear;
+para1.chain.mapping = 'OrthogonalPolynomials';	para1.chain.spectralDensity = 'Leggett_Hard'; para1.chain.discrMethod = 'None';
+para1.chain.discretization = 'LogZ';			para1.chain.method = 'Analytic';
+para1.Lambda = 1.1; para1.z = 1; para1.L = 50; para1.s = 1; para1.alpha = 0.1;
+t1 = cputime; para1 = SBM_genpara(para1); para1.time = cputime-t1;
+para2.chain.mapping = 'OrthogonalPolynomials';	para2.chain.spectralDensity = 'Leggett_Hard'; para2.chain.discrMethod = 'Analytic';
+para2.chain.discretization = 'LogZ';			para2.chain.method = 'Stieltjes';
+para2.Lambda = 1.001; para2.z = 1; para2.L = 50; para2.s = 1; para2.alpha = 0.1;
+t1 = cputime; para2 = SBM_genpara(para2); para2.time = cputime-t1;
+%%
+hold all;
+% plot(para1.t);plot(para1.epsilon);
+% plot(para2.t);plot(para2.epsilon);
+plot(para1.t-para2.t);plot(para1.epsilon-para2.epsilon);
+% set(gca,'yscale','log');
+legend('para1.t','para1.\epsilon','para2.t',num2str(para2.Lambda));
+% legend('t Lanzcos','\epsilon','t Stieltjes','\epsilon');
+formatPlot(1)

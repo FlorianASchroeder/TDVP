@@ -45,15 +45,17 @@ if size(mps,1) ~= 1 && size(Vmat,1) ~= 1
     tVmat = Vmat;
     mps = tmps(end,:);
     Vmat = tVmat(end,:);
-    para.tdvp.slices = size(tmps,1):para.tdvp.tmax/para.tdvp.deltaT;
+%     para.tdvp.slices = size(tmps,1):para.tdvp.tmax/para.tdvp.deltaT;
+	para.tdvp.slices = size(tmps,1):(length(para.tdvp.t)-1);
    % assert(para.tdvp.slices(1) == size(mps,1),'Ensure that para.tdvp.slices is properly defined to continue the calculation!');
    if ~isprop(outFile,'mps')
 	   outFile.mps = tmps(1,:);				% save the starting mps / Vmat, necessary for new files
 	   outFile.Vmat = tVmat(1,:);
    end
 else
-    % For fresh starts, define the timeslices
-    para.tdvp.slices = 1:(para.tdvp.tmax/para.tdvp.deltaT);
+    % For fresh starts, define number of timeslices
+%     para.tdvp.slices = 1:(para.tdvp.tmax/para.tdvp.deltaT);
+	para.tdvp.slices = 1:(length(para.tdvp.t)-1);
 end
 
 % estimate the actual dimension in expm() from MPS dimensions.
@@ -91,7 +93,8 @@ clear('tmps','tVmat');
 
 for timeslice = para.tdvp.slices
     para.sweepto = 'r';
-    fprintf('t = %g\n', timeslice * para.tdvp.deltaT);
+	para.tdvp.deltaT = para.tdvp.t(timeslice+1)-para.tdvp.t(timeslice);
+    fprintf('t = %g\n', para.tdvp.t(timeslice+1));
     % sweep l->r and time evolve each site
     for sitej = 1:para.L
         fprintf('%g', sitej);
@@ -182,7 +185,7 @@ for timeslice = para.tdvp.slices
 	completePercent = round(timeslice./length(para.tdvp.slices)*1000)./10;
 	hoursElapsed = toc(para.tdvp.starttime)./3600;
 	hoursLeft = hoursElapsed./completePercent.*(100-completePercent);
-	fprintf('Completed: %d%%, Time elapsed: %.2gh, Time left: %.2gh\n', completePercent, hoursElapsed, hoursLeft);
+	fprintf('Completed: %.3g%%, Time elapsed: %.2gh, Time left: %.2gh\n', completePercent, hoursElapsed, hoursLeft);
     %% save tmps and tVmat and log parameters
     outFile.tmps(timeslice+1, :) = mps;					% writes to File
     outFile.tVmat(timeslice+1,:) = Vmat;				% writes to File

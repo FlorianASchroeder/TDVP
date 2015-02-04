@@ -8,12 +8,12 @@ if isdeployed
 end
 
 %% start ground state calculations
-% fileName =  VMPS_FullSBM(1,alpha,0.1,0,30,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+fileName =  VMPS_FullSBM(1,alpha,0.1,0,200,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
 
-% load(fileName);
+load(fileName);
 
 %% Define GS config
 
@@ -24,7 +24,7 @@ maxNumCompThreads(1);						% safer in terms of results!
 % OrthPol SBM Orth2010 L=50:
 % alpha = 0.01
 % load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
-load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results.mat');
+% load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results.mat');
 
 % OrthPol SBM Orth2010 L=200:
 % alpha = 0.01
@@ -85,15 +85,18 @@ load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5do
 % end
 
 %% Define TDVP parameters
-para.tdvp.tmax = 325;
+para.tdvp.tmax = 1e5;
+para.tdvp.tmin = 0.1;
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
-para.tdvp.deltaT = 4;                 % size of timeslice in units:
-para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
+para.tdvp.deltaT = 0.1;                 % size of timeslice in units:
+para.tdvp.timescale = 'Exp10';			% Exponential time steps
+% para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
+para.tdvp.t = [0,10.^(log10(para.tdvp.tmin):para.tdvp.deltaT:log10(para.tdvp.tmax))];		% for use with log10
 para.tdvp.maxExpMDim = 260;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; maxExpMDim < maxExpVDim
-para.tdvp.expvCustom = 0;				% 1 for Custom programmed, 0 for standard expv()
+para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
 para.tdvp.expvTol = 1e-15;              % error tolerance of expv(); default: 1e-7
@@ -116,6 +119,7 @@ if para.tdvp.zAveraging
 end
 
 %% Format Filename
+para.tdvp.version = 'v39';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP
 	para.tdvp.fromFilename = para.tdvp.filename;		% save the reference to continued file
@@ -126,7 +130,11 @@ else
 	para.tdvp.fromFilename = para.filename;				% or reference to VMPS Ground State File!
 end
 
-para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%dv37.mat'],para.tdvp.tmax,para.tdvp.deltaT);
+if strcmp(para.tdvp.timescale,'Exp10')
+	para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dExpStep%.2g%s.mat'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
+else
+	para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s.mat'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
+end
 if para.tdvp.expandOBB
 	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-OBBExpand.mat']);
 else

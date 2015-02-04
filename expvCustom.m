@@ -78,16 +78,17 @@ while t_now < t_out
   V = zeros(n,m+1);
   H = zeros(m+2,m+2);
 
+% Start finding Krylov subspace using v_n = A v_n-1
   V(:,1) = (1/beta)*w;
   for j = 1:m
 		p = AFUN(V(:,j));			% AFUN is handle to specific function
 %      p = A*V(:,j);
-     for i = 1:j
+     for i = 1:j					% Modified Gram-Schmidt orthogonalisation
         H(i,j) = V(:,i)'*p;
         p = p-H(i,j)*V(:,i);
      end;
      s = norm(p);
-     if s < btol,
+     if s < btol,					% if residual orthogonal vector shorter than btol -> step out
         k1 = 0;
         mb = j;
         t_step = t_out-t_now;

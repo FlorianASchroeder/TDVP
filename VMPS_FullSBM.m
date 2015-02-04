@@ -36,29 +36,69 @@ end
 %% Choose model and chain mapping
 para.model='SpinBoson';
     % choose: 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson','ImpurityQTN'
-% para.chainMapping = 'LogDiscrZitko';
-para.chainMapping = 'LogDiscrZitko';
-    % choose: 'OrthogonalPolynomials','LogDiscrZitko'
+% para.chainMapping = 'OrthogonalPolynomials';
+para.chain.mapping = 'OrthogonalPolynomials';
+    % choose: 'OrthogonalPolynomials','LanzcosTriDiag'
+	%			- 'LanzcosTriDiag' Lanczos tridiagonalization
+	%			- 'OrthogonalPolynomials' together with 'Stieltjes' can be
+	%			   lin. or log. discretized!
+para.chain.spectralDensity = 'Leggett_Hard';
+	% choose: 'Leggett_Hard', 'Leggett_Soft', 'Renger'
+	% Leggett for SBM;  see DOI: 10.1103/PhysRevLett.91.170601
+	% Renger for MLSBM; see DOI: 10.1016/j.bbabio.2012.02.016
 
 %% Parameters
-if strcmp(para.chainMapping,'OrthogonalPolynomials')
+if strcmp(para.chain.mapping,'OrthogonalPolynomials')
     %% now only for SBM, to be extended for any J(w)
     % no need to define:
     % z, Lambda
     % since site energies converge to w_c/2 = 0.5, Optimum chain length can
     % not easily be determined -> give para.L
-    para.L = 200;							% default chain length
+	para.chain.method = 'Analytic';
+		% choose: 'Analytic', 'Stieltjes'
+		% if Analytic: Lambda only influences rescaling? Only for Leggett!
+		% else: Stieltje always needs discretization
+		%		if Lambda > 1 -> LogZ or Stieltje_Linear
+		%		if Lambda = 1 -> Linear discretization, rescaling = 0
+	para.chain.discretization = 'None';
+		% choose: 'None', 'Linear', 'LogZ'
+		%	'None' only for method = Analytic;
+	para.chain.discrMethod = 'Numerical';
+		% choose: 'Analytic','Numerical'
+		%	Sets way of evaluation of integrals
+		% Analytic only for Leggett_Hard. Uses modified scheme by Žitko
+
+    para.L = 200;							% default chain length if input L=0
     if L > 0								% chain length override
     	para.L = L;
     end
-	para.rescaling = 0;						% only for LogDiscrZitko applicable
+	para.rescaling = 0;						% only for LogZ discretization applicable
 	if rescaling == 1						% rescaling override
 		para.rescaling = rescaling;
 	end
-	para.Lambda=2;                          % Bath log Discretization parameters in case rescaling = 1
-    para.z=1;
-elseif strcmp(para.chainMapping,'LogDiscrZitko')
-    %%
+	para.Lambda = 2;						% Bath log Discretization parameters in case rescaling = 1
+    para.z	    = 1;
+	if para.Lambda == 1
+		assert(para.rescaling == 0, 'Please switch off rescaling when using Lambda = 1');
+		assert(~strcmp(para.chain.discretization,'LogZ'), 'Lambda = 1 not possible with LogZ discretization!');
+	end
+	if strcmp(para.chain.method,'Stieltjes')
+		assert(~strcmp(para.chain.discretization,'None'),'Stieltjes needs discretization!');
+	end
+
+elseif strcmp(para.chain.mapping,'LanzcosTriDiag')	% star2tridiag
+    % Also supports Linear Discretization! now!
+	para.chain.discrMethod = 'Analytic';
+	% choose: 'Analytic', 'Numerical'
+	%	Sets way of evaluation of integrals
+	%	Analytic only for 'Leggett_hard'
+	%
+	para.chain.discretization = 'LogZ';
+	% choose: 'LogZ','Linear'
+	para.chain.method = 'Numerical';
+	% No other mapping option for Lanzcos Tridiag!
+
+	%%
     para.Lambda=1.2;                          % Bath log Discretization parameter
     para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
     para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
@@ -66,8 +106,13 @@ elseif strcmp(para.chainMapping,'LogDiscrZitko')
     	para.L = L;
     end
 	para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
+else
+	error('You need to define para.chain.mapping!');
 end
-L=para.L;
+if strcmp(para.chain.discrMethod,'Analytic')
+		assert(strcmp(para.chain.spectralDensity,'Leggett_Hard'),'Analytic discretization only for Leggett with hard cutoff!');
+end
+L = para.L;
 
 if ~strcmp(para.model,'MLSpinBoson')
     para.hx = -delta;                       % Splitting with sigma_X
@@ -92,7 +137,11 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
     %   2:  Hamiltonian with rotational symmetry. Read in data from file.
     %       Needs Define: MLSBM_t, MLSB_system,
     %       Automatically defined: MLSB_Ls, Renger2012 J(w),
-    para.MLSB_mode = 2;
+	if ~isempty(strfind(para.chain.spectralDensity,'Leggett'))
+		para.MLSB_mode = 1;
+	elseif ~isempty(strfind(para.chain.spectralDensity,'Renger'))
+		para.MLSB_mode = 2;
+	end
 end
 
 para.foldedChain=0;                             % parameter to tell that Supersites for chain are used!
@@ -292,14 +341,18 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v37';
+para.version = 'v39';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
-if strcmp(para.chainMapping,'OrthogonalPolynomials')
+if strcmp(para.chain.mapping,'OrthogonalPolynomials')
 	para.version = ['OrthPol-',para.version];
-elseif strcmp(para.chainMapping,'LogDiscrZitko')
+elseif strcmp(para.chain.discretization,'LogZ')
 	para.version = ['LogZ-',para.version];
+end
+
+if para.s ~= 1
+	para.version = sprintf('%s-s%g',para.version,para.s);
 end
 
 para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...

@@ -21,8 +21,8 @@ switch para.model
                 [sigmaX,~,sigmaZ]=spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
                 zm_spin=zeros(2);
                 op.h1term{1}=-para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
-                op.h2term{1,1,1} = para.t(1).*sigmaZ; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
-                op.h2term{2,1,1} = para.t(1).*sigmaZ; op.h2term{2,2,1} = zm_spin;
+                op.h2term{1,1,1} = para.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+                op.h2term{2,1,1} = para.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
             case para.L                                             % last chain pos: only one coupling?
                 [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
                 zm=sparse(size(bp,1),size(bp,1));
@@ -45,10 +45,10 @@ switch para.model
                 zm_spin=zeros(2);
                 %assert(para.Delta==0);
                 op.h1term{1}=-para.hx./2.*sigmaX-para.hy./2.*sigmaY-para.hz./2.*sigmaZ;
-                op.h2term{1,1,1} = para.t(1).*sigmaX; op.h2term{1,2,1} = zm_spin;
-                op.h2term{2,1,1} = para.t(1).*sigmaX; op.h2term{2,2,1} = zm_spin;   %to the right
-                op.h2term{3,1,1} = para.t(1).*sigmaY; op.h2term{3,2,1} = zm_spin;
-                op.h2term{4,1,1} = para.t(1).*sigmaY; op.h2term{4,2,1} = zm_spin;   %to the left
+                op.h2term{1,1,1} = para.t(1).*sigmaX./2; op.h2term{1,2,1} = zm_spin;
+                op.h2term{2,1,1} = para.t(1).*sigmaX./2; op.h2term{2,2,1} = zm_spin;   %to the right
+                op.h2term{3,1,1} = para.t(1).*sigmaY./2; op.h2term{3,2,1} = zm_spin;
+                op.h2term{4,1,1} = para.t(1).*sigmaY./2; op.h2term{4,2,1} = zm_spin;   %to the left
             case para.L
                 [bp,~,n] = bosonop(sqrt(para.dk(para.L)),para.shift(para.L),para.parity);  % gives [bp, bm, n]
                 if para.parity=='n'
@@ -95,8 +95,8 @@ switch para.model
                     sigmaZ=[0 -1;-1 0];
                 end
                 op.h1term{s}=-para.Delta./2.*sigmaX+para.epsilon_spin./2.*sigmaZ;
-                op.h2term{1,1,s} = para.tz(1).*sigmaZ; op.h2term{1,2,s} = para.ty(1).*sigmaY;
-                op.h2term{2,1,s} = para.tz(1).*sigmaZ; op.h2term{2,2,s} = para.ty(1).*sigmaY;
+                op.h2term{1,1,s} = para.tz(1).*sigmaZ./2; op.h2term{1,2,s} = para.ty(1).*sigmaY./2;
+                op.h2term{2,1,s} = para.tz(1).*sigmaZ./2; op.h2term{2,2,s} = para.ty(1).*sigmaY./2;
             case 1
                 [bp,bm,n] = bosonop(para.dk(1),para.shift(1),para.parity);
                 zm=sparse(size(bp,1),size(bp,1));
@@ -133,8 +133,8 @@ switch para.model
                 [bp,bm,n] = bosonop(para.dk(1),para.shift(1));
                 zm=sparse(size(bp,1),size(bp,1));
                 op.h1term{1}=para.Omega.*n+para.epsilon_osc./2.*(bp+bm);
-                op.h2term{1,1,1} = para.t(1).*(bp+bm); op.h2term{1,2,1} = zm;
-                op.h2term{2,1,1} = para.t(1).*(bp+bm); op.h2term{2,2,1} = zm;
+                op.h2term{1,1,1} = para.t(1).*(bp+bm)./2; op.h2term{1,2,1} = zm;
+                op.h2term{2,1,1} = para.t(1).*(bp+bm)./2; op.h2term{2,2,1} = zm;
             case para.L
                 [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L));
                 zm=sparse(size(bp,1),size(bp,1));
@@ -218,8 +218,8 @@ switch para.model
                     sigmaZ=[0 -1;-1 0];
                 end
                 op.h1term{s}=-para.Delta./2.*sigmaX+para.epsilon_spin./2.*sigmaZ;
-                op.h2term{1,1,s} = para.t(1).*sigmaZ; op.h2term{1,2,s} = para.t(1).*sigmaZ;     %use same t in both chains
-                op.h2term{2,1,s} = para.t(1).*sigmaZ; op.h2term{2,2,s} = para.t(1).*sigmaZ;
+                op.h2term{1,1,s} = para.t(1).*sigmaZ./2; op.h2term{1,2,s} = para.t(1).*sigmaZ./2;     %use same t in both chains
+                op.h2term{2,1,s} = para.t(1).*sigmaZ./2; op.h2term{2,2,s} = para.t(1).*sigmaZ./2;
             case 1
                 [bp,bm,n] = bosonop(para.dk(1),para.shift(1),para.parity);
                 zm=sparse(size(bp,1),size(bp,1));
@@ -282,8 +282,8 @@ switch para.model
                 [sigmaX,~,sigmaZ]=spinop(para.spinbase);            % gives XYZ operators with respect to specific main base
                 zm_spin=zeros(2);
                 op.h1term{1}=para.hz./2.*sigmaZ;
-                op.h2term{1,1,1} = para.t(1).*sigmaZ; op.h2term{1,2,1} = zm_spin;		% was sigmaX
-                op.h2term{2,1,1} = para.t(1).*sigmaZ; op.h2term{2,2,1} = zm_spin;		% was sigmaX
+                op.h2term{1,1,1} = para.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% was sigmaX
+                op.h2term{2,1,1} = para.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;		% was sigmaX
             case para.L                                             % last chain pos: only one coupling?
                 [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
                 zm=sparse(size(bp,1),size(bp,1));
