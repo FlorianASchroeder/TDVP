@@ -8,12 +8,12 @@ if isdeployed
 end
 
 %% start ground state calculations
-fileName =  VMPS_FullSBM(1,alpha,0.1,0,200,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+% fileName =  VMPS_FullSBM(1,alpha,0.1,0,200,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
 
-load(fileName);
+% load(fileName);
 
 %% Define GS config
 
@@ -85,17 +85,17 @@ load(fileName);
 % end
 
 %% Define TDVP parameters
-para.tdvp.tmax = 1e5;
-para.tdvp.tmin = 0.1;
+para.tdvp.tmax = 1e4;
+para.tdvp.tmin = 0;
+para.tdvp.deltaT = 1;                 % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
-para.tdvp.deltaT = 0.1;                 % size of timeslice in units:
-para.tdvp.timescale = 'Exp10';			% Exponential time steps
-% para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
-para.tdvp.t = [0,10.^(log10(para.tdvp.tmin):para.tdvp.deltaT:log10(para.tdvp.tmax))];		% for use with log10
+para.tdvp.timescale = 'linear';			% Exponential time steps, will be removed in next release
+para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
+% para.tdvp.t = [0,10.^(log10(para.tdvp.tmin):para.tdvp.deltaT:log10(para.tdvp.tmax))];		% for use with log10
 para.tdvp.maxExpMDim = 260;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
-para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; maxExpMDim < maxExpVDim
+para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
@@ -116,10 +116,11 @@ para.tdvp.maxBondDim = 15;
 para.tdvp.zAveraging = 0;
 if para.tdvp.zAveraging
     para.tdvp.zStep = 0.2;          % Step size for different z values, only for Log-discretization
+	stepFrom = 1;					% comment if need override!
 end
 
 %% Format Filename
-para.tdvp.version = 'v39';
+para.tdvp.version = 'v40';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP
 	para.tdvp.fromFilename = para.tdvp.filename;		% save the reference to continued file
@@ -155,7 +156,7 @@ if para.tdvp.expvCustomTestAccuracyRMS
 	assert(para.tdvp.expvCustomTestAccuracy == 1, 'Only set para.tdvp.expvCustomTestAccuracyRMS == 1 if para.tdvp.expvCustomTestAccuracy == 1');
 end
 if para.tdvp.zAveraging
-	assert(strcmp(para.chainMapping,'LogDiscrZitko'),'Use z-Averaging only with Logarithmic Discretization!');
+	assert(strcmp(para.chain.discretization,'LogZ'),'Use z-Averaging only with Logarithmic Discretization!');
 end
 if para.tdvp.expvCustom
 	assert(para.tdvp.maxExpMDim <= para.tdvp.maxExpVDim,'maxExpMDim <= maxExpVDim ! Everything else has no sense.');
@@ -170,27 +171,25 @@ para.complex = 1;						% necessary since time-evolution is complex
 if ~strcmp(computer,'PCWIN64')
 	[~, name] = system('hostname');
 	para.tdvp.hostname = strtrim(name);
-	save(sprintf([para.tdvp.filename(1:end-4),'-incomplete-%s.mat'],para.tdvp.hostname),'para','results');
-	tempDir = '/scratch/fayns2/TDVPtemp/';tempFold = fileparts(para.filename);
+	para.tdvp.scratchDir = '/scratch/fayns2/TDVPtemp/'; tempFold = fileparts(para.filename);
 	currentDir = pwd;
 	addpath(currentDir);
-	mkdir([tempDir,tempFold]);
-	copyfile(para.filename,[tempDir,tempFold]);
-	cd(tempDir);
+	if ~exist(para.tdvp.scratchDir,'dir')
+		mkdir(para.tdvp.scratchDir);
+	end
+	mkdir([para.tdvp.scratchDir,tempFold]);
+	copyfile(para.filename,[para.tdvp.scratchDir,tempFold]);
+	save(sprintf([para.tdvp.filename(1:end-4),'-incomplete-%s.mat'],para.tdvp.hostname),'para','results');
+	cd(para.tdvp.scratchDir);
 end
 
 %% Do Time-Evolution with 1-site TDVP
 if para.tdvp.zAveraging == 0
     para.tdvp.starttime = tic;
     tdvp_1site(mps,Vmat,para,results,op);
-    load(para.tdvp.filename,'para','tmps','tVmat','results');
-	results.tdvp.time = toc(para.tdvp.starttime);
-    tresults = calTimeObservables(tmps,tVmat,para);
-    save(para.tdvp.filename,'tresults','-append');
-	save([para.tdvp.filename(1:end-4),'-small.mat'],'para','results','tresults');
 else
 	basename = para.tdvp.filename;
-    for z = 1:-para.tdvp.zStep:1e-5
+    for z = stepFrom:-para.tdvp.zStep:1e-5
         %% Set new z-value, prepare chain
         para.z = z;
         [para]=SBM_genpara(para);
@@ -201,11 +200,6 @@ else
         %% Do time-evolution and save results
         para.tdvp.starttime = tic;
         tdvp_1site(mps,Vmat,para,results,op);
-        load(para.tdvp.filename,'para','tmps','tVmat','results');
-		results.tdvp.time = toc(para.tdvp.starttime);
-        tresults = calTimeObservables(tmps,tVmat,para);
-        save(para.tdvp.filename,'tresults','-append');
-		save([para.tdvp.filename(1:end-4),'-small.mat'],'para','results','tresults');
 
 		if ~strcmp(computer,'PCWIN64')
 			copyfile([para.tdvp.filename(1:end-4),'-small.mat'],[currentDir,'/',para.tdvp.filename(1:end-4),'-small.mat']);
@@ -222,22 +216,7 @@ if ~strcmp(computer,'PCWIN64')
          'TDVP job completed',sprintf('The job \n %s\nHas successfully completed.',para.tdvp.filename));
 	exit;
 end
-return;
 
-%% calculate observables afterwards in z:
-folders = {'20141115-1639-SpinBoson-alpha0.1delta0.1epsilon9dk20D5dopt5L49',...
-           '20141115-1639-SpinBoson-alpha0.15delta0.1epsilon9dk20D5dopt5L49',...
-           '20141115-1640-SpinBoson-alpha0.2delta0.1epsilon9dk20D5dopt5L49'};
-for k = 1:length(folders)
-    files = dir([folders{k},'/','results-Till*']);
-    for l = 1:length(files)
-        % load file, calculate observables and save it.
-        fprintf('Processing %s/%s\n',folders{k},files(l).name);
-        load(sprintf('%s/%s',folders{k},files(l).name));
-        tresults = calTimeObservables(tmps,tVmat,para);
-        save(para.tdvp.filename,'para','Vmat','mps','results','op', 'tmps','tVmat','tresults');
-    end
-end
 catch err
 	fprintf([getReport(err),'\n']);
 	sendmailCAM('fayns2@cam.ac.uk',...

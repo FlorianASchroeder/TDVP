@@ -1,4 +1,4 @@
-function [mps, Vmat] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn)
+function [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn)
 %% Evolves the non-site center C(n) following Haegeman 2014
 %   - Only contains C = exp(i K(n) dt/2) C;
 %   - Varies for l->r and l<-r; uses para.sweepto
@@ -29,11 +29,12 @@ switch para.sweepto
 		end
         %% Take and apply Matrix exponential
         % C(n,t) = exp(+ i K(n) dt)_(rl'*r',rl*r) * C(n,t+dt)_(rl*r)
-        if para.tdvp.expvCustomNow == 0 && size(Kn,1) <= para.tdvp.maxExpMDim
+		if para.tdvp.expvCustomNow == 0 && size(Kn,1) <= para.tdvp.maxExpMDim
             Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) * reshape(Cn,[numel(Cn),1]);
+			err = 0;
 		else
 			if para.tdvp.expvCustomNow
-				Cn = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
+				[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 					reshape(Cn,[numel(Cn),1]),...
 					mps{sitej},Vmat{sitej},para,op);
 			else
@@ -42,14 +43,16 @@ switch para.sweepto
 						reshape(Cn,[numel(Cn),1]),...
 						mps{sitej},Vmat{sitej},para,op);
 				end
-				Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
+				[Cn,err] = expv(1i*para.tdvp.deltaT./2, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 				if para.tdvp.expvCustomTestAccuracyRMS
 					disp(rms(Cn-Cn1));		% debug
 				end
 			end
-        end
+		end
+		results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+
         Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
         clear('Kn', 'Hn');
 
@@ -85,13 +88,14 @@ switch para.sweepto
 		if para.tdvp.expvCustomNow == 0
 			if size(Kn,1) <= para.tdvp.maxExpMDim
 				Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[numel(Cn),1]);
+				err = 0;
 			else
 				if para.tdvp.expvCustomTestAccuracy								% debug
 					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 						reshape(Cn,[numel(Cn),1]),...
 						mps{sitej+1},Vmat{sitej+1},para,op);
 				end
-				Cn = expv(1i*para.tdvp.deltaT./2, Kn,...
+				[Cn,err] = expv(1i*para.tdvp.deltaT./2, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 				if para.tdvp.expvCustomTestAccuracyRMS
@@ -99,10 +103,12 @@ switch para.sweepto
 				end
 			end
 		else
-			Cn = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
+			[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 				reshape(Cn,[numel(Cn),1]),...
 				mps{sitej+1},Vmat{sitej+1},para,op);
 		end
+		results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+
         Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
         clear('Kn', 'Hn');
 

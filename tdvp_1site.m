@@ -7,9 +7,12 @@ function tdvp_1site(mps,Vmat,para,results,op)
 %   Truncates OBB on sitej after focusing the next mps site
 %
 %
-%   To continue a calculation use:
+%   To continue a completed calculation use:
 %       inarg: tmps instead of mps, tVmat instead of Vmat. reorganization
 %              will be done in code under 0.
+%
+%	To resume an incomplete calculation use:
+%		inarg: tmps(end)-> mps, tVmat(end) -> Vmat
 %
 %   Created by Florian Schroeder 07/10/2014
 %
@@ -33,29 +36,23 @@ if ~isfield(para,'tdvp')
     para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
     para.rescaling = para.tdvp.rescaling;
 end
-para.trustsite(end) = para.L;       % necessary to enable several truncation / expansion mechanisms
 
 % open file for writing results
 assert(isfield(para.tdvp,'filename'),'Need definition of para.tdvp.filename to save results!');
 outFile = matfile(para.tdvp.filename,'Writable',true);
 
-if size(mps,1) ~= 1 && size(Vmat,1) ~= 1
-    %% If continue previous TDVP
-    tmps = mps;
-    tVmat = Vmat;
-    mps = tmps(end,:);
-    Vmat = tVmat(end,:);
-%     para.tdvp.slices = size(tmps,1):para.tdvp.tmax/para.tdvp.deltaT;
-	para.tdvp.slices = size(tmps,1):(length(para.tdvp.t)-1);
-   % assert(para.tdvp.slices(1) == size(mps,1),'Ensure that para.tdvp.slices is properly defined to continue the calculation!');
-   if ~isprop(outFile,'mps')
-	   outFile.mps = tmps(1,:);				% save the starting mps / Vmat, necessary for new files
-	   outFile.Vmat = tVmat(1,:);
-   end
-else
-    % For fresh starts, define number of timeslices
-%     para.tdvp.slices = 1:(para.tdvp.tmax/para.tdvp.deltaT);
-	para.tdvp.slices = 1:(length(para.tdvp.t)-1);
+resumeTDVP = 0;					% 0 = start new, 1 = resume, 2 = continue completed
+
+try
+	startSize = size(outFile.tmps,1);					% = timeslice+1; = slice to start with now!
+	% resume incomplete TDVP
+	resumeTDVP = 1;
+catch
+	if size(mps,1) ~= 1 && size(Vmat,1) ~= 1
+		% continue previously completed TDVP
+		% since tmps and tVmat as input, but empty tdvp file.
+		resumeTDVP = 2;
+	end
 end
 
 % estimate the actual dimension in expm() from MPS dimensions.
@@ -67,14 +64,12 @@ else
     para.tdvp.currentExpMDim = results.dk{end}.*bondDim(1:end-1).*bondDim(2:end);
 end
 
-
-
 %% 1. sweep: condition the ground state MPS and prepare hamiltonian operator terms H(n) and K(n)
     % is already done in op.opstorage and op.hlrstorage
     %
     % also prepare other stuff
-if ~exist('tmps','var')
-    % initial time values for saving
+if resumeTDVP == 0
+	% initial time values for saving
     tmps(1,:) = mps;
     tVmat(1,:) = Vmat;
     if para.logging
@@ -84,15 +79,50 @@ if ~exist('tmps','var')
         results.tdvp.D(1,:)       = para.D;
         results.tdvp.dk(1,:)      = para.dk;
 		results.tdvp.expvTime     = [];
-    end
+		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, (para.L-1)*4*2+3);
+	end
+	para.trustsite(end) = para.L;       % necessary to enable several truncation / expansion mechanisms
+	% For fresh starts, define number of timeslices
+	para.tdvp.slices = 1:(length(para.tdvp.t)-1);
+	para.tdvp.calcTime = zeros(length(para.tdvp.t)-1,1);		% logs the elapsed time after each slice in h
+elseif resumeTDVP == 1
+	fprintf('Resuming aborted TDVP\n')
+	para.tdvp.slices = startSize:(length(para.tdvp.t)-1);
+	load([para.tdvp.filename(1:end-4),'-small.mat'], 'tresults');
+	% need to regenerate hamiltonian operators?
+% 	[para]		= SBM_genpara(para);					% chain parameters have not changed!
+% 	[op,para]	= genh1h2term(para);					% Hamiltonian has not changed!
+	[op]		= initstorage(mps, Vmat, op,para);
+	% since op is backed up less often!
+elseif resumeTDVP == 2
+	%% If continue previously completed TDVP
+	tmps = mps;
+	tVmat = Vmat;
+	mps = tmps(end,:);
+	Vmat = tVmat(end,:);
+	para.tdvp.slices = size(tmps,1):(length(para.tdvp.t)-1);
+	if ~isprop(outFile,'mps')
+	   outFile.mps = tmps(1,:);				% save the starting mps / Vmat, necessary for new files
+	   outFile.Vmat = tVmat(1,:);
+	end
+	load(para.tdvp.fromFilename, 'tresults');
 end
-outFile.tmps = tmps;
-outFile.tVmat = tVmat;
+
+if exist('tresults','var')
+	save([para.tdvp.filename(1:end-4),'-small.mat'],'para','op','results','tresults','-v7.3');
+else
+	save([para.tdvp.filename(1:end-4),'-small.mat'],'para','op','results','-v7.3');
+end
+if resumeTDVP ~= 1
+	outFile.tmps = tmps;
+	outFile.tVmat = tVmat;
+end
 clear('tmps','tVmat');
 %% 2. time sweep
 
 for timeslice = para.tdvp.slices
     para.sweepto = 'r';
+	para.timeslice = timeslice; para.expErrorI = 1;
 	para.tdvp.deltaT = para.tdvp.t(timeslice+1)-para.tdvp.t(timeslice);
     fprintf('t = %g\n', para.tdvp.t(timeslice+1));
     % sweep l->r and time evolve each site
@@ -120,7 +150,7 @@ for timeslice = para.tdvp.slices
             %% Do the time-evolution of C
             % evolve non-site center between sitej and sitej+1
             % and focus A(n+1)
-            [mps, Vmat] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
+            [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
             clear('Hn','Cn');
 
             if para.useVmat
@@ -158,7 +188,7 @@ for timeslice = para.tdvp.slices
         %% Do the time-evolution of C
         % evolve non-site center between sitej and sitej+1
         % and focus A(n)
-        [mps, Vmat] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
+        [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
         clear('Hn','Cn');
 
         if para.useVmat
@@ -180,14 +210,23 @@ for timeslice = para.tdvp.slices
 
     end
 
-    % finished with both sweeps, focused on A(1) after time-evolution
+    %% finished with both sweeps, focused on A(1) after time-evolution
+	% report time estimates
     fprintf('\n');
-	completePercent = round(timeslice./length(para.tdvp.slices)*1000)./10;
-	hoursElapsed = toc(para.tdvp.starttime)./3600;
-	hoursLeft = hoursElapsed./completePercent.*(100-completePercent);
-	fprintf('Completed: %.3g%%, Time elapsed: %.2gh, Time left: %.2gh\n', completePercent, hoursElapsed, hoursLeft);
+	completePercent = round(timeslice./length(para.tdvp.t)*1000)./10;
+	para.tdvp.calcTime(timeslice) = toc(para.tdvp.starttime)./3600;
+	% TODO: might need optimisation for exp10 timesteps!
+	n = 1:timeslice;
+	n = n(para.tdvp.calcTime(n,1)>0);		% compensates for zeros due to resume of aborted TDVP
+	hoursTotal = fnval(fnxtr(csaps([0,n],[0;para.tdvp.calcTime(n,1)])), length(para.tdvp.t)-1);
+%  	hoursTotal = interp1([0,para.tdvp.calcTime(1:timeslice)],length(para.tdvp.t),'spline','extrap'); % bad extrapolation behaviour!
+% 	hoursElapsed = toc(para.tdvp.starttime)./3600;
+% 	hoursLeft = hoursElapsed./completePercent.*(100-completePercent);
+	fprintf('Completed: %.3g%%, Time elapsed: %.2gh, Time left: %.2gh, Time total: %.2gh\n',...
+		completePercent, para.tdvp.calcTime(timeslice),...
+		hoursTotal-para.tdvp.calcTime(timeslice), hoursTotal);
     %% save tmps and tVmat and log parameters
-    outFile.tmps(timeslice+1, :) = mps;					% writes to File
+    outFile.tmps(timeslice+1,:)  = mps;					% writes to File
     outFile.tVmat(timeslice+1,:) = Vmat;				% writes to File
     if para.logging
         results.tdvp.Vmat_sv(timeslice+1,:) = results.Vmat_sv;
@@ -195,10 +234,18 @@ for timeslice = para.tdvp.slices
         results.tdvp.d_opt(timeslice+1,:)   = para.d_opt;
         results.tdvp.D(timeslice+1,:)       = para.D;
         results.tdvp.dk(timeslice+1,:)      = para.dk;
-    end
+	end
+	if ~exist('tresults','var')
+		% calculate everything up to now!
+		tresults = calTimeObservables(outFile.tmps,outFile.tVmat,para);
+	elseif isfield(tresults,'lastIdx') && tresults.lastIdx == timeslice
+		% only calculate the current slice
+		tresults = calTimeObservables(mps,Vmat,para,tresults);
+	end
 	if mod(timeslice,5) == 0 || timeslice ==  para.tdvp.slices(end)
 		%% backup results, op and para less often than tmps and tVmat
-		save(para.tdvp.filename,'para','results','op','-append');
+		results.tdvp.time = toc(para.tdvp.starttime);
+		save([para.tdvp.filename(1:end-4),'-small.mat'],'para','op','results','tresults');
 	end
 end
 

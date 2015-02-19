@@ -95,9 +95,10 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 	end
     %% Take matrix exponential
     % V(t+dt) = exp(-i HAA dt)_(n',n~',n,n~) * V(t)_(n,n~)
-    if para.tdvp.expvCustomNow == 0
+	if para.tdvp.expvCustomNow == 0
 		if size(HAA,1) <= para.tdvp.maxExpMDim
 			Vmat_focused = expm(- 1i .* HAA .*para.tdvp.deltaT./2) * reshape(Vmat_focused,[dk*OBBDim,1]);
+			err = 0;
 		else
 			% Do approximation of exp(A)*v
 			if para.tdvp.expvCustomTestAccuracy
@@ -105,7 +106,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 					 reshape(Vmat_focused,[dk*OBBDim,1]),...
 					 Amat, [], para, op);
 			end
-			Vmat_focused = expv(- 1i*para.tdvp.deltaT./2,HAA,...
+			[Vmat_focused,err] = expv(- 1i*para.tdvp.deltaT./2,HAA,...
 						   reshape(Vmat_focused,[dk*OBBDim,1]),...
 						   para.tdvp.expvTol, para.tdvp.expvM);
  			if para.tdvp.expvCustomTestAccuracyRMS
@@ -113,10 +114,11 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
-		Vmat_focused = expvCustom(- 1i*para.tdvp.deltaT./2,'HAA',...
+		[Vmat_focused, err] = expvCustom(- 1i*para.tdvp.deltaT./2,'HAA',...
 					   reshape(Vmat_focused,[dk*OBBDim,1]),...
 					   Amat, [], para, op);
-    end
+	end
+	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
     Vmat_focused = reshape(Vmat_focused,[dk,OBBDim]);
 %     clear('HAA');
 
@@ -135,7 +137,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		HAV = reshape(HAV, [n1*n2,n3*n4]);
 		if size(HAV,1) <= para.tdvp.maxExpMDim
 % 			V = expm( 1i.* para.tdvp.deltaT./2.*HAV) * reshape(V,[numel(V),1]);
-			V = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
+			[V,err] = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
 					reshape(V,[numel(V),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 		else
@@ -144,7 +146,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 					reshape(V,[numel(V),1]),...
 					Amat,Vmat{sitej},para,op);
 			end
-			V = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
+			[V,err] = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
 					reshape(V,[numel(V),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 			if para.tdvp.expvCustomTestAccuracyRMS
@@ -152,10 +154,11 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
-		V = expvCustom(+ 1i*para.tdvp.deltaT./2,'HAV',...
+		[V,err] = expvCustom(+ 1i*para.tdvp.deltaT./2,'HAV',...
 				reshape(V,[numel(V),1]),...
 				Amat,Vmat{sitej},para,op);
 	end
+	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
     V = reshape(V,[n1,n2]);
     mps{sitej} = contracttensors(Amat, 3, 3, V, 2, 2);     % TODO: enable later
     clear('Amat','Vmat_focused','V');
@@ -220,6 +223,7 @@ end
 if  para.tdvp.expvCustomNow == 0
 	if size(Hn,1) <= para.tdvp.maxExpMDim
 		mpsNew = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[numel(mps{sitej}),1]);
+		err = 0;
 	else
 		if para.tdvp.expvCustomTestAccuracy									% debug
 			tempT = tic;
@@ -229,7 +233,7 @@ if  para.tdvp.expvCustomNow == 0
 			t1 = toc(tempT);
 		end
 		tempT = tic;
-		mpsNew = expv(- 1i*t, Hn,...
+		[mpsNew,err] = expv(- 1i*t, Hn,...
 				 reshape(mps{sitej},[numel(mps{sitej}),1]),...
 				 para.tdvp.expvTol, para.tdvp.expvM);
 		t2 = toc(tempT);
@@ -242,7 +246,7 @@ if  para.tdvp.expvCustomNow == 0
 	end
 else
 	tempT = tic;
-	mpsNew = expvCustom(- 1i*t, 'Hn',...
+	[mpsNew,err] = expvCustom(- 1i*t, 'Hn',...
 		reshape(mps{sitej},[numel(mps{sitej}),1]),...
 		[],[],para,op);
 	Hn = [];		% dummy return value;
@@ -251,6 +255,7 @@ else
 		results.tdvp.expvTime = [results.tdvp.expvTime; t1,0,0,BondDimLeft*BondDimRight*OBBDim];
 	end
 end
+results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 
 mps{sitej} = reshape(mpsNew,[BondDimLeft,BondDimRight,OBBDim]);
 % now: A and V are time-evolved, A is focused
