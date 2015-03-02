@@ -24,8 +24,9 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     if (dk ~= OBBDim) && para.tdvp.expandOBB
         % next line: argument ,BondDimLeft*BondDimRight-OBBDim in min() is
         % wrong I think. can be removed, but has to be checked again!
-        mps{sitej} = cat(3,mps{sitej},zeros(BondDimLeft, BondDimRight, min([floor(OBBDim*0.5),dk-OBBDim,BondDimLeft*BondDimRight-OBBDim])));
-        Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, min([floor(OBBDim*0.5),dk-OBBDim,BondDimLeft*BondDimRight-OBBDim])));
+		expandBy = min([floor(OBBDim*0.5),para.tdvp.maxOBBDim-OBBDim,BondDimLeft*BondDimRight-OBBDim]);
+        mps{sitej} = cat(3,mps{sitej},zeros(BondDimLeft, BondDimRight, expandBy));
+        Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, expandBy));
         [~, ~, OBBDim]  = size(mps{sitej});
         para.d_opt(sitej) = OBBDim;
 %     else
@@ -118,7 +119,8 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 					   reshape(Vmat_focused,[dk*OBBDim,1]),...
 					   Amat, [], para, op);
 	end
-	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+% 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
     Vmat_focused = reshape(Vmat_focused,[dk,OBBDim]);
 %     clear('HAA');
 
@@ -158,7 +160,8 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 				reshape(V,[numel(V),1]),...
 				Amat,Vmat{sitej},para,op);
 	end
-	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+% 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
     V = reshape(V,[n1,n2]);
     mps{sitej} = contracttensors(Amat, 3, 3, V, 2, 2);     % TODO: enable later
     clear('Amat','Vmat_focused','V');
@@ -255,7 +258,8 @@ else
 		results.tdvp.expvTime = [results.tdvp.expvTime; t1,0,0,BondDimLeft*BondDimRight*OBBDim];
 	end
 end
-results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+% results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
 
 mps{sitej} = reshape(mpsNew,[BondDimLeft,BondDimRight,OBBDim]);
 % now: A and V are time-evolved, A is focused

@@ -159,7 +159,7 @@ elseif strcmp(modelpara.chain.mapping,'OrthogonalPolynomials') && strcmp(modelpa
 	%% Start Stieltjes
 	% assume: xi = levels = x
 	%		  gamma = coupling strengths = h^2(x)
-	ab = stieltjes(modelpara.L-1,[xi,Gamma.^2]);
+	ab = stieltjes(modelpara.L-1,[xi,Gamma.*Gamma]);
 	modelpara.epsilon = ab(:,1);
 	modelpara.t		  = ab(:,2);
 	% for eta_0: integrate [0,Inf]; any cutoff must be within the spectral function (stepfun)

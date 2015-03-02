@@ -233,7 +233,7 @@ end
 
 if strcmp(para.model,'SpinBoson')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'artificial';
+    para.SpinBoson.GroundStateMode = 'coupled';
         % choose: 'decoupled', 'coupled', 'artificial';
 		% -artificial does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
@@ -341,7 +341,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v40';
+para.version = 'v41';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end

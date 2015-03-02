@@ -8,12 +8,14 @@ if isdeployed
 end
 
 %% start ground state calculations
-% fileName =  VMPS_FullSBM(1,alpha,0.1,0,200,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+% fileName =  VMPS_FullSBM(1,alpha,0,0,50,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
 
 % load(fileName);
+% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150311-1607-SpinBoson-OrthPol-v41-alpha0.05delta0epsilon0dk20D5dopt5L50\results.mat')
+% load('20150227-1853-SpinBoson-OrthPol-v40TCMde9-alpha0.75delta0.1Lambda2dk20D5dopt5L200-artificial/results.mat');
 
 %% Define GS config
 
@@ -84,16 +86,18 @@ maxNumCompThreads(1);						% safer in terms of results!
 % 	load('20141221-0153-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L200/results.mat')
 % end
 
+% Kast 2013 Fig 4, s=0.75 OrthPol
+% load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
+
 %% Define TDVP parameters
-para.tdvp.tmax = 1e4;
-para.tdvp.tmin = 0;
-para.tdvp.deltaT = 1;                 % size of timeslice in units:
+para.tdvp.tmax = 20;
+para.tdvp.deltaT = 0.5;                 % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
-para.tdvp.timescale = 'linear';			% Exponential time steps, will be removed in next release
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
-% para.tdvp.t = [0,10.^(log10(para.tdvp.tmin):para.tdvp.deltaT:log10(para.tdvp.tmax))];		% for use with log10
+para.tdvp.saveInterval = 5;			% save '-small.mat' every n-th step
+para.tdvp.storeMPS = 0;				% save tmps or not!
 para.tdvp.maxExpMDim = 260;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
@@ -111,16 +115,21 @@ para.tdvp.expandOBB = OBB;
 para.tdvp.truncateExpandBonds = Bond;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 15;
+para.tdvp.maxBondDim = 10;
+para.tdvp.maxOBBDim  = 10;
+para.svmaxtol = 10^-4;
+para.svmintol = 10^-4.5;
 % z-Averaging for log-Discretization
 para.tdvp.zAveraging = 0;
 if para.tdvp.zAveraging
     para.tdvp.zStep = 0.2;          % Step size for different z values, only for Log-discretization
-	stepFrom = 1;					% comment if need override!
+	if ~exist('stepFrom','var')
+		stepFrom = 1;					% comment if need override!
+	end
 end
 
 %% Format Filename
-para.tdvp.version = 'v40';
+para.tdvp.version = 'v41';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP
 	para.tdvp.fromFilename = para.tdvp.filename;		% save the reference to continued file
@@ -131,11 +140,8 @@ else
 	para.tdvp.fromFilename = para.filename;				% or reference to VMPS Ground State File!
 end
 
-if strcmp(para.tdvp.timescale,'Exp10')
-	para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dExpStep%.2g%s.mat'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
-else
-	para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s.mat'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
-end
+para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s.mat'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
+
 if para.tdvp.expandOBB
 	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-OBBExpand.mat']);
 else
