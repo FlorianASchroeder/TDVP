@@ -7,6 +7,8 @@ function [B, U, para, results] = prepare_onesite_truncate(A,para,sitej,results)
 %                  - Added keeping 1 more dim if smallest SV too large,
 %                    limited by para.tdvp.maxBondDim in 'r' sweep
 %                  - major restructuring using truncation function
+%	FS 09/04/2015: - in 'r' sweep: apply to site L to normalize MPS. No
+%					 truncation or para.D saving!
 
 [D1, D2, d] = size(A);
 D_old = para.D;
@@ -18,7 +20,7 @@ switch para.sweepto
             A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
             [B, S, U] = svd2(A);             % Anew with orthonormal columns
             sv = diag(S);
-            if para.tdvp.truncateExpandBonds          % only used in TDVP for now
+            if para.tdvp.truncateExpandBonds && sitej ~= para.L         % only used in TDVP for now
                 if sv(end) > para.svmaxtol
                     %% Expand A dims
                     dimincratio = log10(sv(end)/para.svmaxtol)/2;
@@ -35,7 +37,9 @@ switch para.sweepto
                 end
             end
             DB = size(S, 1);				% new a2 dimension of B
-            para.D(sitej)=DB;
+			if sitej ~= para.L
+	            para.D(sitej)=DB;
+			end
             B = reshape(B, [d, D1, DB]);
             B = permute(B, [2, 3, 1]);
             U = S * U;

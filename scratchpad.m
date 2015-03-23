@@ -14,7 +14,7 @@ if wantSave
 end
 
 %% Plot Vmat contributions for different Sites i (SV-weighted)
-i = 2;
+i = 13;
 plot(real(Vmat{1,i}*diag(results.Vmat_sv{1,i})))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
@@ -416,26 +416,66 @@ xlabel('t');
 ylabel('$\sqrt{<s_x>^2+<s_y>^2+<s_z>^2}$');
 legend('Bloch length','Visibility');
 
-%% TDVP (3): Plot <n> environment
+%% TDVP (3): Plot <n> environment chain
+mode = 1;		% 0: lin, 1: log
 figure(5); clf;
 n = size(tresults.nx,1);
-surf(1:para.L,para.tdvp.t(1:n),log10(real(tresults.nx)))
-% surf(1:para.L,para.tdvp.t(1:n),real(tresults.nx))
-% surf(1:para.L,para.tdvp.t(1:n),abs(real(tresults.nx)-ones(size(tresults.nx,1),1)*real(tresults.nx(1,:))))
+if isfield(tresults,'t')
+	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
+else
+	t=para.tdvp.t;		% for the old files
+end
+if mode
+	surf(1:para.L,t(1:n),log10(real(tresults.nx)))
+else
+	surf(1:para.L,t(1:n),real(tresults.nx));
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = '$\left<n_k\right>$';
 xlabel('Site $k$');
 ylabel('Time $\omega_c t$');
 zlabel('$<n_k>$');
 % set(gca,'yscale','log');se
-% set(gca,'zscale','log');
 % set(gca,'View',[0 42]);
 set(gca,'View',[0 90]);
 shading interp
 rotate3d on
 axis tight
-set(gca,'zlim',[-15,-0]);
-set(gca,'clim',[-15,-0]);
+if mode
+	set(gca,'zlim',[-4.5,0]);
+	set(gca,'clim',[-4.5,0]);
+	cb.Title.String = '$\log_{10}\left<n_k\right>$';
+end
 
-%% TDVP (3.1): Animate <n> propagation
+%% TDVP (3.1): Plot <n> star
+mode = 1;		% 0: lin, 1: log
+figure(6); clf;
+if mode
+% 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n));
+	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n)-log10(ones(size(tresults.star.n,1),1)*tresults.star.n(1,:)));
+
+	zlabel('$\log_{10}\left<n_k\right>$');
+else
+	surf(tresults.star.omega,tresults.star.t,tresults.star.n);
+	zlabel('$\left<n_k\right>$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = '$\left<n_k\right>$';
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'yscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-4,1]);
+% 	set(gca,'clim',[-4,1]);
+	cb.Title.String = '$\log_{10}\left<n_k\right>$';
+end
+
+%% TDVP (3.2): Animate <n> propagation
 figure(3); clf;
 ax = axes('units','pixels');
 pl = plot(1:para.L,log10(real(tresults.nx(1,:))));
@@ -449,6 +489,35 @@ sld = uicontrol('Style', 'slider',...
         'Min',1,'Max',size(tresults.nx,1),'Value',1,...
         'Position', [400 20 120 20],...
         'Callback', @(source,callbackdata) set(pl,'ydata',log10(real(tresults.nx(round(source.Value),:)))));
+%% TDVP (3.2): Animate <n> star formation
+mode = 0;		% 0: lin, 1: log
+figure(3); clf;
+ax = axes('units','pixels');
+if mode
+
+	pl = plot(tresults.star.omega,log10(tresults.star.n(1,:)));
+	ylabel('$log_{10}\left<n_k\right>$');
+	set(gca,'ylim',[-5,log10(max(max(tresults.star.n)))]);
+else
+	pl = plot(tresults.star.omega,tresults.star.n(1,:));
+	ylabel('$\left<n_k\right>$');
+	set(gca,'ylim',[0,max(max(tresults.star.n))]);
+end
+set(gca,'ylimmode','manual');
+set(gca,'xlimmode','manual','xlim',[0,tresults.star.omega(end)]);
+xlabel('Site $k$');
+% shading interp
+if mode
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.n,1),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',log10(tresults.star.n(round(source.Value),:))));
+else
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.n,1),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.n(round(source.Value),:)));
+end
 %% TDVP: Draw <n> propagation
 figure(3); clf; hold on
 n = size(tresults.nx,1); nCont = 30; picks = 8;
@@ -1136,14 +1205,13 @@ for fignum = 1:size(defPlot,1)
 	formatPlot(fignum);
 	title(defPlot{fignum,1},'fontsize',15);
 end
-%% TDVP SBM multi load files: Orth2010, OrthPol, art, s=1, L=50, L=200; weak -0.75 coupling		LabBook: 30/01/2015, 27/02/2015
-% works only in cacheComputations!
+%% TDVP SBM Ohmic  s1  0.5>a  Orth2010, OrthPol, art, L=50, L=200; weak -0.75 coupling		LabBook: 30/01/2015, 27/02/2015, POSTER April 2015
 cd('./../cacheComputations/');
 defPlot(1,:) = {'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L50-artificial-v37',					[1:5],			{'ylim',[-1,1]}};
 defPlot(2,:) = {'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L200-artificial-v37',				[6:10],			{'ylim',[-1,1]}};
 defPlot(3,:) = {'Orth2010-OrthPol-TDVP-s1-med-AllExpand-L200-artificial-v41',				[11:12, 20:21],	{'ylim',[-0.2,1],'xlim',[0,320]}};		% POSTER, Incomplete, PC67
 % defPlot(4,:) = {'Orth2010-13a-OrthPol-TDVP-OBBExpand-L200-DeltaT1-artificial-v40',			[15:19],		{'ylim',[-1,1]}};		% This is the PERFECT one!
-defPlot(4,:) = {'Orth2010-13a-OrthPol-TDVP-OBBExpand-L200-DeltaT1-artificial-v40',			[15:19],		{'ylim',[-1,1],'xlim',[0,320]}};		% This is the PERFECT one!
+defPlot(4,:) = {'Orth2010-13a-OrthPol-TDVP-OBBExpand-L200-DeltaT1-artificial-v40',			[15:19],		{'ylim',[-1,1],'xlim',[0,320]}};		% POSTER, This is the PERFECT one!
 
 % 01-05
 foldPattern = '20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha*delta0.1epsilon0dk20D5dopt5L50-artificial';
@@ -1244,13 +1312,14 @@ for fignum = 1:size(defPlot,1)
 % 	title(defPlot{fignum,1},'fontsize',15);
 end
 
-%% TDVP SBM multi load files: Orth2010, OrthPol, artificial, L=200; strong coupling
+%% TDVP SBM Ohmic  s1  0.5<a  Orth2010, OrthPol, artificial, L=200; strong coupling
 clear;
 defPlot(1,:) = {'Orth2010-13b-OrthPol-TDVP-noExpand-L200-artificial-v40',						[1:5],	{'ylim',[-1,1]}};
 defPlot(2,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L200-artificial-v40-expTime',				[6:10],	{'ylim',[-1,1]}};
 defPlot(3,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L200-DeltaT2-artificial-v40',				[11:16],{'ylim',[-1,1]}};		% Incomplete?
 defPlot(4,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L200-0.5-0.75-DeltaT0.5-artificial-v40',   [17:18,21:22],{'ylim',[0,1], 'xscale','log'}};		% Incomplete pc67
-defPlot(5,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L200-DeltaT0.5-2-artificial-v40',			[17:18,14:16],{'ylim',[0,1], 'xscale','log','xlim',[1,320]}};		% Incomplete pc67
+defPlot(5,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L200-DeltaT0.5-2-artificial-v40',			[17:18,14:16],{'ylim',[0,1], 'xscale','log','xlim',[1,1000]}};		% Incomplete pc67
+defPlot(6,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.01-v42',						[23:28],{'ylim',[-1,1], 'xscale','log','xlim',[1,320]}};		% Incomplete pc67
 
 % 1-5
 foldPattern = '20150225-1301*OrthPol*'; filePattern = '*-small.mat';
@@ -1358,7 +1427,53 @@ for fignum = 3:size(defPlot,1)
 % 	title(defPlot{fignum,1},'fontsize',15);
 end
 
-%% TDVP subOhmic s0.5 SBM: Orth2010, OrthPol, L=200:											LabBook: 06/03/2015, Poster!
+%% TDVP SBM Ohmic  s1  0.4<a  Orth2010, OrthPol, coupled, L=500, NEW							LabBook: 08/05/15, Paper
+clear;
+defPlot(1,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.01-coupled-v42',						[1:6],{'ylim',[-0.1,1], 'xscale','log','xlim',[1,400]}};		% Incomplete pc67
+
+res = cell(0,4);
+i = 0;
+
+foldPattern = '20150409-1304-SpinBoson-OrthPol-v42TCMde9-alpha*delta0.1epsilon0dk30D5dopt5L500';
+filePattern = 'results-Till2000Step0.01v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('\\alpha = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res{offset+1,4} = 'OBBExpand-dt0.01';
+
+for fignum = 1:size(defPlot,1)
+	figure(fignum); clf; hold all;
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(sum(x.tresults.t~=0)), res(pick,1)));
+	plot([1,xmax],[0,0],'black');
+	ph = cellfun(@(x) plot(x.tresults.t(1:sum(x.tresults.t~=0)), x.tresults.spin.sz(1:sum(x.tresults.t~=0))), res(pick,1), 'UniformOutput', false);
+	axis tight, ax = gca;
+	% ph{8}.LineStyle = ':';				%temp
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$\omega_ct$');
+	ylabel('$\left<\sigma_z\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum);
+	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=1$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+% 	title(defPlot{fignum,1},'fontsize',15);
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
+%% TDVP SBM subOhmic s0.5 SBM: Orth2010, OrthPol, L=200:										LabBook: 06/03/2015, Poster!
 clear
 defPlot( 1,:) = {'Orth2010-14ab-OrthPol-TDVP-noExpand-L200-DeltaT4-artificial-v40',		[1:9],	 {'ylim',[-1,1]}};
 defPlot( 2,:) = {'Orth2010-14ab-OrthPol-TDVP-OBBExpand-L200-DeltaT4-artificial-v40',	[10:18], {'ylim',[-1,1]}};	% not good enough!
@@ -1368,8 +1483,8 @@ defPlot( 5,:) = {'Orth2010-14ab-OrthPol-TDVP-OBBExpand-L100-DeltaT0.5-dk50-coupl
 defPlot( 6,:) = {'Orth2010-14ab-OrthPol-TDVP-AllExpand-L100-DeltaT0.5-dk50-coupled-v41',[46:54], {'ylim',[-1,1]}};
 defPlot( 7,:) = {'Orth2010-14a-OrthPol-TDVP-OBBExpand-L200-DeltaT0.5-artificial-v40',	[19:22], {'ylim',[-1,1]}};
 defPlot( 8,:) = {'Orth2010-14b-OrthPol-TDVP-OBBExpand-L200-DeltaT0.5-artificial-v40',	[23:27], {'ylim',[-0.5,1]}};
-defPlot( 9,:) = {'Orth2010-14a-OrthPol-TDVP-OBBExpand-L100-DeltaT0.5-coupled-v41',		[28:31], {'ylim',[-1,1],'xlim',[0,320]}};		%!!
-defPlot(10,:) = {'Orth2010-14b-OrthPol-TDVP-OBBExpand-L100-DeltaT0.5-coupled-v41',		[32:36], {'ylim',[0,1],'xlim',[0,320]}};		%!!
+defPlot( 9,:) = {'Orth2010-14a-OrthPol-TDVP-OBBExpand-L100-DeltaT0.5-coupled-v41',		[28:31], {'ylim',[-1,1],'xlim',[0,320]}};		% Poster
+defPlot(10,:) = {'Orth2010-14b-OrthPol-TDVP-OBBExpand-L100-DeltaT0.5-coupled-v41',		[32:36], {'ylim',[0,1],'xlim',[0,320]}};		% Poster
 
 % 01-09
 foldPattern = '20150225-171*-SpinBoson-OrthPol-v40TCMde9-s0.5-alpha*delta0.1epsilon0dk20D5dopt5L200-artificial';
@@ -1485,7 +1600,7 @@ end
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 
-%% TDVP subOhmic s0.25, s0.75 SBM: Kast2013, OrthPol, L=50:										LabBook, Poster!  modern
+%% TDVP SBM subOhmic s0.25, s0.75 SBM: Kast2013, OrthPol, L=50:									LabBook, Poster!
 % use: export_fig(defPlot{get(gcf,'number'),1},'-transparent','-png')
 clear
 defPlot(1,:) = {'Kast2013-2-OrthPol-TDVP-OBBExpand-L50-DeltaT0.5-artificial-v41',		[1:8],	 {'ylim',[-0.5,1]}};
@@ -1611,13 +1726,55 @@ end
 % ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 
 %% TDVP SBM compare ML-MCTDH
+clear
+defPlot(1,:) = {'Wang2010-4-OrthPol-TDVP-OBBExpand-L50-DeltaT0.5-artificial-v41',		1:3,			{'ylim',[-1,1], 'xlim',[0,120]}};
+defPlot(2,:) = {'Wang2010-7b-OrthPol-TDVP-AllExpand-L200-Trial-artificial-v42',			[2,4,6,8,11],		{'ylim',[0.6,1],  'xlim',[0,40]}};
+defPlot(3,:) = {'Wang2010-7c-OrthPol-TDVP-AllExpand-L200-Trial-artificial-v42',			[3,5,7,9],		{'ylim',[0.6,1], 'xlim',[0,20]}};
+defPlot(4,:) = {'Wang2010-7a-OrthPol-TDVP-AllExpand-L600-Trial-artificial-v42',			[10],			{'ylim',[0.4,1], 'xlim',[0,20]}};
+
 res = {};
 res{1,1} = load('20150316-1346-SpinBoson-OrthPol-v41TCM51-s0.5-alpha0.005delta0.2epsilon0dk20D5dopt5L300-artificial/results-Till1200Step1v41-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
-res{1,2} = '\alpha = 0.005, Fig4';
+res{1,2} = '\alpha = 0.005, Fig4';				res{1,3} = '\Deltat=1,OBB';
 res{2,1} = load('20150316-1347-SpinBoson-OrthPol-v41TCM51-s0.5-alpha0.5delta0.2epsilon0dk20D5dopt5L100-artificial/results-Till400Step0.5v41-OBBExpand-BondExpand7-expvCustom800-1core-small.mat');
-res{2,2} = '\alpha = 0.5, Fig7b';
+res{2,2} = '\alpha = 0.5, Fig7b, \Deltat=0.5';	res{2,3} = '\Deltat=0.5,All7';
 res{3,1} = load('20150316-1348-SpinBoson-OrthPol-v41TCM51-s0.5-alpha1delta0.2epsilon0dk20D5dopt5L100-artificial/results-Till200Step0.5v41-OBBExpand-BondExpand7-expvCustom800-1core-small.mat');
-res{3,2} = '\alpha = 1, Fig7c';
+res{3,2} = '\alpha = 1, Fig7c, \Deltat=0.5';	res{3,3} = '\Deltat=0.5,All7';
+res{4,1} = load('20150323-1555-SpinBoson-OrthPol-v42TCM66-s0.5-alpha0.5delta0.2epsilon0dk20D5dopt5L200-artificial/results-Till20Step0.1v42-OBBExpand-BondExpand20-expvCustom800-1core-small.mat');
+res{4,2} = '\alpha = 0.5, Fig7b, \Deltat=0.1';	res{4,3} = '\Deltat=0.1,All20';
+res{5,1} = load('20150323-1555-SpinBoson-OrthPol-v42TCM66-s0.5-alpha1delta0.2epsilon0dk20D5dopt5L200-artificial/results-Till20Step0.1v42-OBBExpand-BondExpand20-expvCustom800-1core-small.mat');
+res{5,2} = '\alpha = 1, Fig7c, \Deltat=0.1';	res{5,3} = '\Deltat=0.1,All20';
+res{6,1} = load('20150323-1555-SpinBoson-OrthPol-v42TCM66-s0.5-alpha0.5delta0.2epsilon0dk20D5dopt5L200-artificial/results-Till50Step0.02v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{6,2} = '\alpha = 0.5, Fig7b, \Deltat=0.02'; res{6,3} = '\Deltat=0.02,OBB';
+res{7,1} = load('20150323-1555-SpinBoson-OrthPol-v42TCM66-s0.5-alpha1delta0.2epsilon0dk20D5dopt5L200-artificial/results-Till50Step0.02v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{7,2} = '\alpha = 1, Fig7c, \Deltat=0.02';	res{7,3} = '\Deltat=0.02,OBB';
+res{8,1} = load('20150323-1555-SpinBoson-OrthPol-v42TCM66-s0.5-alpha0.5delta0.2epsilon0dk20D5dopt5L200-artificial/results-Till50Step0.02v42-OBBExpand-BondExpand20-expvCustom800-1core-small.mat');
+res{8,2} = '\alpha = 0.5, Fig7b, \Deltat=0.02';	res{8,3} = '\Deltat=0.02,All20';
+res{9,1} = load('20150323-1555-SpinBoson-OrthPol-v42TCM66-s0.5-alpha1delta0.2epsilon0dk20D5dopt5L200-artificial/results-Till50Step0.02v42-OBBExpand-BondExpand20-expvCustom800-1core-small.mat');
+res{9,2} = '\alpha = 1, Fig7c, \Deltat=0.02';	res{9,3} = '\Deltat=0.02,All20';
+res{10,1} = load('20150325-1532-SpinBoson-OrthPol-v42TCM59-s0.5-alpha0.3delta0.2epsilon0dk20D5dopt5L600-artificial/results-Till50Step0.02v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{10,2} = '\alpha = 0.3, Fig7a, \Deltat=0.02';	res{10,3} = '\Deltat=0.02,OBB';
+res{11,1} = load('20150325-1532-SpinBoson-OrthPol-v42TCM59-s0.5-alpha0.5delta0.2epsilon0dk20D5dopt5L600-artificial/results-Till50Step0.02v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
+res{11,2} = '\alpha = 0.5, Fig7b, \Deltat=0.02';	res{11,3} = '\Deltat=0.02,OBB';
+
+for fignum = 1:size(defPlot,1)
+	figure(fignum); clf; hold all;
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.para.tdvp.t(end), res(pick,1)));
+	plot([1,xmax],[0,0],'black');
+	ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)).*(-x.para.hx)./2, x.tresults.spin.sz,'*'), res(pick,1), 'UniformOutput', false);
+	axis tight
+	set(gca,defPlot{fignum,3}{:});
+	xlabel('$t\Delta$');
+	ylabel('$\left<\sigma_z\right>$');
+	leg = legend([ph{:}],res{pick,3},'location','best');
+	leg.FontSize = 18;
+	set(gca,'color','none');
+	formatPlot(fignum);
+% 	title(defPlot{fignum,1},'fontsize',15);
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 
 %% TDVP SBM multi: Ohmic LogZ																	LabBook: 04/02/2015
 clear
@@ -1653,7 +1810,97 @@ for fignum = 1:size(defPlot,1)
 	title(defPlot{fignum,1},'fontsize',15);
 end
 
-%% TDVP SBM multi: Plot Visibility / Coherence
+%% TDVP SBM multi files: Star Bath occupation
+clear
+defPlot(1,:) = {'Orth2010-13a-s1-OrthPol-TDVP-OBB10-L200-325T1-art-v42',		[1:5],	{'ylim',[-1,1]}};
+defPlot(2,:) = {'Orth2010-14a-s0.5-OrthPol-TDVP-OBB10-L100-325T1-art-v42',		[6:9],	{'ylim',[-1,1]}};
+defPlot(3,:) = {'Orth2010-14b-s0.5-OrthPol-TDVP-OBB10-L100-325T1-art-v42',		[10:14],{'ylim',[-0.5,1]}};
+defPlot(4,:) = {'Orth2010-13a-s1-OrthPol-TDVP-OBB10-L200-325T1-coup-v42',		[15:19],{'ylim',[-1,1]}};
+defPlot(5,:) = {'Orth2010-14a-s0.5-OrthPol-TDVP-OBB10-L100-325T1-coup-v42',		[20:23],{'ylim',[-1,1]}};
+defPlot(6,:) = {'Orth2010-14b-s0.5-OrthPol-TDVP-OBB10-L100-325T1-coup-v42',		[24:28],{'ylim',[0,1]}};
+
+
+foldPattern = '20150327-1327-SpinBoson-OrthPol-v42TCMde9-alpha*delta0.1epsilon0dk20D5dopt5L200-artificial';
+filePattern = 'results-Till325Step1v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = cell(size(folds,1),4);
+i = 0;
+for file = {folds.name}
+	i = i+1;
+	file = file{1};
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res = sortrows(res,3); res(1:i,4) = {'$s=1$, vac'};
+
+foldPattern = '20150327-1330-SpinBoson-OrthPol-v42TCMde9-s0.5-alpha*delta0.1epsilon0dk20D5dopt5L100-artificial';
+filePattern = 'results-Till325Step1v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,4) = {'$s=0.5$, vac'};
+
+foldPattern = '20150327-1430-SpinBoson-OrthPol-v42TCMde10-alpha*delta0.1epsilon0dk20D5dopt5L100';
+filePattern = 'results-Till325Step1v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,4) = {'$s=1$, coup'};
+
+foldPattern = '20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha*delta0.1epsilon0dk20D5dopt5L100';
+filePattern = 'results-Till325Step1v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,4) = {'$s=0.5$, coup'};
+
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.para.tdvp.t(end), res(pick,1)));
+	plot([1,xmax],[0,0],'black');
+	ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)), x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$\omega_ct$');
+	ylabel('$\left<\sigma_z\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum);
+	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+% 	title(defPlot{fignum,1},'fontsize',15);
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
+%% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all
 % pick = [1:5];						% plot selective
@@ -1669,7 +1916,7 @@ ylabel('$\left<\sigma_z\right>$');
 legend([ph{:}],res{pick,2},'location','best');
 formatPlot(fignum);
 
-%% TDVP SBM multi: Plot Visibility / Coherence		Predefined
+%% TDVP SBM multi (2): Plot Visibility / Coherence		Predefined
 for fignum = 1:size(defPlot,1)
 	figure(fignum); clf; hold all;
 	pick = defPlot{fignum,2};			% plot all
@@ -1691,7 +1938,7 @@ for fignum = 1:size(defPlot,1)
 	title(defPlot{fignum,1},'fontsize',15);
 end
 
-%% TDVP SBM multi: Plot VMPS GS <n>
+%% TDVP SBM multi (3): Plot VMPS GS <n>
 fignum = 2; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all
 % pick = [8:11];
@@ -1708,7 +1955,7 @@ set(gca,'yscale','log')
 legend([ph{:}],res{pick,2},'location','best');
 formatPlot(fignum)
 
-%% TDVP SBM multi: Plot GS Energy convergence
+%% TDVP SBM multi (4): Plot GS Energy convergence
 fignum = 3; figure(fignum); clf; hold all;
 % pick = [1:length(res)];			% plot all
 % pick = [8,15,16,11,12,13,14];						% plot selective
@@ -1731,6 +1978,49 @@ if wantSave
     export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
 end
 
+%% TDVP SBM multi (5): plot single file STAR
+mode = 1;		% 0: lin, 1: log
+fignum = 7;
+figure(fignum); clf; x = res(1,:);
+pos = get(gcf,'Position'); set(gcf,'Position',[pos(1),pos(2),840,pos(4)]);pos = get(gcf,'Position');
+pl = surf(log10(x{1}.tresults.star.n));
+pl.UserData=x;
+cb = colorbar;cb.Title.Interpreter = 'latex';
+if mode
+	zlabel('$log_{10}\left<n_k\right>$');
+	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.n);';
+% 	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.n)-log10(ones(size(pl.UserData{1}.tresults.star.n,1),1)*pl.UserData{1}.tresults.star.n(1,:));';
+% 	set(cb,'defaulttextinterpreter','tex')
+	cb.Title.String = 'log$_{10}\left<n_k\right>$';
+else
+% 	pl = surf(x{1}.tresults.star.omega,x{1}.tresults.star.t,x{1}.tresults.star.n);
+	zlabel('$\left<n_k\right>$');
+	pl.UserData=x;
+	pl.ZDataSource = 'pl.UserData{1}.tresults.star.n;';
+	cb.Title.String = '$\left<n_k\right>$';
+end
+pl.XDataSource = 'pl.UserData{1}.tresults.star.omega';
+pl.YDataSource = 'pl.UserData{1}.tresults.star.t';refreshdata;
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'zscale','log');
+set(gca,'View',[0 90],'TickDir','out','FontSize',14);
+shading interp;rotate3d on;axis tight;
+if mode
+% 	set(gca,'zlim',[0,10]);
+% 	set(gca,'clim',[0,10]);
+end
+set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
+com = ', ';
+% slider definition:
+sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
+sld.setUnitIncrement(1); sld.setBlockIncrement(1);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
+hPl = handle(pl); hProp = findprop(hPl,'UserData');
+hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
+hPl.addlistener(hProp,'PostSet',@(src,event) title([pl.UserData{2},com,pl.UserData{4}]));
 %% TEST SBM_genpara:
 para1.chain.mapping = 'OrthogonalPolynomials';	para1.chain.spectralDensity = 'Leggett_Hard'; para1.chain.discrMethod = 'Analytic';
 para1.chain.discretization = 'None';			para1.chain.method = 'Analytic';
@@ -1761,7 +2051,7 @@ legend('para1.t','para1.\epsilon','para2.t',num2str(para2.Lambda));
 formatPlot(1)
 
 %% TDVP time extrapolation
-n = 1:timeslice; clf;
+n = 1:para.timeslice; clf;
 % n=1:648;
 n = n(para.tdvp.calcTime(n,1)>0);
 plot(n,para.tdvp.calcTime(n,1)); hold on;
@@ -1848,9 +2138,75 @@ end
 %     tic, h5write( filespec, '/mat', h5m, [2,1], [1,N] ); toc
 
 %% Format <n> plot for Poster:
-ax = gca;
-ax.Units = 'centimeters';
-ax.Position = [2.5,1.5, 15, 9.8];
+ax = gca; f=gcf;
+% set(gca, 'LooseInset', [0,0,0,0]); % not with colorbar!!
 ax.FontSize = 14;
 ax.TickDir = 'out';
-export_fig('test','-transparent','-png','-m3')
+% ax.Units = 'centimeters';
+% for figure 840x420:
+% oldPos = ax.Position;
+% ax.Position = [oldPos(1),oldPos(2), 15, 9.8];
+f.Units = 'centimeters';
+oldPos = f.Position;
+f.Position = [oldPos(1),oldPos(2), 19.35, 12.28];	% in cm also produces 15x9.8cm axes
+f.Units = 'pixels';
+% f.Position = [oldPos(1),oldPos(2), 840, oldPos(4)];
+% export_fig('test','-transparent','-png','-m4')
+%% inset for poster:
+if exist('axIn','var')
+	axIn.delete;
+end
+ax=gca; oldPos = ax.Position;
+axIn = axes('Position',[oldPos(1)+0.32, oldPos(2)+0.2, oldPos(3)*0.5, oldPos(4)*0.7]);		% use this if main with colorbar
+% axIn = axes('Position',[oldPos(1)+0.36, oldPos(2)+0.2, oldPos(3)*0.5, oldPos(4)*0.7]);	% use this if main without colorbar
+axIn.TickDir = 'out';
+axIn.FontSize=14; axIn.XColor=[0.7,0.7,0.7];axIn.YColor=axIn.XColor;
+
+hold all;
+% mode = 0;		% 0: lin, 1: log
+% if mode
+% 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n));
+% 	zlabel('$\log_{10}\left<n_k\right>$');
+% else
+% 	surf(tresults.star.omega,tresults.star.t,tresults.star.n);
+% 	zlabel('$\left<n_k\right>$');
+% end
+surf(tresults.star.omega,tresults.star.t, ax.Children.ZData);
+% xlabel('Mode $\omega_k / \omega_c$');
+% ylabel('Time $\omega_c t$');
+set(gca,'View',[0 90]);
+shading interp
+axis tight
+axIn.XLim = [0,0.2]; axIn.YLim = [0,420];
+[M,I] = max(ax.Children.ZData(:,:),[],2);
+plot3(tresults.star.omega(I(2:end)),tresults.star.t(2:end),ones(1,length(tresults.star.t)-1).*10,':r')
+plot3([0.1,0.1],[0,350],[10,10],':black');
+
+%% Analyze Chain Parameters SBM_genpara.m
+
+para.s = 1; para.alpha=0.2; para.L=10; para.chain.spectralDensity = 'Leggett_Hard'; para.chain.mapping='OrthogonalPolynomials';para.chain.method='Analytic';
+para1 = SBM_genpara(para);
+% para.z=1; para.Lambda=1.01; para.chain.mapping = 'OrthogonalPolynomials';para.chain.discrMethod = 'Numerical';para.chain.discretization = 'Linear';para.chain.method = 'Stieltjes';
+% para2 = SBM_genpara(para);
+%%
+figure(1);clf;hold on;
+% scatter(para1.epsilon,para1.t); %set(gca,'yscale','log');
+plot([para1.epsilon, para1.t]);
+
+%% Map from chain to star:
+obs = getObservable({'bath2correlators'},mps,Vmat,para);
+fignum = 5;
+figure(fignum);clf;
+surf(real(obs)); xlabel('Site m'); ylabel('Site n'); set(gca,'view',[0,90]);
+title('$Re(\left<a^\dagger_m a_n\right>)$')
+fignum = fignum+1; figure(fignum);clf;
+surf(imag(obs)); xlabel('Site m'); ylabel('Site n'); set(gca,'view',[0,90]);
+title('$Im(\left<a^\dagger_m a_n\right>)$')
+fignum = fignum+1; figure(fignum);clf;
+surf(abs(obs)); xlabel('Site m'); ylabel('Site n'); set(gca,'view',[0,90]);
+title('$\left|\left<a^\dagger_m a_n\right>\right|$')
+
+%%
+obs = getObservable({'staroccupation'},mps,Vmat,para);
+figure(10);clf;
+plot(obs(1,:),obs(2,:));

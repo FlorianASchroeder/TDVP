@@ -60,7 +60,7 @@ if strcmp(modelpara.chain.discretization,'LogZ')
 elseif strcmp(modelpara.chain.discretization,'Linear')
 	assert(modelpara.L > 1,'You need to define a chain length > 1!');
 	% TODO: make sensible estimate!
-	bigL = 10*modelpara.L		% arbitrary now
+	bigL = 100*modelpara.L		% arbitrary now
 else
 	% 'None' is not applicable for following parts!
 	error('You need to define a discretization method!');
@@ -121,6 +121,7 @@ else
 		w_limits(1) = wc;
 	elseif strcmp(modelpara.chain.discretization,'Linear')
 		% Divide spectrum linearly
+		% Problem: Soft cutoffs!
 		w_limits = wc.*(1:-1/bigL:0);
 	end
 
@@ -159,7 +160,7 @@ elseif strcmp(modelpara.chain.mapping,'OrthogonalPolynomials') && strcmp(modelpa
 	%% Start Stieltjes
 	% assume: xi = levels = x
 	%		  gamma = coupling strengths = h^2(x)
-	ab = stieltjes(modelpara.L-1,[xi,Gamma.*Gamma]);
+	ab = stieltjes(modelpara.L-1,[xi,Gamma.^2]);
 	modelpara.epsilon = ab(:,1);
 	modelpara.t		  = ab(:,2);
 	% for eta_0: integrate [0,Inf]; any cutoff must be within the spectral function (stepfun)

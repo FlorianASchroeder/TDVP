@@ -1,104 +1,43 @@
-function run_TDVP(alpha,OBB,Bond)
-try
+function run_TDVP(s,alpha,OBB,Bond)
+% try
 % needed if started from command line:
 if isdeployed
+	if ischar(s), s = str2num(s); end
 	if ischar(alpha), alpha = str2num(alpha); end
 	if ischar(OBB), 	OBB 	= str2num(OBB); end
 	if ischar(Bond), 	Bond 	= str2num(Bond); end
 end
 
 %% start ground state calculations
-% fileName =  VMPS_FullSBM(1,alpha,0,0,50,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+fileName =  VMPS_FullSBM(s,alpha,0.1,0,300,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
 
-% load(fileName);
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150311-1607-SpinBoson-OrthPol-v41-alpha0.05delta0epsilon0dk20D5dopt5L50\results.mat')
-% load('20150227-1853-SpinBoson-OrthPol-v40TCMde9-alpha0.75delta0.1Lambda2dk20D5dopt5L200-artificial/results.mat');
-
 %% Define GS config
 
-% LogZ SBM Orth10 Lambda=2:
-% load('20150126-2247-SpinBoson-LogZ-v37TCM66-alpha0.2delta0.1epsilon0dk20D5dopt5L49/results.mat');
-% load('20150126-2247-SpinBoson-LogZ-v37TCM66-alpha0.2delta0.1epsilon0dk20D5dopt5L49-artificial/results.mat');
+load(fileName);
 
-% OrthPol SBM Orth2010 L=50:
-% alpha = 0.01
-% load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
-% load('20150126-1718-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results.mat');
-
-% OrthPol SBM Orth2010 L=200:
-% alpha = 0.01
-% load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat');
-% load('20150126-1719-SpinBoson-OrthPol-v37TCM68-alpha0.01delta0.1epsilon0dk20D5dopt5L200-artificial/results.mat');
-
-%% Define GS configuration for TDVP (old)
-% Decoupled System-environment:
-% load('20141028-1325-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49/results.mat');
-
-% iSBM:
-% load('20141024-1851-SpinBoson-alpha0.01delta0epsilon0.01dk20D5dopt5L49/results.mat');
-
-% Orth 2010 + Vmat:
-% alpha = 0.01
-% load('20141025-1342-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49/results.mat')
-% alpha = 0.05
-% load('20141114-2019-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49\results.mat')
-% alpha = 0.1
-% load('20141117-0405-SpinBoson-alpha0.1delta0.1epsilon0dk20D5dopt5L49/results.mat')
-% alpha = 0.15
-% load('20141117-0406-SpinBoson-alpha0.15delta0.1epsilon0dk20D5dopt5L49/results.mat')
-% alpha = 0.2
-% load('20141117-0406-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L49/results.mat')
-% load('20141117-0531-SpinBoson-alpha0.2delta0.1epsilon0dk20D5dopt5L84/results.mat')
-
-% Orth 2010 without Vmat:
-% alpha = 0.01:
-% load('20141025-1750-SpinBoson-alpha0.01delta0.1epsilon0dk20D5dopt5L49/results.mat')
-% alpha = 0.05:
-% load('20141026-2259-SpinBoson-alpha0.05delta0.1epsilon0dk20D5dopt5L49/results.mat')
-
-% Orthogonal Polynomials, Orth 2010 + Vmat, L=50 & old
-% alpha = 0.01:
-% load('20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat')
-% load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
-% load('20150110-1317-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
-% alpha = 0.05:
-% load('20141114-1617-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L50/results.mat')
-% alpha = 0.1:
-% load('20141117-0641-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L50/results.mat')
-% alpha = 0.15:
-% load('20141117-0642-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L50/results.mat')
-% alpha = 0.2:
-% load('20141116-0229-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L50/results.mat')
-
-% Orthogonal Polynomials, Orth 2010 + OBB, L=200
-% if alpha == 0.01
-% 	load('20141221-0148-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200/results.mat')
-% elseif alpha == 0.05
-% 	load('20141221-0148-SpinBoson-OrthPol-alpha0.05delta0.1epsilon0dk20D5dopt5L200/results.mat')
-% elseif alpha == 0.1
-% 	load('20141221-0151-SpinBoson-OrthPol-alpha0.1delta0.1epsilon0dk20D5dopt5L200/results.mat')
-% elseif alpha == 0.15
-% 	load('20141221-0151-SpinBoson-OrthPol-alpha0.15delta0.1epsilon0dk20D5dopt5L200/results.mat')
-% elseif alpha == 0.2
-% 	load('20141221-0153-SpinBoson-OrthPol-alpha0.2delta0.1epsilon0dk20D5dopt5L200/results.mat')
-% end
+% load(sprintf('20150409-1304-SpinBoson-OrthPol-v42TCMde9-alpha%gdelta0.1epsilon0dk30D5dopt5L500/results.mat',alpha));
+% load('20150410-1252-SpinBoson-OrthPol-v42-alpha0.5delta0.1epsilon0dk30D5dopt5L20/results.mat');
 
 % Kast 2013 Fig 4, s=0.75 OrthPol
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
 %% Define TDVP parameters
-para.tdvp.tmax = 20;
-para.tdvp.deltaT = 0.5;                 % size of timeslice in units:
+para.tdvp.tmax = 500;
+para.tdvp.deltaT = 0.2;                 % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
-para.tdvp.saveInterval = 5;			% save '-small.mat' every n-th step
-para.tdvp.storeMPS = 0;				% save tmps or not!
-para.tdvp.maxExpMDim = 260;			% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
+para.tdvp.resume = 0;					% additionally control if want to resume!
+para.tdvp.saveInterval = 20;			% save '-small.mat' every n-th step
+para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem)!
+para.tdvp.extractStarInterval = 2;		% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractObsInterval  = 1;		% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !!
+para.tdvp.storeMPS = 0;					% save tmps or not!
+para.tdvp.maxExpMDim = 260;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
@@ -115,8 +54,8 @@ para.tdvp.expandOBB = OBB;
 para.tdvp.truncateExpandBonds = Bond;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 10;
-para.tdvp.maxOBBDim  = 10;
+para.tdvp.maxBondDim = 20;
+para.tdvp.maxOBBDim  = 15;
 para.svmaxtol = 10^-4;
 para.svmintol = 10^-4.5;
 % z-Averaging for log-Discretization
@@ -129,7 +68,7 @@ if para.tdvp.zAveraging
 end
 
 %% Format Filename
-para.tdvp.version = 'v41';
+para.tdvp.version = 'v42';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP
 	para.tdvp.fromFilename = para.tdvp.filename;		% save the reference to continued file
@@ -156,6 +95,11 @@ if para.tdvp.expvCustom
 	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-expvCustom%d.mat'],para.tdvp.maxExpVDim);
 end
 para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-%dcore.mat'],maxNumCompThreads);
+para.tdvp.filenameSmall = [para.tdvp.filename(1:end-4),'-small.mat'];		% only for para, tresults
+% Set MPS filename if needed
+if para.tdvp.storeMPS == 1
+	para.tdvp.filenameMPS = [para.tdvp.filename(1:end-4),'-MPS.mat'];		% only for tmps, tVmat
+end
 
 %% Check for valid simulation arguments and declare unsettables
 if para.tdvp.expvCustomTestAccuracyRMS
@@ -187,6 +131,12 @@ if ~strcmp(computer,'PCWIN64')
 	copyfile(para.filename,[para.tdvp.scratchDir,tempFold]);
 	save(sprintf([para.tdvp.filename(1:end-4),'-incomplete-%s.mat'],para.tdvp.hostname),'para','results');
 	cd(para.tdvp.scratchDir);
+end
+
+if exist(para.tdvp.filename,'file') && para.tdvp.resume
+	% either load and resume or ignore?
+	load(para.tdvp.filename); % does work
+	para.tdvp.resume = 1;		% need override to restore value!
 end
 
 %% Do Time-Evolution with 1-site TDVP
@@ -223,9 +173,9 @@ if ~strcmp(computer,'PCWIN64')
 	exit;
 end
 
-catch err
-	fprintf([getReport(err),'\n']);
-	sendmailCAM('fayns2@cam.ac.uk',...
-         'TDVP job ERROR',sprintf('The job \n %s\nHas encountered an error:\n%s',para.tdvp.filename,getReport(err)));
-end
+% catch err
+% 	fprintf([getReport(err),'\n']);
+% 	sendmailCAM('fayns2@cam.ac.uk',...
+%          'TDVP job ERROR',sprintf('The job \n %s\nHas encountered an error:\n%s',para.tdvp.filename,getReport(err)));
+% end
 end

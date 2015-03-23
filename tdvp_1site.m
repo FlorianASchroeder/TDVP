@@ -21,60 +21,45 @@ function tdvp_1site(mps,Vmat,para,results,op)
 
 %% 0. Parameter settings:
 if ~isfield(para,'tdvp')
-    para.tdvp.tmax = 300;
-        % For PPC:
-        %   H defined in eV, h\bar left out
-        %   -> real tmax = T * 6.58211928(15)×10^-16
-    para.tdvp.deltaT = 10;                  % size of timeslice in units:
-    para.tdvp.maxExpMDim = 10^2;            % For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
-    para.tdvp.expvTol = 1e-9;               % error tolerance of expv(); default: 1e-7
-    para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); default: 30
-        % Sets threshold size for matrix exponential:
-        %   if dim(A) < : use built-in expm(At)*v
-        %   else        : use Expokit expv(t,A,v, expvTol, expvM)
-        %   set maxExpMDim = 0 to only use expv()
-    para.tdvp.rescaling = 0;                % turn on/off rescaling in TDVP
-    para.rescaling = para.tdvp.rescaling;
+    error('Please define all necessary tdvp variables in para!');
 end
 
 % open file for writing results
 % if storeMPS then para.tdvp.filename will contain tMPS
 assert(isfield(para.tdvp,'filename'),'Need definition of para.tdvp.filename to save results!');
-outFile = matfile(para.tdvp.filename,'Writable',true);
+assert(isfield(para.tdvp,'filenameSmall'),'Need definition of para.tdvp.filenameSmall to save results!');
 
-para.tdvp.smallFile = [para.tdvp.filename(1:end-4),'-small.mat'];
-if isfield(para.tdvp,'storeMPS') && para.tdvp.storeMPS == 0
-	para.tdvp.smallFile = para.tdvp.filename;
-	clear('outFile');
+if isfield(para.tdvp,'storeMPS') && para.tdvp.storeMPS == 1
+	outFile = matfile(para.tdvp.filenameMPS,'Writable',true);
+	% this does not yet create file.
+	% File will be created upon first writing!
 end
 
 resumeTDVP = 0;					% 0 = start new, 1 = resume, 2 = continue completed
 
-try
-	if exist('outFile','var')
-		[startSize,~] = size(outFile,'tmps');					% = timeslice+1; = slice to start with now!
-		if isprop(outFile,'currentSize')
-			startSize = outFile.currentSize;
-		end
-		% resume incomplete TDVP
+if exist(para.tdvp.filename,'file')
+	% must be resumed since no writing has happend since start!
+	% detect startTime:
+	%  - outFile exists, and is already synced with tresults from resume
+	%  - only have tresults
+	load(para.tdvp.filename, 'tresults');							% if error, load .bak file!
+	if exist('tresults','var') && isfield(tresults,'lastIdx') && para.tdvp.resume == 1
+		% there must be preexisting calculation -> resume!
+		startSize = para.timeslice+1;
 		resumeTDVP = 1;
-		load(para.tdvp.smallFile, 'tresults');
 	else
-		%% find other way to determine resuming
-		% perhaps by loading tresults and lastIdx?
-		load(para.tdvp.smallFile, 'tresults');
-		if exist('tresults','var') && isfield(tresults,'lastIdx')
-			startSize = tresults.lastIdx;
-			resumeTDVP = 1;
-		else
-			startSize = 1;				% fallback value. Perhaps change?
-		end
+		startSize = 1;				% fallback value. Perhaps change?
+		resumeTDVP = 0;
+		clear('tresults');			% throw away old results -> Overwrite!
 	end
-catch
+else
+	% detect continuation, only works if saved complete MPS!!
 	if size(mps,1) ~= 1 && size(Vmat,1) ~= 1
 		% continue previously completed TDVP
 		% since tmps and tVmat as input, but empty tdvp file.
 		resumeTDVP = 2;
+		% this might not be feasible if storeMPS == 0. Need better
+		% solution!
 	end
 end
 
@@ -102,26 +87,11 @@ if resumeTDVP == 0
 		outFile.tVmat(1,para.L) = {[]};
 		outFile.tmps(1,:) = mps;
 		outFile.tVmat(1,:) = Vmat;
-	else
-		% calc tresults now to initialize it
-		tresults = calTimeObservables(mps,Vmat,para);
 	end
+	% calc tresults now to initialize tresults
+	tresults = calTimeObservables(mps,Vmat,para);
 	if para.logging
-		fprintf('Initialize results.tdvp\n');
-		n = length(para.tdvp.t);
-		results.tdvp.Vmat_sv	  = cell(n,para.L);
-        results.tdvp.Vmat_sv(1,:) = results.Vmat_sv;
-		results.tdvp.Amat_sv	  = cell(n,para.L-1);
-        results.tdvp.Amat_sv(1,:) = results.Amat_sv;
-		results.tdvp.d_opt		  = zeros(n,para.L);
-        results.tdvp.d_opt(1,:)   = para.d_opt;
-		results.tdvp.D   		  = zeros(n,para.L-1);
-        results.tdvp.D(1,:)       = para.D;
-		results.tdvp.dk 		  = zeros(n,para.L);
-        results.tdvp.dk(1,:)      = para.dk;
-		results.tdvp.expvTime     = [];
-% 		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, (para.L-1)*4*2+3);
-		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, 1);		% otherwise file gets too large
+		initresultsTDVP();
 	end
 	para.trustsite(end) = para.L;       % necessary to enable several truncation / expansion mechanisms
 	% For fresh starts, define number of timeslices
@@ -130,6 +100,18 @@ if resumeTDVP == 0
 elseif resumeTDVP == 1
 	fprintf('Resuming aborted TDVP\n')
 	para.tdvp.slices = startSize:(length(para.tdvp.t)-1);
+	if ~isfield(results,'tdvp')
+		% results was not stored properly before -> reinitialize
+		if para.logging
+			initresultsTDVP();
+			if para.tdvp.expandOBB
+				results.tdvp.d_opt(startSize,:)   = para.d_opt;
+			end
+			if para.tdvp.truncateExpandBonds
+				results.tdvp.D(startSize,:)       = para.D;
+			end
+		end
+	end
 
 	% need to regenerate hamiltonian operators?
 % 	[para]		= SBM_genpara(para);					% chain parameters have not changed!
@@ -148,24 +130,20 @@ elseif resumeTDVP == 2
 	mps = mps(end,:);
 	Vmat = Vmat(end,:);
 	para.tdvp.slices = startSize:(length(para.tdvp.t)-1);
-% not used anymore:
-% 	if ~isprop(outFile,'mps')
-% 	   outFile.mps = tmps(1,:);				% save the starting mps / Vmat, necessary for new files
-% 	   outFile.Vmat = tVmat(1,:);
-% 	end
+
 	load(para.tdvp.fromFilename, 'tresults');
 end
 
-if (resumeTDVP ~= 0) && (size(results.tdvp.expError,2) > 1)
+if (resumeTDVP ~= 0) && isfield(results,'tdvp') && (size(results.tdvp.expError,2) > 1)
 	% shrink down to 1 and make long enough
 	expandBy = length(para.tdvp.t)-1 - size(results.tdvp.expError,1);
 	results.tdvp.expError = [max(results.tdvp.expError,[],2); zeros(expandBy, 1)];	% take only the maximum error per sweep
 end
 
 if exist('tresults','var')
-	save(para.tdvp.smallFile,'para','op','results','tresults','-v7.3');
+	save(para.tdvp.filename,'para','op','results','tresults','mps','Vmat','-v7.3');
 else
-	save(para.tdvp.smallFile,'para','op','results','-v7.3');
+	save(para.tdvp.filename,'para','op','results','-v7.3');
 end
 
 %% 2. time sweep
@@ -211,8 +189,11 @@ for timeslice = para.tdvp.slices
             op = updateop(op,mps,Vmat,sitej,para);
 
         else % sitej = L
-            %% Do Nothing.
+            %% Normalize with last SVD
+			[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);
+			% Cn = 1 approximately. can be thrown away -> mps normalized
             % finish with focus on A after time evolution
+
         end
     end
 
@@ -258,22 +239,21 @@ for timeslice = para.tdvp.slices
         % this is symmetric for l->r and l<-r
         [mps, Vmat, para, results, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
 
+		if sitej == 1
+			results.tdvp.EvaluesLog(timeslice) = getObservable({'energy',op},mps,Vmat,para);
+		end
     end
 
     %% finished with both sweeps, focused on A(1) after time-evolution
 	% report time estimates
     fprintf('\n');
-	completePercent = round(timeslice./length(para.tdvp.t)*1000)./10;
+	completePercent = round(timeslice./(length(para.tdvp.t)-1)*1000)./10;
 	para.tdvp.calcTime(timeslice) = toc(para.tdvp.starttime)./3600;
-	% TODO: might need optimisation for exp10 timesteps!
 	n = 1:timeslice;
 	n = n(para.tdvp.calcTime(n,1)>0);		% compensates for zeros due to resume of aborted TDVP
 	hoursTotal = fnval(fnxtr(csaps([0,n],[0;para.tdvp.calcTime(n,1)])), length(para.tdvp.t)-1);
-%  	hoursTotal = interp1([0,para.tdvp.calcTime(1:timeslice)],length(para.tdvp.t),'spline','extrap'); % bad extrapolation behaviour!
-% 	hoursElapsed = toc(para.tdvp.starttime)./3600;
-% 	hoursLeft = hoursElapsed./completePercent.*(100-completePercent);
-	fprintf('Completed: %.3g%%, Time elapsed: %.2gh, Time left: %.2gh, Time total: %.2gh\n',...
-		completePercent, para.tdvp.calcTime(timeslice),...
+	fprintf('Completed: %.3g%%, t = %3g, Time elapsed: %.2gh, Time left: %.2gh, Time total: %.2gh\n',...
+		completePercent, para.tdvp.t(timeslice+1), para.tdvp.calcTime(timeslice),...
 		hoursTotal-para.tdvp.calcTime(timeslice), hoursTotal);
     %% save tmps and tVmat and log parameters
 	if exist('outFile','var')
@@ -283,44 +263,59 @@ for timeslice = para.tdvp.slices
 		outFile.currentSize = timeslice+1;
 	end
 	if para.logging
-        results.tdvp.Vmat_sv(timeslice+1,:) = results.Vmat_sv;
-        results.tdvp.Amat_sv(timeslice+1,:) = results.Amat_sv;
-        results.tdvp.d_opt(timeslice+1,:)   = para.d_opt;
-        results.tdvp.D(timeslice+1,:)       = para.D;
-        results.tdvp.dk(timeslice+1,:)      = para.dk;
+		if para.tdvp.logSV
+			results.tdvp.Vmat_sv(timeslice+1,:) = results.Vmat_sv;
+			results.tdvp.Amat_sv(timeslice+1,:) = results.Amat_sv;
+		else
+			results.tdvp.Vmat_vNE(timeslice+1,:)= results.Vmat_vNE;
+			results.tdvp.Amat_vNE(timeslice+1,:)= results.Amat_vNE;
+		end
+		if para.tdvp.expandOBB
+	        results.tdvp.d_opt(timeslice+1,:)   = para.d_opt;
+		end
+		if para.tdvp.truncateExpandBonds
+	        results.tdvp.D(timeslice+1,:)       = para.D;
+		end
+%		results.tdvp.dk(timeslice+1,:)      = para.dk;
 	end
 	if ~exist('tresults','var')
 		% calculate everything up to now!
 		if exist('outFile','var')
 			tresults = calTimeObservables(outFile.tmps(1:outFile.currentSize,:),outFile.tVmat(1:outFile.currentSize,:),para);
 		else
-			tresults = calTimeObservables(mps,Vmat,para);
+			% Should not happen!
+			error('How did you get here??');
+			%tresults = calTimeObservables(mps,Vmat,para);
 		end
-	elseif isfield(tresults,'lastIdx') && tresults.lastIdx == timeslice
+	elseif isfield(tresults,'lastIdx') % && tresults.lastIdx == timeslice not applicable anymore for extractObsInterval
 		% only calculate the current slice
 		tresults = calTimeObservables(mps,Vmat,para,tresults);
 	end
-	%% Output matrix dimensions:
-	fprintf('para.D:\n');
-	fprintf('%2g-',para.D);
-	fprintf('\npara.d_opt:\n');
-	fprintf('%2g-',para.d_opt);
-	fprintf('\n');
+	%% Output matrix dimensions if changed:
+	if para.tdvp.truncateExpandBonds
+		fprintf('para.D:\n');
+		fprintf('%2g-',para.D);
+		fprintf('\n');
+	end
+	if para.tdvp.expandOBB
+		fprintf('para.d_opt:\n');
+		fprintf('%2g-',para.d_opt);
+		fprintf('\n');
+	end
+
 	%% Additional saving
 	if mod(timeslice,para.tdvp.saveInterval) == 0 || timeslice ==  para.tdvp.slices(end)
 		%% backup results, op and para less often than tmps and tVmat
 		results.tdvp.time = toc(para.tdvp.starttime);
 		fprintf('Saving results.. ')
-		copyfile(para.tdvp.smallFile,[para.tdvp.smallFile(1:end-4),'.bak']);
-		save(para.tdvp.smallFile,'para','op','results','tresults');
-		if isfield(para.tdvp,'storeMPS') && para.tdvp.storeMPS == 0
-			fprintf('and MPS..')
-			save(para.tdvp.smallFile,'mps','Vmat','-append');
-			save([para.tdvp.filename(1:end-4),'-small.mat'],'para','tresults');		% still need smaller file since results grows very much!
-		end
+		copyfile(para.tdvp.filename,[para.tdvp.filename(1:end-4),'.bak']);			% in case saving gets interrupted
+		save(para.tdvp.filename,'para','op','results','tresults','mps','Vmat','-v7.3');
+		save(para.tdvp.filenameSmall,'para','tresults','-v7.3');							% still need smaller file since results grows very much!
 		fprintf('\n');
 	end
 end
+
+delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 
     function truncateOBB(sitej)
         %% Truncate OBB of mps{sitej}
@@ -343,6 +338,37 @@ end
             para.d_opt(sitej)=size(Vmat{sitej},2);
             results.Vmat_sv{sitej}(discarddims(difference+1:end))=[];
         end
-    end
+	end
+
+	function initresultsTDVP()
+		fprintf('Initialize results.tdvp\n');
+		n = length(para.tdvp.t);
+		if para.tdvp.logSV
+			results.tdvp.Vmat_sv	  = cell(n,para.L);
+			results.tdvp.Vmat_sv(1,:) = results.Vmat_sv;
+			results.tdvp.Amat_sv	  = cell(n,para.L-1);
+			results.tdvp.Amat_sv(1,:) = results.Amat_sv;
+		else
+			results.tdvp.Vmat_vNE	  = zeros(n,para.L);
+			results.tdvp.Vmat_vNE(1,:)= results.Vmat_vNE;
+			results.tdvp.Amat_vNE	  = zeros(n,para.L);
+			results.tdvp.Amat_vNE(1,:)= results.Amat_vNE;
+		end
+		if para.tdvp.expandOBB
+			results.tdvp.d_opt		  = zeros(n,para.L);
+			results.tdvp.d_opt(1,:)   = para.d_opt;
+		end
+		if para.tdvp.truncateExpandBonds
+			results.tdvp.D   		  = zeros(n,para.L-1);
+			results.tdvp.D(1,:)       = para.D;
+		end
+% 		dk not expanded yet -> do not log!
+%		results.tdvp.dk 		  = zeros(n,para.L);
+%		results.tdvp.dk(1,:)      = para.dk;
+		results.tdvp.expvTime     = [];
+% 		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, (para.L-1)*4*2+3);
+		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, 1);		% otherwise file gets too large
+		results.tdvp.EvaluesLog	  = zeros(n-1,1);
+	end
 
 end

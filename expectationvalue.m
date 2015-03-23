@@ -5,7 +5,7 @@ function [e] = expectationvalue(hset,mps1,V1,mps0,V0)
 %		N does not have to equal para.L
 %
 % can be used for multi-site expectation values!
-% If hset is empty then, it's eqvilent to calculate the overlap.
+% If hset is empty then it's eqvilent to calculate the overlap.
 %
 % Modified:
 %		FS 02/06/2014:	- changed em=1 to em = [] as starting value.

@@ -8,6 +8,9 @@ function out = getObservable(type,mps,Vmat,para)
 %           getObservable({'spin'},mps,Vmat,para)
 %           getObservable({'rdm',2},mps,Vmat,para)
 %           getObservable({'tunnelenergy',op},mps,Vmat,para)
+%			getObservable({'bath2correlators'},mps,Vmat,para);
+%			getObservable({'staroccupation'},mps,Vmat,para);
+%			getObservable({'energy',op},mps,Vmat,para);
 %
 %   The output 'out' can be of different form:
 %       'spin':             struct, fields: sx, sy, sz
@@ -16,6 +19,8 @@ function out = getObservable(type,mps,Vmat,para)
 %       'rdm':              matrix
 %       'participation':    number
 %       'tunnelenergy':     number
+%		'bath2correlators':	matrix
+%		'staroccupation':	array
 %
 %
 %   Created 03/06/2014 by Florian Schroeder @ University of Cambridge
@@ -51,12 +56,72 @@ switch type{1}
     case 'tunnelenergy'
         % useful for MLSBM, applicable to all
         % needs type{2} = op
-        if length(type) == 2
+		if length(type) == 2
             out = calTunnelingEnergy(mps,Vmat,para,type{2});
-        else
+		else
             out = calTunnelingEnergy(mps,Vmat,para);
-        end
-    case 'coherence'
+		end
+
+	case 'bath2correlators'
+		% needed for mapping from chain to star
+		% returns triangular L x L Matrix
+
+		out = calBath2SiteCorrelators(mps,Vmat,para);
+
+	case 'staroccupation'
+		%% does mapping chain -> star
+		% uses bath2correlators
+
+		x = (0:(1/para.L/10):1)';		% resolution = 1/L, make adjustable!?
+		n = 0:(para.L-2);		% length(n) = L-1
+		s = para.s;
+		AmAn = real(calBath2SiteCorrelators(mps,Vmat,para));
+% 		AmAn = real(getObservable({'bath2correlators'},mps,Vmat,para));
+
+		pxn = zeros(length(x),para.L);			% these are orthonormalized polynomials. examples:
+					% pxn(:,1) = 0; pxn(:,2) = px(0) = 1/t(1); pxn(:,3) =
+					% x-alpha(0)/norm();
+		alphaN = zeros(length(n),1);
+		betaN  = zeros(length(n),1);			% this is sqrt(betaN); betaN(1) = beta_0 is meaningless!
+		hsquared = ones(length(x),1);
+		% find bath parameters:
+		if strcmp(para.chain.mapping,'OrthogonalPolynomials') && strcmp(para.chain.method,'Analytic')
+			if strcmp(para.chain.spectralDensity,'Leggett_Hard')
+				hsquared = 2.*para.alpha.*(x.^s);
+				alphaN = (1+( (s^2)./((s+2.*n).*(2+s+2.*n)) ))./2;
+				betaN  = ((1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));
+			elseif strcmp(para.chain.spectralDensity,'Leggett_Soft')
+				x = x.*3;						% need some longer range since spectralDensity is not limited in bandwidth!
+				hsquared = 2.*para.alpha.*(x.^s).*exp(-x);
+				alphaN = 2.*n+1+s;
+				betaN  = sqrt((n+1).*(n+1+s));
+			end
+		else
+			error('Have not implemented yet!');
+		end
+		% find OrthPol:
+		pxn(:,2) = ones(length(x),1).*1/para.t(1);		% p(0) = constant normalized pol.
+		for i = 1:para.L-2
+			% p(i+1) = ((x - a(i))p(i)-b(i)p(i-1))/b(i+1)
+			pxn(:,i+2) = ( (x - alphaN(i)).*pxn(:,i+1) - betaN(i).*pxn(:,i) )./betaN(i+1);
+		end
+
+		% imagine polynomials were found now! and hsquared
+
+
+		out = [x, hsquared.*((pxn.^2)*diag(AmAn) + 2.* diag(pxn*(AmAn-diag(diag(AmAn)))*pxn.') )]';
+
+    case 'energy'
+        % Calculates the entire energy of the chain
+		% only usable for focus on spin site!
+		% needs type{2} = op
+		if length(type) == 2
+            out = calEnergy(mps,Vmat,para,type{2});
+		else
+            error('Need op as 2nd argument');
+		end
+
+	case 'coherence'
         % only for spin in SBM
 
 end
@@ -147,6 +212,7 @@ end
 
 %
 nx = correlator_allsites(n_op,mps,Vmat);
+nx = real(nx);			% imag(nx) = eps -> neglect
 
 end
 
@@ -244,4 +310,161 @@ end
 HI{1} = op.h1term{1,1}-diag(diag(op.h1term{1,1}));
 tunnelE = expectationvalue(HI,mps,Vmat,mps,Vmat);
 
+end
+
+function AmAn = calBath2SiteCorrelatorsOld(mps,Vmat,para)
+% DEPRECATED, TO BE REMOVED
+% calculates <a_m^+ a_n> for any combination, where n>m.
+% output is matrix containing all values.
+% Only calculate Re, since Im is not needed! -> saves space!
+
+AmAn = zeros(para.L);						% initialize results array
+bpbm = cell(2,para.L);						% containing all necessary operators
+%% generate all operators:
+for j=1:para.L
+    if prod(j~=para.spinposition)
+        if para.foldedChain == 1
+            %% not supported yet
+			error('This feature is not yet supported');
+        elseif para.foldedChain == 0
+            [bp,bm,~] = bosonop(para.dk(j),para.shift(j),para.parity);
+            bpbm{1,j} = bp;
+			bpbm{2,j} = bm;
+        end
+    else
+        bpbm{1,j} = zeros(para.dk(j));			% zero operators for spin sites
+        bpbm{2,j} = zeros(para.dk(j));
+    end
+end
+
+cdset=cell(1,para.L);					% Used for complete representation including unity operators for one c_op{j};
+
+for j=1:para.L
+        cdset{1,j}=eye(size(Vmat{j},1));				% this is faster than cellfun!
+end
+
+%% compute all expectation values
+
+for i = 1:para.L
+	fprintf('%g-',i);
+	for j = i:para.L
+		if i == j
+			cdset{1,i} = bpbm{1,i}*bpbm{2,i};			% this = n
+		else
+			cdset(1,i) = bpbm(1,i);
+			cdset(1,j) = bpbm(2,j);
+		end
+		AmAn(i,j) = expectationvalue(cdset(1,1:max(i,j)),mps,Vmat,mps,Vmat);	% only take until max(i,j) is faster!
+		cdset{1,i} = eye(size(Vmat{i},1));
+		cdset{1,j} = eye(size(Vmat{j},1));
+	end
+end
+
+end
+
+function AmAn = calBath2SiteCorrelators(mps,Vmat,para)
+% calculates <a_m^+ a_n> for any combination, where n>m.
+% output is matrix containing all values.
+% Only calculate Re, since Im is not needed! -> saves space!
+% custom made solution for biggest speedup, exact solution!
+
+AmAn = zeros(para.L);						% initialize results array
+bpbm = cell(2,para.L);						% containing all necessary operators
+%% generate all operators:
+for j=1:para.L
+    if prod(j~=para.spinposition)
+        if para.foldedChain == 1
+            %% not supported yet
+			error('This feature is not yet supported');
+        elseif para.foldedChain == 0
+            [bp,bm,~] = bosonop(para.dk(j),para.shift(j),para.parity);
+            bpbm{1,j} = bp;
+			bpbm{2,j} = bm;
+        end
+    else
+        bpbm{1,j} = zeros(para.dk(j));			% zero operators for spin sites
+        bpbm{2,j} = zeros(para.dk(j));
+    end
+end
+
+%% compute all partial contractions
+% such that <m n> is meeting in the middle -> reduce overhead!
+bpContract = cell(para.L);
+for j = 1:para.L-1
+	fprintf('%g-',j);
+	for i = 1:j+2
+		if (i < j) && (j <= floor( (para.L+i)/2))
+			bpContract{i,j} = updateCleft(bpContract{i,j-1},mps{j},Vmat{j},[],mps{j},Vmat{j});
+		elseif i == j
+			if j ~=1
+				bpContract{i,i} = updateCleft(bpContract{i,j-1},mps{j},Vmat{j},bpbm{1,j},mps{j},Vmat{j});
+			else
+				bpContract{i,i} = updateCleft([],mps{j},Vmat{j},bpbm{1,j},mps{j},Vmat{j});
+			end
+		elseif i == j+1
+			if j ~= 1
+				bpContract{i,j} = updateCleft(bpContract{i-1,j-1},mps{j},Vmat{j},[],mps{j},Vmat{j});
+			else
+				bpContract{i,j} = updateCleft([],mps{j},Vmat{j},[],mps{j},Vmat{j});
+			end
+		elseif i == j+2
+			% a^+ a of same site
+			if j ~= 1
+				bpContract{i,j} = trace(updateCleft(bpContract{i-2,j-1},mps{j},Vmat{j},bpbm{1,j}*bpbm{2,j},mps{j},Vmat{j}));
+			else
+				bpContract{i,j} = trace(updateCleft([],mps{j},Vmat{j},bpbm{1,j}*bpbm{2,j},mps{j},Vmat{j}));
+			end
+		end
+	end
+end
+L=para.L;
+% The last occupation:
+bpContract{L+2,L} = trace(updateCleft(bpContract{L,L-1},mps{L},Vmat{L},bpbm{1,L}*bpbm{2,L},mps{L},Vmat{L}));
+fprintf('\n');
+
+bmContract = cell(para.L);
+for j = para.L:-1:2
+	fprintf('%g-',j);
+	for i = para.L:-1:j-1
+		if (i > j) && (j > ceil( i/2 ) )
+			bmContract{i,j} = updateCright(bmContract{i,j+1},mps{j},Vmat{j},[],mps{j},Vmat{j});
+		elseif i == j
+			if j ~= para.L
+				bmContract{i,i} = updateCright(bmContract{i,j+1},mps{j},Vmat{j},bpbm{2,j},mps{j},Vmat{j});
+			else
+				bmContract{i,i} = updateCright([],mps{j},Vmat{j},bpbm{2,j},mps{j},Vmat{j});
+			end
+		elseif i == j-1
+			if j ~= para.L
+				bmContract{i,j} = updateCright(bmContract{i+1,j+1},mps{j},Vmat{j},[],mps{j},Vmat{j});
+			else
+				bmContract{i,j} = updateCright([],mps{j},Vmat{j},[],mps{j},Vmat{j});
+			end
+		end
+	end
+end
+
+for j = 1:para.L
+	for i = 1:j
+		midPoint = floor((j+i)/2);
+		if  i ~= j
+			AmAn(i,j) = trace(bpContract{i,midPoint} * bmContract{j,midPoint+1}.');
+		else
+			AmAn(i,j) = bpContract{i+2,j};
+		end
+	end
+end
+
+end
+
+function E = calEnergy(mps,Vmat,para,op)
+	%%
+	[~,BondDimRight] = size(op.Hright);
+	[~,BondDimLeft]  = size(op.Hleft);
+	[~,OBBDim]		 = size(op.h1j);
+	M = size(op.h2j,1);
+	sitej=1;
+	A = reshape(mps{sitej},[numel(mps{sitej}),1]);
+	E = A'*HmultA(A, op, BondDimLeft, BondDimRight, OBBDim, M,para.parity,[]);
+	E = real(E);		% imag(E) = eps -> negligible!
 end

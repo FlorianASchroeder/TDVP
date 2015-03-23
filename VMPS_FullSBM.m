@@ -126,7 +126,7 @@ end
 
 %% Starting MPS Dimensions
 D = 5;
-dk = 20;
+dk = 30;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -233,12 +233,12 @@ end
 
 if strcmp(para.model,'SpinBoson')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'coupled';
+    para.SpinBoson.GroundStateMode = 'artificial';
         % choose: 'decoupled', 'coupled', 'artificial';
 		% -artificial does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
     para.SpinBoson.InitialState = 'sz';
-        % choose: 'sz', 'sx'
+        % choose: 'sz', 'sx', 'none'
 		% works with 'decoupled' and 'coupled'
 
     if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
@@ -341,7 +341,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v41';
+para.version = 'v42';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end

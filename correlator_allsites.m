@@ -11,18 +11,20 @@ function [c]=correlator_allsites(c_op,mps,Vmat)
 % e.g.: c_op{j} = {bp{j} , bp{j+1}} == bp{j}*bp{j+1}*....*bp{j+m-1}
 %	Modified:
 %		FS 10/03/2014
+%		FS 26/03/2015 : N != L so it can be used for arbitrary operators
+%
 %   Commented:
 %       FS 07/05/2014
 
 % N=length(c_op);		%old definition, DELETE
 [M, N] = size(c_op);											% N != Length, M = number of
-assert(N==length(mps) && N==length(Vmat));
+% assert(N==length(mps) && N==length(Vmat));
 
 c=zeros(1,N);
 cdset=cell(1,N);					% Used for complete representation including unity operators for one c_op{j};
 
 for j=1:N
-        cdset{1,j}=eye(size(Vmat{j},1));
+        cdset{1,j}=eye(size(Vmat{j},1));				% this is faster than cellfun!
 end
 
 for j=1:N

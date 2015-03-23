@@ -24,11 +24,18 @@ end
 needSave = 0;
 % Load files to calculate old tresults and initialize MPS and Vmat properly
 fprintf('Loading MPS...\n');
-outFile = matfile(para.tdvp.filename,'Writable',true);
+outFile = matfile(para.tdvp.filenameMPS,'Writable',true);
+fprintf('Loading parameters...\n');
+try
+	load(para.tdvp.filename);	% all the rest
+catch
+	load([para.tdvp.filename(1:end-4),'.bak']);		% use backup if file corrupted
+end
+
 if ~isprop(outFile,'tmps') || ~isprop(outFile,'tVmat')
-	load(para.tdvp.filename);
 	if ~(isfield(para.tdvp,'storeMPS') && para.tdvp.storeMPS == 0)
-		error('There is no tMPS in the file');
+		% error('There is no tMPS in the file');
+		% So have to use mps from filename.
 	else
 		clear('outFile');
 	end
@@ -46,14 +53,6 @@ if exist('outFile','var')
 		outFile.tmps    = outFile.tmps(1:minSize,:);
 		outFile.tVmat   = outFile.tVmat(1:minSize,:);
 	end
-end
-
-fprintf('Loading parameters...\n');
-try
-	load([para.tdvp.filename(1:end-4),'-small.mat']);	% all the rest
-catch err
-	fprintf([getReport(err),'\n']);
-	fprintf('\n');
 end
 
 if exist('outFile','var')
