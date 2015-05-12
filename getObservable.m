@@ -1,7 +1,7 @@
 function out = getObservable(type,mps,Vmat,para)
 %% Calculates the following Observables:
-%   SBM:    'spin', 'occupation', 'shift', 'rdm'
-%   MLSBM:  'participation', 'tunnelenergy'
+%   SBM:    'spin', 'occupation', 'shift', 'rdm', 'staroccupation', 'starpolaron', 'energy'
+%   MLSBM:  'participation', 'tunnelenergy', 'staroccupation', 'starpolaron', 'energy'
 %
 %   Use as: first argument is cell, with descriptor as type{1}
 %               all other type{n} are options defined in each function
@@ -21,7 +21,10 @@ function out = getObservable(type,mps,Vmat,para)
 %       'tunnelenergy':     number
 %		'bath2correlators':	matrix
 %		'staroccupation':	array
-%
+%		'bath1correlators':	vector (L x 1)
+%		'starpolaron':		array
+%		'energy'			scalar
+%		'coherence'			not implemented yet
 %
 %   Created 03/06/2014 by Florian Schroeder @ University of Cambridge
 %   TODO:   - Implement Boson Site Shift to export the routine from optimizesite.m. Only get a single shift value.
@@ -71,8 +74,8 @@ switch type{1}
 	case 'staroccupation'
 		%% does mapping chain -> star
 		% uses bath2correlators
-
-		x = (0:(1/para.L/10):1)';		% resolution = 1/L, make adjustable!?
+		step = max(1/para.L/10,10^-3);
+		x = (0:step:1)';		% resolution
 		n = 0:(para.L-2);		% length(n) = L-1
 		s = para.s;
 		AmAn = real(calBath2SiteCorrelators(mps,Vmat,para));
@@ -108,8 +111,56 @@ switch type{1}
 
 		% imagine polynomials were found now! and hsquared
 
-
 		out = [x, hsquared.*((pxn.^2)*diag(AmAn) + 2.* diag(pxn*(AmAn-diag(diag(AmAn)))*pxn.') )]';
+
+	case 'bath1correlators'
+		% needed for mapping from chain to star
+		% returns a L x 1 Vector
+
+		out = calBath1SiteCorrelators(mps,Vmat,para);
+
+	case 'starpolaron'
+		%% does mapping chain -> star
+		% uses bath1correlators
+		% x stands for continuous variable (momentum k)
+
+		step = max(1/para.L/10,10^-3);
+		x = (0:step:1)';		% resolution
+		n = 0:(para.L-2);		% length(n) = L-1
+		s = para.s;
+		An = real(calBath1SiteCorrelators(mps,Vmat,para));		% L x 1
+
+		pxn = zeros(length(x),para.L);			% these are orthonormalized polynomials. examples:
+					% pxn(:,1) = 0; pxn(:,2) = px(0) = 1/t(1); pxn(:,3) =
+					% x-alpha(0)/norm();
+		alphaN = zeros(length(n),1);
+		betaN  = zeros(length(n),1);			% this is sqrt(betaN); betaN(1) = beta_0 is meaningless!
+		h = ones(length(x),1);					% h(x)
+		% find bath parameters:
+		if strcmp(para.chain.mapping,'OrthogonalPolynomials') && strcmp(para.chain.method,'Analytic')
+			if strcmp(para.chain.spectralDensity,'Leggett_Hard')
+				h = sqrt(2.*para.alpha.*(x.^s));
+				alphaN = (1+( (s^2)./((s+2.*n).*(2+s+2.*n)) ))./2;
+				betaN  = ((1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));
+			elseif strcmp(para.chain.spectralDensity,'Leggett_Soft')
+				x = x.*3;						% need some longer range since spectralDensity is not limited in bandwidth!
+				h = sqrt(2.*para.alpha.*(x.^s).*exp(-x));
+				alphaN = 2.*n+1+s;
+				betaN  = sqrt((n+1).*(n+1+s));
+			end
+		else
+			error('Have not implemented yet!');
+		end
+		% find OrthPol:
+		pxn(:,2) = ones(length(x),1).*1/para.t(1);		% p(0) = constant normalized pol.
+		for i = 1:para.L-2
+			% p(i+1) = ((x - a(i))p(i)-b(i)p(i-1))/b(i+1)
+			pxn(:,i+2) = ( (x - alphaN(i)).*pxn(:,i+1) - betaN(i).*pxn(:,i) )./betaN(i+1);
+		end
+
+		% polynomials and h(x) were found now!
+
+		out = [x, 2.*h.*(pxn*An)]';
 
     case 'energy'
         % Calculates the entire energy of the chain
@@ -188,8 +239,7 @@ for j=1:para.L
     if prod(j~=para.spinposition)
         if para.foldedChain == 0
             % 1-chain SBM
-            [~,~,n] = bosonop(para.dk(j),para.shift(j),para.parity);
-            n_op{j} = n;
+            [~,~,n_op{j}] = bosonop(para.dk(j),para.shift(j),para.parity);
         %Modification for 2chain model!! Not perfect or right yet!
         elseif para.foldedChain == 1
             % only kron(n,1) chain occupation calculated.
@@ -211,7 +261,7 @@ for j=1:para.L
 end
 
 %
-nx = correlator_allsites(n_op,mps,Vmat);
+nx = expectation_allsites(n_op,mps,Vmat);
 nx = real(nx);			% imag(nx) = eps -> neglect
 
 end
@@ -224,6 +274,7 @@ function bosonshift = calBosonShift(mps,Vmat,para)
 %   FS 04/06/2014:  - updated for spinposition array
 %
 % expectation_allsites is old and should be replaced by correlator_allsites
+% both are slow and should be replaced by newer scheme!!
 
 x_opx=cell(1,para.L);
 x2_opx=cell(1,para.L);
@@ -312,14 +363,15 @@ tunnelE = expectationvalue(HI,mps,Vmat,mps,Vmat);
 
 end
 
-function AmAn = calBath2SiteCorrelatorsOld(mps,Vmat,para)
-% DEPRECATED, TO BE REMOVED
-% calculates <a_m^+ a_n> for any combination, where n>m.
+function An = calBath1SiteCorrelators(mps,Vmat,para)
+% calculates Re<(1+sz)/4 * a_n^+>.
 % output is matrix containing all values.
 % Only calculate Re, since Im is not needed! -> saves space!
+% custom made solution for biggest speedup, exact solution!
 
-AmAn = zeros(para.L);						% initialize results array
-bpbm = cell(2,para.L);						% containing all necessary operators
+
+An = zeros(para.L,1);						% initialize results array
+bp = cell(1,para.L);						% containing all necessary operators
 %% generate all operators:
 for j=1:para.L
     if prod(j~=para.spinposition)
@@ -327,38 +379,31 @@ for j=1:para.L
             %% not supported yet
 			error('This feature is not yet supported');
         elseif para.foldedChain == 0
-            [bp,bm,~] = bosonop(para.dk(j),para.shift(j),para.parity);
-            bpbm{1,j} = bp;
-			bpbm{2,j} = bm;
+            [bp{1,j},~,~] = bosonop(para.dk(j),para.shift(j),para.parity);
         end
-    else
-        bpbm{1,j} = zeros(para.dk(j));			% zero operators for spin sites
-        bpbm{2,j} = zeros(para.dk(j));
+	else
+		[~,~,sz]=spinop(para.spinbase);
+        bp{1,j} = (eye(2)+sz)/4;			% additional 1/2 for displacement
     end
 end
 
-cdset=cell(1,para.L);					% Used for complete representation including unity operators for one c_op{j};
+%% compute all partial contractions
+% such that (1+sz/4) gets updated to the right in row 1;
+% Trace(contraction for result) = Am(j)
+bpContract = cell(1,para.L);
+for j = 1:para.L
+% 	fprintf('%g-',j);
+	if j ~= 1
+		An(j,1) = trace(updateCleft(bpContract{1,j-1},mps{j},Vmat{j},bp{1,j},mps{j},Vmat{j}));	% this is the result!
+	end
 
-for j=1:para.L
-        cdset{1,j}=eye(size(Vmat{j},1));				% this is faster than cellfun!
-end
-
-%% compute all expectation values
-
-for i = 1:para.L
-	fprintf('%g-',i);
-	for j = i:para.L
-		if i == j
-			cdset{1,i} = bpbm{1,i}*bpbm{2,i};			% this = n
-		else
-			cdset(1,i) = bpbm(1,i);
-			cdset(1,j) = bpbm(2,j);
-		end
-		AmAn(i,j) = expectationvalue(cdset(1,1:max(i,j)),mps,Vmat,mps,Vmat);	% only take until max(i,j) is faster!
-		cdset{1,i} = eye(size(Vmat{i},1));
-		cdset{1,j} = eye(size(Vmat{j},1));
+	if j ~=1
+		bpContract{1,j} = updateCleft(bpContract{1,j-1},mps{j},Vmat{j},[],mps{j},Vmat{j});
+	else % j == 1
+		bpContract{1,1} = updateCleft([],mps{j},Vmat{j},bp{1,j},mps{j},Vmat{j});
 	end
 end
+% fprintf('\n');
 
 end
 

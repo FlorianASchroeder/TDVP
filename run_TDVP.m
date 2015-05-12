@@ -9,7 +9,7 @@ if isdeployed
 end
 
 %% start ground state calculations
-fileName =  VMPS_FullSBM(s,alpha,0.1,0,300,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+% fileName =  VMPS_FullSBM(s,alpha,0.1,0,20,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
@@ -18,24 +18,26 @@ maxNumCompThreads(1);						% safer in terms of results!
 
 load(fileName);
 
-% load(sprintf('20150409-1304-SpinBoson-OrthPol-v42TCMde9-alpha%gdelta0.1epsilon0dk30D5dopt5L500/results.mat',alpha));
-% load('20150410-1252-SpinBoson-OrthPol-v42-alpha0.5delta0.1epsilon0dk30D5dopt5L20/results.mat');
+% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha0.01delta0.1epsilon0dk20D5dopt5L100\results.mat')
+% load(sprintf('20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha%gdelta0.1epsilon0dk30D5dopt5L300-artificial/results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat',alpha));
+load('20150410-1252-SpinBoson-OrthPol-v42-alpha0.5delta0.1epsilon0dk30D5dopt5L20/results.mat');
 
 % Kast 2013 Fig 4, s=0.75 OrthPol
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
 %% Define TDVP parameters
 para.tdvp.tmax = 500;
-para.tdvp.deltaT = 0.2;                 % size of timeslice in units:
+para.tdvp.deltaT = 0.25;                % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
-para.tdvp.saveInterval = 20;			% save '-small.mat' every n-th step
-para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem)!
-para.tdvp.extractStarInterval = 2;		% in [t]; for calculating star occupation! Comment if not needed!
-para.tdvp.extractObsInterval  = 1;		% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !!
+para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
+para.tdvp.serialize = 1;				% much faster I/O saving
+para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
+para.tdvp.extractStarInterval = 1;		% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractObsInterval  = 1;		% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.maxExpMDim = 260;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
@@ -67,14 +69,16 @@ if para.tdvp.zAveraging
 	end
 end
 
+tresults = [];						% empty variable initialization
 %% Format Filename
-para.tdvp.version = 'v42';
+para.tdvp.version = 'v43';
 if isfield(para.tdvp,'filename')
-	%% Continued TDVP
+	%% Continued TDVP remember filename to load after directory change!
+	% from File can be -small.mat!
 	para.tdvp.fromFilename = para.tdvp.filename;		% save the reference to continued file
 	% input the TDVP matrices!
-	mps = tmps;
-	Vmat = tVmat;
+% 	mps = tmps;
+% 	Vmat = tVmat;
 else
 	para.tdvp.fromFilename = para.filename;				% or reference to VMPS Ground State File!
 end
@@ -135,14 +139,40 @@ end
 
 if exist(para.tdvp.filename,'file') && para.tdvp.resume
 	% either load and resume or ignore?
-	load(para.tdvp.filename); % does work
+	try
+		load(para.tdvp.filename);	% all the rest
+	catch
+		disp('MAT-file corrupt, load BAK');
+		load([para.tdvp.filename(1:end-4),'.bak'],'-mat');		% use backup if file corrupted
+	end
+	if isnumeric(para)
+		% everything was serialized!
+		para     = hlp_deserialize(para);
+		op       = hlp_deserialize(op);
+		results  = hlp_deserialize(results);
+		tresults = hlp_deserialize(tresults);
+		mps      = hlp_deserialize(mps);
+		Vmat     = hlp_eserialize(Vmat);
+	end
 	para.tdvp.resume = 1;		% need override to restore value!
+elseif ~exist(para.tdvp.filename,'file') && isempty(strfind(para.tdvp.fromFilename,'results.mat'))
+	% Only load fromFilename if it was a TDVP file!
+	% then also para and tresults are already loaded!
+	% important: load mps and Vmat!
+	load(para.tdvp.fromFilename, 'results','op','mps','Vmat');
+	if isnumeric(results)
+		% everything was serialized!
+		op       = hlp_deserialize(op);
+		results  = hlp_deserialize(results);
+		mps      = hlp_deserialize(mps);
+		Vmat     = hlp_eserialize(Vmat);
+	end
 end
 
 %% Do Time-Evolution with 1-site TDVP
 if para.tdvp.zAveraging == 0
     para.tdvp.starttime = tic;
-    tdvp_1site(mps,Vmat,para,results,op);
+    tdvp_1site(mps,Vmat,para,results,op,tresults);
 else
 	basename = para.tdvp.filename;
     for z = stepFrom:-para.tdvp.zStep:1e-5
@@ -158,7 +188,7 @@ else
         tdvp_1site(mps,Vmat,para,results,op);
 
 		if ~strcmp(computer,'PCWIN64')
-			copyfile([para.tdvp.filename(1:end-4),'-small.mat'],[currentDir,'/',para.tdvp.filename(1:end-4),'-small.mat']);
+			copyfile(para.tdvp.filenameSmall,[currentDir,'/',para.tdvp.filenameSmall]);
 		end
         %% clear all results from sweep
         clear('tmps','tVmat','mps1','Vmat1');
@@ -166,7 +196,7 @@ else
     end
 end
 if ~strcmp(computer,'PCWIN64')
-	copyfile([para.tdvp.filename(1:end-4),'-small.mat'],[currentDir,'/',para.tdvp.filename(1:end-4),'-small.mat']);
+	copyfile(para.tdvp.filenameSmall,[currentDir,'/',para.tdvp.filenameSmall]);
 	%delete([currentDir,'/',para.tdvp.filename(1:end-4),'-incomplete.mat']);
 	sendmailCAM('fayns2@cam.ac.uk',...
          'TDVP job completed',sprintf('The job \n %s\nHas successfully completed.',para.tdvp.filename));

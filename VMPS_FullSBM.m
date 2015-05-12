@@ -341,7 +341,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v42';
+para.version = 'v43';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
@@ -388,7 +388,7 @@ if strcmp(para.model,'SpinBoson')
 end
 
 
-save(para.filename,'para','Vmat','mps','results','op');
+save(para.filename,'para','Vmat','mps','results','op','-v7.3');
 
 %% Calculate some Results
 results.nx         = getObservable({'occupation'},mps,Vmat,para);
@@ -404,7 +404,7 @@ if strcmp(para.model,'MLSpinBoson')
 end
 %%
 results.time = toc(starttime)
-save(para.filename,'results','-append');
+save(para.filename,'para','Vmat','mps','results','op','-v7.3');
 
 fileName = para.filename;
 end

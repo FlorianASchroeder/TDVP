@@ -26,8 +26,8 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		end
 		missingN = totalN - size(tresults.nx,1);
 		if missingN > 0
-			tresults.nx = [tresults.nx; zeros(missingN,para.L)];
-			tresults.t  = [tresults.t; zeros(missingN,para.L)];
+			tresults.nx(totalN,end) = 0;
+			tresults.t(1,totalN)	= 0;
 		end
 	else
 		tresults.lastIdx = 0; missingN = 0;
@@ -57,19 +57,22 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		% 2. Star Occupation
 		if isfield(para.tdvp,'extractStarInterval')
 			if mod(para.tdvp.t(1,para.timeslice+1),para.tdvp.extractStarInterval) == 0
-				pos = para.tdvp.t(1,para.timeslice+1)/para.tdvp.extractStarInterval +1;
+				pos = round(para.tdvp.t(1,para.timeslice+1)/para.tdvp.extractStarInterval) +1;
 
-				occ = getObservable({'staroccupation'},tmps(j,:),tVmat(j,:),para);		% 2 x k
+				occ		= getObservable({'staroccupation'},tmps(j,:),tVmat(j,:),para);		% 2 x k
+				polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% 2 x k
 
 				if ~isfield(tresults, 'star')
 					% initialise storage if first sweep
 					nElements = para.tdvp.tmax/para.tdvp.extractStarInterval +1;
 					tresults.star.n	    = zeros(nElements,length(occ));
+					tresults.star.x	    = zeros(nElements,length(polaron));
 					tresults.star.omega = occ(1,:);
 					tresults.star.t     = zeros(1,nElements);
 				end
 
 				tresults.star.n(pos,:) = occ(2,:);
+				tresults.star.x(pos,:) = polaron(2,:);
 				tresults.star.t(pos)   = para.tdvp.t(1,para.timeslice+1);
 			end
 		end

@@ -41,12 +41,11 @@ rotate3d off
 zeroVals = -50;             % value of zeros for padding and -inf replacement
 for i = 2:length(Vmat)
     if size(Vmat{1,i},2) < size(results.Vmat_sv{1,i},1)
-        a = log10(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}(1:size(Vmat{1,i},2),:)))),2));
+        a = log10(sum(abs((Vmat{1,i}*diag(results.Vmat_sv{1,i}(1:size(Vmat{1,i},2),:)))),2));
     else
-        a = log10(sum(abs(real(Vmat{1,i}(:,1:size(results.Vmat_sv{1,i},1))*diag(results.Vmat_sv{1,i}))),2));
+        a = log10(sum(abs((Vmat{1,i}(:,1:size(results.Vmat_sv{1,i},1))*diag(results.Vmat_sv{1,i}))),2));
     end
     a(a==-inf)=zeroVals;
-    %a = log10(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2));
     dim = max(length(a),size(plotMat,1));
     if length(a)< dim
         a = padarray(a,dim-length(a),zeroVals,'pre');
@@ -395,16 +394,21 @@ set(gca,'view',[-29,16]);
 rotate3d on
 
 %% TDVP (2) SBM: Plot <sz> / Visibility / Coherence
-figure(2); hold all;
-% plot(para.tdvp.t, tresults.spin.visibility);
-plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sx);
-plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sy);
-plot(para.tdvp.t(1:length(tresults.spin.sz)), tresults.spin.sz);
+figure(3); hold all;
+n = find(tresults.nx(:,2),1,'last');
+if isfield(tresults,'t')
+	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
+else
+	t=para.tdvp.t;		% for the old files
+end
+plot(t(1:n), tresults.spin.sx(1:n));
+plot(t(1:n), tresults.spin.sy(1:n));
+plot(t(1:n), tresults.spin.sz(1:n));
 set(gca,'ylim',[-1,1]);
 % set(gca,'xscale','log');
 xlabel('t');
-ylabel('$\left<s_z\right>$');
-legend('s_x','s_y','s_z');
+ylabel('$\left<\sigma_z\right>$');
+% legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left< \sigma_z \right>$');
 
 %% TDVP (2) SBM: Plot Bloch length
 figure(2); hold all;
@@ -416,25 +420,27 @@ xlabel('t');
 ylabel('$\sqrt{<s_x>^2+<s_y>^2+<s_z>^2}$');
 legend('Bloch length','Visibility');
 
-%% TDVP (3): Plot <n> environment chain
+%% TDVP (3) Environment Plots
+%% TDVP (3.1): Plot <n> CHAIN
 mode = 1;		% 0: lin, 1: log
-figure(5); clf;
-n = size(tresults.nx,1);
+f=figure(5); clf; f.Name = 'Chain Occupation';
+n = find(tresults.nx(:,2),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 else
 	t=para.tdvp.t;		% for the old files
 end
 if mode
-	surf(1:para.L,t(1:n),log10(real(tresults.nx)))
+	surf(1:para.L,t(1:n),log10(real(tresults.nx(1:n,:))));
+	zlabel('$\log_{10}\left<n_k\right>$');
 else
-	surf(1:para.L,t(1:n),real(tresults.nx));
+	surf(1:para.L,t(1:n),real(tresults.nx(1:n,:)));
+	zlabel('$\left<n_k\right>$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = '$\left<n_k\right>$';
+cb.Title.String = get(get(gca,'zlabel'),'String');
 xlabel('Site $k$');
 ylabel('Time $\omega_c t$');
-zlabel('$<n_k>$');
 % set(gca,'yscale','log');se
 % set(gca,'View',[0 42]);
 set(gca,'View',[0 90]);
@@ -442,25 +448,24 @@ shading interp
 rotate3d on
 axis tight
 if mode
-	set(gca,'zlim',[-4.5,0]);
-	set(gca,'clim',[-4.5,0]);
-	cb.Title.String = '$\log_{10}\left<n_k\right>$';
+	set(gca,'zlim',[-5,0]);
+	set(gca,'clim',get(gca,'zlim'));
 end
 
-%% TDVP (3.1): Plot <n> star
+%% TDVP (3.2): Plot <n> STAR
 mode = 1;		% 0: lin, 1: log
-figure(6); clf;
+f=figure(6); clf; f.Name = 'Star Occupation';
+n = find(tresults.star.t,1,'last');
 if mode
-% 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n));
-	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n)-log10(ones(size(tresults.star.n,1),1)*tresults.star.n(1,:)));
-
+	surf(tresults.star.omega,tresults.star.t(1:n),log10(tresults.star.n(1:n,:)));
+% 	surf(tresults.star.omega,tresults.star.t(1:n),log10(tresults.star.n(1:n,:))-log10(ones(n,1)*tresults.star.n(1,:)));
 	zlabel('$\log_{10}\left<n_k\right>$');
 else
-	surf(tresults.star.omega,tresults.star.t,tresults.star.n);
+	surf(tresults.star.omega,tresults.star.t(1:n),tresults.star.n(1:n,:));
 	zlabel('$\left<n_k\right>$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = '$\left<n_k\right>$';
+cb.Title.String = get(get(gca,'zlabel'),'String');
 xlabel('Mode $\omega_k / \omega_c$');
 ylabel('Time $\omega_c t$');
 % set(gca,'yscale','log');		% log in sites
@@ -470,12 +475,11 @@ shading interp
 rotate3d on
 axis tight
 if mode
-% 	set(gca,'zlim',[-4,1]);
-% 	set(gca,'clim',[-4,1]);
-	cb.Title.String = '$\log_{10}\left<n_k\right>$';
+% 	set(gca,'zlim',[-1,2]);
+% 	set(gca,'clim',[-1,2]);
 end
 
-%% TDVP (3.2): Animate <n> propagation
+%% TDVP (3.3): Animate <n> propagation
 figure(3); clf;
 ax = axes('units','pixels');
 pl = plot(1:para.L,log10(real(tresults.nx(1,:))));
@@ -489,12 +493,12 @@ sld = uicontrol('Style', 'slider',...
         'Min',1,'Max',size(tresults.nx,1),'Value',1,...
         'Position', [400 20 120 20],...
         'Callback', @(source,callbackdata) set(pl,'ydata',log10(real(tresults.nx(round(source.Value),:)))));
-%% TDVP (3.2): Animate <n> star formation
+%% TDVP (3.4): Animate <n> star formation
 mode = 0;		% 0: lin, 1: log
 figure(3); clf;
 ax = axes('units','pixels');
+n = find(tresults.star.t,1,'last');
 if mode
-
 	pl = plot(tresults.star.omega,log10(tresults.star.n(1,:)));
 	ylabel('$log_{10}\left<n_k\right>$');
 	set(gca,'ylim',[-5,log10(max(max(tresults.star.n)))]);
@@ -509,16 +513,122 @@ xlabel('Site $k$');
 % shading interp
 if mode
 	sld = uicontrol('Style', 'slider',...
-			'Min',1,'Max',size(tresults.star.n,1),'Value',1,...
+			'Min',1,'Max',n,'Value',1,...
 			'Position', [400 20 120 20],...
 			'Callback', @(source,callbackdata) set(pl,'ydata',log10(tresults.star.n(round(source.Value),:))));
 else
 	sld = uicontrol('Style', 'slider',...
-			'Min',1,'Max',size(tresults.star.n,1),'Value',1,...
+			'Min',1,'Max',n,'Value',1,...
 			'Position', [400 20 120 20],...
 			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.n(round(source.Value),:)));
 end
-%% TDVP: Draw <n> propagation
+%% TDVP (3.5): Animate <n> star single mode kinetics
+mode = 1;		% 0: lin, 1: log
+figure(3); clf;
+ax = axes('units','pixels');
+if mode
+	pl = plot(tresults.star.t,log10(tresults.star.n(:,1)));
+	ylabel('$log_{10}\left<n_k\right>$');
+	set(gca,'ylim',[-5,log10(max(max(tresults.star.n)))]);
+else
+	pl = plot(tresults.star.t,tresults.star.n(:,1));
+	ylabel('$\left<n_k\right>$');
+	set(gca,'ylim',[0,max(max(tresults.star.n))]);
+end
+% set(gca,'ylimmode','manual');
+% set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
+xlabel('Time $\omega_c t$');
+% shading interp
+if mode
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.n,2),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',log10(tresults.star.n(:,round(source.Value)))));
+else
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.n,2),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.n(:,round(source.Value))));
+end
+ax.Units = 'norm';
+%% TDVP (3.6): Plot FT(<n>) star
+% possible to restrict in time domain!
+mode = 1;		% 0: lin, 1: log
+f=figure(7); clf; f.Name = 'Star Occupation Fourier';
+maxN = floor(find(tresults.star.t,1,'last')/2)*2;
+% maxN = 500;
+freq = 2*pi/tresults.star.t(2)/2 * linspace(0,1,maxN/2+1);		% fs * k/N  where k=0... N/2
+FT = fft(tresults.star.n(1:maxN,:),maxN,1)/maxN;
+if mode
+	surf(tresults.star.omega,freq,log10(2*abs(FT(1:maxN/2+1,:))));
+	zlabel('$\log_{10} \mathcal{F} \left\{ \left<n_k\right>(t)\right\} $');
+else
+	surf(tresults.star.omega,freq,2*abs(FT(1:(size(FT,1)/2+1),:)));
+	zlabel('$\mathcal{F} \left\{ \left<n_k\right>(t)\right\}$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Frequency $\omega$');
+% set(gca,'yscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-4,1.2]);
+% 	set(gca,'clim',[-4,1.2]);
+end
+
+%% TDVP (3.7): Extract resonance of renormalized splitting
+mode = 1;		% 0: lin, 1: log
+figure(6); clf;
+tresults = res{42,1}.tresults;
+if mode
+	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n));
+% 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n)-log10(ones(size(tresults.star.n,1),1)*tresults.star.n(1,:)));
+	zlabel('$\log_{10}\left<n_k\right>$');
+else
+	surf(tresults.star.omega,tresults.star.t,tresults.star.n);
+	zlabel('$\left<n_k\right>$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'yscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-4,1]);
+% 	set(gca,'clim',[-4,1]);
+end
+if exist('axIn','var')
+	axIn.delete;
+end
+ax=gca; oldPos = ax.Position;
+axIn = axes('Position',[oldPos(1)+0.32, oldPos(2)+0.2, oldPos(3)*0.5, oldPos(4)*0.7]);		% use this if main with colorbar
+% axIn = axes('Position',[oldPos(1)+0.36, oldPos(2)+0.2, oldPos(3)*0.5, oldPos(4)*0.7]);	% use this if main without colorbar
+axIn.TickDir = 'out';
+axIn.FontSize=14; axIn.XColor=[0.7,0.7,0.7];axIn.YColor=axIn.XColor;
+
+hold all;
+surf(tresults.star.omega,tresults.star.t, ax.Children.ZData);
+set(gca,'View',[0 90]);
+shading interp
+axis tight
+axIn.XLim = [0,0.2]; %axIn.YLim = [0,800];
+[M,I] = max(ax.Children.ZData(:,1:300),[],2);
+plot3(tresults.star.omega(I(2:end)),tresults.star.t(2:end),ones(1,length(tresults.star.t)-1).*1000,':r')
+plot3([0.1,0.1],axIn.YLim,[1000,1000],':black');
+
+tresults.star.omega(I(2:end))
+
+%% TDVP: Draw <n> propagation fit
 figure(3); clf; hold on
 n = size(tresults.nx,1); nCont = 30; picks = 8;
 contourf(1:para.L,para.tdvp.t(1:n),real(tresults.nx),nCont)
@@ -538,9 +648,222 @@ coneFunct = fnval(pf,1:L);
 plot(coneFunct,1:L,'w','linewidth',4)
 plot(coneFunct,1:L,'k','linewidth',2)
 
-%% TDVP (4): Plot d_opt
+%% TDVP (3.8): Plot polaron STAR
+mode = 0;		% 0: lin, 1: log
+f=figure(8); clf; f.Name = 'Star Polaron';
+% tresults = res{14,1}.tresults;
+n = find(tresults.star.t,1,'last');
+if mode
+	surf(tresults.star.omega,tresults.star.t(1:n),log10(abs(tresults.star.x(1:n,:))).*sign(tresults.star.x(1:n,:)));
+	zlabel('$\log_{10}\left<x_k\right>$');
+else
+	surf(tresults.star.omega,tresults.star.t(1:n),-tresults.star.x(1:n,:));
+	zlabel('$\left<x_k\right>$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'xscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-1,1]);
+% 	set(gca,'clim',[-1,1]);
+end
+
+%% TDVP (3.9): Plot polaron STAR spin-corrected
+mode = 0;		% 0: lin, 1: log
+f=figure(9); clf; f.Name = 'Star Polaron corrected';
+% tresults = res{14,1}.tresults;
+n = find(tresults.star.t,1,'last');
+normFact = tresults.spin.sz(ismember(tresults.t, tresults.star.t(1:n)),1)./2+1/2;
+normFact = normFact(1:n)*ones(1,size(tresults.star.n,2));
+if mode
+	surf(tresults.star.omega,tresults.star.t(1:n),log10(abs(tresults.star.x(1:n,:)./normFact)).*sign(tresults.star.x(1:n,:)));
+	zlabel('$\log_{10}\left<x_k\right>$');
+else
+	surf(tresults.star.omega,tresults.star.t(1:n),(-tresults.star.x(1:n,:)./normFact));
+	zlabel('$\left<x_k\right>$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'xscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-4,1]);
+% 	set(gca,'clim',[-4,1]);
+end
+
+%% TDVP (3.10): Animate STAR polaron kinetics
+mode = 0;		% 0: lin, 1: log
+figure(3); clf;
+ax = axes('units','pixels');
+n = find(tresults.star.t,1,'last');
+if mode
+	pl = plot(tresults.star.t(1:n),log10(tresults.star.x(1:n,1)));
+	ylabel('$log_{10}\left<x_k\right>$');
+	set(gca,'ylim',[-5,log10(max(max(tresults.star.x(1:n,:))))]);
+else
+	pl = plot(tresults.star.t(1:n),tresults.star.x(1:n,1));
+	ylabel('$\left<x_k\right>$');
+	set(gca,'ylim',[min(min(tresults.star.x(1:n,:))),max(max(tresults.star.x(1:n,:)))]);
+end
+% set(gca,'ylimmode','manual');
+% set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
+xlabel('Time $\omega_c t$');
+% shading interp
+if mode
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.x,2),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',log10(tresults.star.x(1:n,round(source.Value)))));
+else
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.x,2),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.x(1:n,round(source.Value))));
+end
+ax.Units = 'norm';
+%% TDVP (3.10): Animate STAR polaron kinetics corrected
+mode = 0;		% 0: lin, 1: log
+figure(3); clf;
+ax = axes('units','pixels');
+n = find(tresults.star.t,1,'last');
+normFact = tresults.spin.sz(ismember(tresults.t, tresults.star.t(1:n)),1)./2+1/2;
+normFact = normFact(1:n)*ones(1,size(tresults.star.n,2));
+tresults.star.x(1:n,:)= tresults.star.x(1:n,:)./normFact;
+if mode
+	pl = plot(tresults.star.t(1:n),log10(tresults.star.x(1:n,1)));
+	ylabel('$log_{10}\left<x_k\right>$');
+	set(gca,'ylim',[-5,log10(max(max(tresults.star.x(1:n,:))))]);
+else
+	pl = plot(tresults.star.t(1:n),tresults.star.x(1:n,1));
+	ylabel('$\left<x_k\right>$');
+	set(gca,'ylim',[min(min(tresults.star.x(1:n,:))),max(max(tresults.star.x(1:n,:)))]);
+end
+% set(gca,'ylimmode','manual');
+% set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
+xlabel('Time $\omega_c t$');
+% shading interp
+if mode
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.x,2),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',log10(tresults.star.x(1:n,round(source.Value)))));
+else
+	sld = uicontrol('Style', 'slider',...
+			'Min',1,'Max',size(tresults.star.x,2),'Value',1,...
+			'Position', [400 20 120 20],...
+			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.x(1:n,round(source.Value))));
+end
+ax.Units = 'norm';
+
+%% TDVP (3.11): Plot FT(<x>) star
+% possible to restrict in time domain!
+mode = 1;		% 0: lin, 1: log
+f=figure(11); clf; f.Name = 'Star Polaron Fourier';
+maxN = floor(find(tresults.star.t,1,'last')/2)*2;
+% maxN = 1000;
+freq = 2*pi/tresults.star.t(2)/2 * linspace(0,1,maxN/2+1);		% fs * k/N  where k=0... N/2
+FT = fft(tresults.star.x(1:maxN,:),maxN,1)/maxN;
+if mode
+	surf(tresults.star.omega,freq,log10(2*abs(FT(1:maxN/2+1,:))));
+	zlabel('$sgn(\left<x_k\right>)\log_{10} \mathcal{F} \left\{ |\left<x_k\right>(t) |\right\} $');
+else
+	surf(tresults.star.omega,freq,2*abs(FT(1:(size(FT,1)/2+1),:)));
+	zlabel('$\mathcal{F} \left\{ \left<x_k\right>(t)\right\}$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Frequency $\omega$');
+% set(gca,'yscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-1,1]);
+	set(gca,'clim',get(gca,'zlim'));
+end
+
+%% TDVP (3.12): Plot FT(<x>) star corrected
+% possible to restrict in time domain!
+mode = 1;		% 0: lin, 1: log
+f=figure(12); clf; f.Name = 'Star Polaron Fourier corrected';
+maxN = floor(find(tresults.star.t,1,'last')/2)*2;
+% maxN = 1000;
+normFact = tresults.spin.sz(ismember(tresults.t, tresults.star.t(1:maxN)),1)./2+1/2;
+normFact = normFact(1:maxN)*ones(1,size(tresults.star.n,2));
+
+freq = 2*pi/tresults.star.t(2)/2 * linspace(0,1,maxN/2+1);		% fs * k/N  where k=0... N/2
+FT = fft(tresults.star.x(1:maxN,:)./normFact,maxN,1)/maxN;
+if mode
+	surf(tresults.star.omega,freq,log10(2*abs(FT(1:maxN/2+1,:))));
+	zlabel('$sgn(\left<x_k\right>)\log_{10} \mathcal{F} \left\{ |\left<x_k\right>(t) |\right\} $');
+else
+	surf(tresults.star.omega,freq,2*abs(FT(1:(size(FT,1)/2+1),:)));
+	zlabel('$\mathcal{F} \left\{ \left<x_k\right>(t)\right\}$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Frequency $\omega$');
+% set(gca,'yscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-1,1]);
+	set(gca,'clim',get(gca,'zlim'));
+end
+
+%% TDVP (3.13): Plot Polaron-Antipolaron proportion
+mode = 1;		% 0: lin, 1: log
+f=figure(9); clf; f.Name = 'Star Polaron corrected';
+% tresults = res{14,1}.tresults;
+n = find(tresults.star.t,1,'last');
+normFact = tresults.spin.sz(ismember(tresults.t, tresults.star.t(1:n)),1)./2+1/2;
+normFact = normFact(1:n)*ones(1,size(tresults.star.n,2));
+if mode
+	surf(tresults.star.omega,tresults.star.t(1:n),log10((tresults.star.n(1:n,:)./((tresults.star.x(1:n,:)).^2).*(normFact.^2))));
+% 	zlabel('$\log_{10}\left<x_k\right>$');
+else
+	surf(tresults.star.omega,tresults.star.t(1:n),(tresults.star.n(1:n,:)./((tresults.star.x(1:n,:)).^2).*(normFact.^2)));
+% 	zlabel('$\left<x_k\right>$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'xscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-4,1]);
+% 	set(gca,'clim',[-4,1]);
+end
+
+%% TDVP (4) Bond Dimension Plots
+%% TDVP (4.1): Plot d_opt
 figure(4); clf;
-n = size(tresults.nx,1);
+n = size(results.tdvp.d_opt,1);
 surf(1:para.L,para.tdvp.t(1:n),results.tdvp.d_opt)
 xlabel('Site $k$');
 ylabel('Time $t$');
@@ -550,7 +873,7 @@ shading interp
 rotate3d on
 axis tight
 
-%% TDVP (5): Plot D
+%% TDVP (4.2): Plot D
 figure(5); clf;
 n = size(tresults.nx,1);
 surf(1:para.L-1,para.tdvp.t(1:n),results.tdvp.D)
@@ -562,10 +885,13 @@ shading interp
 rotate3d on
 axis tight
 
+%% TDVP (4.3): Plot d_k
 %% TDVP (6): Plot vNE of A / V
 figure(7); clf;
-results.tdvp.Amat_vNE = cell2mat(cellfun(@(x) sum(-x.^2.*log(x.^2)), results.tdvp.Amat_sv, 'UniformOutput',false));
-results.tdvp.Vmat_vNE = cell2mat(cellfun(@(x) sum(-x.^2.*log(x.^2)), results.tdvp.Vmat_sv, 'UniformOutput',false));
+if para.tdvp.logSV
+	results.tdvp.Amat_vNE = cell2mat(cellfun(@(x) sum(-x.^2.*log(x.^2)), results.tdvp.Amat_sv, 'UniformOutput',false));
+	results.tdvp.Vmat_vNE = cell2mat(cellfun(@(x) sum(-x.^2.*log(x.^2)), results.tdvp.Vmat_sv, 'UniformOutput',false));
+end
 subplot(1,2,1);
 surf(1:size(results.tdvp.Amat_vNE,2),para.tdvp.t(1:size(results.tdvp.Amat_vNE,1)),results.tdvp.Amat_vNE);
 xlabel('Bond $k$'); ylabel('Time $\omega_c t$'); zlabel('$S_{vNE}(A)$');
@@ -874,80 +1200,81 @@ end
 % save(para.filename,'mps','Vmat','para','results','op');
 
 %% TDVP SBM multi load files: OrthPol rev22 threading vs perfect L=200
+cd('./../cacheComputations/');
 res = {};
-res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{1,1} = load('20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
 res{1,2} = 'v22 multi-core, 1pass, rescaling=0';
-res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{2,1} = load('20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
 res{2,2} = 'v22 multi-core, restarted, rescaling=0';
-res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{3,1} = load('20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
 res{3,2} = 'v22 single-core, 1pass, rescaling=1';
-res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
+res{4,1} = load('20150115-1504-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
 res{4,2} = 'v22 single-core, restarted, rescaling=1';
-res{5,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
+res{5,1} = load('20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-1pass-small.mat');
 res{5,2} = 'v22 single-core, 1pass, rescaling=0';
-res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
+res{6,1} = load('20150115-1510-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand15-expvCustom800-small.mat');
 res{6,2} = 'v22 single-core, restarted, rescaling=0';
-res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand25-expvCustom800-small.mat');
+res{7,1} = load('20150115-1539-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4v22-OBBExpand-BondExpand25-expvCustom800-small.mat');
 res{7,2} = 'v22 multi-core, restarted, rescaling=0, Bond25';
-res{8,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
+res{8,1} = load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
 res{8,2} = 'perfect';
-res{9,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-expvCustom800-small.mat');
+res{9,1} = load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-expvCustom800-small.mat');
 res{9,2} = 'v22,expvCustom800,Bond15';
-res{10,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-small.mat');
+res{10,1}= load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpand-BondExpand15-small.mat');
 res{10,2}= 'v22,noExvpVCustom,Bond15';
-res{11,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1237-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{11,1}= load('20150123-1237-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{11,2}= 'v35, rescaling = 1, Lappy';
-res{12,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1326-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{12,1}= load('20150123-1326-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{12,2}= 'v35, rescaling = 0, Lappy';
-res{13,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1431-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{13,1}= load('20150123-1431-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{13,2}= 'v35, rescaling = 1, TCM';
-res{14,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1432-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{14,1}= load('20150123-1432-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{14,2}= 'v35, rescaling = 0, TCM';
-res{15,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1509-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{15,1}= load('20150123-1509-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{15,2}= 'v20, rescaling = 1, TCM';
-res{16,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1510-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{16,1}= load('20150123-1510-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{16,2}= 'v20, rescaling = 0, TCM';
 
-
+cd('./../TDVP/');
 % cell2mat(cellfun(@(x) [x.results.time,x.results.tdvp.time], res(:,1), 'UniformOutput', false))
 
 %% TDVP SBM multi load files: OrthPol L=200 rev20 vs rev35 GS
-res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
+res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
 res{1,2} = 'perfect v19';
-res{2,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1509-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{2,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1509-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{2,2}= 'v20, rescaling = 1, TCM';
-res{3,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1510-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{3,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1510-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{3,2}= 'v20, rescaling = 0, TCM';
-res{4,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1602-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{4,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1602-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
 res{4,2}= 'v26, rescaling = 1, TCM';
-res{5,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1602-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{5,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1602-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
 res{5,2}= 'v26, rescaling = 0, TCM';
-res{6,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1554-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{6,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1554-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
 res{6,2}= 'v27, rescaling = 1, TCM';
-res{7,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1555-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{7,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1555-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
 res{7,2}= 'v27, rescaling = 0, TCM';
-res{8,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1607-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{8,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1607-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
 res{8,2}= 'v28, rescaling = 1, TCM';
-res{9,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1609-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{9,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1609-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
 res{9,2}= 'v28, rescaling = 0, TCM';
-res{10,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1614-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
+res{10,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1614-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1\results.mat');
 res{10,2}= 'v30, rescaling = 1, TCM';
-res{11,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
+res{11,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0\results.mat');
 res{11,2}= 'v30, rescaling = 0, TCM';
-res{12,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1237-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{12,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1237-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{12,2}= 'v35, rescaling = 1, Lappy';
-res{13,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1326-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{13,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1326-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{13,2}= 'v35, rescaling = 0, Lappy';
-res{14,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1431-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{14,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1431-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{14,2}= 'v35, rescaling = 1, TCM';
-res{15,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1432-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
+res{15,1}= load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1432-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results.mat');
 res{15,2}= 'v35, rescaling = 0, TCM';
 
 %% TDVP SBM multi load files: OrthPol compare L = 50 rev20, rev22 vs
 res = {};
-res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results-Till325Step4-noOBBExpand-noBondExpand.mat');
+res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20141114-1625-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results-Till325Step4-noOBBExpand-noBondExpand.mat');
 res{1,2} = '14/11/2014, noExpands, Exp.v19?';
-res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-1952-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
+res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150120-1952-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
 res{2,2} = 'GS Exp.v25, rescaling = 1';
 res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2047-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
 res{3,2} = 'GS Exp.v23, rescaling = 1';
@@ -957,73 +1284,74 @@ res{5,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20
 res{5,2} = 'GS Exp.v21, rescaling = 1';
 res{6,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP2\20150120-2118-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L50\results.mat');
 res{6,2} = 'GS Exp.v20, rescaling = 1';
-res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2255-SpinBoson-OrthPol-rev27-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{7,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150120-2255-SpinBoson-OrthPol-rev27-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{7,2} = 'GS to22.v27, rescaling = 1';
-res{8,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2310-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{8,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150120-2310-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{8,2} = 'GS to22.v28, rescaling = 1';
-res{9,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2321-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{9,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150120-2321-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{9,2} = 'GS to22.v29, rescaling = 1';
-res{10,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150120-2346-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{10,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150120-2346-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{10,2} = 'GS to22.v29, rescaling = 1, higher precision';
-res{11,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-0138-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{11,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-0138-SpinBoson-OrthPol-rev29-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{11,2} = 'GS to22.v29, rescaling = 0';
-res{12,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-0156-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{12,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-0156-SpinBoson-OrthPol-rev28-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{12,2} = 'GS to22.v28, rescaling = 0';
-res{13,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1602-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{13,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-1602-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{13,2} = 'GS to22.v30, rescaling = 1';
-res{14,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1634-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{14,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-1634-SpinBoson-OrthPol-rev30-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{14,2} = 'GS to22.v30, rescaling = 0';
-res{15,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1817-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{15,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-1817-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{15,2} = 'GS to22.v31, rescaling = 1';
-res{16,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-1821-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{16,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-1821-SpinBoson-OrthPol-rev31-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{16,2} = 'GS to22.v31, rescaling = 0';
-res{17,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-2152-SpinBoson-OrthPol-rev32-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{17,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-2152-SpinBoson-OrthPol-rev32-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{17,2} = 'GS to22.v32, rescaling = 1';
-res{18,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150121-2203-SpinBoson-OrthPol-rev32-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{18,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150121-2203-SpinBoson-OrthPol-rev32-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{18,2} = 'GS to22.v32, rescaling = 1, no braces';
-res{19,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150122-0006-SpinBoson-OrthPol-rev33-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{19,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150122-0006-SpinBoson-OrthPol-rev33-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{19,2} = 'GS to22.v33, rescaling = 1, HmultA sum';
-res{20,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150122-0018-SpinBoson-OrthPol-rev34-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{20,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150122-0018-SpinBoson-OrthPol-rev34-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{20,2} = 'GS to22.v34, rescaling = 1';
-res{21,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1444-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{21,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1444-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{21,2} = 'GS Exp.v35, rescaling = 1';
-res{22,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1447-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{22,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1447-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{22,2} = 'GS Exp.v35, rescaling = 0';
-res{23,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1436-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{23,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1436-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{23,2} = 'GS Exp.v35, rescaling = 1, TCM';
-res{24,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1438-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{24,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1438-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{24,2} = 'GS Exp.v35, rescaling = 0, TCM';
-res{25,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1507-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{25,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1507-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{25,2} = 'GS Exp.v20, rescaling = 1, TCM';
-res{26,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150123-1508-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{26,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150123-1508-SpinBoson-OrthPol-exp.v20-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{26,2} = 'GS Exp.v20, rescaling = 0, TCM';
-res{27,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1600-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{27,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1600-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
 res{27,2} = 'GS Exp.v26, rescaling = 1, TCM';
-res{28,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1600-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{28,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1600-SpinBoson-OrthPol-v26TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
 res{28,2} = 'GS Exp.v26, rescaling = 0, TCM';
-res{29,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1552-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{29,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1552-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
 res{29,2} = 'GS Exp.v27, rescaling = 1, TCM';
-res{30,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1553-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{30,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1553-SpinBoson-OrthPol-v27TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
 res{30,2} = 'GS Exp.v27, rescaling = 0, TCM';
-res{31,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1605-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{31,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1605-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
 res{31,2} = 'GS Exp.v28, rescaling = 1, TCM';
-res{32,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1608-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{32,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1608-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
 res{32,2} = 'GS Exp.v28, rescaling = 0, TCM';
-res{33,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{33,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
 res{33,2} = 'GS Exp.v30, rescaling = 1, TCM';
-res{34,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1611-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{34,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150124-1611-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
 res{34,2} = 'GS Exp.v30, rescaling = 0, TCM';
-res{35,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150126-1511-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
+res{35,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\cacheComputations\20150126-1511-SpinBoson-OrthPol-exp.v35-alpha0.01delta0.1epsilon0dk20D5dopt5L50/results.mat');
 res{35,2} = 'GS Exp.v35, rescaling = 1, TCM,prec';
 
 %% TDVP SBM multi load files: OrthPol L= 50 rev28, rev30 architecture sweep
-res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1605-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+cd('./../cacheComputations/');
+res{1,1} = load('20150124-1605-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
 res{1,2} = 'GS Exp.v28, rescaling = 1, Haswell';
-res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1608-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{2,1} = load('20150124-1608-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
 res{2,2} = 'GS Exp.v28, rescaling = 0, Haswell';
-res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
+res{3,1} = load('20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc1/results.mat');
 res{3,2} = 'GS Exp.v30, rescaling = 1, Haswell';
-res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1611-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
+res{4,1} = load('20150124-1611-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L50resc0/results.mat');
 res{4,2} = 'GS Exp.v30, rescaling = 0, Haswell';
 res{5,1} = load([ls('201501*OrthPol*v28TCM*Sandy*L50resc1'),'/results.mat']);
 res{5,2} = 'GS Exp.v28, rescaling = 1, Sandy';
@@ -1049,14 +1377,16 @@ res{15,1} = load([ls('201501*OrthPol*v30TCM*Core2*L50resc1'),'/results.mat']);
 res{15,2} = 'GS Exp.v30, rescaling = 1, Core2';
 res{16,1} = load([ls('201501*OrthPol*v30TCM*Core2*L50resc0'),'/results.mat']);
 res{16,2} = 'GS Exp.v30, rescaling = 0, Core2';
+cd('./../TDVP/');
 %% TDVP SBM multi load files: OrthPol L=200 rev28, rev30 architecture sweep
-res{1,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1607-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1/results.mat');
+cd('./../cacheComputations/');
+res{1,1} = load('20150124-1607-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1/results.mat');
 res{1,2} = 'GS Exp.v28, rescaling = 1, Haswell';
-res{2,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1609-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0/results.mat');
+res{2,1} = load('20150124-1609-SpinBoson-OrthPol-v28TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0/results.mat');
 res{2,2} = 'GS Exp.v28, rescaling = 0, Haswell';
-res{3,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1614-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1/results.mat');
+res{3,1} = load('20150124-1614-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc1/results.mat');
 res{3,2} = 'GS Exp.v30, rescaling = 1, Haswell';
-res{4,1} = load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0/results.mat');
+res{4,1} = load('20150124-1612-SpinBoson-OrthPol-v30TCM-alpha0.01delta0.1epsilon0dk20D5dopt5L200resc0/results.mat');
 res{4,2} = 'GS Exp.v30, rescaling = 0, Haswell';
 res{5,1} = load([ls('201501*OrthPol*v28TCM*Sandy*L200resc1'),'/results.mat']);
 res{5,2} = 'GS Exp.v28, rescaling = 1, Sandy';
@@ -1082,7 +1412,7 @@ res{15,1} = load([ls('201501*OrthPol*v30TCM*Core2*L200resc1'),'/results.mat']);
 res{15,2} = 'GS Exp.v30, rescaling = 1, Core2';
 res{16,1} = load([ls('201501*OrthPol*v30TCM*Core2*L200resc0'),'/results.mat']);
 res{16,2} = 'GS Exp.v30, rescaling = 0, Core2';
-
+cd('./../TDVP/');
 %% TDVP SBM multi load files: OrthPol/LogZ v37: L=50, L=200; a = 0.01;  VMPS vs artificial		LabBook: 27/01/2015
 % works only in cacheComputations!
 defPlot(1,:) = {'OrthPol-TDVP-Benchmark-Sz-L50-v37',				[1,3:6]};
@@ -1153,7 +1483,7 @@ cd('./../TDVP/');
 %% TDVP SBM multi load files: Architecture sweep, OrthPol, artificial, L=50						LabBook: 01/02/2015
 col = get(groot,'defaultAxesColorOrder');
 defPlot(1,:) = {'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L50-architecture-artificial-v37',	[1:15]};
-
+cd('./../cacheComputations/');
 res{ 1,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
 res{ 1,2} = '\alpha = 0.01, Haswell'; res{1,3} = 'Haswell';
 res{ 2,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.05delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
@@ -1186,6 +1516,7 @@ res{15,1} = load('20150201-1747-SpinBoson-OrthPol-v37TCM14-alpha0.2delta0.1epsil
 res{15,2} = '\alpha = 0.2, Nehalem';
 res{16,1} = load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
 res{16,2} = 'v19, Perfect';
+cd('./../TDVP/');
 for fignum = 1:size(defPlot,1)
 	figure(fignum); clf; hold all;
 	pick = defPlot{fignum,2};			% plot all
@@ -1210,7 +1541,6 @@ cd('./../cacheComputations/');
 defPlot(1,:) = {'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L50-artificial-v37',					[1:5],			{'ylim',[-1,1]}};
 defPlot(2,:) = {'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L200-artificial-v37',				[6:10],			{'ylim',[-1,1]}};
 defPlot(3,:) = {'Orth2010-OrthPol-TDVP-s1-med-AllExpand-L200-artificial-v41',				[11:12, 20:21],	{'ylim',[-0.2,1],'xlim',[0,320]}};		% POSTER, Incomplete, PC67
-% defPlot(4,:) = {'Orth2010-13a-OrthPol-TDVP-OBBExpand-L200-DeltaT1-artificial-v40',			[15:19],		{'ylim',[-1,1]}};		% This is the PERFECT one!
 defPlot(4,:) = {'Orth2010-13a-OrthPol-TDVP-OBBExpand-L200-DeltaT1-artificial-v40',			[15:19],		{'ylim',[-1,1],'xlim',[0,320]}};		% POSTER, This is the PERFECT one!
 
 % 01-05
@@ -1429,11 +1759,14 @@ end
 
 %% TDVP SBM Ohmic  s1  0.4<a  Orth2010, OrthPol, coupled, L=500, NEW							LabBook: 08/05/15, Paper
 clear;
-defPlot(1,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.01-coupled-v42',						[1:6],{'ylim',[-0.1,1], 'xscale','log','xlim',[1,400]}};		% Incomplete pc67
+defPlot(1,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.01-coupled-v42',						[1:6],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,800]}};		% Incomplete node9
+defPlot(2,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L300-DeltaT0.20-artificial-v42',					[7:10],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,500]}};		% Incomplete node10
+defPlot(3,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.10-artificial-v43',					[11:14],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,700]}};		% Incomplete node10
 
 res = cell(0,4);
 i = 0;
 
+% 1-6
 foldPattern = '20150409-1304-SpinBoson-OrthPol-v42TCMde9-alpha*delta0.1epsilon0dk30D5dopt5L500';
 filePattern = 'results-Till2000Step0.01v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
 folds = rdir([foldPattern,'\',filePattern]);
@@ -1446,7 +1779,37 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,4} = 'OBBExpand-dt0.01';
+res{offset+1,4} = 'OBBExpand-2000/0.01';
+
+% 7-10
+foldPattern = '20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L300-artificial';
+filePattern = 'results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('\\alpha = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res{offset+1,4} = 'OBBExpand-500/0.2';
+
+% 11-14
+foldPattern = '20150519-1402-SpinBoson-OrthPol-v43TCMde11-alpha*delta0.1epsilon0dk30D5dopt5L500-artificial';
+filePattern = 'results-Till1000Step0.1v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('\\alpha = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res{offset+1,4} = 'OBBExpand-1000/0.1';
 
 for fignum = 1:size(defPlot,1)
 	figure(fignum); clf; hold all;
@@ -1529,7 +1892,7 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,4} = 'OBBExpand, \Deltat=0.5';
+res{offset+1,4} = 'OBBExpand, \Delta t=0.5';
 
 % 28-36
 foldPattern = '20150311-172*-SpinBoson-OrthPol-v41TCMde9-s0.5-alpha*delta0.1epsilon0dk20D5dopt5L100';
@@ -1544,7 +1907,7 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,4} = 'OBBExpand, \Deltat=0.5';
+res{offset+1,4} = 'OBBExpand, \Delta t=0.5';
 
 % 37-45
 foldPattern = '20150312-1059-SpinBoson-OrthPol-v41TCMde9-s0.5-alpha*delta0.1epsilon0dk50D5dopt5L100';
@@ -1559,7 +1922,7 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,4} = 'OBBExpand, \Deltat=0.5, dk50';
+res{offset+1,4} = 'OBBExpand, \Delta t=0.5, dk50';
 
 % 46-54
 foldPattern = '20150312-1059-SpinBoson-OrthPol-v41TCMde9-s0.5-alpha*delta0.1epsilon0dk50D5dopt5L100';
@@ -1574,7 +1937,7 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,4} = 'AllExpand, \Deltat=0.5';
+res{offset+1,4} = 'AllExpand, \Delta t=0.5';
 
 for fignum = 5:size(defPlot,1)
 	f = figure(fignum); clf; hold all;
@@ -1609,6 +1972,7 @@ defPlot(3,:) = {'Kast2013-2-OrthPol-TDVP-OBBExpand-L50-DeltaT0.5-coupled-v41',		
 defPlot(4,:) = {'Kast2013-3-OrthPol-TDVP-OBBExpand-L50-DeltaT0.5-artificial-v41',		[25:31], {'ylim',[-0.5,1]}};
 defPlot(5,:) = {'Kast2013-3-OrthPol-TDVP-OBBExpand-L50-DeltaT0.5-coupled-v41',			[32:38], {'ylim',[-0.5,1]}};
 defPlot(6,:) = {'Kast2013-OrthPol-TDVP-OBBExpand-L50-200-coupled-v41',					[39:41], {'ylim',[-0.1,1]}};
+defPlot(7,:) = {'Kast2013-3-OrthPol-TDVP-OBBExpand-L50-DeltaT0.2-5-artificial-v41',		[25:31,42:46], {'ylim',[-0.5,1]}};
 
 foldPattern = '20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha*delta0.1epsilon0dk20D5dopt5L50-artificial';
 filePattern = 'results-Till100Step0.5v41-OBBExpand-noBondExpand-expvCustom800-1core.mat';
@@ -1622,12 +1986,13 @@ for file = {folds.name}
 	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
-res = sortrows(res,3); res{1,3} = 'artificial';
+res = sortrows(res,3); res{1,4} = 'artificial';
 
 foldPattern = '20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha*delta0.1epsilon0dk20D5dopt5L50-artificial';
 filePattern = 'results-Till100Step0.5v41-OBBExpand-BondExpand15-expvCustom800-1core.mat';
 folds = rdir([foldPattern,'\',filePattern]);
-res = [res;cell(size(folds,1),3)]; offset = i;
+% res = [res;cell(size(folds,1),3)];
+offset = i;
 for file = {folds.name}
 	file = file{1};
 	i = i+1;
@@ -1636,12 +2001,13 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,3} = 'AllExpand';
+res{offset+1,4} = 'AllExpand';
 
 foldPattern = '20150307-1406-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha*delta0.1epsilon0dk20D5dopt5L50';
 filePattern = 'results-Till100Step0.5v41-OBBExpand-noBondExpand-expvCustom800-1core.mat';
 folds = rdir([foldPattern,'\',filePattern]);
-res = [res;cell(size(folds,1),3)]; offset = i;
+% res = [res;cell(size(folds,1),3)];
+offset = i;
 for file = {folds.name}
 	file = file{1};
 	i = i+1;
@@ -1650,12 +2016,13 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,3} = 'coupled';
+res{offset+1,4} = 'coupled';
 
 foldPattern = '20150307-1324-SpinBoson-OrthPol-v41TCMde9-s0.25-alpha*delta0.1epsilon0dk20D5dopt5L50-artificial';
 filePattern = 'results-Till100Step0.5v41-OBBExpand-noBondExpand-expvCustom800-1core.mat';
 folds = rdir([foldPattern,'\',filePattern]);
-res = [res;cell(size(folds,1),3)]; offset = i;
+% res = [res;cell(size(folds,1),3)];
+offset = i;
 for file = {folds.name}
 	file = file{1};
 	i = i+1;
@@ -1664,12 +2031,13 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,3} = 's0.25 artificial';
+res{offset+1,4} = 's0.25 artificial';
 
 foldPattern = '20150307-1350-SpinBoson-OrthPol-v41TCMde9-s0.25-alpha*delta0.1epsilon0dk20D5dopt5L50';
 filePattern = 'results-Till100Step0.5v41-OBBExpand-noBondExpand-expvCustom800-1core.mat';
 folds = rdir([foldPattern,'\',filePattern]);
-res = [res;cell(size(folds,1),3)]; offset = i;
+% res = [res;cell(size(folds,1),3)];
+offset = i;
 for file = {folds.name}
 	file = file{1};
 	i = i+1;
@@ -1678,12 +2046,13 @@ for file = {folds.name}
 	res{i,2} = sprintf('\\alpha = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,3} = 's0.25 coupled';
+res{offset+1,4} = 's0.25 coupled';
 
 foldPattern = '20150307-154*-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha0.14delta0.1epsilon0dk20D5dopt5L*';
 filePattern = 'results-Till100Step0.5v41-OBBExpand-noBondExpand-expvCustom800-1core.mat';
 folds = rdir([foldPattern,'\',filePattern]);
-res = [res;cell(size(folds,1),3)]; offset = i;
+% res = [res;cell(size(folds,1),3)];
+offset = i;
 for file = {folds.name}
 	file = file{1};
 	i = i+1;
@@ -1692,8 +2061,23 @@ for file = {folds.name}
 	res{i,2} = sprintf('L = %g', res{i,3});
 end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res{offset+1,3} = 's0.25 Longer';
+res{offset+1,4} = 's0.25 Longer';
 
+% 42-46
+foldPattern = '20150522-2155-SpinBoson-OrthPol-v43TCM51-s0.25-alpha*delta0.1epsilon0dk30D5dopt5L50-artificial';
+filePattern = 'results-Till100Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+% res = [res;cell(size(folds,1),3)];
+offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('\\alpha = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res{offset+1,4} = 's0.25 finer, Crossover';
 
 for fignum = 1:size(defPlot,1)
 	figure(fignum); clf; hold all;
@@ -1732,6 +2116,7 @@ defPlot(2,:) = {'Wang2010-7b-OrthPol-TDVP-AllExpand-L200-Trial-artificial-v42',	
 defPlot(3,:) = {'Wang2010-7c-OrthPol-TDVP-AllExpand-L200-Trial-artificial-v42',			[3,5,7,9],		{'ylim',[0.6,1], 'xlim',[0,20]}};
 defPlot(4,:) = {'Wang2010-7a-OrthPol-TDVP-AllExpand-L600-Trial-artificial-v42',			[10],			{'ylim',[0.4,1], 'xlim',[0,20]}};
 
+cd('./../cacheComputations/');
 res = {};
 res{1,1} = load('20150316-1346-SpinBoson-OrthPol-v41TCM51-s0.5-alpha0.005delta0.2epsilon0dk20D5dopt5L300-artificial/results-Till1200Step1v41-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
 res{1,2} = '\alpha = 0.005, Fig4';				res{1,3} = '\Deltat=1,OBB';
@@ -1755,6 +2140,7 @@ res{10,1} = load('20150325-1532-SpinBoson-OrthPol-v42TCM59-s0.5-alpha0.3delta0.2
 res{10,2} = '\alpha = 0.3, Fig7a, \Deltat=0.02';	res{10,3} = '\Deltat=0.02,OBB';
 res{11,1} = load('20150325-1532-SpinBoson-OrthPol-v42TCM59-s0.5-alpha0.5delta0.2epsilon0dk20D5dopt5L600-artificial/results-Till50Step0.02v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
 res{11,2} = '\alpha = 0.5, Fig7b, \Deltat=0.02';	res{11,3} = '\Deltat=0.02,OBB';
+cd('./../TDVP/');
 
 for fignum = 1:size(defPlot,1)
 	figure(fignum); clf; hold all;
@@ -1819,7 +2205,6 @@ defPlot(4,:) = {'Orth2010-13a-s1-OrthPol-TDVP-OBB10-L200-325T1-coup-v42',		[15:1
 defPlot(5,:) = {'Orth2010-14a-s0.5-OrthPol-TDVP-OBB10-L100-325T1-coup-v42',		[20:23],{'ylim',[-1,1]}};
 defPlot(6,:) = {'Orth2010-14b-s0.5-OrthPol-TDVP-OBB10-L100-325T1-coup-v42',		[24:28],{'ylim',[0,1]}};
 
-
 foldPattern = '20150327-1327-SpinBoson-OrthPol-v42TCMde9-alpha*delta0.1epsilon0dk20D5dopt5L200-artificial';
 filePattern = 'results-Till325Step1v42-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
 folds = rdir([foldPattern,'\',filePattern]);
@@ -1880,7 +2265,7 @@ for fignum = 1:size(defPlot,1)
 	f = figure(fignum); clf; hold all;
 	pick = defPlot{fignum,2};			% plot all
 	xmax = max(cellfun(@(x) x.para.tdvp.t(end), res(pick,1)));
-	plot([1,xmax],[0,0],'black');
+	plot([0,xmax],[0,0],'black');
 	ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)), x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
 	axis tight; ax = gca;
 	set(ax,defPlot{fignum,3}{:});
@@ -1892,13 +2277,139 @@ for fignum = 1:size(defPlot,1)
 	leg.FontSize = fs;
 	formatPlot(fignum);
 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
-	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 	set(gca,'color','none');
 % 	title(defPlot{fignum,1},'fontsize',15);
 end
 
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
+%% TDVP SBM multi files: Star Bath and POLARON NEW L=500										LabBook: 26/05/2015
+clear
+defPlot(1,:) = {'AlltheRest artificial',													[1:8],{'ylim',[-1,1],'xlim',[0,500]}};
+defPlot(2,:) = {'AlltheRest coupled',														[9:16],{'ylim',[-1,1],'xlim',[0,500]}};
+
+i=0;
+
+%1-8
+foldPattern = '20150529-100*-SpinBoson-OrthPol-v43TCM*-*alpha*delta0.1epsilon0dk30D5dopt5L500-artificial';
+filePattern = 'results-Till500Step0.25v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),4} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.alpha;
+	res{i,4} = res{i,1}.para.s;
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),4);
+% res(offset+1:i,4) = {'L=500,art,Polaron'};
+
+%9-16
+foldPattern = '20150531-1124-SpinBoson-OrthPol-v43TCM*-*alpha*delta0.1epsilon0dk30D5dopt5L500';
+filePattern = 'results-Till500Step0.25v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),4} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.alpha;
+	res{i,4} = res{i,1}.para.s;
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),4);
+
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(find(x.tresults.t,1,'last')), res(pick,1)));
+	plot([0,xmax],[0,0],'black');
+	ph = cellfun(@(x) plot(x.tresults.t(1:find(x.tresults.t,1,'last')), x.tresults.spin.sz(1:find(x.tresults.t,1,'last'))), res(pick,1), 'UniformOutput', false);
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$\omega_ct$');
+	ylabel('$\left<\sigma_z\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum);
+	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+% 	title(defPlot{fignum,1},'fontsize',15);
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
+%% TDVP SBM Ohmic  s3  0.01<a<1  OrthPol, art, L=300											LabBook: 13/05/15,
+clear;
+defPlot(1,:) = {'OrthPol-TDVP-SBM-s3-OBBExpand-L300-DeltaT0.2-art-v43',						[1:7],{'ylim',[-1,1], 'xscale','lin','xlim',[1,500]}};		% Incomplete node9
+defPlot(2,:) = {'OrthPol-TDVP-SBM-s3-OBBExpand-L500-DeltaT0.1-art-v43',						[8:14],{'ylim',[-1,1], 'xscale','lin','xlim',[1,500]}};		% Incomplete node9
+
+res = cell(0,4);
+i = 0;
+
+foldPattern = '20150512-1658-SpinBoson-OrthPol-v43TCMde10-s3-alpha*delta0.1epsilon0dk30D5dopt5L300-artificial';
+filePattern = 'results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('\\alpha = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res{offset+1,4} = 'OBBExpand-500/0.2';
+
+foldPattern = '20150519-1350-SpinBoson-OrthPol-v43TCMde10-s3-alpha*delta0.1epsilon0dk30D5dopt5L500-artificial';
+filePattern = 'results-Till1000Step0.1v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res = [res;cell(size(folds,1),4)]; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = str2double(file(strfind(file,'alpha')+5:strfind(file,'delta')-1));
+	res{i,2} = sprintf('\\alpha = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res{offset+1,4} = 'OBBExpand-1000/0.1';
+
+
+for fignum = 1:size(defPlot,1)
+	%%
+	figure(fignum); clf; hold all;
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(sum(x.tresults.t~=0)), res(pick,1)));
+	plot([1,xmax],[0,0],'black');
+	ph = cellfun(@(x) plot(x.tresults.t(1:sum(x.tresults.t~=0)), x.tresults.spin.sz(1:sum(x.tresults.t~=0))), res(pick,1), 'UniformOutput', false);
+	axis tight, ax = gca;
+	% ph{8}.LineStyle = ':';				%temp
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$\omega_ct$');
+	ylabel('$\left<\sigma_z\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum);
+	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=1$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+% 	title(defPlot{fignum,1},'fontsize',15);
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+% ph2 = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)-1), diff(x.para.tdvp.calcTime)), res(pick,1), 'UniformOutput', false);
 
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
@@ -1978,31 +2489,32 @@ if wantSave
     export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
 end
 
-%% TDVP SBM multi (5): plot single file STAR
+%% TDVP SBM multi (5): plot slider STAR
 mode = 1;		% 0: lin, 1: log
 fignum = 7;
 figure(fignum); clf; x = res(1,:);
 pos = get(gcf,'Position'); set(gcf,'Position',[pos(1),pos(2),840,pos(4)]);pos = get(gcf,'Position');
 pl = surf(log10(x{1}.tresults.star.n));
+% setting auto-refresh
+hPl = handle(pl); hProp = findprop(hPl,'UserData');
+hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.s, pl.UserData{1}.para.alpha)));
+
 pl.UserData=x;
 cb = colorbar;cb.Title.Interpreter = 'latex';
 if mode
 	zlabel('$log_{10}\left<n_k\right>$');
 	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.n);';
 % 	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.n)-log10(ones(size(pl.UserData{1}.tresults.star.n,1),1)*pl.UserData{1}.tresults.star.n(1,:));';
-% 	set(cb,'defaulttextinterpreter','tex')
-	cb.Title.String = 'log$_{10}\left<n_k\right>$';
 else
-% 	pl = surf(x{1}.tresults.star.omega,x{1}.tresults.star.t,x{1}.tresults.star.n);
 	zlabel('$\left<n_k\right>$');
-	pl.UserData=x;
 	pl.ZDataSource = 'pl.UserData{1}.tresults.star.n;';
-	cb.Title.String = '$\left<n_k\right>$';
 end
 pl.XDataSource = 'pl.UserData{1}.tresults.star.omega';
 pl.YDataSource = 'pl.UserData{1}.tresults.star.t';refreshdata;
 xlabel('Mode $\omega_k / \omega_c$');
 ylabel('Time $\omega_c t$');
+cb.Title.String = get(get(gca,'zlabel'),'String');
 % set(gca,'zscale','log');
 set(gca,'View',[0 90],'TickDir','out','FontSize',14);
 shading interp;rotate3d on;axis tight;
@@ -2011,6 +2523,42 @@ if mode
 % 	set(gca,'clim',[0,10]);
 end
 set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
+
+% slider definition:
+sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
+sld.setUnitIncrement(1); sld.setBlockIncrement(1);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
+
+%% TDVP SBM multi (6): plot slider CHAIN
+mode = 1;		% 0: lin, 1: log
+fignum = 8;
+figure(fignum); clf; x = res(1,:);
+pos = get(gcf,'Position'); set(gcf,'Position',[pos(1),pos(2),840,pos(4)]);pos = get(gcf,'Position');
+pl = surf(log10(abs(x{1}.tresults.nx)));
+cb = colorbar;cb.Title.Interpreter = 'latex';
+if mode
+	zlabel('$log_{10}\left<n_k\right>$');
+	pl.ZDataSource = 'log10(abs(pl.UserData{1}.tresults.nx));';
+else
+	zlabel('$\left<n_k\right>$');
+	pl.ZDataSource = 'abs(pl.UserData{1}.tresults.nx);';
+end
+pl.XDataSource = '1:pl.UserData{1}.para.L';
+% pl.YDataSource = 'pl.UserData{1}.para.tdvp.t';
+pl.YDataSource = 'pl.UserData{1}.tresults.t';
+cb.Title.String = get(get(gca,'zlabel'),'String');
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'zscale','log');
+set(gca,'View',[0 90],'TickDir','out','FontSize',14);
+shading interp;
+rotate3d on;axis tight;
+if mode
+	set(gca,'zlim',[-4,0]);
+	set(gca,'clim',get(gca,'zlim'));
+end
 com = ', ';
 % slider definition:
 sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
@@ -2020,7 +2568,50 @@ hsld = handle(sld,'CallbackProperties');
 set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
 hPl = handle(pl); hProp = findprop(hPl,'UserData');
 hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
-hPl.addlistener(hProp,'PostSet',@(src,event) title([pl.UserData{2},com,pl.UserData{4}]));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.s, pl.UserData{1}.para.alpha)));
+pl.UserData=x;
+
+%% TDVP SBM multi (7): plot slider POLARON
+mode = 0;		% 0: lin, 1: log
+fignum = 9;
+figure(fignum); clf; x = res(1,:);
+pos = get(gcf,'Position'); set(gcf,'Position',[pos(1),pos(2),840,pos(4)]);pos = get(gcf,'Position');
+pl = surf(x{1}.tresults.star.x);
+% setting auto-refresh
+hPl = handle(pl); hProp = findprop(hPl,'UserData');
+hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.s, pl.UserData{1}.para.alpha)));
+
+pl.UserData=x;
+cb = colorbar;cb.Title.Interpreter = 'latex';
+if mode
+	zlabel('$log_{10}\left<x_k\right>$');
+	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.x);';
+else
+	zlabel('$\left<x_k\right>$');
+	pl.ZDataSource = 'pl.UserData{1}.tresults.star.x;';
+end
+pl.XDataSource = 'pl.UserData{1}.tresults.star.omega';
+pl.YDataSource = 'pl.UserData{1}.tresults.star.t';refreshdata;
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+cb.Title.String = get(get(gca,'zlabel'),'String');
+% set(gca,'zscale','log');
+set(gca,'View',[0 90],'TickDir','out','FontSize',14);
+shading interp;rotate3d on;axis tight;
+if mode
+% 	set(gca,'zlim',[0,10]);
+% 	set(gca,'clim',[0,10]);
+end
+set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
+
+% slider definition:
+sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
+sld.setUnitIncrement(1); sld.setBlockIncrement(1);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
+
 %% TEST SBM_genpara:
 para1.chain.mapping = 'OrthogonalPolynomials';	para1.chain.spectralDensity = 'Leggett_Hard'; para1.chain.discrMethod = 'Analytic';
 para1.chain.discretization = 'None';			para1.chain.method = 'Analytic';
@@ -2149,10 +2740,100 @@ ax.TickDir = 'out';
 f.Units = 'centimeters';
 oldPos = f.Position;
 f.Position = [oldPos(1),oldPos(2), 19.35, 12.28];	% in cm also produces 15x9.8cm axes
-f.Units = 'pixels';
+% f.Units = 'pixels';
 % f.Position = [oldPos(1),oldPos(2), 840, oldPos(4)];
 % export_fig('test','-transparent','-png','-m4')
+%% Save Surf plots for Poster:
+figHandles = get(0,'Children');
+for i = 1:size(figHandles)
+	f=figure(figHandles(i).Number);ax = gca;
+	% set(gca, 'LooseInset', [0,0,0,0]); % not with colorbar!!
+	ax.FontSize = 14;
+	ax.TickDir = 'out';
+	% ax.Units = 'centimeters';
+	% for figure 840x420:
+	% oldPos = ax.Position;
+	% ax.Position = [oldPos(1),oldPos(2), 15, 9.8];
+	f.Units = 'centimeters';
+	oldPos = f.Position;
+	f.Position = [oldPos(1),oldPos(2), 19.35, 12.28];	% in cm also produces 15x9.8cm axes
+	% f.Units = 'pixels';
+	% f.Position = [oldPos(1),oldPos(2), 840, oldPos(4)];
+	export_fig(sprintf('img/test%d',f.Number),'-transparent','-png','-m3');
+% 	close(f);
+end
+% close(1);
 %% inset for poster:
+if exist('axIn','var')
+	axIn.delete;
+end
+if exist('hInset','var')
+	hInset.delete;
+end
+ax=gca; oldPos = ax.Position;
+axIn = axes('Position',[oldPos(1)+0.32, oldPos(2)+0.2, oldPos(3)*0.5, oldPos(4)*0.7]);		% use this if main with colorbar
+% axIn = axes('Position',[oldPos(1)+0.36, oldPos(2)+0.2, oldPos(3)*0.5, oldPos(4)*0.7]);	% use this if main without colorbar
+axIn.TickDir = 'out';
+axIn.FontSize=14; axIn.XColor=[0.7,0.7,0.7];axIn.YColor=axIn.XColor;
+
+hold all;
+% surface
+% surf(tresults.star.omega,tresults.star.t, ax.Children.ZData);
+% xlabel('Mode $\omega_k / \omega_c$');
+% ylabel('Time $\omega_c t$');
+% [M,I] = max(ax.Children.ZData(:,:),[],2);
+% plot3(tresults.star.omega(I(2:end)),tresults.star.t(2:end),ones(1,length(tresults.star.t)-1).*200,':r')
+% plot3([0.1,0.1],[0,500],[200,200],':black');
+% axIn.YLim = [0,500];
+
+% spectra
+% tslices = [2,11,31,51, 164];
+% plot(tresults.star.omega, ax.Children.ZData(tslices,:));
+% legend(strsplit(sprintf('%g ',tresults.star.t(tslices))));
+% xlabel('$\omega_k / \omega_c$');
+% ylabel(ax.ZLabel.String);
+% set(gca,'View',[0 90]);
+% shading interp
+% axis tight
+% axIn.XLim = [0,0.2];
+
+% FT inset via copy axes!
+fMaster = 6;
+fInset = 7;
+axIn.delete;
+figure(fInset); ax_Inset = gca;
+figure(fMaster);
+hInset = copyobj(ax_Inset,fMaster);
+hInset.Position = [oldPos(1)+0.32, oldPos(2)+0.36, oldPos(3)*0.5, oldPos(4)*0.5];
+hInset.XLim = [0,0.8]; hInset.XTick = sort([hInset.XTick,0.1]);
+hInset.YLim = [0,1]; hInset.CLim = ax.CLim;
+%% Extract resonance of renormalized splitting
+mode = 0;		% 0: lin, 1: log
+figure(6); clf;
+if mode
+	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n));
+% 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n)-log10(ones(size(tresults.star.n,1),1)*tresults.star.n(1,:)));
+
+	zlabel('$\log_{10}\left<n_k\right>$');
+else
+	surf(tresults.star.omega,tresults.star.t,tresults.star.n);
+	zlabel('$\left<n_k\right>$');
+end
+cb = colorbar;cb.Title.Interpreter = 'latex';
+cb.Title.String = '$\left<n_k\right>$';
+xlabel('Mode $\omega_k / \omega_c$');
+ylabel('Time $\omega_c t$');
+% set(gca,'yscale','log');		% log in sites
+% set(gca,'View',[0 42]);
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+if mode
+% 	set(gca,'zlim',[-4,1]);
+% 	set(gca,'clim',[-4,1]);
+	cb.Title.String = '$\log_{10}\left<n_k\right>$';
+end
 if exist('axIn','var')
 	axIn.delete;
 end
@@ -2163,24 +2844,16 @@ axIn.TickDir = 'out';
 axIn.FontSize=14; axIn.XColor=[0.7,0.7,0.7];axIn.YColor=axIn.XColor;
 
 hold all;
-% mode = 0;		% 0: lin, 1: log
-% if mode
-% 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n));
-% 	zlabel('$\log_{10}\left<n_k\right>$');
-% else
-% 	surf(tresults.star.omega,tresults.star.t,tresults.star.n);
-% 	zlabel('$\left<n_k\right>$');
-% end
 surf(tresults.star.omega,tresults.star.t, ax.Children.ZData);
-% xlabel('Mode $\omega_k / \omega_c$');
-% ylabel('Time $\omega_c t$');
 set(gca,'View',[0 90]);
 shading interp
 axis tight
-axIn.XLim = [0,0.2]; axIn.YLim = [0,420];
-[M,I] = max(ax.Children.ZData(:,:),[],2);
-plot3(tresults.star.omega(I(2:end)),tresults.star.t(2:end),ones(1,length(tresults.star.t)-1).*10,':r')
+axIn.XLim = [0,0.2]; axIn.YLim = [0,500];
+[M,I] = max(ax.Children.ZData(:,1:200),[],2);
+plot3(tresults.star.omega(I(2:end)),tresults.star.t(2:end),ones(1,length(tresults.star.t)-1).*1000,':r')
 plot3([0.1,0.1],[0,350],[10,10],':black');
+
+tresults.star.omega(I(2:end))
 
 %% Analyze Chain Parameters SBM_genpara.m
 
@@ -2210,3 +2883,38 @@ title('$\left|\left<a^\dagger_m a_n\right>\right|$')
 obs = getObservable({'staroccupation'},mps,Vmat,para);
 figure(10);clf;
 plot(obs(1,:),obs(2,:));
+
+%% Slice current figure in x
+f = get(gcf); ax = get(gca); hold on;
+% plLine = plot3([0,0],ax.YLim,[1 1].*max(ax.ZLim),'r');
+fnew = figure(100*f.Number);
+pl = plot(ax.Children(end).YData, ax.Children(end).ZData(:,100));
+pos = f.Position; f.Position = [pos(1),pos(2),840,pos(4)]; pos = f.Position;
+pl.UserData=1;
+pl.XDataSource = 'ax.Children(end).YData';
+pl.YDataSource = 'ax.Children(end).ZData(:,pl.UserData)'; refreshdata;
+xlabel(ax.YLabel.String);
+ylabel(ax.ZLabel.String);
+com = ', ';
+% slider definition:
+sld = javax.swing.JScrollBar(0,1,1,1,size(ax.Children(end).ZData,2)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.05,5,200,15], gcf);
+sld.setUnitIncrement(1); sld.setBlockIncrement(5);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'UserData',round(source.Value)));
+hPl = handle(pl); hProp = findprop(hPl,'UserData');
+hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(fnew));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ x = %g $',ax.Children(end).XData(pl.UserData))));
+% hPl.addlistener(hProp,'PostSet',@(src,event) set(plLine,'XData',[1,1].*ax.Children(end).XData(pl.UserData)));
+
+%% Spectra of gcf
+f = get(gcf); ax = get(gca); hold on;
+fnew = figure(101*f.Number);
+
+tslices = [2,11,31,51, 164];
+pl = plot(tresults.star.omega, ax.Children.ZData(tslices,:));
+legend(strread(num2str(tresults.star.t(tslices)),'%s'));
+xlabel('$\omega_k / \omega_c$');
+ylabel(ax.ZLabel.String);
+xlim([0,0.2]);
+

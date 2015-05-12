@@ -105,7 +105,9 @@ switch para.sweepto
                 sv = diag(S);
             end
             DB = size(S, 1);
-            para.D(sitej-1) = DB;
+			if sitej ~= 1
+	            para.D(sitej-1) = DB;
+			end
             B = reshape(B, [DB, d, D2]); B = permute(B, [1, 3, 2]);
 
             % create focused center: C(n)_(l,a) = U_(l,a')*S_(a',a)

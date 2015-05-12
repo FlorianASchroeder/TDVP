@@ -123,6 +123,8 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
     Vmat_focused = reshape(Vmat_focused,[dk,OBBDim]);
 %     clear('HAA');
+%% Introduce decay for last site!
+
 
     %% normalise Vmat and take focus to A
     [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);  % TODO: enable
