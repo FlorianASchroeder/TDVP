@@ -27,22 +27,51 @@ para = gennonzeroindex(mps,Vmat,para);
 para
 
 %% Override if preparing artificial vacuum Ground State
-if strcmp(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
-	%% prepare +Sz eigenstate
+if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')) && strcmp(para.SpinBoson.GroundStateMode,'artificial')
 	if strcmp(para.SpinBoson.InitialState, 'sz')
+		%% prepare +Sz eigenstate
 		mps{1} = reshape([1,zeros(1,numel(mps{1})-1)],[1,para.D(1),para.d_opt(1)]);
 		Vmat{1} = eye(para.dk(1));
+	elseif strcmp(para.SpinBoson.InitialState, '-sz')
+		mps{1} = reshape([  zeros(1,numel(mps{1})/2),...
+						  1,zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+		Vmat{1} = eye(para.dk(1));
+	elseif strcmp(para.SpinBoson.InitialState, 'sx')
+		mps{1} = reshape([1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+						  1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+		Vmat{1} = eye(para.dk(1));
+	elseif strcmp(para.SpinBoson.InitialState, '-sx')
+		mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+						   1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+		Vmat{1} = eye(para.dk(1));
+	elseif strcmp(para.SpinBoson.InitialState, 'sy')
+		mps{1} = reshape([ 1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+						  1i/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+		Vmat{1} = eye(para.dk(1));
+	elseif strcmp(para.SpinBoson.InitialState, '-sy')
+		mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+						  1i/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+		Vmat{1} = eye(para.dk(1));
 	else
-		error('VMPS:minimzeE:DefineInitialState','only InitialState=sz is implemented yet');
+		error('VMPS:minimzeE:DefineInitialState','InitialState=none is not implemented yet');
 	end
-	for j = 2:para.L-1
-		mps{j} = reshape([1, zeros(1,numel(mps{j})-1)],para.D(j-1),para.D(j),para.d_opt(j));
-		Vmat{j} = [zeros(para.dk(j)-para.d_opt(j),para.d_opt(j));...
-				   fliplr(eye(para.d_opt(j)))];
+	for j = 2:para.L
+		if j == para.L
+			Dr = 1;
+		else
+			Dr = para.D(j);
+		end
+
+		mps{j} = reshape([1, zeros(1,numel(mps{j})-1)],para.D(j-1),Dr,para.d_opt(j));
+		if para.foldedChain
+			locDim      = sqrt(para.dk(j));
+			occEstimate = kron(locDim:-1:1,ones(1,locDim))+kron(ones(1,locDim),locDim:-1:1);	% kronecker sum to estimate lowest states
+			[~,order]   = sort(occEstimate);													% find order of lowest states
+		else
+			order = para.dk(j):-1:(para.dk(j)-para.d_opt(j)+1);
+		end
+		Vmat{j}	  = sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));
 	end
-	mps{para.L} = reshape([1, zeros(1,numel(mps{para.L})-1)],para.D(para.L-1),1,para.d_opt(para.L));
-	Vmat{para.L} = [zeros(para.dk(para.L)-para.d_opt(para.L),para.d_opt(para.L));...
-					fliplr(eye(para.d_opt(para.L)))];
 	[op] = initstorage(mps, Vmat, op,para);
 	para.trustsite = para.L;		% needed for TDVP
 	return;
@@ -138,8 +167,8 @@ while loop<=para.loopmax;
         disp(mat2str(para.d_opt));
         fprintf('para.D = ');
         disp(mat2str(para.D));
-		dispif('para.dk = ', para.useexpand);
-        dispif(mat2str(para.dk),para.useexpand);
+		dispif('para.dk = ', para.useDkExpand);
+        dispif(mat2str(para.dk),para.useDkExpand);
      else
         para.adjust=0;
         [mps,Vmat] = rightnormA(mps,Vmat,para,results);			%	sweeps r->l to right-normalize A matrices.

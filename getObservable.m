@@ -115,20 +115,24 @@ switch type{1}
 
 	case 'bath1correlators'
 		% needed for mapping from chain to star
-		% returns a L x 1 Vector
+% 		returns a L x 2 Vector
 
-		out = calBath1SiteCorrelators(mps,Vmat,para);
+		out(para.L,2) = 0;
+		out(:,1) = calBath1SiteCorrelators(mps,Vmat,para,1);	% spin up
+		out(:,2) = calBath1SiteCorrelators(mps,Vmat,para,-1);	% spin down
 
 	case 'starpolaron'
 		%% does mapping chain -> star
 		% uses bath1correlators
 		% x stands for continuous variable (momentum k)
+		% Does up/down projection!
 
 		step = max(1/para.L/10,10^-3);
 		x = (0:step:1)';		% resolution
 		n = 0:(para.L-2);		% length(n) = L-1
 		s = para.s;
-		An = real(calBath1SiteCorrelators(mps,Vmat,para));		% L x 1
+		AnUp   = real(calBath1SiteCorrelators(mps,Vmat,para,1));		% L x 1
+		AnDown = real(calBath1SiteCorrelators(mps,Vmat,para,-1));		% L x 1
 
 		pxn = zeros(length(x),para.L);			% these are orthonormalized polynomials. examples:
 					% pxn(:,1) = 0; pxn(:,2) = px(0) = 1/t(1); pxn(:,3) =
@@ -160,7 +164,7 @@ switch type{1}
 
 		% polynomials and h(x) were found now!
 
-		out = [x, 2.*h.*(pxn*An)]';
+		out = [x, 2.*h.*(pxn*AnUp),2.*h.*(pxn*AnDown)]';
 
     case 'energy'
         % Calculates the entire energy of the chain
@@ -363,12 +367,12 @@ tunnelE = expectationvalue(HI,mps,Vmat,mps,Vmat);
 
 end
 
-function An = calBath1SiteCorrelators(mps,Vmat,para)
-% calculates Re<(1+sz)/4 * a_n^+>.
+function An = calBath1SiteCorrelators(mps,Vmat,para,spinProj)
+% calculates Re<(1+-sz)/4 * a_n^+>.
 % output is matrix containing all values.
 % Only calculate Re, since Im is not needed! -> saves space!
 % custom made solution for biggest speedup, exact solution!
-
+% spinProj = +-1 to select up/down projection.
 
 An = zeros(para.L,1);						% initialize results array
 bp = cell(1,para.L);						% containing all necessary operators
@@ -383,7 +387,7 @@ for j=1:para.L
         end
 	else
 		[~,~,sz]=spinop(para.spinbase);
-        bp{1,j} = (eye(2)+sz)/4;			% additional 1/2 for displacement
+        bp{1,j} = (eye(2)+spinProj*sz)/4;			% additional 1/2 for displacement
     end
 end
 

@@ -9,7 +9,7 @@ function op=genh1h2term_onesite(para,op,s)
 %       t1*b*a:     para.t(1)*op.h2term{2,1,1}*op.h2term{2,2,2}
 %example: op.h2term{1,1,1} is with op.h2term{1,2,2}
 % interaction terms don't seem to be normal ordered...
-
+%
 % If Model changed, modify also:
 %   VMPS_SBM1.m:    para.dk(1) gives dimension of first site;
 %   calspin.m:      sx,sy,sz defines spin measure operator. Change if dim(site1) changes!
@@ -37,8 +37,56 @@ switch para.model
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+	case 'SpinBoson2folded'
+        %%%%%%%%%%%%%%%%%%%2-chain Spin Boson Model - One Super-Chain%%%%%%%%%%%%%%%%%%%%%%
+		% Created 07/07/15 by F.S.
+        switch s
+            case 1
+                [sigmaX,~,sigmaZ]=spinop(para.spinbase);
+                zm_spin=zeros(2);
+                op.h1term{1}     = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
+                op.h2term{1,1,1} = para.t(1).*sigmaX./2; op.h2term{1,2,1} = zm_spin;	% X chain
+                op.h2term{2,1,1} = para.t(1).*sigmaX./2; op.h2term{2,2,1} = zm_spin;
+                op.h2term{3,1,1} = para.t(1).*sigmaZ./2; op.h2term{3,2,1} = zm_spin;	% Z chain
+                op.h2term{4,1,1} = para.t(1).*sigmaZ./2; op.h2term{4,2,1} = zm_spin;
+            case para.L
+                [bp,~,n] = bosonop(sqrt(para.dk(para.L)),para.shift(para.L),para.parity);  % gives [bp, bm, n]
+                if para.parity=='n'
+                    idm=eye(size(n));
+                    bpx=kron(bp,idm);bmx=bpx';nx=kron(n,idm);
+                    bpz=kron(idm,bp);bmz=bpz';nz=kron(idm,n);
+				else
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+%                     [bpx,bmx,nx,bpy,bmy,ny]=paritykron(bp,para.bosonparity);
+                end
+                zm=sparse(size(bpx,1),size(bpx,1));
+                op.h1term{para.L}     = para.epsilon(para.L-1).*nx+para.epsilon(para.L-1).*nz;
+                op.h2term{1,1,para.L} = zm; op.h2term{1,2,para.L} = bmx;
+                op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bpx;
+                op.h2term{3,1,para.L} = zm; op.h2term{3,2,para.L} = bmz;
+                op.h2term{4,1,para.L} = zm; op.h2term{4,2,para.L} = bpz;
+            otherwise
+                [bp,~,n] = bosonop(sqrt(para.dk(s)),para.shift(s),para.parity);
+                if para.parity=='n'
+                    idm=eye(size(n));
+                    bpx=kron(bp,idm);bmx=bpx';nx=kron(n,idm);
+                    bpz=kron(idm,bp);bmz=bpz';nz=kron(idm,n);
+				else
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+%                     [bpx,bmx,nx,bpy,bmy,ny]=paritykron(bp,para.bosonparity);
+                end
+%                 zm=sparse(size(bpx,1),size(bpx,1));
+                op.h1term{s}     = para.epsilon(s-1).*nx + para.epsilon(s-1).*nz;
+                op.h2term{1,1,s} = para.t(s).*bpx; op.h2term{1,2,s} = bmx;
+                op.h2term{2,1,s} = para.t(s).*bmx; op.h2term{2,2,s} = bpx;
+                op.h2term{3,1,s} = para.t(s).*bpz; op.h2term{3,2,s} = bmz;
+                op.h2term{4,1,s} = para.t(s).*bmz; op.h2term{4,2,s} = bpz;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
     case 'SpinDoubleBoson'
-        %%%%%%%%%%%%%%%%%%%Spin doulbe boson Model One Chain (to each side)%%%%%%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%%Spin double boson Model One Chain%%%%%%%%%%%%%%%%%%%%%%
+		% From Cheng, DEPRECATED
         switch s
             case 1
                 [sigmaX,sigmaY,sigmaZ]=spinop(para.spinbase);
@@ -73,7 +121,7 @@ switch para.model
                 else
                     [bpx,bmx,nx,bpy,bmy,ny]=paritykron(bp,para.bosonparity);
                 end
-                zm=sparse(size(bpx,1),size(bpx,1));
+%                 zm=sparse(size(bpx,1),size(bpx,1));
                 op.h1term{s}=para.epsilon(s-1).*nx+para.epsilon(s-1).*ny;
                 op.h2term{1,1,s} = para.t(s).*bpx; op.h2term{1,2,s} = bmx;
                 op.h2term{2,1,s} = para.t(s).*bmx; op.h2term{2,2,s} = bpx;
@@ -84,7 +132,8 @@ switch para.model
 
     case 'SpinDoulbeBosonFolded' %%Two chain case. Doesn't work any more.
         %%%%%%%%%%%%%%%%%%Spin Doulbe Boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        switch s
+        % From Cheng, DEPRECATED
+		switch s
             case para.spinposition      %at the middle of the chain?
                 if para.parity=='n'
                     sigmaX=[0 1;1 0]; %In the non parity basis
@@ -150,9 +199,9 @@ switch para.model
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     case '2SpinPhononModel'
-        %%%%%%%%%%%%%%%%%%%2-State Phonon Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %%%%%%%%%%%%%%%%%%%2-State Phonon Model (folded)%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % copied from SpinDoubleBoson. This is indeed the folded model, as the bosonic sites have kron()
-        % somehow this looks very much like the folded model because of the kron() product in the boson operators
+		% possibly not working!
         switch s
             case 1      % if I want to include two exciton sites with chain-ex1-ex2-chain I need to have ex1,ex2 in site 1 combined!
                         % start off with only one site and extend it for later!
@@ -204,49 +253,6 @@ switch para.model
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    case '2SpinPhononModelfolded'
-        %%%%%%%%%%%%%%%%%%2 Spin Phonon model folded%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 2 chains folded into one single chain of dimension^2 for symmetrical coupling
-        switch s
-            case para.spinposition      %at the middle of the chain?
-                if para.parity=='n'
-                    sigmaX=[0 1;1 0]; %In the non parity basis
-                    sigmaY=[0 -1i;1i 0];
-                    sigmaZ=[1 0;0 -1];
-                else
-                    sigmaX=[-1 0;0 1]; %In the parity basis
-                    sigmaZ=[0 -1;-1 0];
-                end
-                op.h1term{s}=-para.Delta./2.*sigmaX+para.epsilon_spin./2.*sigmaZ;
-                op.h2term{1,1,s} = para.t(1).*sigmaZ./2; op.h2term{1,2,s} = para.t(1).*sigmaZ./2;     %use same t in both chains
-                op.h2term{2,1,s} = para.t(1).*sigmaZ./2; op.h2term{2,2,s} = para.t(1).*sigmaZ./2;
-            case 1
-                [bp,bm,n] = bosonop(para.dk(1),para.shift(1),para.parity);
-                zm=sparse(size(bp,1),size(bp,1));
-                op.h1term{1}=para.epsilony(para.Ly-1).*n;
-                op.h2term{1,1,1} = bm; op.h2term{1,2,1} = zm;
-                op.h2term{2,1,1} = bp; op.h2term{2,2,1} = zm;
-            case para.L
-                [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
-                zm=sparse(size(bp,1),size(bp,1));
-                op.h1term{para.L}=para.epsilonz(para.Lz-1).*n;
-                op.h2term{1,1,para.L} = zm; op.h2term{1,2,para.L} = bm;
-                op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bp;
-            otherwise
-                if s<para.spinposition
-                    ss=para.spinposition-s;
-                    [bp,bm,n] = bosonop(para.dk(s),para.shift(s),para.parity);
-                    op.h1term{s}=para.epsilony(ss).*n;
-                    op.h2term{1,1,s} = bm; op.h2term{1,2,s} = para.ty(ss+1).*bp;
-                    op.h2term{2,1,s} = bp; op.h2term{2,2,s} = para.ty(ss+1).*bm;
-                else
-                    ss=s-para.spinposition;
-                    [bp,bm,n] = bosonop(para.dk(s),para.shift(s),para.parity);
-                    op.h1term{s} = para.epsilonz(ss).*n;
-                    op.h2term{1,1,s} = para.tz(ss+1).*bp; op.h2term{1,2,s} = bm;
-                    op.h2term{2,1,s} = para.tz(ss+1).*bm; op.h2term{2,2,s} = bp;
-                end
-        end
     case 'MLSpinBoson'
         %%%%%%%%%%%%%%%%%%%Multi-Level Spin-boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % for use of this model:

@@ -9,7 +9,7 @@ if isdeployed
 end
 
 %% start ground state calculations
-% fileName =  VMPS_FullSBM(s,alpha,0.1,0,20,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+fileName =  VMPS_FullSBM(s,alpha,0.1,0,600,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
@@ -20,20 +20,20 @@ load(fileName);
 
 % load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha0.01delta0.1epsilon0dk20D5dopt5L100\results.mat')
 % load(sprintf('20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha%gdelta0.1epsilon0dk30D5dopt5L300-artificial/results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat',alpha));
-load('20150410-1252-SpinBoson-OrthPol-v42-alpha0.5delta0.1epsilon0dk30D5dopt5L20/results.mat');
+% load('20150410-1252-SpinBoson-OrthPol-v42-alpha0.5delta0.1epsilon0dk30D5dopt5L20/results.mat');
 
 % Kast 2013 Fig 4, s=0.75 OrthPol
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
 %% Define TDVP parameters
-para.tdvp.tmax = 500;
-para.tdvp.deltaT = 0.25;                % size of timeslice in units:
+para.tdvp.tmax = 1000;
+para.tdvp.deltaT = 0.1;                % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
-para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
+para.tdvp.saveInterval = 30;			% save '-small.mat' every n-th step
 para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = 1;		% in [t]; for calculating star occupation! Comment if not needed!
@@ -57,7 +57,7 @@ para.tdvp.truncateExpandBonds = Bond;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
 para.tdvp.maxBondDim = 20;
-para.tdvp.maxOBBDim  = 15;
+para.tdvp.maxOBBDim  = 20;
 para.svmaxtol = 10^-4;
 para.svmintol = 10^-4.5;
 % z-Averaging for log-Discretization
@@ -71,7 +71,7 @@ end
 
 tresults = [];						% empty variable initialization
 %% Format Filename
-para.tdvp.version = 'v43';
+para.tdvp.version = 'v44';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!

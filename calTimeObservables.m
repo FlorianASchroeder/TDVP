@@ -60,19 +60,20 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 				pos = round(para.tdvp.t(1,para.timeslice+1)/para.tdvp.extractStarInterval) +1;
 
 				occ		= getObservable({'staroccupation'},tmps(j,:),tVmat(j,:),para);		% 2 x k
-				polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% 2 x k
+				polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% (1+2) x k
 
 				if ~isfield(tresults, 'star')
 					% initialise storage if first sweep
 					nElements = para.tdvp.tmax/para.tdvp.extractStarInterval +1;
 					tresults.star.n	    = zeros(nElements,length(occ));
-					tresults.star.x	    = zeros(nElements,length(polaron));
+					tresults.star.x	    = zeros(nElements,length(polaron),2);
 					tresults.star.omega = occ(1,:);
 					tresults.star.t     = zeros(1,nElements);
 				end
 
 				tresults.star.n(pos,:) = occ(2,:);
-				tresults.star.x(pos,:) = polaron(2,:);
+				tresults.star.x(pos,:,1) = polaron(2,:);	% up proj
+				tresults.star.x(pos,:,2) = polaron(3,:);	% down proj
 				tresults.star.t(pos)   = para.tdvp.t(1,para.timeslice+1);
 			end
 		end

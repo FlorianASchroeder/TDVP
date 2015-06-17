@@ -5,8 +5,9 @@ function [op,para,results,mps,Vmat] = adjustdopt(op,para,results,mps,Vmat)
 %   - para.useDkExpand1
 %   - para.useDkExpand2
 %
-%Cheng Guo
-%17 Feb 2012
+% Cheng Guo
+% 17 Feb 2012
+%
 % Modified:
 %	FS 03/02/2014:	- added abs() for calculation of d_opt_change, as this prevents elimination of positive and negative contributions.
 %   FS 30/05/2014:  - added that always one sv < svmaxtol is kept, to prevent oscillating expansion / deletion
@@ -104,7 +105,8 @@ for s = 2:min(para.trustsite(end)+0,para.L) 			% Only modify boson sites
         end
     end
     %% Expand dk
-    if para.useexpand == 1
+	% only works with OBB now!
+    if para.useDkExpand == 1
         %% Estimate amount of expansion
         if para.useDkExpand1 == 1 && para.useVmat && max(results.Vmat_sv{s}) < para.expandBelowSV
             % Expand dk if highest SV < para.expandBelowSV
@@ -133,9 +135,12 @@ for s = 2:min(para.trustsite(end)+0,para.L) 			% Only modify boson sites
         %% Apply the expansion
         if dimincratio > 0
             adddim=ceil(dimincratio*para.dk(s));                        % from here: copied from above
-            if para.dk(s)+adddim > para.dkmax
-                adddim=para.dkmax-para.dk(s);
-            end
+			if para.dk(s)+adddim > para.dkmax
+                adddim = para.dkmax-para.dk(s);
+			elseif para.foldedChain
+				% ensure that sqrt(dk) = integer
+				adddim = ceil(sqrt(para.dk(s)+adddim))^2 - para.dk(s);
+			end
             para.dk(s) = para.dk(s)+adddim;             % operators will be expanded in genh1h2term?
             if para.useVmat
                 addmat = zeros(adddim,para.d_opt(s));

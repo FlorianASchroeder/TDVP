@@ -290,7 +290,7 @@ for timeslice = para.tdvp.slices
 		outFile.tVmat(timeslice+1,:) = Vmat;				% writes to File
 		outFile.currentSize = timeslice+1;
 	end
-	if para.logging && mod(timeslice, round(para.tdvp.extractObsInterval/para.tdvp.deltaT));			% at extractObsInterval
+	if para.logging && mod(timeslice, round(para.tdvp.extractObsInterval/para.tdvp.deltaT))==0			% at extractObsInterval
 		n = 1+tresults.lastIdx;
 		if para.tdvp.logSV
 			results.tdvp.Vmat_sv(n,:) = results.Vmat_sv;
@@ -300,12 +300,12 @@ for timeslice = para.tdvp.slices
 			results.tdvp.Amat_vNE(n,:)= results.Amat_vNE;
 		end
 		if para.tdvp.expandOBB
-	        results.tdvp.d_opt(n,:)   = para.d_opt;
+	        results.tdvp.d_opt(n,:)   = para.d_opt - sum(results.tdvp.d_opt);	% sum in 1st Dim
 		end
 		if para.tdvp.truncateExpandBonds
-	        results.tdvp.D(n,:)       = para.D;
+	        results.tdvp.D(n,:)       = para.D - sum(results.tdvp.D);
 		end
-%		if expand... then results.tdvp.dk(n,:)      = para.dk;
+%		if expand... then results.tdvp.dk(n,:)      = para.dk - results.tdvp.dk(n-1,:);
 	end
 	if ~exist('tresults','var')
 		% calculate everything up to now!
@@ -374,12 +374,13 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 	end
 
 	function initresultsTDVP()
+		% save Dimension Log only as difference! reconstruct with cumsum(A)
 		fprintf('Initialize results.tdvp\n');
 		n = para.tdvp.tmax/para.tdvp.extractObsInterval +1;
 		if para.tdvp.logSV
 			results.tdvp.Vmat_sv{n,para.L}	= [];
 			results.tdvp.Vmat_sv(1,:)		= results.Vmat_sv;
-			results.tdvp.Amat_sv{n,para.L}  = [];
+			results.tdvp.Amat_sv{n,para.L-1}= [];
 			results.tdvp.Amat_sv(1,:)		= results.Amat_sv;
 		else
 			results.tdvp.Vmat_vNE(n,para.L) = 0;
@@ -388,20 +389,20 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			results.tdvp.Amat_vNE(1,:)		= results.Amat_vNE;
 		end
 		if para.tdvp.expandOBB
-			results.tdvp.d_opt(n,para.L)	= 0;
+			results.tdvp.d_opt              = sparse(n,para.L);
 			results.tdvp.d_opt(1,:)			= para.d_opt;
 		end
 		if para.tdvp.truncateExpandBonds
-			results.tdvp.D(n,para.L-1)		= 0;
+			results.tdvp.D					= sparse(n,para.L-1);
 			results.tdvp.D(1,:)				= para.D;
 		end
 % 		dk not expanded yet -> do not log!
-%		results.tdvp.dk 		  = zeros(n,para.L);
+%		results.tdvp.dk 		  = sparse(n,para.L);
 %		results.tdvp.dk(1,:)      = para.dk;
 		results.tdvp.expvTime     = [];
 % 		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, (para.L-1)*4*2+3);
 		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, 1);		% otherwise file gets too large
-		results.tdvp.EvaluesLog	  = zeros(length(para.tdvp.t)-1,1);
+		results.tdvp.EvaluesLog	  = zeros(length(para.tdvp.t)-1, 1);
 	end
 
 end

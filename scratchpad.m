@@ -4,8 +4,8 @@ saveto = '..\Presentations\20140206 - Summary\';
 %saveto = '..\..\Presentations\20140520 - MLSBM\20140525-CoupFunc\';
 wantSave = 0;
 %% Plot Vmat contributions for different Sites i (normalized)
-i=9;
-plot(real(Vmat{1,i}(:,:)))
+i=2;
+plot(abs((Vmat{1,i}(:,:))))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
 xlabel('$d_k$')
@@ -14,7 +14,7 @@ if wantSave
 end
 
 %% Plot Vmat contributions for different Sites i (SV-weighted)
-i = 13;
+i = 5;
 plot(real(Vmat{1,i}*diag(results.Vmat_sv{1,i})))
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
 ylabel('Contribution to OBB')
@@ -61,6 +61,8 @@ xlabel('Site $k$')
 set(gca,'View',[9.5 40]);
 formatPlot(1)
 rotate3d on
+axis tight
+shading interp
 
 %% Plot Results
 f1=figure(1);
@@ -408,7 +410,8 @@ set(gca,'ylim',[-1,1]);
 % set(gca,'xscale','log');
 xlabel('t');
 ylabel('$\left<\sigma_z\right>$');
-% legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left< \sigma_z \right>$');
+l=legend('$\left< \sigma_y \right>$','$\left< \sigma_y \right>$','$\left< \sigma_z \right>$');
+l.Interpreter = 'latex';
 
 %% TDVP (2) SBM: Plot Bloch length
 figure(2); hold all;
@@ -475,8 +478,8 @@ shading interp
 rotate3d on
 axis tight
 if mode
-% 	set(gca,'zlim',[-1,2]);
-% 	set(gca,'clim',[-1,2]);
+% 	set(gca,'zlim',[-3,1]);
+% 	set(gca,'clim',get(gca,'zlim'));
 end
 
 %% TDVP (3.3): Animate <n> propagation
@@ -523,34 +526,63 @@ else
 			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.n(round(source.Value),:)));
 end
 %% TDVP (3.5): Animate <n> star single mode kinetics
-mode = 1;		% 0: lin, 1: log
+mode = 0;		% 0: lin, 1: log
 figure(3); clf;
-ax = axes('units','pixels');
+n = find(tresults.star.t,1,'last');
 if mode
-	pl = plot(tresults.star.t,log10(tresults.star.n(:,1)));
+	pl = plot(tresults.star.t(1:n),log10(tresults.star.n(1:n,1)));
 	ylabel('$log_{10}\left<n_k\right>$');
-	set(gca,'ylim',[-5,log10(max(max(tresults.star.n)))]);
+	set(gca,'ylim',[-5,log10(max(max(tresults.star.n(1:n))))]);
 else
-	pl = plot(tresults.star.t,tresults.star.n(:,1));
+	pl = plot(tresults.star.t(1:n),tresults.star.n(1:n,1));
 	ylabel('$\left<n_k\right>$');
-	set(gca,'ylim',[0,max(max(tresults.star.n))]);
+% 	set(gca,'ylim',[0,max(max(tresults.star.n))]);
 end
 % set(gca,'ylimmode','manual');
 % set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
 xlabel('Time $\omega_c t$');
-% shading interp
+ax = gca; ax.UserData = 1;
+% OnChange actions:
+hPl = handle(ax); hProp = findprop(hPl,'UserData');
 if mode
-	sld = uicontrol('Style', 'slider',...
-			'Min',1,'Max',size(tresults.star.n,2),'Value',1,...
-			'Position', [400 20 120 20],...
-			'Callback', @(source,callbackdata) set(pl,'ydata',log10(tresults.star.n(:,round(source.Value)))));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl,'ydata',log10(tresults.star.n(1:n,ax.UserData))));
 else
-	sld = uicontrol('Style', 'slider',...
-			'Min',1,'Max',size(tresults.star.n,2),'Value',1,...
-			'Position', [400 20 120 20],...
-			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.n(:,round(source.Value))));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl,'ydata',tresults.star.n(1:n,ax.UserData)));
 end
-ax.Units = 'norm';
+	hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ \\omega_k = %g $',tresults.star.omega(ax.UserData))));
+
+% set(gca,'ylimmode','manual');
+% set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
+xlabel('Time $\omega_c t$');
+
+% % slider definition and UserData setting:
+f = gcf; pos = f.Position;
+sldmax = size(tresults.star.n,2);
+sld = javax.swing.JScrollBar(0,1,1,1,sldmax);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.05,5,200,15], f);
+sld.setUnitIncrement(1); sld.setBlockIncrement(10);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax,'UserData',round(source.Value)));
+
+%%			 : Capture Movie from existing slider
+fignum = 5;
+f = figure(fignum);
+nFrames = sld.getMaximum;
+F(nFrames) = struct('cdata',[],'colormap',[]);
+for i = 1:nFrames
+	ax.UserData = i;
+	F(i) = getframe(f);
+end
+%% Playback Movie
+fig = figure;
+movie(fig,F,1,200)
+%% Save Movie
+writerObj = VideoWriter('img/OccPolaron01-dt01-','MPEG-4');
+writerObj.FrameRate = 60;
+open(writerObj);
+writeVideo(writerObj,F);
+close(writerObj);
+
 %% TDVP (3.6): Plot FT(<n>) star
 % possible to restrict in time domain!
 mode = 1;		% 0: lin, 1: log
@@ -584,7 +616,7 @@ end
 %% TDVP (3.7): Extract resonance of renormalized splitting
 mode = 1;		% 0: lin, 1: log
 figure(6); clf;
-tresults = res{42,1}.tresults;
+% tresults = res{42,1}.tresults;
 if mode
 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n));
 % 	surf(tresults.star.omega,tresults.star.t,log10(tresults.star.n)-log10(ones(size(tresults.star.n,1),1)*tresults.star.n(1,:)));
@@ -651,17 +683,18 @@ plot(coneFunct,1:L,'k','linewidth',2)
 %% TDVP (3.8): Plot polaron STAR
 mode = 0;		% 0: lin, 1: log
 f=figure(8); clf; f.Name = 'Star Polaron';
-% tresults = res{14,1}.tresults;
+% tresults = res{9,1}.tresults;
 n = find(tresults.star.t,1,'last');
 if mode
 	surf(tresults.star.omega,tresults.star.t(1:n),log10(abs(tresults.star.x(1:n,:))).*sign(tresults.star.x(1:n,:)));
-	zlabel('$\log_{10}\left<x_k\right>$');
+	zlabel('$\log_{10}f_k^\uparrow$');
 else
-	surf(tresults.star.omega,tresults.star.t(1:n),-tresults.star.x(1:n,:));
-	zlabel('$\left<x_k\right>$');
+	surf(tresults.star.omega,tresults.star.t(1:n),tresults.star.x(1:n,:,1));
+	zlabel('$f_k^\uparrow$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';
 cb.Title.String = get(get(gca,'zlabel'),'String');
+% cb.Title.
 xlabel('Mode $\omega_k / \omega_c$');
 ylabel('Time $\omega_c t$');
 % set(gca,'xscale','log');		% log in sites
@@ -704,36 +737,62 @@ if mode
 % 	set(gca,'clim',[-4,1]);
 end
 
-%% TDVP (3.10): Animate STAR polaron kinetics
-mode = 0;		% 0: lin, 1: log
-figure(3); clf;
-ax = axes('units','pixels');
+%% TDVP (3.10): Animate STAR polaron kinetics up/down
+mode = 0;		% 0: lin, 1: log (bad)
+guides = 1;		% plot parabola mid-points
+fignum = 4; figure(fignum); clf; hold all;
 n = find(tresults.star.t,1,'last');
+set(gca,'xlim',tresults.star.t([1,n]));
 if mode
-	pl = plot(tresults.star.t(1:n),log10(tresults.star.x(1:n,1)));
-	ylabel('$log_{10}\left<x_k\right>$');
+	pl1 = plot(tresults.star.t(1:n),log10(tresults.star.x(1:n,1,1)));
+	if size(tresults.star.x,3) == 2
+		pl2 = plot(tresults.star.t(1:n),log10(tresults.star.x(1:n,1,2)));
+	end
+	ylabel('$log_{10}\left<f_k\right>$');
 	set(gca,'ylim',[-5,log10(max(max(tresults.star.x(1:n,:))))]);
 else
-	pl = plot(tresults.star.t(1:n),tresults.star.x(1:n,1));
-	ylabel('$\left<x_k\right>$');
-	set(gca,'ylim',[min(min(tresults.star.x(1:n,:))),max(max(tresults.star.x(1:n,:)))]);
+	pl1 = plot(tresults.star.t(1:n),-(tresults.star.x(1:n,1,1)));
+	if size(tresults.star.x,3) == 2
+		pl2 = plot(tresults.star.t(1:n),-(tresults.star.x(1:n,1,2)));
+	end
+	ylabel('$\left<f_k\right>$');
+	set(gca,'ylim',[-max(max(max(tresults.star.x(1:n,:,:))));-min(min(min(tresults.star.x(1:n,:,:))))]);
+	if guides
+		% mid-positions of parabolas:
+		pl3 = plot(tresults.star.t(1:n),(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'black--');
+		pl4 = plot(tresults.star.t(1:n),-(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'black--');
+		pl5 = plot([1 1]*2*pi/tresults.star.omega(1),get(gca,'ylim'),'black--');
+		pl6 = plot(tresults.star.t(1:n),(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'red--');
+		pl7 = plot(tresults.star.t(1:n),-(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'red--');
+	end
 end
+ax = gca; ax.UserData = 1;
+% OnChange actions:
+hPl = handle(ax); hProp = findprop(hPl,'UserData');
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',-tresults.star.x(1:n,ax.UserData,1)));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',-tresults.star.x(1:n,ax.UserData,2)));
+if guides
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl4,'ydata',-(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl5,'xdata',[1 1]*2*pi/tresults.star.omega(ax.UserData)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl6,'ydata',(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+0.07800)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl7,'ydata',-(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+0.07800)));
+
+end
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ \\omega_k = %g $',tresults.star.omega(ax.UserData))));
+
 % set(gca,'ylimmode','manual');
 % set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
 xlabel('Time $\omega_c t$');
-% shading interp
-if mode
-	sld = uicontrol('Style', 'slider',...
-			'Min',1,'Max',size(tresults.star.x,2),'Value',1,...
-			'Position', [400 20 120 20],...
-			'Callback', @(source,callbackdata) set(pl,'ydata',log10(tresults.star.x(1:n,round(source.Value)))));
-else
-	sld = uicontrol('Style', 'slider',...
-			'Min',1,'Max',size(tresults.star.x,2),'Value',1,...
-			'Position', [400 20 120 20],...
-			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.x(1:n,round(source.Value))));
-end
-ax.Units = 'norm';
+
+% slider definition and UserData setting:
+f = gcf; pos = f.Position;
+sldmax = size(tresults.star.x,2);
+sld = javax.swing.JScrollBar(0,1,1,1,sldmax);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.05,5,200,15], f);
+sld.setUnitIncrement(1); sld.setBlockIncrement(10);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax,'UserData',round(source.Value)));
 %% TDVP (3.10): Animate STAR polaron kinetics corrected
 mode = 0;		% 0: lin, 1: log
 figure(3); clf;
@@ -767,36 +826,116 @@ else
 			'Callback', @(source,callbackdata) set(pl,'ydata',tresults.star.x(1:n,round(source.Value))));
 end
 ax.Units = 'norm';
+%% TDVP (3.10): Animate STAR <n> <x> kinetics side-by-side
+mode = 0;		% 0: lin, 1: log (bad)
+fignum = 5; figure(fignum); clf;
+width = 0.8; height = 0.375; posx = 0.1; posy = 0.13;
+ax = axes(	'Position',[posx,posy,width,height],...
+			'box', 'on');
+ax2 = axes(	'Position',[posx,posy+height,width,height],...
+			'box','on');
+% polaron plot
+axes(ax); ax.UserData = 1; hold all;
+hPl = handle(ax); hProp = findprop(hPl,'UserData');
+n = find(tresults.star.t,1,'last');
+pl1 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,1)));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',(tresults.star.x(1:n,ax.UserData,1))));
+if size(tresults.star.x,3) == 2
+	pl2 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,2)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',tresults.star.x(1:n,ax.UserData,2)));
+end
+xlabel('Time $\omega_c t$');
+ylabel('$\left<f_k\right>$');
+set(gca,'ylim',[min(min(min(tresults.star.x(1:n,:,:)))),max(max(max(tresults.star.x(1:n,:,:))))]);
+plot(ax.XLim,[0,0],'black');
+% OnChange actions:
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ \\omega_k = %g $',tresults.star.omega(ax.UserData))));
+% set(gca,'ylimmode','manual');
+% set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
+
+axes(ax2); hold all;
+pl3 = plot(tresults.star.t(1:n), tresults.star.n(1:n,ax.UserData));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',tresults.star.n(1:n,ax.UserData)));
+% xlabel('Time $\omega_c t$');
+ylabel('$\left<n_k\right>$');
+% ax2.YAxisLocation = 'right';
+ax2.XAxisLocation = 'top';
+
+% slider definition and UserData setting:
+f = gcf; pos = f.Position;
+sldmax = size(tresults.star.x,2);
+sld = javax.swing.JScrollBar(0,1,1,1,sldmax);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.05,5,200,15], f);
+sld.setUnitIncrement(1); sld.setBlockIncrement(10);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax,'UserData',round(source.Value)));
 
 %% TDVP (3.11): Plot FT(<x>) star
 % possible to restrict in time domain!
 mode = 1;		% 0: lin, 1: log
-f=figure(11); clf; f.Name = 'Star Polaron Fourier';
+f=figure(12); clf; f.Name = 'Star Polaron Fourier'; ax = gca;
 maxN = floor(find(tresults.star.t,1,'last')/2)*2;
 % maxN = 1000;
 freq = 2*pi/tresults.star.t(2)/2 * linspace(0,1,maxN/2+1);		% fs * k/N  where k=0... N/2
-FT = fft(tresults.star.x(1:maxN,:),maxN,1)/maxN;
+FT = fft(tresults.star.x(1:maxN,:,1),maxN,1)/maxN;
 if mode
-	surf(tresults.star.omega,freq,log10(2*abs(FT(1:maxN/2+1,:))));
-	zlabel('$sgn(\left<x_k\right>)\log_{10} \mathcal{F} \left\{ |\left<x_k\right>(t) |\right\} $');
+	surf(tresults.star.omega,freq,log10(2*abs((FT(1:maxN/2+1,:)))));
+	zlabel('$\log_{10} |\mathcal{F} \{ f_k^\uparrow \}| $');
 else
-	surf(tresults.star.omega,freq,2*abs(FT(1:(size(FT,1)/2+1),:)));
-	zlabel('$\mathcal{F} \left\{ \left<x_k\right>(t)\right\}$');
+	surf(tresults.star.omega,freq,2*abs(FT(1:(maxN/2+1),:)));
+	zlabel('$\mathcal{F} \left\{ f_k^\uparrow(t)\right\}$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = get(get(gca,'zlabel'),'String');
+cb.Title.String = ax.ZLabel.String;
 xlabel('Mode $\omega_k / \omega_c$');
-ylabel('Frequency $\omega$');
-% set(gca,'yscale','log');		% log in sites
-% set(gca,'View',[0 42]);
-set(gca,'View',[0 90]);
+ylabel('Frequency $\omega/ \omega_c$');
 shading interp
 rotate3d on
 axis tight
+ax.View = [0,90];
+ax.YLim = [0,1.2];
 if mode
-% 	set(gca,'zlim',[-1,1]);
-	set(gca,'clim',get(gca,'zlim'));
+% 	ax.ZLim = [-1,1];
+	ax.CLim = ax.ZLim;
 end
+%%      (3.11a): Sin-Cos contrib
+fignum = 12; fh = figure(fignum);clf; ax=gca; hold all
+mode = 1;		% 0: lin, 1: log
+fh.UserData = FT;
+ax.UserData = 2000;
+pl1 = plot(freq,(real(fh.UserData(1:maxN/2+1,ax.UserData))));
+pl2 = plot(freq,(imag(fh.UserData(1:maxN/2+1,ax.UserData))));
+ax.XLim = [0,1.2];
+
+%
+% pl = surf(log10(abs(x{1}.tresults.nx)));
+% if mode
+% 	zlabel('$log_{10}\left<n_k\right>$');
+% 	pl.ZDataSource = 'log10(abs(pl.UserData{1}.tresults.nx));';
+% else
+% 	zlabel('$\left<n_k\right>$');
+% 	pl.ZDataSource = 'abs(pl.UserData{1}.tresults.nx);';
+% end
+% pl.XDataSource = '1:pl.UserData{1}.para.L';
+% % pl.YDataSource = 'pl.UserData{1}.para.tdvp.t';
+% pl.YDataSource = 'pl.UserData{1}.tresults.t';
+% xlabel('Mode $\omega_k / \omega_c$');
+% ylabel('Time $\omega_c t$');
+% axis tight;
+% if mode
+% 	set(gca,'zlim',[-4,0]);
+% end
+% com = ', ';
+% % slider definition:
+% sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+% javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
+% sld.setUnitIncrement(1); sld.setBlockIncrement(1);
+% hsld = handle(sld,'CallbackProperties');
+% set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
+% hPl = handle(pl); hProp = findprop(hPl,'UserData');
+% hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
+% hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.s, pl.UserData{1}.para.alpha)));
+% pl.UserData=x;
 
 %% TDVP (3.12): Plot FT(<x>) star corrected
 % possible to restrict in time domain!
@@ -1536,7 +1675,7 @@ for fignum = 1:size(defPlot,1)
 	formatPlot(fignum);
 	title(defPlot{fignum,1},'fontsize',15);
 end
-%% TDVP SBM Ohmic  s1  0.5>a  Orth2010, OrthPol, art, L=50, L=200; weak -0.75 coupling		LabBook: 30/01/2015, 27/02/2015, POSTER April 2015
+%% TDVP SBM Ohmic  s1  a<0.5  Orth2010, OrthPol, art, L=50, L=200; weak -0.75 coupling		LabBook: 30/01/2015, 27/02/2015, POSTER April 2015
 cd('./../cacheComputations/');
 defPlot(1,:) = {'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L50-artificial-v37',					[1:5],			{'ylim',[-1,1]}};
 defPlot(2,:) = {'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L200-artificial-v37',				[6:10],			{'ylim',[-1,1]}};
@@ -1759,9 +1898,9 @@ end
 
 %% TDVP SBM Ohmic  s1  0.4<a  Orth2010, OrthPol, coupled, L=500, NEW							LabBook: 08/05/15, Paper
 clear;
-defPlot(1,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.01-coupled-v42',						[1:6],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,800]}};		% Incomplete node9
-defPlot(2,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L300-DeltaT0.20-artificial-v42',					[7:10],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,500]}};		% Incomplete node10
-defPlot(3,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.10-artificial-v43',					[11:14],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,700]}};		% Incomplete node10
+defPlot(1,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.01-coupled-v42',						[1:6],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,1300]}};		% Incomplete node9
+% defPlot(2,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L300-DeltaT0.20-artificial-v42',					[7:10],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,500]}};		% Incomplete node10
+% defPlot(3,:) = {'Orth2010-13b-OrthPol-TDVP-OBBExpand-L500-DeltaT0.10-artificial-v43',					[11:14],{'ylim',[-0.1,1], 'xscale','lin','xlim',[1,700]}};		% Incomplete node10
 
 res = cell(0,4);
 i = 0;
@@ -2756,10 +2895,11 @@ for i = 1:size(figHandles)
 	% ax.Position = [oldPos(1),oldPos(2), 15, 9.8];
 	f.Units = 'centimeters';
 	oldPos = f.Position;
-	f.Position = [oldPos(1),oldPos(2), 19.35, 12.28];	% in cm also produces 15x9.8cm axes
+% 	f.Position = [oldPos(1),oldPos(2), 19.35, 12.28];	% in cm also produces 15x9.8cm axes
+	f.Position = [oldPos(1),oldPos(2), 19.35,  6.45];	% in cm half height!
 	% f.Units = 'pixels';
 	% f.Position = [oldPos(1),oldPos(2), 840, oldPos(4)];
-	export_fig(sprintf('img/test%d',f.Number),'-transparent','-png','-m3');
+	export_fig(sprintf('img/test%d',f.Number),'-transparent','-png','-m4');
 % 	close(f);
 end
 % close(1);
@@ -2798,15 +2938,16 @@ hold all;
 % axIn.XLim = [0,0.2];
 
 % FT inset via copy axes!
-fMaster = 6;
-fInset = 7;
+fMaster = 8;
+fInset = 11;
 axIn.delete;
 figure(fInset); ax_Inset = gca;
 figure(fMaster);
 hInset = copyobj(ax_Inset,fMaster);
 hInset.Position = [oldPos(1)+0.32, oldPos(2)+0.36, oldPos(3)*0.5, oldPos(4)*0.5];
 hInset.XLim = [0,0.8]; hInset.XTick = sort([hInset.XTick,0.1]);
-hInset.YLim = [0,1]; hInset.CLim = ax.CLim;
+hInset.YLim = [0,1];
+% hInset.CLim = ax.CLim;
 %% Extract resonance of renormalized splitting
 mode = 0;		% 0: lin, 1: log
 figure(6); clf;
@@ -2905,6 +3046,29 @@ set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'UserDat
 hPl = handle(pl); hProp = findprop(hPl,'UserData');
 hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(fnew));
 hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ x = %g $',ax.Children(end).XData(pl.UserData))));
+% hPl.addlistener(hProp,'PostSet',@(src,event) set(plLine,'XData',[1,1].*ax.Children(end).XData(pl.UserData)));
+
+%% Slice current figure in y
+f = get(gcf); ax = get(gca); hold on;
+% plLine = plot3([0,0],ax.YLim,[1 1].*max(ax.ZLim),'r');
+fnew = figure(101*f.Number);
+pl = plot(ax.Children(end).XData, ax.Children(end).ZData(100,:));
+pos = f.Position; f.Position = [pos(1),pos(2),840,pos(4)]; pos = f.Position;
+pl.UserData=1;
+pl.XDataSource = 'ax.Children(end).XData';
+pl.YDataSource = 'ax.Children(end).ZData(pl.UserData,:)'; refreshdata;
+xlabel(ax.XLabel.String);
+ylabel(ax.ZLabel.String);
+com = ', ';
+% slider definition:
+sld = javax.swing.JScrollBar(0,1,1,1,size(ax.Children(end).ZData,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.05,5,200,15], gcf);
+sld.setUnitIncrement(1); sld.setBlockIncrement(5);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'UserData',round(source.Value)));
+hPl = handle(pl); hProp = findprop(hPl,'UserData');
+hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(fnew));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ y = %g $',ax.Children(end).YData(pl.UserData))));
 % hPl.addlistener(hProp,'PostSet',@(src,event) set(plLine,'XData',[1,1].*ax.Children(end).XData(pl.UserData)));
 
 %% Spectra of gcf

@@ -15,7 +15,7 @@ for k=1:para.L
 		if para.foldedChain == 0
 			[bp,bm,n] = bosonop(para.dk(k),0,para.parity);
 		elseif para.foldedChain == 1            % In case of Supersite Operators, no need for kron(), as max shift is calculated only for one of the chains.
-			[bp,bm,n] = bosonop(sqrt(para.dk(j)),0,para.parity);
+			[bp,bm,n] = bosonop(sqrt(para.dk(k)),0,para.parity);
 		end
 		x = sqrt(2)/2.*(bp + bm);
 		x = full(x);

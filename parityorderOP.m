@@ -1,31 +1,40 @@
-  function newmat=parityorderOP(mat)
+function newmat=parityorderOP(mat)
+% parityorderOP - Reorders Boson Operators
+%	B = parityorderOP(A)
+%
+%	A: Boson op in local basis [m:0]
+%	B: Boson op in reordered parity basis [o,e]
+%
+%	Reordering the local boson operators into 2*2 block matrices according to
+%	parity odd and even (number). The shape of the block matrix is :
+%
+%	 oo oe
+%	 eo ee
+%
+%	 So operator
+%	 0 sqrt(3)   0       0
+%	 0   0     sqrt(2)   0
+%	 0   0       0     sqrt(1)
+%	 0   0       0       0
+%
+%	 will become:
+%	 0   0     sqrt(3)   0
+%	 0   0       0     sqrt(1)
+%	 0 sqrt(2)   0       0
+%	 0   0       0       0
+%
+% Modified:
+%		FS 07/07/15: 43% speedup using rotation operator
 
-%Reordering the boson local operators in to 2*2 block matrix according to
-%parity odd and even. The shpae of the block matrix is :
-% oo oe
-% eo ee
-% So operator
-% 0 sqrt(3) 0 0
-% 0 0 sqrt(2) 0
-% 0 0 0 1
-% 0 0 0 0
-% will become:
-% 0 0 sqrt(3) 0
-% 0 0 0 1 0
-% 0 sqrt(2) 0 0
-% 0 0 0 0
-
+% assert input
 [m,n]=size(mat);
-assert(m==n);
-assert(mod(m,2)==0);
-blockdim=m/2;
+assert(mod(m,2)==0 && m==n, 'parityorderOP needs square matrix inputs of even dimensions');
 
-o=1:2:m;
-e=2:2:m;
-newmat=mat;
-newmat(1:blockdim,1:blockdim)=mat(o,o);
-newmat(1:blockdim,blockdim+1:end)=mat(o,e);
-newmat(blockdim+1:end,1:blockdim)=mat(e,o);
-newmat(blockdim+1:end,blockdim+1:end)=mat(e,e);
+% create reorder operator, perhaps export into toolbox?
+U = sparse(1:m, [1:2:m,2:2:m],1,m,n);			% nicer
+% U has 1s in (row,column) = (1:m, [odd,even])
+
+% Apply reordering
+newmat = (U*mat*U');
 
 end

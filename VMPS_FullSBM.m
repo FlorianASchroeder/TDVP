@@ -34,9 +34,14 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson';
-    % choose: 'SpinBoson', '2SpinPhononModel', 'MLSpinBoson','ImpurityQTN'
+para.model='SpinBoson2folded';
+    % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
+	%         '2SpinPhononModel',
 % para.chainMapping = 'OrthogonalPolynomials';
+para.numChains   = 2;
+	% number of different spectral functions
+	% supported 1 or 2 (for folded)
+	% 1st chain defined here, 2nd chain later
 para.chain.mapping = 'OrthogonalPolynomials';
     % choose: 'OrthogonalPolynomials','LanzcosTriDiag'
 	%			- 'LanzcosTriDiag' Lanczos tridiagonalization
@@ -114,7 +119,8 @@ if strcmp(para.chain.discrMethod,'Analytic')
 end
 L = para.L;
 
-if ~strcmp(para.model,'MLSpinBoson')
+if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
+	% setting para for single-spin models
     para.hx = -delta;                       % Splitting with sigma_X
     para.hz = -epsilon;                     % Splitting with sigma_Z
     para.s  = s;                            % SBM spectral function power law behaviour
@@ -126,7 +132,7 @@ end
 
 %% Starting MPS Dimensions
 D = 5;
-dk = 30;
+dk = 36;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -144,12 +150,19 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
 	end
 end
 
-para.foldedChain=0;                             % parameter to tell that Supersites for chain are used!
+if isempty(strfind(para.model,'folded'))
+	para.foldedChain = 0;                       % parameter to tell that Supersites for chain are used!
+	para.M = 2;									% Number of 2-operator interaction terms per site in Hamiltonian.
+else
+	para.foldedChain = 1;
+	para.M = 2*2;
+end
+
 para.spinposition=1;                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
 para.complex=0;                                 % set to 1 if any complex parameters are used.
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
-parity = 0;
+parity = 0;										% 0: none; 1: odd, 2: even
 para.precision = 5e-15;                         % was 5e-15; Determines chain length if L=0; Also E-convergence
 
 
@@ -161,20 +174,18 @@ if (L == 0)
 end
 
 %%
-para.M=2;                               % is number of terms in sum to address. Better: Number of 2-operator interaction terms per site in Hamiltonian. =2 for single chain; =4 for folded chain
-para.D=D*ones(1,L-1);                   % Bond dimension; starting dimension is 2. para.D(L) is useless in this program
-para.dk_start = dk;                     % local dimension per boson in bath. Will be increased effectively by oscillator shift.
-para.dk=para.dk_start*ones(1,L);
-para.dk(1)=2;                           % Impurity dimension
-para.increasedk = 0;					% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
-para.d_opt=d_opt*ones(1,L);             % Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
-para.d_opt(1)=2;                        % Optimal Impurity dimension
-para.eigs_tol=1e-8;
-para.loopmax=600;
+para.D						 = D*ones(1,L-1);               % Bond dimension; starting dimension is 2. para.D(L) is useless in this program
+para.dk_start				 = dk;							% local dimension per boson in bath. Will be increased effectively by oscillator shift.
+para.dk						 = para.dk_start*ones(1,L);
+para.dk(para.spinposition)	 = 2;							% Impurity dimension
+para.d_opt					 = d_opt*ones(1,L);				% Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
+para.d_opt(para.spinposition)= 2;							% Optimal Impurity dimension
+para.eigs_tol				 = 1e-8;
+para.loopmax				 = 600;
+para.increasedk				 = 0;							% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
 
-if strcmp(para.model,'2SpinPhononModelfolded')      % could be removed
-   para.Delta = 0;
-   para.epsilon_spin = 0;
+if strcmp(para.model,'SpinBoson2folded')
+% 	para.
 end
 
 if strcmp(para.model,'2SpinPhononModel')
@@ -190,7 +201,7 @@ end
 %% Multi-Level Spin Boson Model for PPC
 
 if strcmp(para.model,'MLSpinBoson')
-    % Model Definition para.MLSB_mode:
+%% Model Definition para.MLSB_mode:
     %   1:  from diagonalised, constant spacing Delta, predefined t=[t1 t2 t3 t4...]; energies symmetric about 0s
     %       Needs Define: MLSB_Ls, MLSB_Delta, MLSB_t,
     %       Automatically defined: SBM J(w)
@@ -231,15 +242,15 @@ if strcmp(para.model,'MLSpinBoson')
 
 end
 
-if strcmp(para.model,'SpinBoson')
+if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded')
 %% Set-up parameters for specific ground state preparation!
     para.SpinBoson.GroundStateMode = 'artificial';
         % choose: 'decoupled', 'coupled', 'artificial';
 		% -artificial does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
     para.SpinBoson.InitialState = 'sz';
-        % choose: 'sz', 'sx', 'none'
-		% works with 'decoupled' and 'coupled'
+        % choose: 'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'
+		% works with all options
 
     if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
         para.SpinBoson.t1 = para.t(1);
@@ -257,26 +268,26 @@ if strcmp(para.model,'SpinBoson')
         para.hx = 0;
     end
 end
-%%
 
-para.SVDmethod = 'qr';                      % 'qr': uses QR instead of SVD wherever possible; 'svd': use SVD always (slower) (Not working now)
+%%
+para.SVDmethod	  = 'qr';					% 'qr': uses QR instead of SVD wherever possible; 'svd': use SVD always (slower) (Not working now)
 % smallest SV shall lie between [max, min] otherwise truncate or expand
 % the smaller the higher accuracy
-para.svmaxtol=1e-6;
-para.svmintol=1e-8;                     %para.svmaxtol/2; %The lower limit for the smallest Vmat singular values.
-para.adjust=0;                          %Initialize as 0, no need the edit. To adjust D. Is set = 1 in minimizeE.m
-para.Dmin = 4;                          % set a minimum Bond dimension.
-para.dimlock=0;                         %set to 0 will change D and d_dop adaptively
-para.minDimChange = 0.01;               % sets dimlock = 1 if relative dimension change < minDimChange. (larger makes less loops)
+para.svmaxtol	  = 1e-6;
+para.svmintol	  = 1e-8;					% para.svmaxtol/2; %The lower limit for the smallest Vmat singular values.
+para.adjust		  = 0;						% Initialize as 0, no need the edit. To adjust D. Is set = 1 in minimizeE.m
+para.Dmin		  = 4;						% set a minimum Bond dimension.
+para.dimlock	  = 0;						% set to 0 will change D and d_dop adaptively
+para.minDimChange = 0.01;					% sets dimlock = 1 if relative dimension change < minDimChange. (larger makes less loops)
 
-%'e' is even; 'o' is odd; 'n' is no parity
+%% Parity settings
 switch parity
     case 0
-        para.parity='n';
+        para.parity='n';	% none
     case 1
-        para.parity='o';
+        para.parity='o';	% odd
     case 2
-        para.parity='e';
+        para.parity='e';	% even
 end
 para.spinbase='Z';
 if para.parity~='n'
@@ -285,8 +296,9 @@ if para.parity~='n'
     para.Anzilr=para.Anzi;
     para.Anzirl=para.Anzi;
 end
-%% %%%%%%%%%%%%%%%%%%Vmat related parameters%%%%%%%%%%%%%%%%%%%%
-% Introduces Optimal Bosonic Basis (OBB)
+
+%% %%%%%%%%%%%%%%%%%% OBB - Vmat related parameters %%%%%%%%%%%%%%%%%%%%
+% Introduces Optimized Boson Basis (OBB)
 para.useVmat=1;
 if para.useVmat==0
     % then: d_opt = dk
@@ -295,26 +307,34 @@ if para.useVmat==0
      assert(para.dk_start==max(para.d_opt));
 end
 para.d_opt_min = 2;                                     % minimum d_opt dimension
-%% %%%%%%%%%%%%%%%%%% Expansion of Vmat related parameters %%%%%%%
-para.useexpand=1;			% Enable dk expansion, own algorithm. Don't use for folded chain!!
-para.dkmax=500;
-para.expandprecision =1e-5; % unused?
-para.hasexpanded=0;
+
+%% %%%%%%%%%%%%%%%%%% dk Expansion - related parameters %%%%%%%
+% only works together with OBB!
+para.useDkExpand     = 1;		% Enable dk expansion, own algorithm. General switch
+
+para.dkmax			 = 900;		% has to be square number for folded chains
+para.expandprecision = 1e-5;	% unused?
+para.hasexpanded     = 0;
 % Method 1:
 % needs para.useVmat = 1
-para.useDkExpand1 = 0;      % Expand dk if largest SV of site is smaller than this thershold. EMPIRICAL. Below this value, Vmat seems to need higher dk
-para.expandBelowSV = 0.995;
+para.useDkExpand1	 = 0;		% Expand dk if largest SV of site is smaller than this thershold. EMPIRICAL. Below this value, Vmat seems to need higher dk
+para.expandBelowSV   = 0.995;
 % Method 2:
 % needs para.useVmat = 1
-para.useDkExpand2 = 1;        % Expand if wavefunction on site occupies the high energy dimensions
-para.dkEx2_tail   = 0.4;      % tail length [0 1] of occupation in Vmat to analyse
-para.dkEx2_maxDev = 1.5;      % if std(log10(tail)) < maxDev --> no increase; Measures orders of magnitude in fluctuations of tail.
-para.dkEx2_minExp = 13;       % if tail below this order than do not expand.
+para.useDkExpand2	 = 1;       % Expand if wavefunction on site occupies the high energy dimensions
+para.dkEx2_tail		 = 0.4;     % tail length [0 1] of occupation in Vmat to analyse
+para.dkEx2_maxDev	 = 1.5;     % if std(log10(tail)) < maxDev --> no increase; Measures orders of magnitude in fluctuations of tail.
+para.dkEx2_minExp	 = 13;      % if tail below this order than do not expand.
 % Method 3:
 % TODO:
 %  analyse based on Amat (in case para.useVmat == 0)
+%  Do the SVD in the local bond to create a Vmat and use it to estimate
+%  tails.
+if para.useDkExpand
+	assert(para.useVmat == 1, 'dk expansion only works together with OBB Vmat');
+end
 
-%% %%%%%%%%%%%%%%%%%%Shifting related parameters%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%% Boson Shift - related parameters %%%%%%%%%%%%%%%%
 % Introduces shift of bosonic oscillators to increase effective dk
 para.useshift=0;
 % only choose one of the following Methods
@@ -341,7 +361,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v43';
+para.version = 'v44';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
@@ -358,7 +378,7 @@ end
 para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
     para.model,para.version,alpha,delta,epsilon,dk,D,d_opt,L);
 if strcmp(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
-	para.folder = sprintf('%s-artificial',para.folder);
+	para.folder = sprintf('%s-art-%s',para.folder,para.SpinBoson.InitialState);
 end
 para.filename=strcat(para.folder,'/results.mat');
 if ~exist(para.filename,'file')
@@ -394,7 +414,7 @@ save(para.filename,'para','Vmat','mps','results','op','-v7.3');
 results.nx         = getObservable({'occupation'},mps,Vmat,para);
 results.bosonshift = getObservable({'shift'},mps,Vmat,para);
 
-if strcmp(para.model,'SpinBoson')
+if strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')
     results.spin   = getObservable({'spin'},mps,Vmat,para);
 end
 
