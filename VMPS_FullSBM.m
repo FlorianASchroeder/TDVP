@@ -38,19 +38,48 @@ para.model='SpinBoson2folded';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel',
 % para.chainMapping = 'OrthogonalPolynomials';
-para.numChains   = 2;
+para.numSpectralFunctions   = 2;
 	% number of different spectral functions
 	% supported 1 or 2 (for folded)
-	% 1st chain defined here, 2nd chain later
-para.chain.mapping = 'OrthogonalPolynomials';
-    % choose: 'OrthogonalPolynomials','LanzcosTriDiag'
+
+%% System Definitions:
+if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
+	% setting para for single-spin models
+    para.hx = -delta;                       % Splitting with sigma_X
+    para.hz = -epsilon;                     % Splitting with sigma_Z
+end
+
+%% Chain Definitions:
+% para.chain{i}.mapping
+	% choose: 'OrthogonalPolynomials','LanzcosTriDiag', Stieltjes'
 	%			- 'LanzcosTriDiag' Lanczos tridiagonalization
-	%			- 'OrthogonalPolynomials' together with 'Stieltjes' can be
-	%			   lin. or log. discretized!
-para.chain.spectralDensity = 'Leggett_Hard';
+	%			- 'Stieltjes': needs discretization, based on Orthogonal
+	%						   Polynomials, less stable but faster than Lanczos
+	%			- 'OrthogonalPolynomials'
+% para.chain{i}.spectralDensity
 	% choose: 'Leggett_Hard', 'Leggett_Soft', 'Renger'
 	% Leggett for SBM;  see DOI: 10.1103/PhysRevLett.91.170601
 	% Renger for MLSBM; see DOI: 10.1016/j.bbabio.2012.02.016
+% para.chain{i}.discretization
+	% choose: 'None', 'Linear', 'LogZ'
+	%	'None': exact mapping
+	%	other methods not yet supported
+%% chain 1:
+para.chain{1}.mapping			= 'OrthogonalPolynomials';
+para.chain{1}.spectralDensity	= 'Leggett_Hard';
+para.chain{1}.discretization	= 'None';
+	% para.chain{1}.discrMethod		= 'Numeric';
+
+para.chain{1}.s					= s;			% SBM spectral function power law behaviour
+para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+if alpha == 0 && para.chain{1}.L == 0
+	para.chain{1}.L = 10;						% otherwise encounter error
+end
+
+%% chain 2:
+para.chain{2}					= para.chain{1};		% simple copy
+para.chain{2}.mapping			= 'OrthogonalPolynomials';
+para.chain{2}.spectralDensity	= 'Leggett_Hard';
 
 %% Parameters
 if strcmp(para.chain.mapping,'OrthogonalPolynomials')
@@ -59,76 +88,57 @@ if strcmp(para.chain.mapping,'OrthogonalPolynomials')
     % z, Lambda
     % since site energies converge to w_c/2 = 0.5, Optimum chain length can
     % not easily be determined -> give para.L
-	para.chain.method = 'Analytic';
-		% choose: 'Analytic', 'Stieltjes'
-		% if Analytic: Lambda only influences rescaling? Only for Leggett!
-		% else: Stieltje always needs discretization
-		%		if Lambda > 1 -> LogZ or Stieltje_Linear
-		%		if Lambda = 1 -> Linear discretization, rescaling = 0
-	para.chain.discretization = 'None';
-		% choose: 'None', 'Linear', 'LogZ'
-		%	'None' only for method = Analytic;
-	para.chain.discrMethod = 'Numerical';
-		% choose: 'Analytic','Numerical'
-		%	Sets way of evaluation of integrals
-		% Analytic only for Leggett_Hard. Uses modified scheme by Žitko
+	% based on analytic results only! For numeric approach use Stieltjes
+
 
     para.L = 200;							% default chain length if input L=0
     if L > 0								% chain length override
     	para.L = L;
     end
 	para.rescaling = 0;						% only for LogZ discretization applicable
-	if rescaling == 1						% rescaling override
-		para.rescaling = rescaling;
-	end
-	para.Lambda = 2;						% Bath log Discretization parameters in case rescaling = 1
-    para.z	    = 1;
-	if para.Lambda == 1
-		assert(para.rescaling == 0, 'Please switch off rescaling when using Lambda = 1');
-		assert(~strcmp(para.chain.discretization,'LogZ'), 'Lambda = 1 not possible with LogZ discretization!');
-	end
-	if strcmp(para.chain.method,'Stieltjes')
-		assert(~strcmp(para.chain.discretization,'None'),'Stieltjes needs discretization!');
-	end
+% 	para.Lambda = 2;						% Bath log Discretization parameters in case rescaling = 1
+%   para.z	    = 1;
+% 	if para.Lambda == 1
+% 		assert(para.rescaling == 0, 'Please switch off rescaling when using Lambda = 1');
+% 		assert(~strcmp(para.chain.discretization,'LogZ'), 'Lambda = 1 not possible with LogZ discretization!');
+% 	end
 
-elseif strcmp(para.chain.mapping,'LanzcosTriDiag')	% star2tridiag
-    % Also supports Linear Discretization! now!
+elseif strcmp(para.chain.mapping,'LanzcosTriDiag') || strcmp(para.chain.mapping, 'Stieltjes')
+	% 	if Lambda > 1 -> LogZ
+	% 	if Lambda = 1 -> Linear discretization, rescaling = 0
 	para.chain.discrMethod = 'Analytic';
 	% choose: 'Analytic', 'Numerical'
 	%	Sets way of evaluation of integrals
-	%	Analytic only for 'Leggett_hard'
+	%	Analytic only for 'Leggett_hard' and 'LogZ'. Uses modified scheme by Žitko
 	%
 	para.chain.discretization = 'LogZ';
 	% choose: 'LogZ','Linear'
-	para.chain.method = 'Numerical';
-	% No other mapping option for Lanzcos Tridiag!
 
 	%%
-    para.Lambda=1.2;                          % Bath log Discretization parameter
+    para.Lambda=1.2;						% Bath Discretization parameter
     para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
     para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
 	if L > 0								% chain length override
     	para.L = L;
-    end
+	end
 	para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
-else
-	error('You need to define para.chain.mapping!');
-end
-if strcmp(para.chain.discrMethod,'Analytic')
-		assert(strcmp(para.chain.spectralDensity,'Leggett_Hard'),'Analytic discretization only for Leggett with hard cutoff!');
-end
-L = para.L;
 
-if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
-	% setting para for single-spin models
-    para.hx = -delta;                       % Splitting with sigma_X
-    para.hz = -epsilon;                     % Splitting with sigma_Z
-    para.s  = s;                            % SBM spectral function power law behaviour
-    para.alpha=alpha;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
-    if para.alpha == 0 && para.L == 0
-        para.L = 50;                        % otherwise encounter error
-    end
+% Consistency checks
+	if strcmp(para.chain.discrMethod,'Analytic')
+		assert(strcmp(para.chain.spectralDensity,'Leggett_Hard'),'Analytic discretization only for Leggett with hard cutoff!');
+	end
+	if para.Lambda == 1
+		para.chain.discretization = 'Linear';
+	elseif para.Lambda > 1
+		para.chain.discretization = 'LogZ';
+	else
+		error('VMPS:ModelDefinition','Lambda >= 1!')
+	end
+else
+	error('VMPS:ModelDefinition','You need to define para.chain.mapping!');
 end
+
+L = para.L;
 
 %% Starting MPS Dimensions
 D = 5;
@@ -361,7 +371,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v44';
+para.version = 'v45';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end

@@ -53,7 +53,7 @@ if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')) && 
 						  1i/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
 		Vmat{1} = eye(para.dk(1));
 	else
-		error('VMPS:minimzeE:DefineInitialState','InitialState=none is not implemented yet');
+		error('VMPS:minimizeE:DefineInitialState','InitialState=none is not implemented yet');
 	end
 	for j = 2:para.L
 		if j == para.L

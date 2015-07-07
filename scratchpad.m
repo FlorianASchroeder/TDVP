@@ -565,7 +565,7 @@ hsld = handle(sld,'CallbackProperties');
 set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax,'UserData',round(source.Value)));
 
 %%			 : Capture Movie from existing slider
-fignum = 5;
+fignum = 4;
 f = figure(fignum);
 nFrames = sld.getMaximum;
 F(nFrames) = struct('cdata',[],'colormap',[]);
@@ -577,7 +577,7 @@ end
 fig = figure;
 movie(fig,F,1,200)
 %% Save Movie
-writerObj = VideoWriter('img/OccPolaron01-dt01-','MPEG-4');
+writerObj = VideoWriter('img/Polaron01-dt01');
 writerObj.FrameRate = 60;
 open(writerObj);
 writeVideo(writerObj,F);
@@ -740,7 +740,7 @@ end
 %% TDVP (3.10): Animate STAR polaron kinetics up/down
 mode = 0;		% 0: lin, 1: log (bad)
 guides = 1;		% plot parabola mid-points
-fignum = 4; figure(fignum); clf; hold all;
+fignum = 4; f = figure(fignum); clf; hold all;
 n = find(tresults.star.t,1,'last');
 set(gca,'xlim',tresults.star.t([1,n]));
 if mode
@@ -751,40 +751,50 @@ if mode
 	ylabel('$log_{10}\left<f_k\right>$');
 	set(gca,'ylim',[-5,log10(max(max(tresults.star.x(1:n,:))))]);
 else
-	pl1 = plot(tresults.star.t(1:n),-(tresults.star.x(1:n,1,1)));
+	pl1 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,1)));
 	if size(tresults.star.x,3) == 2
-		pl2 = plot(tresults.star.t(1:n),-(tresults.star.x(1:n,1,2)));
+		pl2 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,2)));
 	end
 	ylabel('$\left<f_k\right>$');
-	set(gca,'ylim',[-max(max(max(tresults.star.x(1:n,:,:))));-min(min(min(tresults.star.x(1:n,:,:))))]);
+	set(gca,'ylim',[min(min(min(tresults.star.x(1:n,:,:))));max(max(max(tresults.star.x(1:n,:,:))))]);
 	if guides
 		% mid-positions of parabolas:
-		pl3 = plot(tresults.star.t(1:n),(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'black--');
-		pl4 = plot(tresults.star.t(1:n),-(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'black--');
+		pl3 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'black--');
+		pl4 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'black--');
 		pl5 = plot([1 1]*2*pi/tresults.star.omega(1),get(gca,'ylim'),'black--');
-		pl6 = plot(tresults.star.t(1:n),(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'red--');
-		pl7 = plot(tresults.star.t(1:n),-(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'red--');
+		pl6 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'red--');
+		pl7 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'red--');
 	end
 end
 ax = gca; ax.UserData = 1;
 % OnChange actions:
 hPl = handle(ax); hProp = findprop(hPl,'UserData');
-hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',-tresults.star.x(1:n,ax.UserData,1)));
-hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',-tresults.star.x(1:n,ax.UserData,2)));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',tresults.star.x(1:n,ax.UserData,1)));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',tresults.star.x(1:n,ax.UserData,2)));
 if guides
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl4,'ydata',-(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl4,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
 	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl5,'xdata',[1 1]*2*pi/tresults.star.omega(ax.UserData)));
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl6,'ydata',(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+0.07800)));
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl7,'ydata',-(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+0.07800)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl6,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+0.07800)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl7,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+0.07800)));
 
 end
-hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ \\omega_k = %g $',tresults.star.omega(ax.UserData))));
 
+% labels and comments
 % set(gca,'ylimmode','manual');
 % set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
 xlabel('Time $\omega_c t$');
-
+l=legend([pl1,pl2,pl3,pl6],'$f_k^{\uparrow}$','$f_k^{\downarrow}$','$\frac{\pm 1-\sigma_z}{2} \frac{g_k}{2\omega_k}$','Silbey-Harris', 'Location','NorthEastOutside');
+l.Interpreter = 'latex';
+t1 = text(1200,0,sprintf('$s=%g$',para.s));
+t2 = text(1200,-0.2,sprintf('$\\alpha=%g$',para.alpha));
+t3 = text(1200,-0.4,sprintf('$\\Delta t=%g$',para.tdvp.deltaT));
+t4 = text(1200,-0.8,sprintf('$ \\omega_k = %g$',tresults.star.omega(ax.UserData)));
+if para.s == 1
+	t5 = text(1200,-0.6, sprintf('$ \\Delta_r = %.3g $',abs(para.hx)^(1/(1-para.alpha))));
+end
+hPl.addlistener(hProp,'PostSet',@(src,event) set(t4, 'String',sprintf('$ \\omega_k = %g $',tresults.star.omega(ax.UserData))));
+f.Position(3:4) = [720,416];	% correction needed for legend
 % slider definition and UserData setting:
 f = gcf; pos = f.Position;
 sldmax = size(tresults.star.x,2);
