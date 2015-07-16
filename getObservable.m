@@ -14,7 +14,7 @@ function out = getObservable(type,mps,Vmat,para)
 %
 %   The output 'out' can be of different form:
 %       'spin':             struct, fields: sx, sy, sz
-%       'occupation':       array
+%       'occupation':       array (2xL for foldedChain)
 %       'shift':            array
 %       'rdm':              matrix
 %       'participation':    number
@@ -38,7 +38,18 @@ switch type{1}
 
     case 'occupation'
         % applicable to all single stranded chains. Extensible to 2-chains
-        out = calBosonOcc(mps,Vmat,para);
+		if para.foldedChain == 0
+			if para.nChains == 1
+				out = calBosonOcc(mps,Vmat,para);
+			else
+				for i = 1:para.nChains
+					out(i,:) = calBosonOcc_MC(mps,Vmat,para,i);
+				end
+			end
+		elseif para.foldedChain == 1
+			out(1,:) = calBosonOcc(mps,Vmat,para,1);
+			out(2,:) = calBosonOcc(mps,Vmat,para,2);
+		end
 
     case 'shift'
         % applicable to all single stranded chains. Extensible to 2-chains
@@ -225,17 +236,17 @@ spin.sz=real(spin.sz);
 
 end
 
-function nx = calBosonOcc(mps,Vmat,para)
+function nx = calBosonOcc(mps,Vmat,para,varargin)
 % Calculate the boson occupation on x chain
 % The operator on the spin site is set to zero
-% modify this to get left and right chain occupation! perhaps in calbosonocc_SBM2.m
+% left or right chain occupation via varargin{1} = 1 or 2
 %
 % Modified:
 %	FS 23/01/2014:	- Introduced '~' to ignore unused returned values
 %					- support for folded Chain models
 %   FS 10/03/2014:  - Using correlator_allsites which is more general
 %   FS 04/06/2014:  - updated for spinposition array.
-%
+%	FS 17/07/2015:	- varargin = {1,2} to calculate nx/nz for folded chain
 
 n_op = cell(1,para.L);
 
@@ -250,7 +261,11 @@ for j=1:para.L
             if para.parity == 'n'
                 [~,~,n] = bosonop(sqrt(para.dk(j)),para.shift(j),para.parity);
                 idm = eye(size(n));
-                nr = kron(n,idm);
+				if varargin{1} == 1
+					nr = kron(n,idm);
+				elseif varargin{1} == 2
+					nr = kron(idm,n);
+				end
             else
                 [bp,~,~] = bosonop(para.dk(j),para.shift(j),para.parity);   % Why without sqrt??
                 [~,~,nr,~,~,~]=paritykron(bp,para.bosonparity);
@@ -267,6 +282,34 @@ end
 %
 nx = expectation_allsites(n_op,mps,Vmat);
 nx = real(nx);			% imag(nx) = eps -> neglect
+
+end
+
+function n = calBosonOcc_MC(mps,Vmat,para,k)
+% Calculate the boson occupation for multiple chains
+% The operator on the spin site is set to zero
+% k = # of chain to compute
+%
+% Created 17/07/15 by FS
+
+n_op = cell(para.nChains,para.L);
+
+for j=1:para.L
+    if prod(j~=para.spinposition)
+        if para.foldedChain == 0
+            % 1-chain SBM
+            [~,~,n_op{k,j}] = bosonop(para.dk(k,j),para.shift(k,j),para.parity);
+        else
+            disp('Not Implemented: getObservable, calBosonOcc, foldedchain >1');
+        end
+    else
+        n_op{1,j}=zeros(para.dk(j));      % don't measure spin.
+    end
+end
+
+%
+n = expectation_allsites_MC(n_op,mps,Vmat,para);
+n = real(n);			% imag(nx) = eps -> neglect
 
 end
 
@@ -516,4 +559,26 @@ function E = calEnergy(mps,Vmat,para,op)
 	A = reshape(mps{sitej},[numel(mps{sitej}),1]);
 	E = A'*HmultA(A, op, BondDimLeft, BondDimRight, OBBDim, M,para.parity,[]);
 	E = real(E);		% imag(E) = eps -> negligible!
+end
+
+function n = expectation_allsites_MC(n_op,mps,Vmat,para)
+%% Single Chain Expectation values for Multi-Chain OBB
+% copied from expectation_allsites since faster to write
+
+N = length(n_op);
+assert(N==length(mps) && N==length(Vmat));			% would also work for N < dim(mps)
+
+n=zeros(1,N);
+
+Cl = [];						% contains left part in effective j-basis
+for j = 1:N
+	% calculate site operator
+	% j == 1 -> Cl = [];
+	para.sitej = j;
+	nOBB   = contractMultiChainOBB(Vmat{j}, n_op(:,j), para);
+	n(1,j) = trace(updateCleft(Cl,mps{j},[],nOBB,mps{j},[]));	% this is the result!
+
+	% take Cleft to next site
+	Cl = updateCleft(Cl,mps{j},Vmat{j},[],mps{j},Vmat{j});
+end
 end

@@ -182,7 +182,7 @@ for timeslice = para.tdvp.slices
     fprintf('t = %g\n', para.tdvp.t(timeslice+1));
     % sweep l->r and time evolve each site
     for sitej = 1:para.L
-        fprintf('%g', sitej);
+        fprintf('%g', sitej); para.sitej = sitej;
         %% Update on-site Operators
         op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
 
@@ -235,7 +235,7 @@ for timeslice = para.tdvp.slices
     para.sweepto = 'l';
     % now Hn = H(L)_(l'*r'*n',l*r*n)
     for sitej = para.L-1:-1:1
-        fprintf('-');
+        fprintf('-'); para.sitej = sitej;
 
         %% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
         % normalisation needed for updateop()!

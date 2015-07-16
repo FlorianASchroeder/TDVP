@@ -4,12 +4,20 @@ function op=gen_sitej_h1h2(op,para,sitej)
 %
 % Commented by Florian Schroeder 13/01/2014
 %                                20/10/2014
+% Modified
+%	FS 16/07/2015: - added Multi-chain support at OBB level (perhaps not
+%						used)
 
-op.h1j = op.h1term{sitej};
-op.h2j = op.h2term(:,:,sitej);
+if para.nChains == 1
+	op.h1j = op.h1term{sitej};
+else
+	op.h1j = op.h1term(:,sitej);
+end
+op.h2j = op.h2term(:,:,sitej,:);
 
 % apply Rescaling to bosonic chain
 if sitej>=3 && para.rescaling==1
+	assert(para.nChains == 1, 'rescaling not implemented in gen_sitej_h1h2.m yet');
     Lambda=para.Lambda;
     op.h1j=Lambda.^(sitej-2).*op.h1j;		% old: op.h1j=Lambda.^(sitej-2).*op.h1term{sitej};
 

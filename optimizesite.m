@@ -32,7 +32,7 @@ while optV
     else
         Amat_focused = mps{sitej}; optV=0;
     end
-    [Amat_focused, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amat_focused,para,sitej);
+    [Amat_focused, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amat_focused,para);
 
 % Shifting basis of bosonic sites only. Different criteria explained in declaration file.
 % prod(sitej ~= para.spinposition) excludes all spin-sites

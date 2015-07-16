@@ -31,16 +31,34 @@ switch para.sweepto
     case 'r'
         % still use scaled op.Hleft to accomodate energy minimisation in
         % ground state search
-        op.Hlrstorage{sitej + 1}      = updateHleft(op.Hleft, op.h1j, op.Opleft(:), mps{sitej}, Vmat{sitej}, op.h2j(:,2), mps{sitej}, Vmat{sitej}, M);
-        for m = 1:M
-            op.Opstorage{m,1,sitej+1} = updateCleft([],mps{sitej},Vmat{sitej},op.h2term{m,1,sitej},mps{sitej},Vmat{sitej});
-        end
+
+		if para.nChains ~= 1
+			op.Hlrstorage{sitej + 1}      = updateHleft(op.Hleft, op.h1j, op.Opleft(:), mps{sitej}, Vmat{sitej}, op.h2j(:,2,:), mps{sitej}, Vmat{sitej}, M, para);
+			for m = 1:M
+				op.Opstorage{m,1,sitej+1} = contractMultiChainOBB(Vmat{sitej}, op.h2term(m,1,sitej,:), para);							% op.h2term(m,1,sitej,:) has only one op per m
+				op.Opstorage{m,1,sitej+1} = updateCleft([],mps{sitej},[],op.Opstorage{m,1,sitej+1},mps{sitej},[]);
+			end
+		else
+			op.Hlrstorage{sitej + 1}      = updateHleft(op.Hleft, op.h1j, op.Opleft(:), mps{sitej}, Vmat{sitej}, op.h2j(:,2), mps{sitej}, Vmat{sitej}, M);
+			for m = 1:M
+				op.Opstorage{m,1,sitej+1} = updateCleft([],mps{sitej},Vmat{sitej},op.h2term{m,1,sitej},mps{sitej},Vmat{sitej});
+			end
+		end
     case 'l'
         % collect all j-1 < parts of Hamiltonian which are not interacting with j-1, and transforms into eff basis r_{j-1}
-        op.Hlrstorage{sitej}		  = updateHright(op.Hlrstorage{sitej + 1}, op.h1term{sitej}, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2term(:,1,sitej), mps{sitej},Vmat{sitej}, M);
-        for m = 1:M
-            % 2nd term of interaction term into ef. basis of r_j-1; (1st is already in site basis.)
-            op.Opstorage{m, 2, sitej} = updateCright([], mps{sitej},Vmat{sitej}, op.h2term{m,2,sitej}, mps{sitej},Vmat{sitej});
-        end
+		if para.nChains ~= 1
+			op.Hlrstorage{sitej}		  = updateHright(op.Hlrstorage{sitej + 1}, op.h1term(:,sitej), op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2term(:,1,sitej,:), mps{sitej},Vmat{sitej}, M, para);
+			for m = 1:M
+				op.Opstorage{m, 2, sitej} = contractMultiChainOBB(Vmat{sitej}, op.h2term(m,2,sitej,:), para);
+				op.Opstorage{m, 2, sitej} = updateCright([], mps{sitej},[], op.Opstorage{m, 2, sitej}, mps{sitej},[]);
+			end
+		else
+			op.Hlrstorage{sitej}		  = updateHright(op.Hlrstorage{sitej + 1}, op.h1term{sitej}, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2term(:,1,sitej), mps{sitej},Vmat{sitej}, M);
+			for m = 1:M
+				% 2nd term of interaction term into ef. basis of r_j-1; (1st is already in site basis.)
+				op.Opstorage{m, 2, sitej} = updateCright([], mps{sitej},Vmat{sitej}, op.h2term{m,2,sitej}, mps{sitej},Vmat{sitej});
+			end
+		end
 end
+
 end

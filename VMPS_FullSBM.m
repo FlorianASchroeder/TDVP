@@ -86,6 +86,7 @@ para.chain{2}					= para.chain{1};		% simple copy
 para.chain{2}.mapping			= 'OrthogonalPolynomials';
 para.chain{2}.spectralDensity	= 'Leggett_Hard';
 
+% para.chain{3} = para.chain{2};
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
 %% Parameters
 for k = 1:para.nEnvironments
@@ -146,7 +147,7 @@ end
 
 %% Starting MPS Dimensions
 D = 5;
-dk = 36;
+dk = 6;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -170,6 +171,7 @@ if isempty(strfind(para.model,'folded'))
 else
 	para.foldedChain = 1;
 	para.M = 2*2;
+	dk = dk^2;
 end
 
 para.spinposition=1;                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
@@ -199,11 +201,16 @@ para.dk(1,para.spinposition)	= 2;						% Impurity dimension
 para.d_opt						= d_opt*ones(1,L);			% Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
 para.d_opt(1,para.spinposition) = 2;						% Optimal Impurity dimension
 para.eigs_tol					= 1e-8;
-para.loopmax					= 600;
+para.loopmax					= 50;
 para.increasedk					= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
 
 if strcmp(para.model,'SpinBoson2C')
 	para.M = 4;
+	para.dk(2,para.spinposition) = 1;		% non-existent singleton!
+elseif strcmp(para.model,'SpinBoson3C')
+	para.M = 6;
+	para.dk(2,para.spinposition) = 1;		% non-existent singleton!
+	para.dk(3,para.spinposition) = 1;		% non-existent singleton!
 end
 
 if strcmp(para.model,'2SpinPhononModel')
@@ -260,9 +267,9 @@ if strcmp(para.model,'MLSpinBoson')
 
 end
 
-if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded') || strcmp(para.model,'SpinBoson2C')
+if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded') || strcmp(para.model,'SpinBoson2C')|| strcmp(para.model,'SpinBoson3C')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'artificial';
+    para.SpinBoson.GroundStateMode = 'coupled';
         % choose: 'decoupled', 'coupled', 'artificial';
 		% -artificial does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
@@ -328,7 +335,7 @@ para.d_opt_min = 2;                                     % minimum d_opt dimensio
 
 %% %%%%%%%%%%%%%%%%%% dk Expansion - related parameters %%%%%%%
 % only works together with OBB!
-para.useDkExpand     = 1;		% Enable dk expansion, own algorithm. General switch
+para.useDkExpand     = 0;		% Enable dk expansion, own algorithm. General switch
 
 para.dkmax			 = 900;		% has to be square number for folded chains
 para.expandprecision = 1e-5;	% unused?
@@ -379,7 +386,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v48';
+para.version = 'v49';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
@@ -430,7 +437,7 @@ save(para.filename,'para','Vmat','mps','results','op','-v7.3');
 
 %% Calculate some Results
 results.nx         = getObservable({'occupation'},mps,Vmat,para);
-results.bosonshift = getObservable({'shift'},mps,Vmat,para);
+% results.bosonshift = getObservable({'shift'},mps,Vmat,para);
 
 if strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')
     results.spin   = getObservable({'spin'},mps,Vmat,para);

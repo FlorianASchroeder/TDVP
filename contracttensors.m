@@ -44,8 +44,15 @@ if isempty(indYr) 								% if Y will be fully contracted
 end
 
 % if parts from X and Y will be left over
-X = permute(X, [indXl, indX]); X = reshape(X, [prod(sizeXl), prod(sizeX)]);
-Y = permute(Y, [indY, indYr]); Y = reshape(Y, [prod(sizeY), prod(sizeYr)]);
+		% conditionals may help for larger tensors!
+% if ~all([indXl, indX] == 1:numindX)
+	X = permute(X, [indXl, indX]);
+% end
+X = reshape(X, [prod(sizeXl), prod(sizeX)]);
+% if ~all([indY, indYr] == 1:numindY)
+	Y = permute(Y, [indY, indYr]);
+% end
+Y = reshape(Y, [prod(sizeY), prod(sizeYr)]);
 % sprintf('cond(X) = %.10g, cond(Y) = %.10g', cond(X),cond(Y))
 % a=norm(full(X));b=norm(full(Y));
 % sprintf('norm(X) = %.10g, norm(Y) = %.10g', a,b)
