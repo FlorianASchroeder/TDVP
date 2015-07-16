@@ -1,6 +1,7 @@
 function op=genh1h2term_onesite(para,op,s)
 %Define the hamiltonian
-% op.h2term{i,j,k}:
+% op.h2term{i,j,k,l}:
+%	l is chain number (only used in SpinBosonMC)
 %   k is site number
 %   i is number of term in sum to address:  t1*a*b + t1*b*a
 %                       sum:                    1       2
@@ -18,22 +19,22 @@ switch para.model
         %%%%%%%%%%%%%%%%%%%Spin-boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         switch s
             case 1                                                  % first chain pos = all spin sites!
-                [sigmaX,~,sigmaZ]=spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
-                zm_spin=zeros(2);
-                op.h1term{1}=-para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
-                op.h2term{1,1,1} = para.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
-                op.h2term{2,1,1} = para.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
+                [sigmaX,~,sigmaZ] = spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
+                zm_spin			  = zeros(2);
+                op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+                op.h2term{1,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+                op.h2term{2,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
             case para.L                                             % last chain pos: only one coupling?
-                [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
-                zm=sparse(size(bp,1),size(bp,1));
-                op.h1term{para.L}=para.epsilon(para.L-1).*n;
-                op.h2term{1,1,para.L} = zm; op.h2term{1,2,para.L} = bm;
-                op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bp;
+                [bp,bm,n]		  = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
+                zm				  = sparse(size(bp,1),size(bp,1));
+                op.h1term{s}	  = para.chain{1}.epsilon(para.L-1).*n;
+                op.h2term{1,1,s}  = zm; op.h2term{1,2,para.L} = bm;
+                op.h2term{2,1,s}  = zm; op.h2term{2,2,para.L} = bp;
             otherwise
-                [bp,bm,n] = bosonop(para.dk(s),para.shift(s),para.parity);
-                op.h1term{s}=para.epsilon(s-1).*n;                          % e(1) == w(0)
-                op.h2term{1,1,s} = para.t(s).*bp; op.h2term{1,2,s} = bm;    % t(2) == t(n=0)
-                op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
+                [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+                op.h1term{s}	  = para.chain{1}.epsilon(s-1).*n;                          % e(1) == w(0)
+                op.h2term{1,1,s}  = para.chain{1}.t(s).*bp; op.h2term{1,2,s} = bm;    % t(2) == t(n=0)
+                op.h2term{2,1,s}  = para.chain{1}.t(s).*bm; op.h2term{2,2,s} = bp;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -45,10 +46,10 @@ switch para.model
                 [sigmaX,~,sigmaZ]=spinop(para.spinbase);
                 zm_spin=zeros(2);
                 op.h1term{1}     = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
-                op.h2term{1,1,1} = para.t(1).*sigmaX./2; op.h2term{1,2,1} = zm_spin;	% X chain
-                op.h2term{2,1,1} = para.t(1).*sigmaX./2; op.h2term{2,2,1} = zm_spin;
-                op.h2term{3,1,1} = para.t(1).*sigmaZ./2; op.h2term{3,2,1} = zm_spin;	% Z chain
-                op.h2term{4,1,1} = para.t(1).*sigmaZ./2; op.h2term{4,2,1} = zm_spin;
+                op.h2term{1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{1,2,1} = zm_spin;	% X chain
+                op.h2term{2,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{2,2,1} = zm_spin;
+                op.h2term{3,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{3,2,1} = zm_spin;	% Z chain
+                op.h2term{4,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{4,2,1} = zm_spin;
             case para.L
                 [bp,~,n] = bosonop(sqrt(para.dk(para.L)),para.shift(para.L),para.parity);  % gives [bp, bm, n]
                 if para.parity=='n'
@@ -60,7 +61,7 @@ switch para.model
 %                     [bpx,bmx,nx,bpy,bmy,ny]=paritykron(bp,para.bosonparity);
                 end
                 zm=sparse(size(bpx,1),size(bpx,1));
-                op.h1term{para.L}     = para.epsilon(para.L-1).*nx+para.epsilon(para.L-1).*nz;
+                op.h1term{para.L}     = para.chain{1}.epsilon(para.L-1).*nx + para.chain{2}.epsilon(para.L-1).*nz;
                 op.h2term{1,1,para.L} = zm; op.h2term{1,2,para.L} = bmx;
                 op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bpx;
                 op.h2term{3,1,para.L} = zm; op.h2term{3,2,para.L} = bmz;
@@ -76,11 +77,11 @@ switch para.model
 %                     [bpx,bmx,nx,bpy,bmy,ny]=paritykron(bp,para.bosonparity);
                 end
 %                 zm=sparse(size(bpx,1),size(bpx,1));
-                op.h1term{s}     = para.epsilon(s-1).*nx + para.epsilon(s-1).*nz;
-                op.h2term{1,1,s} = para.t(s).*bpx; op.h2term{1,2,s} = bmx;
-                op.h2term{2,1,s} = para.t(s).*bmx; op.h2term{2,2,s} = bpx;
-                op.h2term{3,1,s} = para.t(s).*bpz; op.h2term{3,2,s} = bmz;
-                op.h2term{4,1,s} = para.t(s).*bmz; op.h2term{4,2,s} = bpz;
+                op.h1term{s}     = para.chain{1}.epsilon(s-1).*nx + para.chain{2}.epsilon(s-1).*nz;
+                op.h2term{1,1,s} = para.chain{1}.t(s).*bpx; op.h2term{1,2,s} = bmx;
+                op.h2term{2,1,s} = para.chain{1}.t(s).*bmx; op.h2term{2,2,s} = bpx;
+                op.h2term{3,1,s} = para.chain{2}.t(s).*bpz; op.h2term{3,2,s} = bmz;
+                op.h2term{4,1,s} = para.chain{2}.t(s).*bmz; op.h2term{4,2,s} = bpz;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -301,7 +302,53 @@ switch para.model
                 op.h1term{s}=para.epsilon(s-1).*n;
                 op.h2term{1,1,s} = para.t(s).*bp; op.h2term{1,2,s} = bm;
                 op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
+		end
+
+	case 'SpinBoson2C'
+        %%%%%%%%%%%%%%%%%%% Spin-Boson Model - 2-Chain %%%%%%%%%%%%%%%%%%%%%%
+		% Not linear, but in multi-chain configuration!
+		% Benchmark for multi-chain method! Should yield same as
+		%		'SpinBoson2folded'
+		% Spin is always in chain 1 for backward compatibility
+		%
+		% Created 15/07/15 by F.S.
+        switch s
+            case 1
+				[sigmaX,~,sigmaZ]  = spinop(para.spinbase);
+                zm_spin			   = zeros(2);
+                op.h1term{1,1}     = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
+                op.h2term{1,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{1,2,1,1} = zm_spin;	% X chain
+                op.h2term{2,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{2,2,1,1} = zm_spin;
+                op.h2term{3,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{3,2,1,1} = zm_spin;	% Z chain
+                op.h2term{4,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{4,2,1,1} = zm_spin;
+            case para.L
+                [bpx,bmx,nx] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+				[bpz,bmz,nz] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+                if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+                end
+                zmx = sparse(size(bpx,1),size(bpx,1));
+				zmz = sparse(size(bpz,1),size(bpz,1));
+                op.h1term{s,1}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{s,2}     = para.chain{2}.epsilon(s-1).*nz;
+                op.h2term{1,1,s,1} = zmx; op.h2term{1,2,s,1} = bmx;
+                op.h2term{2,1,s,1} = zmx; op.h2term{2,2,s,1} = bpx;
+                op.h2term{3,1,s,2} = zmz; op.h2term{3,2,s,2} = bmz;
+                op.h2term{4,1,s,2} = zmz; op.h2term{4,2,s,2} = bpz;
+            otherwise
+                [bpx,bmx,nx] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+				[bpz,bmz,nz] = bosonop(para.dk(2,s),para.shift(2,s),para.parity);
+				if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+				end
+                op.h1term{s,1}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{s,2}     = para.chain{2}.epsilon(s-1).*nz;
+                op.h2term{1,1,s,1} = para.chain{1}.t(s).*bpx; op.h2term{1,2,s,1} = bmx;
+                op.h2term{2,1,s,1} = para.chain{1}.t(s).*bmx; op.h2term{2,2,s,1} = bpx;
+                op.h2term{3,1,s,2} = para.chain{2}.t(s).*bpz; op.h2term{3,2,s,2} = bmz;
+                op.h2term{4,1,s,2} = para.chain{2}.t(s).*bmz; op.h2term{4,2,s,2} = bpz;
         end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
@@ -328,6 +375,11 @@ switch para.MLSB_mode
         % Hamiltonian with rotational symmetry. Get from separate function
         % untis in eV
         [H0, H1] = Hamiltonian_PPC(para);
+	case 3
+		% Hamiltonian of DP-MES
+		H0 = zeros(5);
+		H1 = zeros(5);
+		error('VMPS:genh1h2term_onesite','DP_MES Hamiltonian not yet available.')
     otherwise
 end
 

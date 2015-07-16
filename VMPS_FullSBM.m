@@ -34,14 +34,17 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson2folded';
+para.model='SpinBoson2C';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
-	%         '2SpinPhononModel',
+	%         '2SpinPhononModel', 'SpinBoson2C'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.numSpectralFunctions   = 2;
+para.nEnvironments   = 2;
 	% number of different spectral functions
-	% supported 1 or 2 (for folded)
-
+	% supported 1 to any
+para.nChains		 = 2;
+	% number of chains
+	% 1 for folded, can have nEnvironments = 2;
+	% = nEnvironments for multi-chain models;
 %% System Definitions:
 if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
 	% setting para for single-spin models
@@ -64,6 +67,7 @@ end
 	% choose: 'None', 'Linear', 'LogZ'
 	%	'None': exact mapping
 	%	other methods not yet supported
+para.L = L;
 %% chain 1:
 para.chain{1}.mapping			= 'OrthogonalPolynomials';
 para.chain{1}.spectralDensity	= 'Leggett_Hard';
@@ -72,6 +76,7 @@ para.chain{1}.discretization	= 'None';
 
 para.chain{1}.s					= s;			% SBM spectral function power law behaviour
 para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+para.chain{1}.L					= para.L;
 if alpha == 0 && para.chain{1}.L == 0
 	para.chain{1}.L = 10;						% otherwise encounter error
 end
@@ -81,64 +86,63 @@ para.chain{2}					= para.chain{1};		% simple copy
 para.chain{2}.mapping			= 'OrthogonalPolynomials';
 para.chain{2}.spectralDensity	= 'Leggett_Hard';
 
+assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
 %% Parameters
-if strcmp(para.chain.mapping,'OrthogonalPolynomials')
-    %% now only for SBM, to be extended for any J(w)
-    % no need to define:
-    % z, Lambda
-    % since site energies converge to w_c/2 = 0.5, Optimum chain length can
-    % not easily be determined -> give para.L
-	% based on analytic results only! For numeric approach use Stieltjes
+for k = 1:para.nEnvironments
+	if strcmp(para.chain{k}.mapping,'OrthogonalPolynomials')
+		%% now only for SBM, to be extended for any J(w)
+		% no need to define:
+		% z, Lambda
+		% since site energies converge to w_c/2 = 0.5, Optimum chain length can
+		% not easily be determined -> give para.L
+		% based on analytic results only! For numeric approach use Stieltjes
 
+		if para.chain{k}.L == 0					% chain length override
+			para.chain{k}.L = 200;				% default chain length if input L=0
+		end
+		para.rescaling = 0;						% only for LogZ discretization applicable
+	% 	para.Lambda = 2;						% Bath log Discretization parameters in case rescaling = 1
+	%   para.z	    = 1;
+	% 	if para.Lambda == 1
+	% 		assert(para.rescaling == 0, 'Please switch off rescaling when using Lambda = 1');
+	% 		assert(~strcmp(para.chain.discretization,'LogZ'), 'Lambda = 1 not possible with LogZ discretization!');
+	% 	end
 
-    para.L = 200;							% default chain length if input L=0
-    if L > 0								% chain length override
-    	para.L = L;
-    end
-	para.rescaling = 0;						% only for LogZ discretization applicable
-% 	para.Lambda = 2;						% Bath log Discretization parameters in case rescaling = 1
-%   para.z	    = 1;
-% 	if para.Lambda == 1
-% 		assert(para.rescaling == 0, 'Please switch off rescaling when using Lambda = 1');
-% 		assert(~strcmp(para.chain.discretization,'LogZ'), 'Lambda = 1 not possible with LogZ discretization!');
-% 	end
+	elseif strcmp(para.chain{k}.mapping,'LanzcosTriDiag') || strcmp(para.chain{k}.mapping, 'Stieltjes')
+		% 	if Lambda > 1 -> LogZ
+		% 	if Lambda = 1 -> Linear discretization, rescaling = 0
+		para.chain{k}.discrMethod = 'Analytic';
+		% choose: 'Analytic', 'Numerical'
+		%	Sets way of evaluation of integrals
+		%	Analytic only for 'Leggett_hard' and 'LogZ'. Uses modified scheme by Žitko
+		%
+		para.chain{k}.discretization = 'LogZ';
+		% choose: 'LogZ','Linear'
 
-elseif strcmp(para.chain.mapping,'LanzcosTriDiag') || strcmp(para.chain.mapping, 'Stieltjes')
-	% 	if Lambda > 1 -> LogZ
-	% 	if Lambda = 1 -> Linear discretization, rescaling = 0
-	para.chain.discrMethod = 'Analytic';
-	% choose: 'Analytic', 'Numerical'
-	%	Sets way of evaluation of integrals
-	%	Analytic only for 'Leggett_hard' and 'LogZ'. Uses modified scheme by Žitko
-	%
-	para.chain.discretization = 'LogZ';
-	% choose: 'LogZ','Linear'
+		%%
+		para.chain{k}.Lambda=1.2;						% Bath Discretization parameter
+		para.chain{k}.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
+% 		para.chain{k}.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
+% 		if L > 0								% chain length override
+% 			para.chain{k}.L = L;
+% 		end
+		para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
 
-	%%
-    para.Lambda=1.2;						% Bath Discretization parameter
-    para.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
-    para.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
-	if L > 0								% chain length override
-    	para.L = L;
-	end
-	para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
-
-% Consistency checks
-	if strcmp(para.chain.discrMethod,'Analytic')
-		assert(strcmp(para.chain.spectralDensity,'Leggett_Hard'),'Analytic discretization only for Leggett with hard cutoff!');
-	end
-	if para.Lambda == 1
-		para.chain.discretization = 'Linear';
-	elseif para.Lambda > 1
-		para.chain.discretization = 'LogZ';
+	% Consistency checks
+		if strcmp(para.chain{k}.discrMethod,'Analytic')
+			assert(strcmp(para.chain{k}.spectralDensity,'Leggett_Hard'),'Analytic discretization only for Leggett with hard cutoff!');
+		end
+		if para.chain{k}.Lambda == 1
+			para.chain{k}.discretization = 'Linear';
+		elseif para.chain{k}.Lambda > 1
+			para.chain{k}.discretization = 'LogZ';
+		else
+			error('VMPS:ModelDefinition','Lambda >= 1!')
+		end
 	else
-		error('VMPS:ModelDefinition','Lambda >= 1!')
+		error('VMPS:ModelDefinition','You need to define para.chain.mapping!');
 	end
-else
-	error('VMPS:ModelDefinition','You need to define para.chain.mapping!');
 end
-
-L = para.L;
 
 %% Starting MPS Dimensions
 D = 5;
@@ -153,9 +157,9 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
     %   2:  Hamiltonian with rotational symmetry. Read in data from file.
     %       Needs Define: MLSBM_t, MLSB_system,
     %       Automatically defined: MLSB_Ls, Renger2012 J(w),
-	if ~isempty(strfind(para.chain.spectralDensity,'Leggett'))
+	if ~isempty(strfind(para.chain{1}.spectralDensity,'Leggett'))
 		para.MLSB_mode = 1;
-	elseif ~isempty(strfind(para.chain.spectralDensity,'Renger'))
+	elseif ~isempty(strfind(para.chain{1}.spectralDensity,'Renger'))
 		para.MLSB_mode = 2;
 	end
 end
@@ -178,24 +182,28 @@ para.precision = 5e-15;                         % was 5e-15; Determines chain le
 
 %% %%%%%%% Calculate Wilson Chain parameters %%%%%%%%%%%%%%%%%%
 % needed here: para.model, [para.MLSB_mode]
-[para]=SBM_genpara(para);               % only need alpha, s, Lambda. Returns epsilon and t of Wilson chain. Auto choose L if L == 0
-if (L == 0)
-    L = para.L;                         % Take best L if not specially defined
+for k = 1:para.nEnvironments
+	[para.chain{k}]=SBM_genpara(para.chain{k});               % only need alpha, s, Lambda. Returns epsilon and t of Wilson chain. Auto choose L if L == 0
+	if (L == 0)
+		L = para.chain{k}.L;                         % Take best L if not specially defined
+		para.L = para.chain{k}.L;					 % not the best solution.
+	end
 end
 
 %%
-para.D						 = D*ones(1,L-1);               % Bond dimension; starting dimension is 2. para.D(L) is useless in this program
-para.dk_start				 = dk;							% local dimension per boson in bath. Will be increased effectively by oscillator shift.
-para.dk						 = para.dk_start*ones(1,L);
-para.dk(para.spinposition)	 = 2;							% Impurity dimension
-para.d_opt					 = d_opt*ones(1,L);				% Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
-para.d_opt(para.spinposition)= 2;							% Optimal Impurity dimension
-para.eigs_tol				 = 1e-8;
-para.loopmax				 = 600;
-para.increasedk				 = 0;							% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
+nc = para.nChains;											% = 1 for single chain models
+para.D							= D*ones(1,L-1);			% Bond dimension; starting dimension is 2. para.D(L) is useless in this program
+para.dk_start					= dk;						% local dimension per boson in bath. Will be increased effectively by oscillator shift.
+para.dk							= para.dk_start*ones(nc,L);
+para.dk(1,para.spinposition)	= 2;						% Impurity dimension
+para.d_opt						= d_opt*ones(1,L);			% Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
+para.d_opt(1,para.spinposition) = 2;						% Optimal Impurity dimension
+para.eigs_tol					= 1e-8;
+para.loopmax					= 600;
+para.increasedk					= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
 
-if strcmp(para.model,'SpinBoson2folded')
-% 	para.
+if strcmp(para.model,'SpinBoson2C')
+	para.M = 4;
 end
 
 if strcmp(para.model,'2SpinPhononModel')
@@ -252,7 +260,7 @@ if strcmp(para.model,'MLSpinBoson')
 
 end
 
-if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded')
+if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded') || strcmp(para.model,'SpinBoson2C')
 %% Set-up parameters for specific ground state preparation!
     para.SpinBoson.GroundStateMode = 'artificial';
         % choose: 'decoupled', 'coupled', 'artificial';
@@ -355,8 +363,8 @@ para.FloShift3loops = 5;                                % FloShift3 needs loggin
 para.useChengShift=0;                                   % shifts sites < trustsite
 para.useEveryShift=0;                                   % shift in every loop
 
-para.shift=zeros(1,para.L);
-para.relativeshift=zeros(1,para.L);
+para.shift=zeros(nc,para.L);							% separate shift for each chain!
+para.relativeshift=zeros(nc,para.L);
 para.relativeshiftprecision=0.01;        %When the relative shift is below this value then stop shifting
 para=maxshift(para);
 
@@ -371,23 +379,23 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v47';
+para.version = 'v48';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
-if strcmp(para.chain.mapping,'OrthogonalPolynomials')
+if strcmp(para.chain{1}.mapping,'OrthogonalPolynomials')
 	para.version = ['OrthPol-',para.version];
-elseif strcmp(para.chain.discretization,'LogZ')
+elseif strcmp(para.chain{1}.discretization,'LogZ')
 	para.version = ['LogZ-',para.version];
 end
 
-if para.s ~= 1
+if para.chain{1}.s ~= 1
 	para.version = sprintf('%s-s%g',para.version,para.s);
 end
 
 para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
     para.model,para.version,alpha,delta,epsilon,dk,D,d_opt,L);
-if strcmp(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
+if strfind(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
 	para.folder = sprintf('%s-art-%s',para.folder,para.SpinBoson.InitialState);
 end
 para.filename=strcat(para.folder,'/results.mat');

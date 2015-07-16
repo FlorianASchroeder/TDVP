@@ -27,7 +27,7 @@ para = gennonzeroindex(mps,Vmat,para);
 para
 
 %% Override if preparing artificial vacuum Ground State
-if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')) && strcmp(para.SpinBoson.GroundStateMode,'artificial')
+if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')|| strcmp(para.model,'SpinBoson2C')) && strcmp(para.SpinBoson.GroundStateMode,'artificial')
 	if strcmp(para.SpinBoson.InitialState, 'sz')
 		%% prepare +Sz eigenstate
 		mps{1} = reshape([1,zeros(1,numel(mps{1})-1)],[1,para.D(1),para.d_opt(1)]);

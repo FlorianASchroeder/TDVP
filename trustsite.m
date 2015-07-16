@@ -31,7 +31,7 @@ function para=trustsite(para,results)
  end
 
  if results.Eerror(end)<1e-4
-	site2=max(find(para.epsilon>results.Eerror(end)));
+	site2=max(find(para.chain{1}.epsilon>results.Eerror(end)));
  else
 	 site2=1;
  end

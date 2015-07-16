@@ -1,9 +1,9 @@
 function [mps] = createrandommps(para)
 % Create random MPS as the starting point for variation
 % Using optimal boson basis --> A-matrix dimension: D x D x d_opt  ; where d_opt is dimension of physical index.
-L=para.L;
-D=para.D(end);
-d_opt=para.d_opt;
+L	  = para.L;
+D	  = para.D(end);
+d_opt = para.d_opt;
 
 mps = cell(1, L);
 
@@ -12,7 +12,7 @@ if para.parity=='n'
     mps{L} = randn(D,1,para.d_opt(L))./D;
     for i = 2:(L - 1)
         mps{i}=randn(D,D,para.d_opt(i))./D;
-    end
+	end
 else
     mps{1} = zeros(1, D, d_opt(1));
     if para.parity=='e'
