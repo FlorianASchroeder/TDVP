@@ -34,14 +34,14 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson2C';
+para.model='SpinBoson';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments   = 2;
+para.nEnvironments   = 1;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		 = 2;
+para.nChains		 = 1;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
@@ -82,9 +82,9 @@ if alpha == 0 && para.chain{1}.L == 0
 end
 
 %% chain 2:
-para.chain{2}					= para.chain{1};		% simple copy
-para.chain{2}.mapping			= 'OrthogonalPolynomials';
-para.chain{2}.spectralDensity	= 'Leggett_Hard';
+% para.chain{2}					= para.chain{1};		% simple copy
+% para.chain{2}.mapping			= 'OrthogonalPolynomials';
+% para.chain{2}.spectralDensity	= 'Leggett_Hard';
 
 % para.chain{3} = para.chain{2};
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
@@ -146,8 +146,8 @@ for k = 1:para.nEnvironments
 end
 
 %% Starting MPS Dimensions
-D = 5;
-dk = 6;
+D = 3;
+dk = 20;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -199,6 +199,8 @@ para.dk_start					= dk;						% local dimension per boson in bath. Will be increa
 para.dk							= para.dk_start*ones(nc,L);
 para.dk(1,para.spinposition)	= 2;						% Impurity dimension
 para.d_opt						= d_opt*ones(1,L);			% Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
+% TODO: d_opt = nc+1 x L if nc > 1; d_opt(i,:) addresses chain i, while
+% d_opt(end,:) is the old OBB facing the MPS
 para.d_opt(1,para.spinposition) = 2;						% Optimal Impurity dimension
 para.eigs_tol					= 1e-8;
 para.loopmax					= 50;
@@ -269,7 +271,7 @@ end
 
 if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded') || strcmp(para.model,'SpinBoson2C')|| strcmp(para.model,'SpinBoson3C')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'coupled';
+    para.SpinBoson.GroundStateMode = 'artificial';
         % choose: 'decoupled', 'coupled', 'artificial';
 		% -artificial does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
@@ -386,7 +388,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v49';
+para.version = 'v50';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
@@ -417,7 +419,7 @@ end
 [op,para]=genh1h2term(para);
 [mps, Vmat,para,results,op] = minimizeE(op,para);
 
-if strcmp(para.model,'SpinBoson')
+if ~isempty(strfind(para.model,'SpinBoson'))
 %% Reset original parameters after specific ground state preparation!
     if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
 		% restore coupling to chain

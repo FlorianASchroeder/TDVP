@@ -60,10 +60,11 @@ for s = 2:min(para.trustsite(end)+0,para.L) 			% Only modify boson sites
                     difference = 0;
                 end                     % else: discarddims would remove too much by amount = diff;
                 dispif('remove dims in d_opt',para.logging)
-                para.d_opt(s)=para.d_opt(s)-length(discarddims-difference);
+%                 para.d_opt(s)=para.d_opt(s)-length(discarddims-difference);			% -length(discarddims)+difference
                 Vmat{s}(:,discarddims(difference+1:end))=[];                          % only cut the end
                 mps{s}(:,:,discarddims(difference+1:end))=[];
                 results.Vmat_sv{s}(discarddims(difference+1:end))=[];
+				para.d_opt(s) = size(Vmat{s},2);
     %                else                                                       % Don't need this case anymore.
     %                    dispif('Done nothing',para.logging)
     %                end

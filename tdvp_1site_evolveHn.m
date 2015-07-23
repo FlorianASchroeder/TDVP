@@ -10,7 +10,7 @@ function [mps, Vmat, para, results, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,resu
 %	- FS 22/11/2014: - replaced extra h1j and h2j by op.h1j, op.h2j
 
 [BondDimLeft, BondDimRight, OBBDim]  = size(mps{sitej});
-dk = results.dk{end}(sitej);
+dk = prod(results.dk{end}(:,sitej));
 if ~para.useVmat
     assert(OBBDim == dk) ;
 end
@@ -133,6 +133,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     % evolve center backward in time:
     % HAV_(n^',n~',n^,n~) = Vmat*_(n',n^')* HAA_(n',n~',n,n~) Vmat_(n,n^)
 	if para.tdvp.expvCustomNow == 0
+		%%
 		HAA = reshape(HAA,[dk,OBBDim,dk,OBBDim]);
 		HAV = contracttensors(conj(Vmat{sitej}),2,1, HAA,4,1);
 		HAV = contracttensors(HAV,4,3, Vmat{sitej},2,1);
@@ -175,23 +176,7 @@ end
 % 1. Bring Hamiltonian terms into OBB if needed.
 
 if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat = eye
-    % h1term to OBB, h1j can be rescaled
-    % h1j_(n~',n~) = V*_(n',n~') [h1j_(n',n) V_(n,n~)]_(n',n~)
-% 	op.h1j = Vmat{sitej}' * (op.h1j * Vmat{sitej});
-	op.h1j = contracttensors(op.h1j,2,2,Vmat{sitej},2,1);			% h1j_(n',n~)  = h1j_(n',n) V_(n,n~)
-    op.h1j = contracttensors(conj(Vmat{sitej}),2,1,op.h1j,2,1);		% h1j_(n~',n~) = V*_(n',n~') h1j_(n',n~)
-
-    % h2term to OBB, h2j can be rescaled
-    % h2j_(n~',n~) = V*_(n',n~') [h2j_(n',n) V_(n,n~)]_(n',n~)
-    for i=1:M
-		op.h2j{i,1} = contracttensors(op.h2term{i,1,sitej},2,2,Vmat{sitej},2,1);
-        op.h2j{i,1} = contracttensors(conj(Vmat{sitej}),2,1,op.h2j{i,1},2,1);
-% 		op.h2j{i,1} = Vmat{sitej}' * (op.h2j{i,1} * Vmat{sitej});
-
-        op.h2j{i,2} = contracttensors(op.h2term{i,2,sitej},2,2,Vmat{sitej},2,1);
-        op.h2j{i,2} = contracttensors(conj(Vmat{sitej}),2,1,op.h2j{i,2},2,1);
-% 		op.h2j{i,2} = Vmat{sitej}' * (op.h2j{i,2} * Vmat{sitej});
-    end
+	op = h1h2toOBB(Vmat{sitej}, para, op);
 else                % no OBB, then OBBDim = dk
 %     h1j = op.h1j;
 %     h2j = op.h2j;

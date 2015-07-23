@@ -21,6 +21,7 @@ function out = getObservable(type,mps,Vmat,para)
 %       'tunnelenergy':     number
 %		'bath2correlators':	matrix
 %		'staroccupation':	array
+%		'current':			array
 %		'bath1correlators':	vector (L x 1)
 %		'starpolaron':		array
 %		'energy'			scalar
@@ -49,6 +50,9 @@ switch type{1}
 		elseif para.foldedChain == 1
 			out(1,:) = calBosonOcc(mps,Vmat,para,1);
 			out(2,:) = calBosonOcc(mps,Vmat,para,2);
+		end
+		if size(out,1) > 1
+			out = out.';			% put into L x nc for compatibility with tresults
 		end
 
     case 'shift'
@@ -124,8 +128,16 @@ switch type{1}
 
 		out = [x, hsquared.*((pxn.^2)*diag(AmAn) + 2.* diag(pxn*(AmAn-diag(diag(AmAn)))*pxn.') )]';
 
+	case 'current'
+		%% gets current through each bond.
+		% should relate to the flow of occupation?
+		% Only works for 1 single chain!
+		% uses bath2correlators
+		AmAn = imag(calBath2SiteCorrelators(mps,Vmat,para));	% tridiagonal
+		out  = (para.chain{1}.t.*diag(AmAn(1:end-1,2:end)))';				% t(n)*a(n)*a(n+1)^+
+
 	case 'bath1correlators'
-		% needed for mapping from chain to star
+		% needed for mapping from chain to star, starpolaron
 % 		returns a L x 2 Vector
 
 		out(para.L,2) = 0;
@@ -551,11 +563,12 @@ end
 
 function E = calEnergy(mps,Vmat,para,op)
 	%%
+	sitej=1;
 	[~,BondDimRight] = size(op.Hright);
 	[~,BondDimLeft]  = size(op.Hleft);
-	[~,OBBDim]		 = size(op.h1j);
+	op = h1h2toOBB(Vmat{sitej},para,op);
+	[~,OBBDim]	 = size(op.h1j);
 	M = size(op.h2j,1);
-	sitej=1;
 	A = reshape(mps{sitej},[numel(mps{sitej}),1]);
 	E = A'*HmultA(A, op, BondDimLeft, BondDimRight, OBBDim, M,para.parity,[]);
 	E = real(E);		% imag(E) = eps -> negligible!

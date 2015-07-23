@@ -14,7 +14,7 @@ function X = contractMultiChainOBB(Vmat, mcOp, para)
 	end
 
 % 	mcOp = squeeze(mcOp);		% get rid of singletons
-	Vmat = reshape(Vmat,[para.dk(:,para.sitej)',para.d_opt(para.sitej)]);
+	Vmat = reshape(Vmat,[para.dk(:,para.sitej)',size(Vmat,2)]);
 	% contract all empty parts
 	ind	 = find(cellfun('isempty',mcOp));		% finds all empty indices
 	ind  = reshape(ind, [1,numel(ind)]);		% need row vector!

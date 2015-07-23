@@ -257,7 +257,9 @@ for timeslice = para.tdvp.slices
 
         %% update right Hamiltonian operators
         % prepare operators in (sitej+1) for time-evolution on sitej
+		para.sitej = para.sitej+1;					% needed for multi-chain reshape
         op = updateop(op,mps,Vmat,sitej+1,para);
+		para.sitej = para.sitej-1;
 
         %% Get on-site Operators and dimensions
         op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???

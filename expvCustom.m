@@ -15,7 +15,11 @@ m   = min(n,para.tdvp.expvM);
 %% set Function handle
 switch A
 	case 'HAA'
-		AFUN = @HAAmultV;		% fastest HAAmultV, could be most accurate?
+		if para.nChains == 1
+			AFUN = @HAAmultV;		% fastest HAAmultV, could be most accurate?
+		else
+			AFUN = @HAAmultV_MC;	% easier to modify: HAAmultV4
+		end
 	case 'HAV'
 		AFUN = @HAVmultCV;
 	case 'Hn'
@@ -23,16 +27,17 @@ switch A
 	case 'Kn'
 		AFUN = @KnmultC;
 		if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat = eye
-			% h1term to OBB, h1j can be rescaled
-			% h1j_(n~',n~) = V*_(n',n~') [h1j_(n',n) V_(n,n~)]_(n',n~)
-			op.h1j = Vmat' * op.h1j * Vmat;
-
-			% h2term to OBB, h2j can be rescaled
-			% h2j_(n~',n~) = V*_(n',n~') [h2j_(n',n) V_(n,n~)]_(n',n~)
-			for i=1:size(op.h2j,1);
-				op.h2j{i,1} = Vmat' * op.h2j{i,1} * Vmat;
-				op.h2j{i,2} = Vmat' * op.h2j{i,2} * Vmat;
-			end
+% 			% h1term to OBB, h1j can be rescaled
+% 			% h1j_(n~',n~) = V*_(n',n~') [h1j_(n',n) V_(n,n~)]_(n',n~)
+% 			op.h1j = Vmat' * op.h1j * Vmat;
+%
+% 			% h2term to OBB, h2j can be rescaled
+% 			% h2j_(n~',n~) = V*_(n',n~') [h2j_(n',n) V_(n,n~)]_(n',n~)
+% 			for i=1:size(op.h2j,1);
+% 				op.h2j{i,1} = Vmat' * op.h2j{i,1} * Vmat;
+% 				op.h2j{i,2} = Vmat' * op.h2j{i,2} * Vmat;
+% 			end
+			op = h1h2toOBB(Vmat, para, op);
 		end
 	case 'HAA2'
 		AFUN = @HAAmultV2;
@@ -55,7 +60,7 @@ end
 % 	return;
 
 %%
-anorm = D;						% assume: all operators symmetric -> estimate norm by largest eigenvalue!
+anorm = abs(D);						% assume: all operators symmetric -> estimate norm by largest eigenvalue!
 rndoff= anorm*eps;
 mxrej = 10;  btol  = 1.0e-7;
 gamma = 0.9; delta = 1.2;
@@ -198,6 +203,82 @@ hump = hump / normv;
 			Opright = contracttensors(op.Opright{k},2,2, mps,3,2);			% Opright_(r',l,n~) = Opright_(r',r) * A_(l,r,n~)
 			Opright = contracttensors(Opright,3,[2 1],conj(mps),3,[1 2]);	% Opright_(n~,n~')  = Opright_(r',l,n~) * A*_(l',r',n~')
 			w       = w + (op.h2j{k,1} * V)  * Opright;						% w_(n',n~')       += H2j_(n',n) * V_(n,n~) * Opright_(n~,n~')
+		end
+
+		%% reshape w into vector
+		w = reshape(w, [numel(w),1]);		% numel faster than a*b
+
+	end
+
+	function w = HAAmultV_MC(V)
+		%% contracts H(n) with A and A* and V
+		%  only for Multi-Chain at OBB level
+		%  Aimed to replace HAAmultV4, since better customized!
+		%
+		%   HAA_(n',n~',n,n~) = H(n)_(l',r',n',l,r,n)*A*_(l',r',n~')*A_(l,r,n~)
+		%   w(n',n~') = HAA_(n',n~',n,n~) * V_(n,n~)
+		% # Contractions: 4+4*M, *: 3 + 4*M
+
+		% input V is always vectorized -> reshape
+		[~, ~, OBBDim]  = size(mps);
+		dk = cell2mat(cellfun(@(x) size(x,1),op.h1j', 'UniformOutput',false));
+		M = size(op.h2j,1);
+		if OBBDim*prod(dk) ~= numel(V)
+			fprintf('%.10g * %.10g ~= %.10g\n',OBBDim,prod(dk),numel(V));
+		end
+		V     = reshape(V,[prod(dk), OBBDim]);								% V matrix dk^n x d_opt
+		Vtens = reshape(V,[dk, OBBDim]);									% V tensor dk x dk x .. x d_opt
+
+		%% non-interacting Hamiltonian terms: Hleft + Hmid + Hright
+		% contracted with MPS
+		%
+		% Hleft_(n~',n~) = A*_(l',r,n~') [Hl_(l',l) * A_(l,r,n~)]_(l',r,n~)
+		Hleft = contracttensors(op.Hleft,2,2,mps,3,1);						% Hleft_(l',r,n~) = Hl_(l',l) * A_(l,r,n~)
+% 		Hleft = contracttensors(Hleft,3,[1 2],conj(mps),3,[1 2]);			% Hleft_(n~,n~')  = Hleft_(l',r,n~) * A*_(l',r,n~')
+		w     = V * contracttensors(Hleft,3,[1 2],conj(mps),3,[1 2]);		% w_(n',n~')      = 1_(n',n) * V_(n,n~) * Hleft_(n~,n~')
+
+		% Hright_(n~',n~) = A*_(l,r',n~') [Hr_(r',r) * A_(l,r,n~)]_(r',l,n~)
+		Hright = contracttensors(op.Hright,2,2, mps,3,2);					% Hright_(r',l,n~) = Hr_(r',r) * A_(l,r,n~)
+% 		Hright = contracttensors(Hright,3,[2 1], conj(mps),3,[1 2]);		% Hright_(n~,n~')  = Hright_(r',l,n~) * A*_(l',r',n~')
+		w  = w + V * contracttensors(Hright,3,[2 1], conj(mps),3,[1 2]);	% w_(n',n~')      = 1_(n',n) * V_(n,n~) * Hright_(n~,n~')
+
+		for ic = 1:para.nChains
+			% Hmid_(n~',n~) = A*_(l,r,n~') * A_(l,r,n~)
+% 			w      = w + op.h1j * V;											% w_(n',n~') += H1j_(n',n) * V_(n,n~) * 1_(n~,n~')
+			temp = contracttensors(op.h1j{ic},2,2,Vtens,para.nChains+1,ic);
+			if ic ~= 1
+				temp = permute(temp, [2:ic,1,(ic+1):(para.nChains+1)]);
+			end
+			w = w + reshape(temp,[prod(dk),OBBDim]);
+		end
+
+		%% Interacting Hamiltonian terms: \sum_i^M op.Opleft
+		for k = 1:M
+			% Opleft_(n~',n~) = A*_(l',r,n~') [Opleft_(l',l) * A_(l,r,n~)]_(l',r,n~)
+			Opleft = contracttensors(op.Opleft{k},2,2,mps,3,1);				% Opleft_(l',r,n~) = Opleft_(l',l) * A_(l,r,n~)
+			Opleft = contracttensors(Opleft,3,[1 2],conj(mps),3,[1 2]);		% Opleft_(n~,n~')  = Opleft_(l',r,n~) * A*_(l',r,n~')
+% 			w	   = w + (op.h2j{k,2} * V) * Opleft;						% w_(n',n~')      += H2j_(n',n) * V_(n,n~) * Opleft_(n~,n~')
+			Opleft = V * Opleft;
+			Opleft = reshape(Opleft,[dk, OBBDim]);
+			ic     = find(~cellfun('isempty',squeeze(op.h2j(k,2,:))));
+			Opleft = contracttensors(op.h2j{k,2,ic},2,2,Opleft,para.nChains+1,ic);
+			if ic ~= 1
+				Opleft = permute(Opleft,[2:ic,1,(ic+1):(para.nChains+1)]);
+			end
+			w      = w + reshape(Opleft,[prod(dk),OBBDim]);
+
+			% Opright_(n~',n~) = A*_(l,r',n~') [Opright_(r',r) * A_(l,r,n~)]_(r',l,n~)
+			Opright = contracttensors(op.Opright{k},2,2, mps,3,2);			% Opright_(r',l,n~) = Opright_(r',r) * A_(l,r,n~)
+			Opright = contracttensors(Opright,3,[2 1],conj(mps),3,[1 2]);	% Opright_(n~,n~')  = Opright_(r',l,n~) * A*_(l',r',n~')
+% 			w       = w + (op.h2j{k,1} * V)  * Opright;						% w_(n',n~')       += H2j_(n',n) * V_(n,n~) * Opright_(n~,n~')
+			Opright = V * Opright;
+			Opright = reshape(Opright,[dk, OBBDim]);
+			ic     = find(~cellfun('isempty',squeeze(op.h2j(k,1,:))));
+			Opright = contracttensors(op.h2j{k,1,ic},2,2,Opright,para.nChains+1,ic);
+			if ic ~= 1
+				Opright = permute(Opright,[2:ic,1,(ic+1):(para.nChains+1)]);
+			end
+			w      = w + reshape(Opright,[prod(dk),OBBDim]);
 		end
 
 		%% reshape w into vector
@@ -350,10 +431,14 @@ hump = hump / normv;
 	end
 
 	function w = HAAmultV4(V)
+		% works with multi-chain model!
 		[~, ~, OBBDim]  = size(mps);
-		[~,dk] = size(op.h1j);
+		if iscell(op.h1j)
+			dk = prod(cell2mat(cellfun(@(x) size(x,1),op.h1j, 'UniformOutput',false)));		% = dk for multi-chain Hamiltonians
+		else
+			dk = size(op.h1j,1);
+		end
 		M = size(op.h2j, 1);
-% 		V = reshape(V,[dk, OBBDim]);
 
 		op.HlOPB = contracttensors(op.Hleft,2,2,mps,3,1);
 		op.HlOPB = contracttensors(conj(mps),3,[1,2],op.HlOPB,3,[1,2]);
@@ -389,7 +474,11 @@ hump = hump / normv;
 		% reuse HAAmultV. Save all temp-results in w to save memory!
 		w = Vmat * CV;									% VmatCV_(n,n~) = Vmat_(n,n^) * CV_(n^,n~)
 		w = reshape(w,[numel(w),1]);					% vectorize for use in HAAmultV
-		w = HAAmultV(w);								% HAAV_(n',n~') = HAA_(n',n~',n,n~) * VmatCV_(n,n~)
+		if para.nChains == 1
+			w = HAAmultV(w);								% HAAV_(n',n~') = HAA_(n',n~',n,n~) * VmatCV_(n,n~)
+		else
+			w = HAAmultV_MC(w);							% for multi-chain
+		end
 		w = reshape(w,[dk,OBBDim]);						% HAAV_(n',n~')
 		w = Vmat' * w;									% w_(n^',n~') = Vmat*_(n',n^') * HAAV_(n',n~') = HAV * CV
 

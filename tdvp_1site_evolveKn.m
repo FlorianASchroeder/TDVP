@@ -104,9 +104,11 @@ switch para.sweepto
 				end
 			end
 		else
+			para.sitej = para.sitej+1;								% needed for multi-chain reshape
 			[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 				reshape(Cn,[numel(Cn),1]),...
 				mps{sitej+1},Vmat{sitej+1},para,op);
+			para.sitej = para.sitej-1;
 		end
 % 		results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);

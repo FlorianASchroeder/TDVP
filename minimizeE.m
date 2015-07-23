@@ -70,8 +70,11 @@ if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')|| st
 		else
 			order = para.dk(j):-1:(para.dk(j)-para.d_opt(j)+1);
 		end
-		Vmat{j}	  = sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));
-		error('VMPS:minimizeE:artificial','not yet done for Multi-Chain Vmat');
+		if para.nChains == 1
+			Vmat{j}	  = sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));
+		else
+			error('VMPS:minimizeE:artificial','not yet done for Multi-Chain Vmat');
+		end
 	end
 	[op] = initstorage(mps, Vmat, op,para);
 	para.trustsite = para.L;		% needed for TDVP
