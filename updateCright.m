@@ -18,21 +18,34 @@ function [Cright] = updateCright(Cright, B, BUb, X, A, AUb)
 %
 % Modified
 %	- 21/12/14 FS: replaced OBB contraction by faster matrix product
-
-        if isempty(X), X = speye(size(BUb, 1)); end 			% newX = eye = X, as Vmat unitary
-        if isempty(Cright), Cright = eye (size(B,2)); end
-        if isempty(BUb) && isempty(AUb)					% if no Vmat
-            newX=X;
-        else
-			% do (Vmat^†) . X . Vmat.
-			% express X in OBB by applying Vmat
-			newX = (BUb' * X) * AUb;
-% 			newX = contracttensors(X,2,1,conj(BUb),2,1);			% newX_nk = X_mn * conj(BUb)_mk = T(X)_nm * conj(BUb)_mk
-% 			newX = contracttensors(newX,2,1,AUb,2,1);				% newX = newX_nk * AUb_nl = adj(BUb)_km * X_mn * AUb_nl;
-		end
+	skipX = 0;
+	if isempty(X) && isempty(BUb)
+		skipX = 1;
+	elseif isempty(X)
+		X = speye(size(BUb, 1));					% newX = eye = X, as Vmat unitary
+	end
+% 	if isempty(Cright), Cright = eye (size(B,2)); end
+	if isempty(BUb) && isempty(AUb)					% if no Vmat
+		newX=X;
+	else
+		% do (Vmat^†) . X . Vmat.
+		% express X in OBB by applying Vmat
+		newX = (BUb' * X) * AUb;
+	end
 
     % if Cright = eye: contract X (in OBB)  with A matrices to transform into effective basis representation.
-	% do contraction:  C_fa = B*_fde  Xnew_ec  A_abc  C_db	where 3rd indices are running over n_k
-        Cright = contracttensors(A, 3, 2, Cright, 2, 2);
-        Cright = contracttensors(newX, 2, 2, Cright, 3, 2);
-        Cright = contracttensors(conj(B), 3, [2, 3], Cright, 3, [3, 1]);	% Contracts 2-3 and 3-1. I think..
+	% do contraction:  C_fa = B*_fde  A_abc  Xnew_ec  C_db 	where 3rd indices are running over n_k
+	if ~skipX
+		A      = contracttensors(A, 3, 3, newX.', 2, 1);			% Anew_abe = A_abc  Xnew_ec
+	end
+	if ~isempty(Cright)
+		A = contracttensors(A, 3, 2, Cright.', 2, 1);				% Anew_aed = A_abe C_db
+		Cright = contracttensors(conj(B), 3, [2, 3], A, 3, [3, 2]);	% Contracts 2-3 and 3-2
+	else
+		%have Anew_ade since C_db = 1_db -> neglected
+		Cright = contracttensors(conj(B), 3, [2, 3], A, 3, [2, 3]);	% Contracts 2-2 and 3-3
+	end
+
+
+
+

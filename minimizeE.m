@@ -160,7 +160,7 @@ while loop<=para.loopmax;
 %		 if results.Eerror(end)<para.precision						% PERHAPS GOOD STATEMENT!! TEST THIS! ADD 1 sweep after that before exit!
 %			para.trustsite(end) = para.L;								% this ensures last adjustment of dimensions before finishing minimizeE.m
 %		 end
-        [op,para,results,mps,Vmat] = adjustdopt(op,para,results,mps,Vmat);      % optimise d_opt and dk
+        [op,para,results,mps,Vmat] = adjustdopt(op,para,results,mps,Vmat);      % optimise d_opt and dk, calls genh1h2term -> all effective H are invalid now
         [mps,Vmat,para, results]   = rightnormA(mps,Vmat,para,results);         % changed to also update results
         %para.trustsite(loop)=0;
         fprintf('d_opt = ');

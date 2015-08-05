@@ -36,8 +36,13 @@ for k = 1:nc
 end
 
 para.sweepto = 'l';
+op.h1j    = []; op.h2j    = [];
+op.h1jOBB = []; op.h2jOBB = [];
+
 
 % middle terms builds from r->l
 for j = L:-1:2
     op = updateop(op,mps,Vmat,j,para);
+	op.h1jOBB = []; op.h2jOBB = [];
+	op.h1j = []; op.h2j = [];
 end

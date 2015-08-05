@@ -1,23 +1,33 @@
 function [Cleft] = updateCleft(Cleft, B, BUb, X, A, AUb)
 % Lookup: Schollwoeck 2011 4.2.1: Contracts Left contraction residue of chain with current site A-matrices and Operators.
 % 1. transforms Cleft from effective left basis of site k into effective left basis of k+1 if:
-%		X = []	; B = A = mps{k}	; BUb = AUb = Vmat{k}
+%		X = []	; B = A = mps{k}	; BUb = AUb = Vmat{k} or []
 % 2. transforms operator X of site k into effective left basis of site k+1 if:
 %		Cleft = []	; B = A = mps{k}	; BUb = AUb = Vmat{k}
 % 3. Does 1 and 2 altogether if everything is given.
 
 % Commented by Florian Schroeder 29/01/2014
+% Modified:
+%	FS 05/08/2015: better order to minimize permutations!
+	skipX = 0;
+	if isempty(X) && isempty(BUb) && ~isempty(Cleft)
+		skipX = 1;
+	elseif isempty(X)
+		X = speye(size(BUb, 1));
+	end
 
-	if isempty(X), X = speye(size(BUb, 1)); end
-    if isempty(Cleft), Cleft=eye(size(B,1)); end
+	if isempty(BUb) && isempty(AUb)										% if no Vmat given or X is in OBB already: XOBB
+		newX = X;
+	else
+		% transform X into OBB using Vmat
+		newX = (BUb' * X) * AUb;
+	end
+    % do contraction:  C_fb = B*_dfe  (C_da  A_abc  newX_ec)_dbe	where 3rd indices are running over n_k
+	if ~skipX
+		A = contracttensors(A,3,3, newX.',2,1);					% Anew_abe = A_abc newX_ec
+	end
+	if ~isempty(Cleft)
+		A = contracttensors(Cleft,2,2, A,3,1);					% Anew_dbe = C_da A_abe
+	end
 
-	% transform X into OBB using Vmat
-	newX = (BUb' * X) * AUb;
-% 	newX = contracttensors(X,2,1,conj(BUb),2,1);
-% 	newX = contracttensors(newX,2,1,AUb,2,1);
-
-    % do contraction:  C_fb = B*_dfe  Xnew_ec  A_abc  C_da	where 3rd indices are running over n_k
-    Cleft = contracttensors(A, 3, 1, Cleft, 2, 2);                      % Cleft_bcd = A_abc C_da
-    Cleft = contracttensors(newX, 2, 2, Cleft, 3, 2);                   % Cleft_ebd = Xnew_ec Cleft_bcd
-    Cleft = contracttensors(conj(B), 3, [1, 3], Cleft, 3, [3, 1]);      % Cleft_fb = B*_dfe Cleft_ebd
-
+	Cleft = contracttensors(conj(B),3,[1 3], A,3,[1 3]);		% Cleft_fb = B*_dfe Anew_dbe

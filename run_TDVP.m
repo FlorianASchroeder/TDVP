@@ -9,7 +9,7 @@ if isdeployed
 end
 
 %% start ground state calculations
-fileName =  VMPS_FullSBM(s,alpha,0.1,0,600,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+fileName =  VMPS_FullSBM(s,alpha,0.1,0,200,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
@@ -20,27 +20,29 @@ load(fileName);
 
 % load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha0.01delta0.1epsilon0dk20D5dopt5L100\results.mat')
 % load(sprintf('20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha%gdelta0.1epsilon0dk30D5dopt5L300-artificial/results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat',alpha));
-% load('20150410-1252-SpinBoson-OrthPol-v42-alpha0.5delta0.1epsilon0dk30D5dopt5L20/results.mat');
+% load('20150723-1320-SpinBoson2C-OrthPol-v49-alpha0.2delta0.1epsilon0dk6D5dopt5L10/results.mat');
+% load('20150723-1501-SpinBoson2folded-OrthPol-v49-alpha0.2delta0.1epsilon0dk36D5dopt5L10/results.mat');
 
 % Kast 2013 Fig 4, s=0.75 OrthPol
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
 %% Define TDVP parameters
-para.tdvp.tmax = 1000;
+para.tdvp.tmax = 1;
 para.tdvp.deltaT = 0.1;                % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
-para.tdvp.saveInterval = 30;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 1;				% much faster I/O saving
+para.tdvp.saveInterval = 5;				% save '-small.mat' every n-th step
+para.tdvp.serialize = 0;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
-para.tdvp.extractStarInterval = 1;		% in [t]; for calculating star occupation! Comment if not needed!
-para.tdvp.extractObsInterval  = 1;		% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
+% para.tdvp.extractStarInterval = 1;		% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractObsInterval  = 0.1;		% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
+para.tdvp.Observables = '.n.j.s.sn.sx.';% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.maxExpMDim = 260;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
-para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
+para.tdvp.maxExpMDim = 0;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
+para.tdvp.maxExpVDim = 0;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
@@ -57,7 +59,7 @@ para.tdvp.truncateExpandBonds = Bond;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
 para.tdvp.maxBondDim = 20;
-para.tdvp.maxOBBDim  = 20;
+para.tdvp.maxOBBDim  = 30;
 para.svmaxtol = 10^-4;
 para.svmintol = 10^-4.5;
 % z-Averaging for log-Discretization
@@ -71,7 +73,7 @@ end
 
 tresults = [];						% empty variable initialization
 %% Format Filename
-para.tdvp.version = 'v44';
+para.tdvp.version = 'v53';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!
