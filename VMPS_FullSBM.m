@@ -101,7 +101,7 @@ for k = 1:para.nEnvironments
 		if para.chain{k}.L == 0					% chain length override
 			para.chain{k}.L = 200;				% default chain length if input L=0
 		end
-		para.rescaling = 0;						% only for LogZ discretization applicable
+		para.rescaling = 0;						% only for LogZ discretization applicable, rescaling might be broken now!
 	% 	para.Lambda = 2;						% Bath log Discretization parameters in case rescaling = 1
 	%   para.z	    = 1;
 	% 	if para.Lambda == 1
@@ -146,8 +146,8 @@ for k = 1:para.nEnvironments
 end
 
 %% Starting MPS Dimensions
-D = 3;
-dk = 20;
+D = 5;
+dk = 30;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -271,7 +271,7 @@ end
 
 if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded') || strcmp(para.model,'SpinBoson2C')|| strcmp(para.model,'SpinBoson3C')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'artificial';
+    para.SpinBoson.GroundStateMode = 'coupled';
         % choose: 'decoupled', 'coupled', 'artificial';
 		% -artificial does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
@@ -388,7 +388,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v51';
+para.version = 'v52';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end

@@ -53,3 +53,32 @@ end
 
 	tic, obj.mat( 1, : ) = mfm; toc
 %     tic, h5write( filespec, '/mat', h5m, [2,1], [1,N] ); toc
+
+%%  Benchmark updateCright vs ncon
+tNCON = []; tUCR = []; step = 10;
+for j = 4
+	D = j*step; dOBB = 50; dk = 1000;
+	mps = randn(D,D,dOBB);
+	Vmat = randn(dk,dOBB);
+	H = randn(dk,dk);
+	C = randn(D,D);
+	rep = 100;
+
+	t1 = tic;
+	for i = 1:rep
+		cNCON =		ncon({mps,		conj(mps), Vmat,  conj(Vmat), H,	 C},...
+			 {[-2,6,4], [-1,5,2],  [3,4], [1,2],	  [1,3], [5,6]});
+	end
+	tNCON(j) = toc(t1)
+
+	t1 = tic;
+	for i = 1:rep
+		cUCR = updateCright(C, mps, Vmat, H, mps, Vmat);
+	end
+
+	tUCR(j) = toc(t1)
+end
+
+%% Plot results:
+plot((1:5) .*step,[tUCR;tNCON]);
+

@@ -13,8 +13,12 @@ function [mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,
 dk = prod(results.dk{end}(:,sitej));
 if ~para.useVmat || any(sitej == para.spinposition)
     assert(OBBDim == dk) ;
-	op.h1jOBB = op.h1j;								% Overhead only for spinsites mostly -> negligible!
-	op.h2jOBB = op.h2j;
+	if para.nChains > 1
+		op = H_Eff([]  , Vmat{sitej}, 'A' , op, para);	% deals with Multi-Chain magic for spinsites
+	else
+		op.h1jOBB = op.h1j;								% Overhead only for spinsites mostly -> negligible!
+		op.h2jOBB = op.h2j;
+	end
 end
 M = size(op.h2j,1);
 
@@ -112,7 +116,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
-		[Vmat_focused, err] = expvCustom(- 1i*t,'HAA4',...
+		[Vmat_focused, err] = expvCustom(- 1i*t,'HAA',...
 					   reshape(Vmat_focused,[dk*OBBDim,1]),...
 					   Amat, [], para, op);
 	end
@@ -126,15 +130,13 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     %% normalise Vmat and take focus to A
     [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);  % TODO: enable
 	[n1, n2] = size(V);
+	% put h1j, h2j into OBB. writes into op.h1jOBB, op.h2jOBB only! Since h1j, h2j should be
+	op = H_Eff([]  , Vmat{sitej}, 'A' , op, para);
+
     % V_(n^,n~)
     % evolve center backward in time:
     % HAV_(n^',n~',n^,n~) = Vmat*_(n',n^')* HAA_(n',n~',n,n~) Vmat_(n,n^)
-	if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat = eye
-		% writes into op.h1jOBB, op.h2jOBB only! Since h1j, h2j should be
-		% bare for updateop()
-		op = H_Eff([]  , Vmat{sitej}, 'A' , op, para);
-% 	else                % no OBB, then OBBDim = dk
-	end
+
 	if para.tdvp.expvCustomNow == 0
 		%%
 		HAA = reshape(HAA,[dk,OBBDim,dk,OBBDim]);

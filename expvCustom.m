@@ -40,7 +40,7 @@ normv = norm(w); beta = normv;				% reshape since v = tensor
 fact = (((m+1)/exp(1))^(m+1))*sqrt(2*pi*(m+1));
 t_new = t_out-t_now;
 % t_new = (1/anorm)*((fact*tol)/(4*beta*anorm))^xm;			% properly approximated using norm(H)
-s = 10^(floor(log10(t_new))-1); t_new = ceil(t_new/s)*s;
+% s = 10^(floor(log10(t_new))-1); t_new = ceil(t_new/s)*s;
 sgn = sign(t);
 
 hump = normv;
@@ -72,6 +72,7 @@ while t_now < t_out
   if nstep == 1				% was moved down from initial variable definitions
 	  anorm = norm(H);
 	  t_new = (1/anorm)*((fact*tol)/(4*beta*anorm))^xm;
+	  s = 10^(floor(log10(t_new))-1); t_new = ceil(t_new/s)*s;				% round to 2 significant digits!
 	  t_step = min( t_out-t_now,t_new );		% re-estimate best t_step
 	  rndoff= anorm*eps;
   end
@@ -158,6 +159,7 @@ hump = hump / normv;
 
 		% copy OBB into h1j, h2j to match HmultVmat behaviour. This is only
 		% calles for Bosons, so is fine!
+		% needed to use HmultVmat for CV
 		op.h1j = op.h1jOBB;
 		op.h2j = op.h2jOBB;
 
@@ -177,10 +179,6 @@ hump = hump / normv;
 		[~,BondDimRight] = size(op.Hright);
 		[~,BondDimLeft]  = size(op.Hleft);
 		[~,OBBDim]		 = size(op.h1jOBB);
-
-		% overhead only for spin site -> negligible!
-		op.h1j = op.h1jOBB;
-		op.h2j = op.h2jOBB;
 
 		w = HmultA(A, op, BondDimLeft, BondDimRight, OBBDim, M,para.parity,[]);
 

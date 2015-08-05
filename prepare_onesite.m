@@ -95,9 +95,9 @@ switch para.sweepto
     case 'l'
         if para.parity == 'n'
             %% normal parity
-%             A = permute(A, [1, 3, 2]);
-%             A = reshape(A, [D1, d * D2]);
-			A = reshape(A, [D1, D2 * d]);
+            A = permute(A, [1, 3, 2]);
+            A = reshape(A, [D1, d * D2]);
+% 			A = reshape(A, [D1, D2 * d]);
 
             % decompose: A_(l,r*n) = U_(l,a')*S_(a',a)*B_(a,r*n)
             [U, S, B] = svd2(A);            % since m<n: B = new A
@@ -109,7 +109,8 @@ switch para.sweepto
 			if sitej ~= 1
 	            para.D(sitej-1) = DB;
 			end
-            B = reshape(B, [DB, D2, d]); %B = permute(B, [1, 3, 2]);
+%             B = reshape(B, [DB, D2, d]);
+			B = reshape(B, [DB, d, D2]); B = permute(B, [1, 3, 2]);
 
             % create focused center: C(n)_(l,a) = U_(l,a')*S_(a',a)
             U = U * S;

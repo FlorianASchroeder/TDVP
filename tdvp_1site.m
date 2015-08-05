@@ -208,12 +208,12 @@ for timeslice = para.tdvp.slices
             [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
             clear('Hn','Cn');
 
-            if para.useVmat
-                truncateOBB(sitej);
-            end
-
             %% update Left Hamiltonian operators
             op = updateop(op,mps,Vmat,sitej,para);
+
+			if para.useVmat
+                truncateOBB(sitej);			% speedup by truncating within SVD from V to A ?
+			end
 
         else % sitej = L
             %% Normalize with last SVD
@@ -249,10 +249,6 @@ for timeslice = para.tdvp.slices
         [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
         clear('Hn','Cn');
 
-        if para.useVmat
-            truncateOBB(sitej+1);
-        end
-
         fprintf('%g', sitej);
 
         %% update right Hamiltonian operators
@@ -260,6 +256,10 @@ for timeslice = para.tdvp.slices
 		para.sitej = para.sitej+1;					% needed for multi-chain reshape
         op = updateop(op,mps,Vmat,sitej+1,para);
 		para.sitej = para.sitej-1;
+
+		if para.useVmat
+            truncateOBB(sitej+1);
+        end
 
         %% Get on-site Operators and dimensions
         op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???

@@ -52,7 +52,7 @@ else	% multi-chain!
 			end
 			out = out + reshape(outTemp1,[prod(dkSC),d_opt]);					% equiv to: outSl = op.h2j{m,2} * (inB * op.OpleftOPB{m}.');
 
-			outTemp1 = V * op.OprightA{m}.';
+ 			outTemp1 = V * op.OprightA{m}.';
 			outTemp1 = reshape(outTemp1,[dkSC,d_opt]);
 			outTemp1 = contracttensors(op.h2j{m,1,i},2,2,outTemp1,nc+1,i);
 			if i ~= 1

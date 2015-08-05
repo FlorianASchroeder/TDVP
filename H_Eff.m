@@ -37,6 +37,9 @@ switch target
 		%% multiply Vmat into op.h1j, h2j
 		% transform all bare H terms of current sitej into OBB
 		% works with multi-chain at OBB level
+		if isempty(op.h1j)
+			op=gen_sitej_h1h2(op,para,para.sitej);
+		end
 		if para.nChains == 1
 			op.h1jOBB = V' * (op.h1j * V);									% faster and more accurate
 			op.h2jOBB = cell(M,2);
@@ -65,50 +68,36 @@ switch target
 		switch para.sweepto
 			case 'r'	% MPS and V contracted into left operators only
 				% HleftAV_(r~',r~) = A*_(l',r~',n~) [Hl_(l',l) * A_(l,r~,n~)]_(l',r~,n~)
-				op.HleftAV = contracttensors(op.Hleft,2,2,mps,3,1);
-				op.HleftAV = contracttensors(conj(mps),3,[1 3],op.HleftAV,3,[1 3]);
+				op.HleftAV = updateCleft(op.Hleft, mps, [], [], mps, []);
 
 				% h1jAV_(r~',r~) = A*_(l,r~',n~') [A_(l,r~,n~), h1j_(n~',n~)]_(l,r~,n~')
-				OpTemp   = contracttensors(mps,3,3, op.h1jOBB.',2,1);
-				OpTemp   = contracttensors(conj(mps),3,[1 3], OpTemp,3,[1 3]);
-				op.HleftAV = op.HleftAV + OpTemp;
+				op.HleftAV = op.HleftAV + updateCleft([],mps,[],op.h1jOBB,mps,[]);
 
 				% op.Opleft will be summed over and added to HleftAV, since
 				% it does not interact across CA
 				op.h2jAV	= cell(M,1);
 				for k = 1:M
 					% OpleftAV_(r~',r~) = A*_(l',r~',n~')[[OPl_(l',l) A_(l,r~,n~)]_(l',r~,n~) h2j_(n~',n~)]_(l',r~,n~')
-					OpTemp = contracttensors(op.Opleft{k},2,2, mps,3,1);
-					OpTemp = contracttensors(OpTemp,3,3, op.h2jOBB{k,2}.',2,1);
-					OpTemp = contracttensors(conj(mps),3,[1 3], OpTemp,3,[1 3]);
-					op.HleftAV = op.HleftAV + OpTemp;
+					op.HleftAV  = op.HleftAV + updateCleft(op.Opleft{k}, mps, [], op.h2jOBB{k,2}, mps, []);
 
 					% h2jAV_(r~',r~) = A*_(l,r~',n~') [A_(l,r~,n~) h2j_(n~',n~)]_(l,r~,n~')
-					op.h2jAV{k}    = contracttensors(mps,3,3, op.h2jOBB{k,1}.',2,1);
-					op.h2jAV{k}    = contracttensors(conj(mps),3,[1 3], op.h2jAV{k},3,[1 3]);
+					op.h2jAV{k} = updateCleft([], mps, [], op.h2jOBB{k,1}, mps, []);
 				end
 			case 'l'	% MPS and V contracted into right operators only
 				% HHrightAV_(l~',l~) = A*_(l~',r',n~) [Hr_(r',r) * A_(l~,r,n~)]_(r',l~,n~)
-				op.HrightAV = contracttensors(op.Hright,2,2,mps,3,2);
-				op.HrightAV = contracttensors(conj(mps),3,[2 3],op.HrightAV,3,[1 3]);
+				op.HrightAV = updateCright(op.Hright, mps, [], [], mps, []);
 
 				% h1jAV_(l~',l~) = A*_(l~',r,n~') [A_(l~,r,n~), h1j_(n~',n~)]_(l~,r,n~')
-				OpTemp   = contracttensors(mps,3,3, op.h1jOBB.',2,1);
-				OpTemp   = contracttensors(conj(mps),3,[2 3], OpTemp,3,[2 3]);
-				op.HrightAV = op.HrightAV + OpTemp;
+				op.HrightAV = op.HrightAV + updateCright([],mps,[],op.h1jOBB,mps,[]);
 
 % 				op.OprightAV = cell(M,1);		% add to op.HrightAV directly
 				op.h2jAV	 = cell(M,1);
 				for k = 1:M
 					% OprightAV_(l~',l~) = A*_(l~',r',n~')[[A_(l~,r,n~) OPr_(r',r)]_(l~,n~,r') h2j_(n~',n~)]_(l~,r',n~')
-					OpTemp = contracttensors(mps,3,2, op.Opright{k}.',2,1);
-					OpTemp = contracttensors(OpTemp,3,2, op.h2jOBB{k,1}.',2,1);
-					OpTemp = contracttensors(conj(mps),3,[2 3], OpTemp,3,[2 3]);
-					op.HrightAV = op.HrightAV + OpTemp;
+					op.HrightAV = op.HrightAV + updateCright(op.Opright{k},mps,[],op.h2jOBB{k,1},mps,[]);
 
 					% h2jAV_(l~',l~) = A*_(l~',r,n~') [A_(l~,r,n~) h2j_(n~',n~)]_(l~,r,n~')
-					op.h2jAV{k}     = contracttensors(mps,3,3, op.h2jOBB{k,2}.',2,1);
-					op.h2jAV{k}     = contracttensors(conj(mps),3,[2 3], op.h2jAV{k},3,[2 3]);
+					op.h2jAV{k} = updateCright([],mps,[],op.h2jOBB{k,2},mps,[]);
 				end
 		end
 

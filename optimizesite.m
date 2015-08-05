@@ -32,11 +32,11 @@ while optV
     else
         Amat_focused = mps{sitej}; optV=0;
     end
-    [Amat_focused, E] = minimizeE_onesiteA(op, Vmat{sitej}, Amat_focused,para);
+    [Amat_focused, E, op] = minimizeE_onesiteA(op, Vmat{sitej}, Amat_focused,para);
 
 % Shifting basis of bosonic sites only. Different criteria explained in declaration file.
 % prod(sitej ~= para.spinposition) excludes all spin-sites
-    if para.loop>1 && para.useshift==1 && prod(sitej ~= para.spinposition)          % old: para.dk(sitej)>2
+    if para.loop>1 && para.useshift==1 && prod(sitej ~= para.spinposition) && para.nChains == 1          % old: para.dk(sitej)>2
 		if para.useFloShift == 1 && ~(para.trustsite(end)>0)						% stop loops if criterium not fulfilled
 			optV = 0;
 %		elseif para.useFloShift2 == 1 && ~(min(cellfun(@(x) x(1,1), results.Vmat_sv(2:end))) < para.FloShift2minSV)	% cellfun takes all maximum SV of each site into an array
@@ -78,7 +78,7 @@ while optV
 					[bp,bm,n] = bosonop(para.dk(sitej),para.shift(sitej),para.parity);
 					x=sqrt(2)/2*(bp+bm);
 			end
-			if para.useVmat==1
+			if para.useVmat==1	% shift not yet usable with Multi-Chain!
 % 				temp = Vmat{sitej}' * (x * Vmat{sitej});
 				temp = contracttensors(x,2,2,Vmat{sitej},2,1);
 				temp = contracttensors(conj(Vmat{sitej}),2,1,temp,2,1);

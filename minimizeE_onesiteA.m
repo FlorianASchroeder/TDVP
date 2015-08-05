@@ -1,9 +1,9 @@
-function [A, E] = minimizeE_onesiteA(op, B, Alaststep,para)
+function [A, E, op] = minimizeE_onesiteA(op, B, Alaststep,para)
 % B can be Vmat{sitej}; for spinsite: = eye()
 
 % Commented by Florian Schroeder 31/01/2014
 % Modified:
-%	- FS 05/08/2015:	- Moved OBB trafo of h1j, h2j into H_Eff
+%	- FS 05/08/2015:	- Moved OBB trafo of h1j, h2j into H_Eff; return op
 
 % ******************** one-site optimization ***********************
 tol = para.eigs_tol;
@@ -15,8 +15,8 @@ if para.parity~='n'
     nzAlast=Alaststep(para.Anzi{para.sitej});
 end
 
-% apply OBB to h1 & h2 terms
-op = H_Eff([]  , B, 'A' , op, para);
+% apply OBB to h1 & h2 terms -> h1jOBB, h2jOBB
+op = H_Eff([]  , B, 'A' , op, para);		% will be returned as well!
 
 % projection on orthogonal subspace
 %if ~isempty(P), Heff = P' * Heff * P; end

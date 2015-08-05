@@ -32,9 +32,14 @@ for m=1:M
 end
 
 para.sweepto = 'l';
+op.h1j    = []; op.h2j    = [];
+op.h1jOBB = []; op.h2jOBB = [];
+
 
 % middle terms build: l<-r
 for j = L:-1:2
 	para.sitej = j;
     op = updateop(op,mps,Vmat,j,para);
+	op.h1jOBB = []; op.h2jOBB = [];
+	op.h1j = []; op.h2j = [];
 end

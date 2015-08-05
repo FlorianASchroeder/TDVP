@@ -157,6 +157,8 @@ end
 
 % Expand operators
 [op,para] = genh1h2term(para,op);
+op.h1jOBB = []; op.h2jOBB = [];			% invalidate OBB trafos for proper updateop
+op.h1j = []; op.h2j = [];				% also for old on-site operators
 
 disp('(para.d_opt-d_opt_old)./para.d_opt=')
 (para.d_opt-d_opt_old)./para.d_opt

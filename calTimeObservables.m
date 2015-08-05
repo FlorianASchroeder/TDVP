@@ -60,7 +60,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		tresults.t(i)     = para.tdvp.t(1,para.timeslice+1);
 
 		% 2. Boson chain observables
-		if strfind(para.tdvp.Observables,'j')
+		if strfind(para.tdvp.Observables,'.j.')
 			%% Calculate current along entire chain
 			tresults.j(i,:) = getObservable({'current'},tmps(j,:),tVmat(j,:),para);
 		end

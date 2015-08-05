@@ -426,8 +426,9 @@ legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 1;		% 0: lin, 1: log
-f=figure(5); clf; f.Name = 'Chain Occupation';
-% tresults.nx = tresults.n(:,:,1);
+f=figure(3); clf; f.Name = 'Chain Occupation';
+% tresults = res{6}.tresults;
+tresults.nx = tresults.n(:,:,1);
 n = find(tresults.nx(:,2),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
@@ -435,10 +436,10 @@ else
 	t=para.tdvp.t;		% for the old files
 end
 if mode
-	surf(1:para.L,t(1:n),log10(real(tresults.nx(1:n,:))));
+	surf(1:size(tresults.nx,2),t(1:n),log10(abs(tresults.nx(1:n,:))));
 	zlabel('$\log_{10}\left<n_k\right>$');
 else
-	surf(1:para.L,t(1:n),real(tresults.nx(1:n,:)));
+	surf(1:size(tresults.nx,2),t(1:n),real(tresults.nx(1:n,:)));
 	zlabel('$\left<n_k\right>$');
 end
 ax = gca;
@@ -453,13 +454,15 @@ shading interp
 rotate3d on
 axis tight
 if mode
-	set(gca,'zlim',[-4, max(max(ax.Children.ZData))]);
-	set(gca,'clim',ax.ZLim);
+% 	ax.ZLim = [-30, max(max(ax.Children.ZData))];
+	ax.ZLim = [-30, 0];
+else
+	ax.ZLim = [0.1,1].*10^-26;
 end
-
+ax.CLim = ax.ZLim;
 %% TDVP (3.2): Plot <n> STAR
 mode = 0;		% 0: lin, 1: log
-f=figure(6); clf; f.Name = 'Star Occupation';
+f=figure(5); clf; f.Name = 'Star Occupation';
 n = find(tresults.star.t,1,'last');
 if mode
 	surf(tresults.star.omega,tresults.star.t(1:n),log10(tresults.star.n(1:n,:)));
@@ -1026,13 +1029,14 @@ end
 %% TDVP (3.14): Plot Current <j> CHAIN
 mode = 0;		% 0: lin, 1: log
 f=figure(14); clf; f.Name = 'Chain Current';
+tresults = res{9,1}.tresults;
 n = find(tresults.j(:,2),1,'last');
 t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 if mode
-	surf(1:(para.L-1),t(1:n),log10(abs(tresults.j(1:n,:))));
+	surf(1:size(tresults.j,2),t(1:n),log10(abs(tresults.j(1:n,:))));
 	zlabel('$\log_{10}\left<j_k\right>$');
 else
-	surf(1:(para.L-1),t(1:n),-real(tresults.j(1:n,:)));
+	surf(1:size(tresults.j,2),t(1:n),-real(tresults.j(1:n,:)));
 	zlabel('$\left<j_k\right>$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';
@@ -1042,7 +1046,7 @@ ylabel('Time $\omega_c t$');
 % set(gca,'yscale','log');se
 % set(gca,'View',[0 42]);
 set(gca,'View',[0 90]);
-shading interp
+% shading interp
 rotate3d on
 axis tight
 if mode
@@ -2352,7 +2356,7 @@ end
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 
-%% TDVP SBM multi: Ohmic LogZ																	LabBook: 04/02/2015
+%% TDVP SBM multi files: Ohmic LogZ																	LabBook: 04/02/2015
 clear
 defPlot(1,:) = {'Orth2010-13b-LogZ1.1-TDVP-OBBExpand-L100-DeltaT2-artificial-v40',		[1:6]};
 
@@ -2601,6 +2605,91 @@ figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 % ph2 = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)-1), diff(x.para.tdvp.calcTime)), res(pick,1), 'UniformOutput', false);
 
+%% TDVP SBM multi files: v52 TDVP Benchmark s=1 0.01 < a < 0.5						% LabBook 06/08/2015
+clear
+defPlot(1,:) = {'20150805-Benchmark-v52-dt01-Using-ExpvCustom-only',								[1:6], {'ylim',[-1,1],'xlim',[0,500]}};
+defPlot(2,:) = {'20150805-Benchmark-v52-dt01-Using-Mixture',										[7:12],{'ylim',[-1,1],'xlim',[0,500]}};
+defPlot(3,:) = {'20150805-Benchmark-v52n-dt01-Using-ExpvCustom-only',								[13:18], {'ylim',[-1,1],'xlim',[0,500]}};
+
+i=0; cols = 5;
+
+%1-6
+foldPattern = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L200-art-sz';
+filePattern = 'results-Till500Step0.1v52-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.chain{1}.s;
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,5) = {'expvCustom, dt0.1'};
+
+%7-12
+foldPattern = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L200-art-sz';
+filePattern = 'results-Till500Step0.1v52-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.chain{1}.s;
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,5) = {'expm-expv, dt0.1'};
+
+%13-18
+foldPattern = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L200-art-sz';
+filePattern = 'results-Till500Step0.1v52n-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.chain{1}.s;
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,5) = {'expvCustom, v52n, dt0.1'};
+
+%%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+	plot([0,xmax],[0,0],'black');
+	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx)), res(pick,1), 'UniformOutput', false);
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$\omega_ct$');
+	ylabel('$\left<\sigma_z\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum,'twocolumn-single');
+	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+	if fignum == 2
+		ax.ColorOrderIndex = 1;
+		ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx),'.black'), res(defPlot{3,2},1), 'UniformOutput', false);
+	end
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all
@@ -2680,39 +2769,40 @@ if wantSave
 end
 
 %% TDVP SBM multi (5): plot slider STAR
-mode = 1;		% 0: lin, 1: log
+mode = 0;		% 0: lin, 1: log
 fignum = 7;
-figure(fignum); clf; x = res(1,:);
-pos = get(gcf,'Position'); set(gcf,'Position',[pos(1),pos(2),840,pos(4)]);pos = get(gcf,'Position');
+f = figure(fignum); clf; x = res(1,:);
+f.Position(3) = 840; pos = f.Position; ax = gca;
 pl = surf(log10(x{1}.tresults.star.n));
 % setting auto-refresh
 hPl = handle(pl); hProp = findprop(hPl,'UserData');
 hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
-hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.s, pl.UserData{1}.para.alpha)));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.chain{1}.s, pl.UserData{1}.para.chain{1}.alpha)));
 
 pl.UserData=x;
 cb = colorbar;cb.Title.Interpreter = 'latex';
+prefix = 'pl.UserData{1}.tresults.star';
 if mode
 	zlabel('$log_{10}\left<n_k\right>$');
-	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.n);';
-% 	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.n)-log10(ones(size(pl.UserData{1}.tresults.star.n,1),1)*pl.UserData{1}.tresults.star.n(1,:));';
+	pl.ZDataSource = sprintf('log10(%s.n(1:find(%s.t,1,last),:));',prefix,prefix);
+% 	pl.ZDataSource = sprintf('log10(%s.n)-log10(ones(size(%s.n,1),1)*%s.n(1,:));',prefix,prefix,prefix);
 else
 	zlabel('$\left<n_k\right>$');
-	pl.ZDataSource = 'pl.UserData{1}.tresults.star.n;';
+	pl.ZDataSource = sprintf('%s.n(1:find(%s.t,1,last),:);',prefix,prefix);
 end
-pl.XDataSource = 'pl.UserData{1}.tresults.star.omega';
-pl.YDataSource = 'pl.UserData{1}.tresults.star.t';refreshdata;
+pl.XDataSource = [prefix,'.omega'];
+pl.YDataSource = sprintf('%s.t(1:find(%s.t,1,last))',prefix,prefix);last = 'last';refreshdata;
 xlabel('Mode $\omega_k / \omega_c$');
 ylabel('Time $\omega_c t$');
-cb.Title.String = get(get(gca,'zlabel'),'String');
+cb.Title.String = ax.ZLabel.String;
 % set(gca,'zscale','log');
 set(gca,'View',[0 90],'TickDir','out','FontSize',14);
 shading interp;rotate3d on;axis tight;
 if mode
-% 	set(gca,'zlim',[0,10]);
-% 	set(gca,'clim',[0,10]);
+% 	ax.ZLim = [0,10];
+% 	ax.CLim = ax.ZLim;
 end
-set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
+% set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
 
 % slider definition:
 sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
@@ -2724,21 +2814,20 @@ set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdat
 %% TDVP SBM multi (6): plot slider CHAIN
 mode = 1;		% 0: lin, 1: log
 fignum = 8;
-figure(fignum); clf; x = res(1,:);
-pos = get(gcf,'Position'); set(gcf,'Position',[pos(1),pos(2),840,pos(4)]);pos = get(gcf,'Position');
-pl = surf(log10(abs(x{1}.tresults.nx)));
+f = figure(fignum); clf; x = res(1,:);
+f.Position(3) = 840; pos = f.Position; ax = gca;
+pl = surf(log10(abs(x{1}.tresults.n)));
 cb = colorbar;cb.Title.Interpreter = 'latex';
 if mode
 	zlabel('$log_{10}\left<n_k\right>$');
-	pl.ZDataSource = 'log10(abs(pl.UserData{1}.tresults.nx));';
+	pl.ZDataSource = 'log10(abs(pl.UserData{1}.tresults.n(1:pl.UserData{1}.tresults.lastIdx,:)));';
 else
 	zlabel('$\left<n_k\right>$');
-	pl.ZDataSource = 'abs(pl.UserData{1}.tresults.nx);';
+	pl.ZDataSource = 'abs(pl.UserData{1}.tresults.n(1:pl.UserData{1}.tresults.lastIdx,:));';
 end
 pl.XDataSource = '1:pl.UserData{1}.para.L';
-% pl.YDataSource = 'pl.UserData{1}.para.tdvp.t';
-pl.YDataSource = 'pl.UserData{1}.tresults.t';
-cb.Title.String = get(get(gca,'zlabel'),'String');
+pl.YDataSource = 'pl.UserData{1}.tresults.t(1:pl.UserData{1}.tresults.lastIdx)';
+cb.Title.String = ax.ZLabel.String;
 xlabel('Mode $\omega_k / \omega_c$');
 ylabel('Time $\omega_c t$');
 % set(gca,'zscale','log');
@@ -2746,10 +2835,9 @@ set(gca,'View',[0 90],'TickDir','out','FontSize',14);
 shading interp;
 rotate3d on;axis tight;
 if mode
-	set(gca,'zlim',[-4,0]);
-	set(gca,'clim',get(gca,'zlim'));
+	ax.ZLim = [-30,0];
+	ax.CLim = ax.ZLim;
 end
-com = ', ';
 % slider definition:
 sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
 javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
@@ -2758,19 +2846,19 @@ hsld = handle(sld,'CallbackProperties');
 set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
 hPl = handle(pl); hProp = findprop(hPl,'UserData');
 hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
-hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.s, pl.UserData{1}.para.alpha)));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.chain{1}.s, pl.UserData{1}.para.chain{1}.alpha)));
 pl.UserData=x;
 
 %% TDVP SBM multi (7): plot slider POLARON
 mode = 0;		% 0: lin, 1: log
 fignum = 9;
-figure(fignum); clf; x = res(1,:);
-pos = get(gcf,'Position'); set(gcf,'Position',[pos(1),pos(2),840,pos(4)]);pos = get(gcf,'Position');
+f = figure(fignum); clf; x = res(1,:);
+f.Position(3) = 840; pos = f.Position; ax = gca;
 pl = surf(x{1}.tresults.star.x);
 % setting auto-refresh
 hPl = handle(pl); hProp = findprop(hPl,'UserData');
 hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
-hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.s, pl.UserData{1}.para.alpha)));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.chain{1}.s, pl.UserData{1}.para.chain{1}.alpha)));
 
 pl.UserData=x;
 cb = colorbar;cb.Title.Interpreter = 'latex';
@@ -2785,15 +2873,15 @@ pl.XDataSource = 'pl.UserData{1}.tresults.star.omega';
 pl.YDataSource = 'pl.UserData{1}.tresults.star.t';refreshdata;
 xlabel('Mode $\omega_k / \omega_c$');
 ylabel('Time $\omega_c t$');
-cb.Title.String = get(get(gca,'zlabel'),'String');
+cb.Title.String = ax.ZLabel.String;
 % set(gca,'zscale','log');
 set(gca,'View',[0 90],'TickDir','out','FontSize',14);
 shading interp;rotate3d on;axis tight;
 if mode
-% 	set(gca,'zlim',[0,10]);
-% 	set(gca,'clim',[0,10]);
+% 	ax.ZLim = [-30,0];
+% 	ax.CLim = ax.ZLim;
 end
-set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
+% set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
 
 % slider definition:
 sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
@@ -2802,6 +2890,49 @@ sld.setUnitIncrement(1); sld.setBlockIncrement(1);
 hsld = handle(sld,'CallbackProperties');
 set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
 
+%% TDVP SBM multi (8): plot slider CHAIN CURRENT		% most modern now.
+mode = 0;		% 0: lin, 1: log
+fignum = 10;
+f = figure(fignum); clf; x = res(1,:);
+f.Position(3) = 840; pos = f.Position; ax = gca;
+pl = surf(x{1}.tresults.j);
+% setting auto-refresh
+hPl = handle(pl); hProp = findprop(hPl,'UserData');
+hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(pl));
+hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$s = %g, \\alpha = %g$',pl.UserData{1}.para.chain{1}.s, pl.UserData{1}.para.chain{1}.alpha)));
+
+pl.UserData=x;
+cb = colorbar;cb.Title.Interpreter = 'latex';
+p = 'pl.UserData{1}.tresults';							% prefix to shorten expressions
+if mode
+	zlabel('$log_{10}\left<j_k\right>$');
+	pl.ZDataSource = sprintf('log10(abs(%s.j(1:%s.lastIdx,:)));',p,p);
+else
+	zlabel('$\left<j_k\right>$');
+	pl.ZDataSource = sprintf('%s.j(1:%s.lastIdx,:);',p,p);
+end
+pl.XDataSource = '1:pl.UserData{1}.para.L-1';
+pl.YDataSource = sprintf('%s.t(1:%s.lastIdx)',p,p); refreshdata;
+xlabel('Site k');
+ylabel('Time $\omega_c t$');
+cb.Title.String = ax.ZLabel.String;
+% set(gca,'zscale','log');
+set(gca,'View',[0 90],'TickDir','out','FontSize',14);
+shading interp;rotate3d on;axis tight;
+if mode
+	ax.ZLim = [-30,0];
+	ax.CLim = ax.ZLim;
+end
+% set(gca,'xlimmode','manual','xlim',[0,x{1}.tresults.star.omega(end)]);
+
+% slider definition:
+sld = javax.swing.JScrollBar(0,1,1,1,size(res,1)+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
+sld.setUnitIncrement(1); sld.setBlockIncrement(1);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
+%%
+[f,ax,pl] = slider2DPlot(res, 10, 'tresults.j', 'para.L-1', 'tresults.t')
 %% TEST SBM_genpara:
 para1.chain.mapping = 'OrthogonalPolynomials';	para1.chain.spectralDensity = 'Leggett_Hard'; para1.chain.discrMethod = 'Analytic';
 para1.chain.discretization = 'None';			para1.chain.method = 'Analytic';
