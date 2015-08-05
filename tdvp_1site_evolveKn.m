@@ -34,11 +34,13 @@ switch para.sweepto
 			err = 0;
 		else
 			if para.tdvp.expvCustomNow
+				[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
 				[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 					reshape(Cn,[numel(Cn),1]),...
 					mps{sitej},Vmat{sitej},para,op);
 			else
-				if para.tdvp.expvCustomTestAccuracy								% debug
+				if para.tdvp.expvCustomTestAccuracy				% debug
+					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
 					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 						reshape(Cn,[numel(Cn),1]),...
 						mps{sitej},Vmat{sitej},para,op);
@@ -92,9 +94,12 @@ switch para.sweepto
 				err = 0;
 			else
 				if para.tdvp.expvCustomTestAccuracy								% debug
+					para.sitej = para.sitej+1;								% needed for multi-chain reshape
+					[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
 					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 						reshape(Cn,[numel(Cn),1]),...
 						mps{sitej+1},Vmat{sitej+1},para,op);
+					para.sitej = para.sitej-1;
 				end
 				[Cn,err] = expv(1i*para.tdvp.deltaT./2, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
@@ -105,6 +110,7 @@ switch para.sweepto
 			end
 		else
 			para.sitej = para.sitej+1;								% needed for multi-chain reshape
+			[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
 			[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 				reshape(Cn,[numel(Cn),1]),...
 				mps{sitej+1},Vmat{sitej+1},para,op);

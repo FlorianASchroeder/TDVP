@@ -397,7 +397,7 @@ rotate3d on
 
 %% TDVP (2) SBM: Plot <sz> / Visibility / Coherence
 figure(3); hold all;
-% n = find(tresults.nx(:,2),1,'last');
+n = find(tresults.n(:,2),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 else

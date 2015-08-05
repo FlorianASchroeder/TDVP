@@ -1,4 +1,4 @@
-function [mps, Vmat, para, results, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej)
+function [mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej)
 %% Evolves one site following Haegeman 2014
 %   - Only contains A = exp(-i H(n) dt/2) A;
 %   - Same procedure for l->r or l<-r
@@ -11,10 +11,18 @@ function [mps, Vmat, para, results, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,resu
 
 [BondDimLeft, BondDimRight, OBBDim]  = size(mps{sitej});
 dk = prod(results.dk{end}(:,sitej));
-if ~para.useVmat
+if ~para.useVmat || any(sitej == para.spinposition)
     assert(OBBDim == dk) ;
+	op.h1jOBB = op.h1j;								% Overhead only for spinsites mostly -> negligible!
+	op.h2jOBB = op.h2j;
 end
 M = size(op.h2j,1);
+
+if sitej ~= para.L
+    t = para.tdvp.deltaT./2;
+else
+    t = para.tdvp.deltaT;
+end
 
 %% If using Vmat, evolve it first, only BOSON!
 if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bosonic site only!
@@ -52,6 +60,8 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		para.tdvp.expvCustomNow = 0;
 	end
 
+	op = H_Eff(Amat, []  , 'V' , op, para);		% create effective H terms for V
+
 	if para.tdvp.expvCustomNow == 0
 		% now: Construct
 		% HAA_(n',n~',n,n~) = H(n)_(l',r',n',l,r,n)*A*_(l',r',n~')*A_(l,r,n~)
@@ -62,17 +72,11 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		%% non-interacting Hamiltonian terms: Hleft + Hmid + Hright
 		% contracted with MPS
 		%
-		% Hleft_(n~',n~) = A*_(l',r,n~') [Hl_(l',l) * A_(l,r,n~)]_(l',r,n~)
-		Hleft = contracttensors(op.Hleft,2,2,Amat,3,1);                     % Hleft_(l',r,n~) = Hl_(l',l) * A_(l,r,n~)
-		Hleft = contracttensors(conj(Amat),3,[1 2],Hleft,3,[1 2]);          % Hleft_(n~',n~)  = A*_(l',r,n~') * Hleft_(l',r,n~)
-		HAA = HAA + kron(Hleft, eye(dk));
-		clear('Hleft');
+		% HleftA_(n~',n~) = A*_(l',r,n~') [Hl_(l',l) * A_(l,r,n~)]_(l',r,n~)
+		HAA = HAA + kron(op.HleftA, eye(dk));
 
-		% Hright_(n~',n~) = A*_(l,r',n~') [Hr_(r',r) * A_(l,r,n~)]_(r',l,n~)
-		Hright = contracttensors(op.Hright,2,2, Amat,3,2);                  % Hright_(r',l,n~) = Hr_(r',r) * A_(l,r,n~)
-		Hright = contracttensors(conj(Amat),3,[1 2], Hright,3,[2 1]);       % Hright_(n~',n~)  = A*_(l',r',n~') * Hright_(r',l,n~)
-		HAA = HAA + kron(Hright, eye(dk));
-		clear('Hright');
+		% HrightA_(n~',n~) = A*_(l,r',n~') [Hr_(r',r) * A_(l,r,n~)]_(r',l,n~)
+		HAA = HAA + kron(op.HrightA, eye(dk));
 
 		% Hmid_(n~',n~) = A*_(l,r,n~') * A_(l,r,n~)
 		Hmid = contracttensors(conj(Amat),3,[1 2], Amat,3,[1 2]);           % should be eye(OBBDim) TODO: could be replaced.
@@ -82,32 +86,25 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		%% Interacting Hamiltonian terms: \sum_i^M op.Opleft
 		for m = 1:M
 			% Opleft_(n~',n~) = A*_(l',r,n~') [Opleft_(l',l) * A_(l,r,n~)]_(l',r,n~)
-			Opleft = contracttensors(op.Opleft{m},2,2,Amat,3,1);            % Opleft_(l',r,n~) = Opleft_(l',l) * A_(l,r,n~)
-			Opleft = contracttensors(conj(Amat),3,[1 2],Opleft,3,[1 2]);    % Opleft_(n~',n~)  = A*_(l',r,n~') * Opleft_(l',r,n~)
-			HAA = HAA + kron(Opleft, op.h2j{m,2});
-			clear('Opleft');
-
+			HAA = HAA + kron(op.OpleftA{m}, op.h2j{m,2});
 			% Opright_(n~',n~) = A*_(l,r',n~') [Opright_(r',r) * A_(l,r,n~)]_(r',l,n~)
-			Opright = contracttensors(op.Opright{m},2,2, Amat,3,2);         % Opright_(r',l,n~) = Opright_(r',r) * A_(l,r,n~)
-			Opright = contracttensors(conj(Amat),3,[1 2], Opright,3,[2 1]); % Opright_(n~',n~)  = A*_(l',r',n~') * Opright_(r',l,n~)
-			HAA = HAA + kron(Opright, op.h2j{m,1});
-			clear('Opright');
+			HAA = HAA + kron(op.OprightA{m}, op.h2j{m,1});
 		end
 	end
     %% Take matrix exponential
     % V(t+dt) = exp(-i HAA dt)_(n',n~',n,n~) * V(t)_(n,n~)
 	if para.tdvp.expvCustomNow == 0
 		if size(HAA,1) <= para.tdvp.maxExpMDim
-			Vmat_focused = expm(- 1i .* HAA .*para.tdvp.deltaT./2) * reshape(Vmat_focused,[dk*OBBDim,1]);
+			Vmat_focused = expm(- 1i .* HAA .*t) * reshape(Vmat_focused,[dk*OBBDim,1]);
 			err = 0;
 		else
 			% Do approximation of exp(A)*v
 			if para.tdvp.expvCustomTestAccuracy
-				V1 = expvCustom(- 1i*para.tdvp.deltaT./2,'HAA',...
+				V1 = expvCustom(- 1i*t,'HAA',...
 					 reshape(Vmat_focused,[dk*OBBDim,1]),...
 					 Amat, [], para, op);
 			end
-			[Vmat_focused,err] = expv(- 1i*para.tdvp.deltaT./2,HAA,...
+			[Vmat_focused,err] = expv(- 1i*t,HAA,...
 						   reshape(Vmat_focused,[dk*OBBDim,1]),...
 						   para.tdvp.expvTol, para.tdvp.expvM);
  			if para.tdvp.expvCustomTestAccuracyRMS
@@ -115,7 +112,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
-		[Vmat_focused, err] = expvCustom(- 1i*para.tdvp.deltaT./2,'HAA',...
+		[Vmat_focused, err] = expvCustom(- 1i*t,'HAA4',...
 					   reshape(Vmat_focused,[dk*OBBDim,1]),...
 					   Amat, [], para, op);
 	end
@@ -123,7 +120,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
     Vmat_focused = reshape(Vmat_focused,[dk,OBBDim]);
 %     clear('HAA');
-%% Introduce decay for last site!
+%% TODO: Introduce decay for last site!
 
 
     %% normalise Vmat and take focus to A
@@ -132,6 +129,12 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     % V_(n^,n~)
     % evolve center backward in time:
     % HAV_(n^',n~',n^,n~) = Vmat*_(n',n^')* HAA_(n',n~',n,n~) Vmat_(n,n^)
+	if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat = eye
+		% writes into op.h1jOBB, op.h2jOBB only! Since h1j, h2j should be
+		% bare for updateop()
+		op = H_Eff([]  , Vmat{sitej}, 'A' , op, para);
+% 	else                % no OBB, then OBBDim = dk
+	end
 	if para.tdvp.expvCustomNow == 0
 		%%
 		HAA = reshape(HAA,[dk,OBBDim,dk,OBBDim]);
@@ -142,16 +145,16 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		HAV = reshape(HAV, [n1*n2,n3*n4]);
 		if size(HAV,1) <= para.tdvp.maxExpMDim
 % 			V = expm( 1i.* para.tdvp.deltaT./2.*HAV) * reshape(V,[numel(V),1]);
-			[V,err] = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
+			[V,err] = expv(+ 1i*t,HAV,...
 					reshape(V,[numel(V),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 		else
 			if para.tdvp.expvCustomTestAccuracy
-				V1 = expvCustom(+ 1i*para.tdvp.deltaT./2,'HAV',...
+				V1 = expvCustom(+ 1i*t,'HAV',...
 					reshape(V,[numel(V),1]),...
 					Amat,Vmat{sitej},para,op);
 			end
-			[V,err] = expv(+ 1i*para.tdvp.deltaT./2,HAV,...
+			[V,err] = expv(+ 1i*t,HAV,...
 					reshape(V,[numel(V),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 			if para.tdvp.expvCustomTestAccuracyRMS
@@ -159,7 +162,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
-		[V,err] = expvCustom(+ 1i*para.tdvp.deltaT./2,'HAV',...
+		[V,err] = expvCustom(+ 1i*t,'HAV',...
 				reshape(V,[numel(V),1]),...
 				Amat,Vmat{sitej},para,op);
 	end
@@ -173,28 +176,22 @@ end
 
 %% Now: construct H(n)
 % according to Haegeman 2014
-% 1. Bring Hamiltonian terms into OBB if needed.
-
-if para.useVmat     % contract H-terms to OBB; also ok for spinsites! since Vmat = eye
-	op = h1h2toOBB(Vmat{sitej}, para, op);
-else                % no OBB, then OBBDim = dk
-%     h1j = op.h1j;
-%     h2j = op.h2j;
-end
+% Hamiltonian h1j, h2j already in OBB
 
 if para.tdvp.expvCustomNow == 0
 	if para.tdvp.expvCustomTestAccuracy
 		tempT = tic;
 	end
+
 % Construct Hn explicitly
 	Hn=0;       % Hn = kron(eye(OBBDim),kron(eye(BondDimRight),eye(BondDimLeft)))
 	% all terms:
 	Hn = Hn + kron(eye(OBBDim),kron(eye(BondDimRight),op.Hleft));
 	Hn = Hn + kron(eye(OBBDim),kron(op.Hright,eye(BondDimLeft)));
-	Hn = Hn + kron(op.h1j,kron(eye(BondDimRight),eye(BondDimLeft)));
+	Hn = Hn + kron(op.h1jOBB,kron(eye(BondDimRight),eye(BondDimLeft)));
 	for m=1:M
-		Hn = Hn + kron(op.h2j{m,2},kron(eye(BondDimRight),op.Opleft{m}));
-		Hn = Hn + kron(op.h2j{m,1},kron(op.Opright{m},eye(BondDimLeft)));
+		Hn = Hn + kron(op.h2jOBB{m,2},kron(eye(BondDimRight),op.Opleft{m}));
+		Hn = Hn + kron(op.h2jOBB{m,1},kron(op.Opright{m},eye(BondDimLeft)));
 	end
 	if para.tdvp.expvCustomTestAccuracy
 		t3 = toc(tempT);
@@ -204,11 +201,6 @@ end
 % A(t+dt) = exp(-i Hn dt)_(l',r',n',l,r,n) * A(t)_(l,r,n)
 % Last site special, see Haegeman 2014
 % TODO: change expm() with threshold
-if sitej ~= para.L
-    t = para.tdvp.deltaT./2;
-else
-    t = para.tdvp.deltaT;
-end
 
 if  para.tdvp.expvCustomNow == 0
 	if size(Hn,1) <= para.tdvp.maxExpMDim

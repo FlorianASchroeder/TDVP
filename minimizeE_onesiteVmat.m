@@ -6,31 +6,16 @@ function [B, E] = minimizeE_onesiteVmat(op, A, Blaststep,para)
 
 % Commented by Florian Schroeder 31/01/2014
 
-tol=para.eigs_tol;
-M = size(op.h2j, 1);
-[Dblast,dlast]=size(Blaststep);							% dk x d_opt
+tol = para.eigs_tol;
+M   = para.M;
+[Dblast,dlast]=size(Blaststep);						% dk x d_opt
 
-op.HlOPB = contracttensors(op.Hleft,2,2,A,3,1);						% left non-interacting
-op.HlOPB = contracttensors(conj(A),3,[1,2],op.HlOPB,3,[1,2]);
+[op] = H_Eff(A, []  , 'V' , op, para);				% multiply A into Hleft, Hright, Opleft, Opright
 
-op.HrOPB = contracttensors(A,3,2,op.Hright,2,2);					% right non-interacting
-op.HrOPB = contracttensors(conj(A),3,[1,2],op.HrOPB,3,[1,3]);
-
-op.OpleftOPB= cell(M,1);
-op.OprightOPB= cell(M,1);
-
-for m=1:M
-	op.OpleftOPB{m}= contracttensors(op.Opleft{m}, 2,2, A,3,1);		% left interacting
-	op.OpleftOPB{m}= contracttensors(conj(A),3,[1,2],op.OpleftOPB{m},3,[1,2]);
-
-	op.OprightOPB{m} = contracttensors(A,3,2,op.Opright{m},2,2);	% right interacting
-	op.OprightOPB{m} = contracttensors(conj(A),3,[1,2],op.OprightOPB{m},3,[1,3]);
-end
-
-
-d = size(op.HlOPB, 1); 							% = d_opt
+d = size(op.HleftA, 1);								% = d_opt
 if iscell(op.h1j)
-	Db = prod(cell2mat(cellfun(@(x) size(x,1),op.h1j, 'UniformOutput',false)));		% = dk for multi-chain Hamiltonians
+% 	Db = prod(cell2mat(cellfun(@(x) size(x,1),op.h1j, 'UniformOutput',false)));		% = dk for multi-chain Hamiltonians
+	Db = prod(para.dk(:,para.sitej));				% = dk for Multi-Chain
 else
 	Db = size(op.h2j{1,1}, 1);                      % = dk
 end
@@ -57,11 +42,11 @@ if para.parity~='n'
     B(1:Db/2,1:d/2)=reshape(Bvec(1:Db*d/4),Db/2,d/2);
     B(Db/2+1:end,d/2+1:end)=reshape(Bvec(Db*d/4+1:end),Db/2,d/2);
 else
-    opts.v0=reshape(Blaststep,Db*d,1);
-    [Bvec, E]=eigs(@(x) HmultVmat(x, op, Db,d, M,para.parity), Db*d,1,sigma,opts);
-    B = reshape(Bvec, [Db, d]);
+    opts.v0   = reshape(Blaststep,numel(Blaststep),1);			% = Db * d
+    [Bvec, E] = eigs(@(x) HmultVmat(x, op, Db,d, M,para.parity), Db*d,1,sigma,opts);
+    B         = reshape(Bvec, [Db, d]);
 end
-fprintf('\n Vmat E: %g',E);
+fprintf('\n Vmat E: %g',E);				% debug
 
 
 end

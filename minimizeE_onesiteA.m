@@ -1,14 +1,12 @@
 function [A, E] = minimizeE_onesiteA(op, B, Alaststep,para)
 % B can be Vmat{sitej}; for spinsite: = eye()
 
-
 % Commented by Florian Schroeder 31/01/2014
 % Modified:
-%	- FS 01/12/2014: replaced OBB transformation by matrix products.
-%					 10x faster! A' = conjugate transpose!
+%	- FS 05/08/2015:	- Moved OBB trafo of h1j, h2j into H_Eff
 
 % ******************** one-site optimization ***********************
-tol=para.eigs_tol;
+tol = para.eigs_tol;
 DAl = size(op.Hleft, 1);					% Bond dimension Dleft of A to left
 DAr = size(op.Hright, 1);					% Bond dimension Dright of A to right
 d = size(B, 2);								% = d_opt of Vmat
@@ -18,7 +16,7 @@ if para.parity~='n'
 end
 
 % apply OBB to h1 & h2 terms
-op = h1h2toOBB(B,para,op);
+op = H_Eff([]  , B, 'A' , op, para);
 
 % projection on orthogonal subspace
 %if ~isempty(P), Heff = P' * Heff * P; end
@@ -38,15 +36,15 @@ end
 assert(DAl*DAr*d == ll*rr*dd)
 
 if para.parity=='n'
-    opts.v0=reshape(Alaststep,ll*rr*d,1);						% starting guess, old MPS A-matrix
-    [Avec, E]=eigs(@(x) HmultA(x, op, DAl, DAr, d, para.M,para.parity),DAl*DAr*d,1,sigma,opts);
-    A = reshape(Avec, [DAl, DAr, d]);
+    opts.v0   = reshape(Alaststep,numel(Alaststep),1);						% starting guess, old MPS A-matrix
+    [Avec, E] = eigs(@(x) HmultA(x, op, DAl, DAr, d, para.M,para.parity),DAl*DAr*d,1,sigma,opts);
+    A         = reshape(Avec, [DAl, DAr, d]);
 else
     opts.v0=nzAlast;
     [Avec, E]=eigs(@(x) HmultA(x, op, DAl, DAr, d, para.M,para.parity,para.Anzi{para.sitej}),DAl*DAr*d/2,1,sigma,opts);
     A = zeros(DAl, DAr, d);
     A(para.Anzi{para.sitej})=Avec;
 end
-fprintf('\n Amat E: %g',E);
+fprintf('\n Amat E: %g',E);			% Debug
 
 end
