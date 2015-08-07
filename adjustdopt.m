@@ -60,10 +60,11 @@ for s = 2:min(para.trustsite(end)+0,para.L) 			% Only modify boson sites
                     difference = 0;
                 end                     % else: discarddims would remove too much by amount = diff;
                 dispif('remove dims in d_opt',para.logging)
-                para.d_opt(s)=para.d_opt(s)-length(discarddims-difference);
+%                 para.d_opt(s)=para.d_opt(s)-length(discarddims-difference);			% -length(discarddims)+difference
                 Vmat{s}(:,discarddims(difference+1:end))=[];                          % only cut the end
                 mps{s}(:,:,discarddims(difference+1:end))=[];
                 results.Vmat_sv{s}(discarddims(difference+1:end))=[];
+				para.d_opt(s) = size(Vmat{s},2);
     %                else                                                       % Don't need this case anymore.
     %                    dispif('Done nothing',para.logging)
     %                end
@@ -81,20 +82,20 @@ for s = 2:min(para.trustsite(end)+0,para.L) 			% Only modify boson sites
             dimincratio=log10(results.Vmat_sv{s}(end)/para.svmaxtol)/2; 	%Imperial relation
             if dimincratio > 0
                 adddim=ceil(para.d_opt(s)*dimincratio); 									% increase dim (only if addim > 0)
-                if para.d_opt(s)+adddim >= para.dk(s)
-                    exceeded = para.d_opt(s)+adddim - para.dk(s) +1;				% By how much dk is too small. +1 as d_opt != dk
+                if para.d_opt(s)+adddim >= prod(para.dk(:,s))
+                    exceeded = para.d_opt(s)+adddim - prod(para.dk(:,s)) +1;				% By how much dk is too small. +1 as d_opt != dk
                     adddim = adddim - exceeded;												% Only increase to: d_opt = dk - 1
                     if exceeded > para.increasedk
                         para.increasedk = exceeded;											% log highest needed addition
                     end
-                    dispif(['Increase dopt adddim(',num2str(s),') = ',num2str(adddim),'; More needed: ',num2str(exceeded)],para.logging)
+                    dispif(sprintf('Increase dopt adddim(%d) = %d;  More needed: %d', s, adddim, exceeded),para.logging)
                 else
-                    dispif(['Increase dopt adddim(',num2str(s),') = ',num2str(adddim)],para.logging)
+                    dispif(sprintf('Increase dopt adddim(%d) = %d', s, adddim),para.logging)
                 end
-                if results.Vmat_sv{s}(end)>para.svmaxtol && para.d_opt(s)+adddim<para.dk(s)  % Expand d_opt; this if could be removed.
+                if results.Vmat_sv{s}(end)>para.svmaxtol && para.d_opt(s)+adddim<prod(para.dk(:,s))  % Expand d_opt; this if could be removed.
                     dispif(['Expanding site ',num2str(s)],para.logging)
                     para.d_opt(s)=para.d_opt(s)+adddim;
-                    addmat=zeros(para.dk(s),adddim);
+                    addmat=zeros(prod(para.dk(:,s)),adddim);
                     Vmat{s}=cat(2,Vmat{s},addmat);
                     [a,b,c]=size(mps{s});
                     addmat=zeros(a,b,adddim);

@@ -38,7 +38,7 @@ switch para.sweepto
 					reshape(Cn,[numel(Cn),1]),...
 					mps{sitej},Vmat{sitej},para,op);
 			else
-				if para.tdvp.expvCustomTestAccuracy								% debug
+				if para.tdvp.expvCustomTestAccuracy				% debug
 					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 						reshape(Cn,[numel(Cn),1]),...
 						mps{sitej},Vmat{sitej},para,op);
@@ -92,9 +92,11 @@ switch para.sweepto
 				err = 0;
 			else
 				if para.tdvp.expvCustomTestAccuracy								% debug
+					para.sitej = para.sitej+1;								% needed for multi-chain reshape
 					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 						reshape(Cn,[numel(Cn),1]),...
 						mps{sitej+1},Vmat{sitej+1},para,op);
+					para.sitej = para.sitej-1;
 				end
 				[Cn,err] = expv(1i*para.tdvp.deltaT./2, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
@@ -104,9 +106,11 @@ switch para.sweepto
 				end
 			end
 		else
+			para.sitej = para.sitej+1;								% needed for multi-chain reshape
 			[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
 				reshape(Cn,[numel(Cn),1]),...
 				mps{sitej+1},Vmat{sitej+1},para,op);
+			para.sitej = para.sitej-1;
 		end
 % 		results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);

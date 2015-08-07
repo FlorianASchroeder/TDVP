@@ -70,7 +70,11 @@ if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')|| st
 		else
 			order = para.dk(j):-1:(para.dk(j)-para.d_opt(j)+1);
 		end
-		Vmat{j}	  = sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));
+		if para.nChains == 1
+			Vmat{j}	  = sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));
+		else
+			error('VMPS:minimizeE:artificial','not yet done for Multi-Chain Vmat');
+		end
 	end
 	[op] = initstorage(mps, Vmat, op,para);
 	para.trustsite = para.L;		% needed for TDVP
@@ -95,16 +99,17 @@ while loop<=para.loopmax;
     results.flowdiag{loop} = [];
     % ********* cycle 1: j ? j + 1 (from 1 to L - 1)*********
     for j = 1:L
-        fprintf('%g-', j); para.sweepto = 'r';
+        fprintf('%g-', j); para.sweepto = 'r'; para.sitej = j;
         op=gen_sitej_op(op,para,j,results.leftge);  					% take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
-        [Amat,Vmat,results,para,op]=optimizesite(mps,Vmat,op,para,results,j);
+        [Amat,Vmat,results,para,op]   = optimizesite(mps,Vmat,op,para,results,j);
         if j~=L
             [mps{j}, U, para,results] = prepare_onesite(Amat,para,j,results);
             mps{j+1} = contracttensors(U,2,2,mps{j+1},3,1);
         else
             mps{j}=Amat;
-        end
-        op=updateop(op,mps,Vmat,j,para);                                % calls updateHleft, updateCleft to update for next sweep
+		end
+		% optimisation finished -> update effective Hamiltonian operators
+        op = updateop(op,mps,Vmat,j,para);                                % calls updateHleft, updateCleft to update for next sweep
         % sweep finished
 
 		% get Energy eigenvalues for analysis
@@ -194,7 +199,12 @@ while loop<=para.loopmax;
     %Save only every 10 sweeps to save time. (compared to save every step)
     if mod(loop,10)==0
     save(para.filename,'para','Vmat','mps','results','op');
-    end
+	end
+
+	fprintf('\nOccupation:\n');
+	fprintf('%s',mat2str(getObservable({'occupation'},mps,Vmat,para),4));
+	fprintf('\n');
+
     loop=loop+1;
 end
 end

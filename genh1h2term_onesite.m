@@ -311,6 +311,7 @@ switch para.model
 		%		'SpinBoson2folded'
 		% Spin is always in chain 1 for backward compatibility
 		%
+		% working (23/07/15)
 		% Created 15/07/15 by F.S.
         switch s
             case 1
@@ -323,14 +324,14 @@ switch para.model
                 op.h2term{4,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{4,2,1,1} = zm_spin;
             case para.L
                 [bpx,bmx,nx] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
-				[bpz,bmz,nz] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+				[bpz,bmz,nz] = bosonop(para.dk(2,s),para.shift(2,s),para.parity);
                 if para.parity ~= 'n'
 					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
                 end
                 zmx = sparse(size(bpx,1),size(bpx,1));
 				zmz = sparse(size(bpz,1),size(bpz,1));
-                op.h1term{s,1}     = para.chain{1}.epsilon(s-1).*nx;
-				op.h1term{s,2}     = para.chain{2}.epsilon(s-1).*nz;
+                op.h1term{1,s}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{2,s}     = para.chain{2}.epsilon(s-1).*nz;
                 op.h2term{1,1,s,1} = zmx; op.h2term{1,2,s,1} = bmx;
                 op.h2term{2,1,s,1} = zmx; op.h2term{2,2,s,1} = bpx;
                 op.h2term{3,1,s,2} = zmz; op.h2term{3,2,s,2} = bmz;
@@ -341,8 +342,8 @@ switch para.model
 				if para.parity ~= 'n'
 					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
 				end
-                op.h1term{s,1}     = para.chain{1}.epsilon(s-1).*nx;
-				op.h1term{s,2}     = para.chain{2}.epsilon(s-1).*nz;
+                op.h1term{1,s}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{2,s}     = para.chain{2}.epsilon(s-1).*nz;
                 op.h2term{1,1,s,1} = para.chain{1}.t(s).*bpx; op.h2term{1,2,s,1} = bmx;
                 op.h2term{2,1,s,1} = para.chain{1}.t(s).*bmx; op.h2term{2,2,s,1} = bpx;
                 op.h2term{3,1,s,2} = para.chain{2}.t(s).*bpz; op.h2term{3,2,s,2} = bmz;
@@ -350,6 +351,63 @@ switch para.model
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+	case 'SpinBoson3C'
+        %%%%%%%%%%%%%%%%%%% Spin-Boson Model - 3-Chain %%%%%%%%%%%%%%%%%%%%%%
+		% Not linear, but in multi-chain configuration!
+		% Benchmark for multi-chain method! Should be similar to
+		%		'SpinBoson2C'
+		% Spin is always in chain 1 for backward compatibility
+		%
+		% working (23/07/15)
+		% Created 17/07/15 by F.S.
+        switch s
+            case 1
+				[sigmaX,sigmaY,sigmaZ]  = spinop(para.spinbase);
+                zm_spin			   = zeros(2);
+                op.h1term{1,1}     = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
+                op.h2term{1,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{1,2,1,1} = zm_spin;	% X chain
+                op.h2term{2,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{2,2,1,1} = zm_spin;
+                op.h2term{3,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{3,2,1,1} = zm_spin;	% Z chain
+                op.h2term{4,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{4,2,1,1} = zm_spin;
+				op.h2term{5,1,1,1} = para.chain{3}.t(1).*sigmaX./2; op.h2term{5,2,1,1} = zm_spin;	% Z chain
+                op.h2term{6,1,1,1} = para.chain{3}.t(1).*sigmaX./2; op.h2term{6,2,1,1} = zm_spin;
+            case para.L
+                [bpx,bmx,nx] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+				[bpz,bmz,nz] = bosonop(para.dk(2,s),para.shift(2,s),para.parity);
+				[bpy,bmy,ny] = bosonop(para.dk(3,s),para.shift(3,s),para.parity);
+                if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+                end
+                zmx = sparse(size(bpx,1),size(bpx,1));
+				zmz = sparse(size(bpz,1),size(bpz,1));
+				zmy = sparse(size(bpy,1),size(bpy,1));
+                op.h1term{1,s}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{2,s}     = para.chain{2}.epsilon(s-1).*nz;
+				op.h1term{3,s}     = para.chain{3}.epsilon(s-1).*ny;
+                op.h2term{1,1,s,1} = zmx; op.h2term{1,2,s,1} = bmx;
+                op.h2term{2,1,s,1} = zmx; op.h2term{2,2,s,1} = bpx;
+                op.h2term{3,1,s,2} = zmz; op.h2term{3,2,s,2} = bmz;
+                op.h2term{4,1,s,2} = zmz; op.h2term{4,2,s,2} = bpz;
+				op.h2term{5,1,s,3} = zmy; op.h2term{5,2,s,3} = bmy;
+                op.h2term{6,1,s,3} = zmy; op.h2term{6,2,s,3} = bpy;
+            otherwise
+                [bpx,bmx,nx] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+				[bpz,bmz,nz] = bosonop(para.dk(2,s),para.shift(2,s),para.parity);
+				[bpy,bmy,ny] = bosonop(para.dk(3,s),para.shift(3,s),para.parity);
+				if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+				end
+                op.h1term{1,s}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{2,s}     = para.chain{2}.epsilon(s-1).*nz;
+				op.h1term{3,s}     = para.chain{3}.epsilon(s-1).*ny;
+                op.h2term{1,1,s,1} = para.chain{1}.t(s).*bpx; op.h2term{1,2,s,1} = bmx;
+                op.h2term{2,1,s,1} = para.chain{1}.t(s).*bmx; op.h2term{2,2,s,1} = bpx;
+                op.h2term{3,1,s,2} = para.chain{2}.t(s).*bpz; op.h2term{3,2,s,2} = bmz;
+                op.h2term{4,1,s,2} = para.chain{2}.t(s).*bmz; op.h2term{4,2,s,2} = bpz;
+				op.h2term{5,1,s,3} = para.chain{3}.t(s).*bmy; op.h2term{5,2,s,3} = bmy;
+                op.h2term{6,1,s,3} = para.chain{3}.t(s).*bmy; op.h2term{6,2,s,3} = bpy;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 end

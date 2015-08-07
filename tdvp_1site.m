@@ -182,7 +182,7 @@ for timeslice = para.tdvp.slices
     fprintf('t = %g\n', para.tdvp.t(timeslice+1));
     % sweep l->r and time evolve each site
     for sitej = 1:para.L
-        fprintf('%g', sitej);
+        fprintf('%g', sitej); para.sitej = sitej;
         %% Update on-site Operators
         op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
 
@@ -208,9 +208,9 @@ for timeslice = para.tdvp.slices
             [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
             clear('Hn','Cn');
 
-            if para.useVmat
-                truncateOBB(sitej);
-            end
+			if para.useVmat
+                truncateOBB(sitej);			% speedup by truncating within SVD from V to A ?
+			end
 
             %% update Left Hamiltonian operators
             op = updateop(op,mps,Vmat,sitej,para);
@@ -235,7 +235,7 @@ for timeslice = para.tdvp.slices
     para.sweepto = 'l';
     % now Hn = H(L)_(l'*r'*n',l*r*n)
     for sitej = para.L-1:-1:1
-        fprintf('-');
+        fprintf('-'); para.sitej = sitej;
 
         %% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
         % normalisation needed for updateop()!
@@ -257,7 +257,9 @@ for timeslice = para.tdvp.slices
 
         %% update right Hamiltonian operators
         % prepare operators in (sitej+1) for time-evolution on sitej
+		para.sitej = para.sitej+1;					% needed for multi-chain reshape
         op = updateop(op,mps,Vmat,sitej+1,para);
+		para.sitej = para.sitej-1;
 
         %% Get on-site Operators and dimensions
         op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
@@ -376,7 +378,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 	function initresultsTDVP()
 		% save Dimension Log only as difference! reconstruct with cumsum(A)
 		fprintf('Initialize results.tdvp\n');
-		n = para.tdvp.tmax/para.tdvp.extractObsInterval +1;
+		n = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
 		if para.tdvp.logSV
 			results.tdvp.Vmat_sv{n,para.L}	= [];
 			results.tdvp.Vmat_sv(1,:)		= results.Vmat_sv;

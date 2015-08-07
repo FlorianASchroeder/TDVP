@@ -6,11 +6,15 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 %		Appends the slices in tmps to the end of tresults.
 %			e.g.: tresults ranges in t = [0:3]; tmps has slices t=[4:6]
 %				  then returned tresults will have t = [0:6]
+%
+% Modified:
+%	FS 23/07/15: - changed nx to n for Multi-Chain compatibility!
+%	FS 24/07/15: - added switch to allow observable selection (especially current)
 
 	if isfield(para.tdvp,'extractObsInterval')
 		% only works with equidistant steps and single tmps slices
 		if mod(para.tdvp.tmax, para.tdvp.extractObsInterval) == 0 && (para.tdvp.extractObsInterval >= para.tdvp.deltaT)
-			totalN = para.tdvp.tmax/para.tdvp.extractObsInterval +1;
+			totalN = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
 		else
 			error('Need to define extractObsInterval so that mod(tmax,interval)=0!');
 		end
@@ -20,19 +24,20 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 	if nargin > 3
 		% continue tresults
 		tresults = varargin{1};
-		assert(isfield(tresults,'nx'),'4th argument has to be tresults');
+		assert(isfield(tresults,'t'),'4th argument has to be tresults');
 		if ~isfield(tresults,'lastIdx')			% for compatibility with old files
-			tresults.lastIdx = size(tresults.nx,1);
+			tresults.lastIdx = size(tresults.n,1);
 		end
-		missingN = totalN - size(tresults.nx,1);
+		missingN = totalN - size(tresults.n,1);
 		if missingN > 0
-			tresults.nx(totalN,end) = 0;
+			% pre-allocate memory
+			tresults.n(totalN,end,max(para.nChains,para.nEnvironments)) = 0;
 			tresults.t(1,totalN)	= 0;
 		end
 	else
 		tresults.lastIdx = 0; missingN = 0;
 		fprintf('Calculate Observables:\n');
-	    tresults.nx = zeros(totalN,para.L);
+		tresults.n  = zeros(totalN,para.L,max(para.nChains,para.nEnvironments));
 		tresults.t  = zeros(1,totalN);
 		para.timeslice = 0;						% needed for extractObsInterval first run
 	end
@@ -51,10 +56,16 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 
         %% General Observables
         % 1. Chain Occupation
-        tresults.nx(i,:) = getObservable({'occupation'},tmps(j,:),tVmat(j,:),para);
-		tresults.t(i)    = para.tdvp.t(1,para.timeslice+1);
+        tresults.n(i,:,:) = getObservable({'occupation'},tmps(j,:),tVmat(j,:),para);
+		tresults.t(i)     = para.tdvp.t(1,para.timeslice+1);
 
-		% 2. Star Occupation
+		% 2. Boson chain observables
+		if strfind(para.tdvp.Observables,'.j.')
+			%% Calculate current along entire chain
+			tresults.j(i,:) = getObservable({'current'},tmps(j,:),tVmat(j,:),para);
+		end
+
+		% 3. Star Occupation
 		if isfield(para.tdvp,'extractStarInterval')
 			if mod(para.tdvp.t(1,para.timeslice+1),para.tdvp.extractStarInterval) == 0
 				pos = round(para.tdvp.t(1,para.timeslice+1)/para.tdvp.extractStarInterval) +1;
@@ -78,7 +89,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			end
 		end
 
-		if strcmp(para.model, 'SpinBoson')
+		if ~isempty(strfind(para.model, 'SpinBoson'))
             %% Observables for SBM
             % 1. Spin Observables
 			if ~isfield(tresults,'spin')

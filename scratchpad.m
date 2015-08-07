@@ -425,9 +425,9 @@ legend('Bloch length','Visibility');
 
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
-mode =0;		% 0: lin, 1: log
+mode = 1;		% 0: lin, 1: log
 f=figure(3); clf; f.Name = 'Chain Occupation';
-% tresults.nx = tresults.n(:,:,1);
+tresults.nx = tresults.n(:,:,1);
 n = find(tresults.nx(:,2),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
@@ -1028,13 +1028,14 @@ end
 %% TDVP (3.14): Plot Current <j> CHAIN
 mode = 0;		% 0: lin, 1: log
 f=figure(14); clf; f.Name = 'Chain Current';
+tresults = res{9,1}.tresults;
 n = find(tresults.j(:,2),1,'last');
 t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 if mode
-	surf(1:(para.L-1),t(1:n),log10(abs(tresults.j(1:n,:))));
+	surf(1:size(tresults.j,2),t(1:n),log10(abs(tresults.j(1:n,:))));
 	zlabel('$\log_{10}\left<j_k\right>$');
 else
-	surf(1:(para.L-1),t(1:n),-real(tresults.j(1:n,:)));
+	surf(1:size(tresults.j,2),t(1:n),-real(tresults.j(1:n,:)));
 	zlabel('$\left<j_k\right>$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';

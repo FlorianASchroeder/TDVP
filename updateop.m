@@ -14,7 +14,7 @@ switch para.sweepto
     case 'r'
         % still use scaled op.Hleft to accomodate energy minimisation in
         % ground state search
-		op.Hlrstorage{sitej + 1}      = updateHleft(op.Hleft, op.h1j, op.Opleft(:), mps{sitej}, Vmat{sitej}, op.h2j(:,2), mps{sitej}, Vmat{sitej}, M);
+        op.Hlrstorage{sitej + 1}      = updateHleft(op.Hleft, op.h1j, op.Opleft(:), mps{sitej}, Vmat{sitej}, op.h2j(:,2), mps{sitej}, Vmat{sitej}, M);
 		for m = 1:M
 			op.Opstorage{m,1,sitej+1} = updateCleft([],mps{sitej},Vmat{sitej},op.h2term{m,1,sitej},mps{sitej},Vmat{sitej});
 		end
