@@ -6,7 +6,8 @@ function [bp,bm,n]=bosonop(dim,shift,parity)
 %       FS 25/10/2014: replaced slow gallery by faster direct sparse
 
 % bp = gallery('tridiag',zeros(1,dim-1),zeros(1,dim),sqrt(dim-1:-1:1));
-bp = sparse(1:dim-1, 2:dim, sqrt(dim-1:-1:1), dim, dim);
+% bp = sparse(1:dim-1, 2:dim, sqrt(dim-1:-1:1), dim, dim);		% n-1:-1:1 inverted
+bp = sparse(2:dim, 1:dim-1, sqrt(1:dim-1), dim, dim);			% 1:n-1
 
 if parity~='n'
     bp=parityorderOP(bp);

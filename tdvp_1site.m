@@ -223,6 +223,9 @@ for timeslice = para.tdvp.slices
 
         end
     end
+		fprintf('\n');							%Debug!
+  		fprintf('%2g-',para.d_optnew);
+		fprintf('\n');
 
     %% Log vNE etc ?
     % from prepare_onesite() and prepare_onesiteVmat():
@@ -331,6 +334,8 @@ for timeslice = para.tdvp.slices
 	if para.tdvp.expandOBB
 		fprintf('para.d_opt:\n');
 		fprintf('%2g-',para.d_opt);
+		fprintf('\n');
+		fprintf('%2g-',para.d_optnew);				% debug
 		fprintf('\n');
 	end
 

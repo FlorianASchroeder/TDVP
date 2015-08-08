@@ -27,7 +27,7 @@ load(fileName);
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
 %% Define TDVP parameters
-para.tdvp.tmax = 500;
+para.tdvp.tmax = 0.5;
 para.tdvp.deltaT = 0.1;                % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
@@ -41,7 +41,7 @@ para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1
 para.tdvp.extractObsInterval  = 0.1;		% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
 para.tdvp.Observables = '.n.j.s.sn.sx.';% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.maxExpMDim = 00;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
+para.tdvp.maxExpMDim = 0;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 0;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
@@ -73,7 +73,7 @@ end
 
 tresults = [];						% empty variable initialization
 %% Format Filename
-para.tdvp.version = 'v55';
+para.tdvp.version = 'v57';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!

@@ -71,7 +71,8 @@ if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')|| st
 			order = para.dk(j):-1:(para.dk(j)-para.d_opt(j)+1);
 		end
 		if para.nChains == 1
-			Vmat{j}	  = sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));
+% 			Vmat{j}	  = sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));	% inverted order
+			Vmat{j}	  = sparse(1:para.d_opt(j),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));			% 1:n order
 		else
 			error('VMPS:minimizeE:artificial','not yet done for Multi-Chain Vmat');
 		end

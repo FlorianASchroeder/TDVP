@@ -426,7 +426,7 @@ legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 1;		% 0: lin, 1: log
-f=figure(3); clf; f.Name = 'Chain Occupation';
+f=figure(4); clf; f.Name = 'Chain Occupation';
 % tresults = res{6}.tresults;
 tresults.nx = tresults.n(:,:,1);
 n = find(tresults.nx(:,2),1,'last');
@@ -1057,8 +1057,8 @@ end
 %% TDVP (4) Bond Dimension Plots
 %% TDVP (4.1): Plot d_opt
 figure(4); clf;
-n = size(results.tdvp.d_opt,1);
-surf(1:para.L,para.tdvp.t(1:n),results.tdvp.d_opt)
+n = find(results.tdvp.d_opt(:,2),1,'last');
+surf(1:para.L,para.tdvp.t(1:n),cumsum(results.tdvp.d_opt(1:n,:)))
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$d_{opt}$');

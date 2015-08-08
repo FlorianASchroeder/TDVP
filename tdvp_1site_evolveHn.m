@@ -41,6 +41,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
         Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, expandBy));
         [~, ~, OBBDim]  = size(mps{sitej});
         para.d_opt(sitej) = OBBDim;
+		para.d_optnew(sitej) = OBBDim;
 %     else
 %         Anew = mps{sitej};
 %         Vmatnew = Vmat{sitej};
