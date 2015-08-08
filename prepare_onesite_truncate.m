@@ -20,7 +20,7 @@ switch para.sweepto
             A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
             [B, S, U] = svd2(A);             % Anew with orthonormal columns
             sv = diag(S);
-            if para.tdvp.truncateExpandBonds && sitej ~= para.L         % only used in TDVP for now
+            if para.tdvp.truncateExpandBonds && sitej ~= para.L         % only used in TDVP. For VMPS add: && sitej <= para.trustsite(end)
                 if sv(end) > para.svmaxtol
                     %% Expand A dims
                     dimincratio = log10(sv(end)/para.svmaxtol)/2;
@@ -114,7 +114,7 @@ end
         if length(keepdims) < para.Dmin                     % keep at least Dmin bonds
             keepdims = 1:para.Dmin;
         end
-        if length(keepdims) < length(sv) && sitej < para.trustsite(end)
+        if length(keepdims) < length(sv)				% && sitej < para.trustsite(end)
             U = U(:,keepdims);                          % keep columns
             S = S(keepdims,keepdims);
             V = V(keepdims,:);                          % keep rows

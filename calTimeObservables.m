@@ -14,7 +14,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 	if isfield(para.tdvp,'extractObsInterval')
 		% only works with equidistant steps and single tmps slices
 		if mod(para.tdvp.tmax, para.tdvp.extractObsInterval) == 0 && (para.tdvp.extractObsInterval >= para.tdvp.deltaT)
-			totalN = para.tdvp.tmax/para.tdvp.extractObsInterval +1;
+			totalN = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
 		else
 			error('Need to define extractObsInterval so that mod(tmax,interval)=0!');
 		end

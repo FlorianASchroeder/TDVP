@@ -178,7 +178,7 @@ end
 
 %% Now: construct H(n)
 % according to Haegeman 2014
-% Hamiltonian h1j, h2j already in OBB
+% For Hamiltonian use h1jOBB, h2jOBB
 
 if para.tdvp.expvCustomNow == 0
 	if para.tdvp.expvCustomTestAccuracy

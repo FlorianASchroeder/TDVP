@@ -378,7 +378,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 	function initresultsTDVP()
 		% save Dimension Log only as difference! reconstruct with cumsum(A)
 		fprintf('Initialize results.tdvp\n');
-		n = para.tdvp.tmax/para.tdvp.extractObsInterval +1;
+		n = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
 		if para.tdvp.logSV
 			results.tdvp.Vmat_sv{n,para.L}	= [];
 			results.tdvp.Vmat_sv(1,:)		= results.Vmat_sv;
