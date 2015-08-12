@@ -24,6 +24,11 @@ for i = 1:N-1
     para=gennonzeroindex(mps,Vmat,para,i);                          % only if parity not 'n'
     para=gennonzeroindex(mps,Vmat,para,i+1);                        % only if parity not 'n'
 end
+i = N;
+if para.useVmat==1
+	[Vmat{i},V] = prepare_onesiteVmat(Vmat{i},para);			% Vmat = U * S * V' ; Vmat := U; V:= S * V'
+	mps{i} = contracttensors(mps{i},3,3,V,2,2);                 % = Ai_{l,r,n} * V'_{p,n}; This contraction is defined differently to the paper.
+end
 
 para.sweepto = 'l';
 for i = N:-1:2

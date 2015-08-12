@@ -77,6 +77,7 @@ if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')|| st
 			error('VMPS:minimizeE:artificial','not yet done for Multi-Chain Vmat');
 		end
 	end
+	[mps,Vmat,para] = prepare(mps,Vmat,para);
 	[op] = initstorage(mps, Vmat, op,para);
 	para.trustsite = para.L;		% needed for TDVP
 	return;

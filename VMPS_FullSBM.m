@@ -34,14 +34,14 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson';
+para.model='SpinBoson2C';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments   = 1;
+para.nEnvironments   = 2;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		 = 1;
+para.nChains		 = 2;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
@@ -81,12 +81,11 @@ if alpha == 0 && para.chain{1}.L == 0
 	para.chain{1}.L = 10;						% otherwise encounter error
 end
 
-%% chain 2:
-% para.chain{2}					= para.chain{1};		% simple copy
+%% chain 2 & more:
+para.chain{2}					= para.chain{1};		% simple copy
 % para.chain{2}.mapping			= 'OrthogonalPolynomials';
-% para.chain{2}.spectralDensity	= 'Leggett_Hard';
+% para.chain{3}					= para.chain{2};
 
-% para.chain{3} = para.chain{2};
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
 %% Parameters
 for k = 1:para.nEnvironments
@@ -147,7 +146,7 @@ end
 
 %% Starting MPS Dimensions
 D = 5;
-dk = 30;
+dk = 20;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -388,7 +387,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v57';
+para.version = 'v58';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
@@ -416,7 +415,7 @@ else
 end
 
 %% Start Calculation
-[op,para]=genh1h2term(para);
+[op,para]					= genh1h2term(para);
 [mps, Vmat,para,results,op] = minimizeE(op,para);
 
 if ~isempty(strfind(para.model,'SpinBoson'))

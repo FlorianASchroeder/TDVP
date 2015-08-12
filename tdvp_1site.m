@@ -262,7 +262,7 @@ for timeslice = para.tdvp.slices
 
 		if para.useVmat
             truncateOBB(sitej+1);
-        end
+		end
 
         %% Get on-site Operators and dimensions
         op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???

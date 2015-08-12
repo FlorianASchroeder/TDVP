@@ -1,4 +1,4 @@
-function T = tensShape(T,select,i,d)
+function [T, dOut] = tensShape(T,select,i,d)
 switch lower(select)
 	case 'unfold'
 		T = tensUnfold(T,i,d);
@@ -10,11 +10,12 @@ end
 	function T = tensUnfold(T,i,d)
 	%% T = tensUnfold(T,i)
 	%	unfolds tensor by circular permutation
-% 		d = size(T);
+	% dOut gives size(T) after permutation.
 		if i ~= 1
 			r = length(d);
 			T = permute(T,[i:r,1:i-1]);					% permutes only i-1 times
 		end
+		dOut = size(T);
 		T = reshape(T,[d(i),prod(d)/d(i)]);
 	end
 

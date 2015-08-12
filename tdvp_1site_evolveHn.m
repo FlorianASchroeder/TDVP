@@ -36,7 +36,8 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     if (dk ~= OBBDim) && para.tdvp.expandOBB
         % next line: argument ,BondDimLeft*BondDimRight-OBBDim in min() is
         % wrong I think. can be removed, but has to be checked again!
-		expandBy = min([floor(OBBDim*0.5),para.tdvp.maxOBBDim-OBBDim,BondDimLeft*BondDimRight-OBBDim]);
+		expandBy = min([floor(OBBDim*0.2),para.tdvp.maxOBBDim-OBBDim,BondDimLeft*BondDimRight-OBBDim]);
+		if expandBy == 0, expandBy = 1; end
         mps{sitej} = cat(3,mps{sitej},zeros(BondDimLeft, BondDimRight, expandBy));
         Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, expandBy));
         [~, ~, OBBDim]  = size(mps{sitej});
@@ -52,7 +53,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     [BondDimLeft, BondDimRight, OBBDim]  = size(Amat);
 %	Vmat_focused = Vmat{sitej} * transpose(V);							% set focus on Vmat: V_(n,n~)
 	Vmat_focused = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);
-%	clear('V');
+
     % Amat = MPS{sitej} left normalised;
 
 	%% if HAA or any other operators have size < 1GB, construct them explicitly.
@@ -129,8 +130,13 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 
 
     %% normalise Vmat and take focus to A
-    [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);  % TODO: enable
+    [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);
+	% remove empty SV:
+	keep = results.Vmat_sv{sitej} ~= 0;
+	results.Vmat_sv{sitej} = results.Vmat_sv{sitej}(keep);
+	Vmat{sitej} = Vmat{sitej}(:,keep); V = V(keep, :);
 	[n1, n2] = size(V);
+	OBBDimNew = n1;
 	% put h1j, h2j into OBB. writes into op.h1jOBB, op.h2jOBB only! Since h1j, h2j should be
 	op = H_Eff([]  , Vmat{sitej}, 'A' , op, para);
 
@@ -172,8 +178,10 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 % 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
     V = reshape(V,[n1,n2]);
-    mps{sitej} = contracttensors(Amat, 3, 3, V, 2, 2);     % TODO: enable later
+    mps{sitej} = contracttensors(Amat, 3, 3, V, 2, 2);
     clear('Amat','Vmat_focused','V');
+	OBBDim = OBBDimNew;
+	para.d_opt(sitej) = OBBDim;
 
 end
 

@@ -426,9 +426,9 @@ legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 1;		% 0: lin, 1: log
-f=figure(4); clf; f.Name = 'Chain Occupation';
+f=figure(3); clf; f.Name = 'Chain Occupation';
 % tresults = res{6}.tresults;
-tresults.nx = tresults.n(:,:,1);
+tresults.nx = tresults.n(:,:,2);
 n = find(tresults.nx(:,2),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
@@ -2681,7 +2681,7 @@ for fignum = 1:size(defPlot,1)
 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 % 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 	set(gca,'color','none');
-	if fignum == 2
+	if fignum ~= 3
 		ax.ColorOrderIndex = 1;
 		ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx),'.black'), res(defPlot{3,2},1), 'UniformOutput', false);
 	end
@@ -2689,7 +2689,11 @@ end
 
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
-
+%%
+figure(fignum+1);clf;hold all;
+for i = 1:6
+	plot(res{1}.tresults.t,res{0+i}.tresults.spin.sz - res{6+i}.tresults.spin.sz)
+end
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all
@@ -3227,5 +3231,5 @@ Vmat{j} = reshape(Vmat{j},[para.dk(:,j)',para.d_opt(j)]);
 para.d_opt(3,:) = para.d_opt(1,:);
 para.d_opt(1:2,:) = para.dk(:,:);
 %% HOSVD test
-[S U sv ,para1] = hosvd(Vmat{j},para);
+[S U sv ,para1] = hosvd(Vmat{j},para,3);
 
