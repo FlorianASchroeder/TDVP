@@ -34,14 +34,14 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson2C';
+para.model='SpinBosonTTM';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
-	%         '2SpinPhononModel', 'SpinBoson2C'
+	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments   = 2;
+para.nEnvironments   = 1;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		 = 2;
+para.nChains		 = 1;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
@@ -82,7 +82,7 @@ if alpha == 0 && para.chain{1}.L == 0
 end
 
 %% chain 2 & more:
-para.chain{2}					= para.chain{1};		% simple copy
+% para.chain{2}					= para.chain{1};		% simple copy
 % para.chain{2}.mapping			= 'OrthogonalPolynomials';
 % para.chain{3}					= para.chain{2};
 
@@ -146,7 +146,7 @@ end
 
 %% Starting MPS Dimensions
 D = 5;
-dk = 20;
+dk = 30;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -173,7 +173,7 @@ else
 	dk = dk^2;
 end
 
-para.spinposition=1;                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
+para.spinposition= [1, 2];                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
 para.complex=0;                                 % set to 1 if any complex parameters are used.
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
@@ -204,6 +204,10 @@ para.d_opt(1,para.spinposition) = 2;						% Optimal Impurity dimension
 para.eigs_tol					= 1e-8;
 para.loopmax					= 50;
 para.increasedk					= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
+
+if strcmp(para.model, 'SpinBosonTTM')
+	para.D([1,2]) = [2,4];
+end
 
 if strcmp(para.model,'SpinBoson2C')
 	para.M = 4;
@@ -268,13 +272,13 @@ if strcmp(para.model,'MLSpinBoson')
 
 end
 
-if strcmp(para.model,'SpinBoson') || strcmp(para.model, 'SpinBoson2folded') || strcmp(para.model,'SpinBoson2C')|| strcmp(para.model,'SpinBoson3C')
+if strfind(para.model,'SpinBoson')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'artificial';
-        % choose: 'decoupled', 'coupled', 'artificial';
-		% -artificial does no optimization! this only sets up an artificial
+    para.SpinBoson.GroundStateMode = 'artTTM';
+        % choose: 'decoupled', 'coupled', 'artificial', 'artTTM'
+		% -artificial & artTTM does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
-    para.SpinBoson.InitialState = 'sz';
+    para.SpinBoson.InitialState = 'none';
         % choose: 'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'
 		% works with all options
 
@@ -387,7 +391,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v58';
+para.version = 'v59';
 if ~strcmp(computer,'PCWIN64')
 	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
@@ -416,7 +420,11 @@ end
 
 %% Start Calculation
 [op,para]					= genh1h2term(para);
-[mps, Vmat,para,results,op] = minimizeE(op,para);
+if strcmp(para.model,'SpinBosonTTM')
+	prepareArtState();
+else
+	[mps, Vmat,para,results,op] = minimizeE(op,para);
+end
 
 if ~isempty(strfind(para.model,'SpinBoson'))
 %% Reset original parameters after specific ground state preparation!
@@ -453,4 +461,31 @@ results.time = toc(starttime)
 save(para.filename,'para','Vmat','mps','results','op','-v7.3');
 
 fileName = para.filename;
+
+	function prepareArtState()
+		results = initresults(para);
+		para
+		if strcmp(para.SpinBoson.GroundStateMode,'artTTM') && strcmp(para.model, 'SpinBosonTTM')
+			%% create maximally entangled state between site 1&2 TLS
+			mps{1}(:,:,1) = [1/sqrt(2) 0]; mps{1}(:,:,2) = [0 1/sqrt(2)];
+			mps{2}(para.D(1),para.D(2),para.d_opt(2)) = 0;
+			mps{2}(1,1,1) = 1; mps{2}(2,1,2) = 1;
+			Vmat{1} = eye(para.dk(1));
+			Vmat{2} = eye(para.dk(2));
+			for j = 3:para.L
+				if j == para.L, Dr = 1;
+				else Dr = para.D(j); end
+				mps{j}(para.D(j-1),Dr,para.d_opt(j)) = 0;
+				mps{j}(1,1,1) = 1;
+% 				Vmat{j}	= sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));	% inverted order
+				Vmat{j}	= sparse(1:para.d_opt(j),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));			% 1:n order
+			end
+		end
+
+		[mps,Vmat,para] = prepare(mps,Vmat,para);
+		[op] = initstorage(mps, Vmat, op,para);
+		para.trustsite = para.L;		% needed for TDVP
+		return;
+	end
+
 end

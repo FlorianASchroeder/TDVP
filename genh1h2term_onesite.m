@@ -38,6 +38,34 @@ switch para.model
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+	case 'SpinBosonTTM'
+        %%%%%%%%%%%%%%%%%%% Spin-boson Model for the Transfer Tensor Method %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        switch s
+			case 1                                                  % first chain pos = ancilla system, needs to be maximally entangled with site 2
+                zm_spin			  = zeros(2);
+                op.h1term{s}	  = zm_spin;
+                op.h2term{1,1,s}  = zm_spin; op.h2term{1,2,s} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+                op.h2term{2,1,s}  = zm_spin; op.h2term{2,2,s} = zm_spin;
+            case 2                                                  % first chain pos = all spin sites!
+                [sigmaX,~,sigmaZ] = spinop(para.spinbase);       % gives XYZ operators with respect to specific main base
+                zm_spin			  = zeros(2);
+                op.h1term{s}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+                op.h2term{1,1,s}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,s} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+                op.h2term{2,1,s}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,s} = zm_spin;
+            case para.L                                             % last chain pos: only one coupling?
+                [bp,bm,n]		  = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
+                zm				  = sparse(size(bp,1),size(bp,1));
+                op.h1term{s}	  = para.chain{1}.epsilon(para.L-1).*n;
+                op.h2term{1,1,s}  = zm; op.h2term{1,2,para.L} = bm;
+                op.h2term{2,1,s}  = zm; op.h2term{2,2,para.L} = bp;
+            otherwise
+                [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+                op.h1term{s}	  = para.chain{1}.epsilon(s-2).*n;                          % e(1) == w(0)
+                op.h2term{1,1,s}  = para.chain{1}.t(s-1).*bp; op.h2term{1,2,s} = bm;    % t(2) == t(n=0)
+                op.h2term{2,1,s}  = para.chain{1}.t(s-1).*bm; op.h2term{2,2,s} = bp;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 	case 'SpinBoson2folded'
         %%%%%%%%%%%%%%%%%%%2-chain Spin Boson Model - One Super-Chain%%%%%%%%%%%%%%%%%%%%%%
 		% Created 07/07/15 by F.S.
@@ -362,7 +390,7 @@ switch para.model
 		% Created 17/07/15 by F.S.
         switch s
             case 1
-				[sigmaX,sigmaY,sigmaZ]  = spinop(para.spinbase);
+				[sigmaX,~,sigmaZ]  = spinop(para.spinbase);
                 zm_spin			   = zeros(2);
                 op.h1term{1,1}     = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
                 op.h2term{1,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{1,2,1,1} = zm_spin;	% X chain
@@ -409,6 +437,51 @@ switch para.model
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+	case 'SpinBoson5C'
+        %%%%%%%%%%%%%%%%%%% Spin-Boson Model - 5-Chain %%%%%%%%%%%%%%%%%%%%%%
+		% Not linear, but in multi-chain configuration!
+		% Spin is always in chain 1 for backward compatibility
+		%
+		% working??
+		% Created 17/08/15 by F.S.
+        switch s
+            case 1		% will be pentacene system!
+				[sigmaX,~,sigmaZ]   = spinop(para.spinbase);
+				zm_spin			    = zeros(2);
+				op.h1term{1,1}      = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
+				op.h2term{1 ,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{1 ,2,1,1} = zm_spin;	% X chain
+				op.h2term{2 ,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{2 ,2,1,1} = zm_spin;
+				op.h2term{3 ,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{3 ,2,1,1} = zm_spin;	% Z chain
+				op.h2term{4 ,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{4 ,2,1,1} = zm_spin;
+				op.h2term{5 ,1,1,1} = para.chain{3}.t(1).*sigmaX./2; op.h2term{5 ,2,1,1} = zm_spin;	% Z chain
+				op.h2term{6 ,1,1,1} = para.chain{3}.t(1).*sigmaX./2; op.h2term{6 ,2,1,1} = zm_spin;
+				op.h2term{7 ,1,1,1} = para.chain{4}.t(1).*sigmaZ./2; op.h2term{7 ,2,1,1} = zm_spin;	% Z chain
+				op.h2term{8 ,1,1,1} = para.chain{4}.t(1).*sigmaZ./2; op.h2term{8 ,2,1,1} = zm_spin;
+				op.h2term{9 ,1,1,1} = para.chain{5}.t(1).*sigmaX./2; op.h2term{9 ,2,1,1} = zm_spin;	% Z chain
+				op.h2term{10,1,1,1} = para.chain{5}.t(1).*sigmaX./2; op.h2term{10,2,1,1} = zm_spin;
+            case para.L
+				if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+				end
+				for i = 1:5			% slow, but easy to modify!
+					[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+					op.h1term{2*i-1,1,s,i} = zm; op.h1term{2*i-1,2,s,i} = bm;
+					op.h1term{2*i  ,1,s,i} = zm; op.h1term{2*i  ,2,s,i} = bp;
+				end
+			otherwise
+				if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+				end
+				for i = 1:5
+					[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+					op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+					op.h1term{2*i-1,1,s,i} = para.chain{i}.t(s).*bp; op.h1term{2*i-1,2,s,i} = bm;
+					op.h1term{2*i  ,1,s,i} = para.chain{i}.t(s).*bm; op.h1term{2*i  ,2,s,i} = bp;
+				end
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 end
 end

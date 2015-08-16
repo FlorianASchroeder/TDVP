@@ -10,14 +10,15 @@ function [S, U, sv, para] = hosvd(T, para, dim)
 %	dim  : if given, final "focus" in S will be on this Dim
 %			U{dim} will be sv*U'
 %
-%	S    : decomposed core tensor
+%	S    : sequentially decomposed core tensor
 % 	U    : matrices for each dimension, [] for excluded dims
 %	sv   : singular values
 %
 %	eg [S, U, sv, para] = hosvd(randn(5,5,5), para, [0 1 1])
+% is only some experimental code!
 
 
-dIn = size(T);
+dIn = size(T); dOut = dIn;
 o = length(dIn);							% order of tensor
 svmintol = 10^-6.5; svmaxtol = 10^-6;
 dmin = 2;
@@ -33,17 +34,17 @@ if ~isempty(para)
 end
 
 U = cell(1,o);   sv = cell(1,o);
-A = T;            d = dIn;
+S = T;            d = dIn;
 if ~isempty(dim)
-	unFoldDim = mode(dim,4) + 1;						% first dim to operate on
+	unFoldDim = mod(dim,o) + 1;						% first dim to operate on
 end
 for i = 1:o			% always do cyclic HOSVD!			% operate on dimension mod(dim+i-1,o)+1
-	[A, d] = tensShape(A,'unfold',unFoldDim,d);
+	[S, d] = tensShape(S,'unfold',unFoldDim,d);
 	% SVD in dimension (i)
-	dim_i = mod(dim+i-1,o)+1;							% current wokring dim
-	[U{dim_i}, sv{dim_i}, A] = svdTruncate(A);
-	d(1) = size(A,1);
-	A = reshape(A, d);
+	dim_i = mod(dim+i-1,o)+1;							% current working dim
+	[U{dim_i}, sv{dim_i}, S] = svdTruncate(S);
+	d(1) = size(S,1);
+	S = reshape(S, d);
 	unFoldDim = 2;
 end
 if ~isempty(para)

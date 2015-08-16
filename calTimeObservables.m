@@ -70,8 +70,12 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			if mod(para.tdvp.t(1,para.timeslice+1),para.tdvp.extractStarInterval) == 0
 				pos = round(para.tdvp.t(1,para.timeslice+1)/para.tdvp.extractStarInterval) +1;
 
-				occ		= getObservable({'staroccupation'},tmps(j,:),tVmat(j,:),para);		% 2 x k
-				polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% (1+2) x k
+				if strfind(para.tdvp.Observables,'.sn.')
+					occ		= getObservable({'staroccupation'},tmps(j,:),tVmat(j,:),para);		% 2 x k
+				end
+				if strfind(para.tdvp.Observables,'.sx.')
+					polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% (1+2) x k
+				end
 
 				if ~isfield(tresults, 'star')
 					% initialise storage if first sweep
@@ -82,9 +86,13 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 					tresults.star.t     = zeros(1,nElements);
 				end
 
-				tresults.star.n(pos,:) = occ(2,:);
-				tresults.star.x(pos,:,1) = polaron(2,:);	% up proj
-				tresults.star.x(pos,:,2) = polaron(3,:);	% down proj
+				if strfind(para.tdvp.Observables,'.sn.')
+					tresults.star.n(pos,:) = occ(2,:);
+				end
+				if strfind(para.tdvp.Observables,'.sx.')
+					tresults.star.x(pos,:,1) = polaron(2,:);	% up proj
+					tresults.star.x(pos,:,2) = polaron(3,:);	% down proj
+				end
 				tresults.star.t(pos)   = para.tdvp.t(1,para.timeslice+1);
 			end
 		end
@@ -127,6 +135,33 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 				tresults.participation = [tresults.participation; zeros(missingN,1)];
 			end
             tresults.participation(i) = getObservable({'participation'},tmps(j,:),tVmat(j,:),para);
+		end
+
+		if strcmp(para.model, 'SpinBosonTTM')
+			%% extract transfer tensor
+			% only use for single-slice tMPS due to iterative procedure
+			if length(slices) > 1, return; end;
+			rdm = getObservable({'rdm',[1 2]},tmps(j,:),tVmat(j,:),para);
+			% Ortho Normal Operator Basis in dxd
+			d = para.dk(1,2);
+			ONOB = eye(d^2); ONOB = reshape(ONOB,[d,d,d^2]);
+			EAm = zeros(d,d,d^2);
+			sparse
+			for k = 1:d^2
+				EAm(:,:,k) = ncon({rdm, squeeze(ONOB(:,:,k))'},...
+								  {[-1,2,-2,1], [1,2]})*d;			% apply Op, contract / trace; perhaps *d
+			end
+			Epsilon = reshape(EAm,[d^2,d^2]);
+			T = Epsilon;
+			for k = 3:i
+				T = T - tresults.TTM.T(:,:,i+1-k)*tresults.TTM.Epsilon(:,:,k-1);
+			end
+			tresults.TTM.Epsilon(:,:,i) = Epsilon;
+			if i > 1
+				tresults.TTM.T(:,:,i-1) = T;
+				tresults.TTM.Tnorm(i-1) = norm(T);
+				fprintf('\nTTM norm: %g\n',tresults.TTM.Tnorm(i-1));
+			end
 		end
 		missingN = 0;					% shall only be used in first loop!
 	end

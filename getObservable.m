@@ -231,9 +231,9 @@ sx=ndset;sy=sx;sz=sy;
 % sx{1,1}
 
 [sigmaX,sigmaY,sigmaZ]=spinop(para.spinbase);
-sx{para.spinposition}=sigmaX;
-sy{para.spinposition}=sigmaY;
-sz{para.spinposition}=sigmaZ;
+sx{para.spinposition(end)}=sigmaX;
+sy{para.spinposition(end)}=sigmaY;
+sz{para.spinposition(end)}=sigmaZ;
 if strcmp(para.model,'2SpinPhononModel')
     sx{para.spinposition}=kron(sigmaZ,eye(2));  %measures excitation of site1
     sz{para.spinposition}=kron(eye(2),sigmaZ);  %measures excitation of site2
@@ -373,26 +373,43 @@ function reducedDensity = calRDM(mps,Vmat,para,k)
 % copied from prepare.m:
 % does l -> r sweep to create state in local picture of k
 para.sweepto = 'r';
-for i = 1:k-1
-    if para.useVmat==1
-        [Vmat{i},V] = prepare_onesiteVmat(Vmat{i},para);			% Vmat = U * S * V' ; Vmat := U; V:= S * V'
-        mps{i} = contracttensors(mps{i},3,3,V,2,2);                 % = Ai_{l,r,n} * V'_{p,n}; This contraction is defined differently to the paper.
-    end
-    [mps{i}, U] = prepare_onesite(mps{i}, para,i);             % SVD(Ai_(l,r,n)) = Ai_(l,m,n) * U_(m,r)
-    mps{i+1} = contracttensors(U,2,2,mps{i+1},3,1);                 % U_(m,l) * A(i+1)_(l,r,n)
-    para=gennonzeroindex(mps,Vmat,para,i);                          % only if parity not 'n'
-    para=gennonzeroindex(mps,Vmat,para,i+1);                        % only if parity not 'n'
+if length(k) == 1		% single-site RDM
+	for i = 1:k-1
+		if para.useVmat==1
+			[Vmat{i},V] = prepare_onesiteVmat(Vmat{i},para);			% Vmat = U * S * V' ; Vmat := U; V:= S * V'
+			mps{i} = contracttensors(mps{i},3,3,V,2,2);                 % = Ai_{l,r,n} * V'_{p,n}; This contraction is defined differently to the paper.
+		end
+		[mps{i}, U] = prepare_onesite(mps{i}, para,i);             % SVD(Ai_(l,r,n)) = Ai_(l,m,n) * U_(m,r)
+		mps{i+1} = contracttensors(U,2,2,mps{i+1},3,1);                 % U_(m,l) * A(i+1)_(l,r,n)
+		para=gennonzeroindex(mps,Vmat,para,i);                          % only if parity not 'n'
+		para=gennonzeroindex(mps,Vmat,para,i+1);                        % only if parity not 'n'
+	end
+
+	% now in form: Al{1}...Al{k-1} M{k} Ar{k+1}...Ar{L}
+	%   with Al = left-normalized, Ar: right-normalized.
+
+	reducedDensity = contracttensors(mps{k},3,[1,2],conj(mps{k}),3,[1,2]);		% contract rD_nm = Mk_abn Mk*_abm
+
+	% reducedDensity = Vmat{k} * (reducedDensity * Vmat{k}');
+	reducedDensity = contracttensors(reducedDensity,2,2,conj(Vmat{k}),2,2);     % contract rD_nj = rD_nm Vmat*_jm
+	reducedDensity = contracttensors(Vmat{k},2,2,reducedDensity,2,1);			% contract rD_ij = Vmat_in rd_nj
+elseif length(k) == 2 && k(2) == k(1) + 1
+	% 2-site RDM of nearest neighbours!
+	% move to k(1)
+	for i = 1:k(1)-1
+		if para.useVmat==1
+			[Vmat{i},V] = prepare_onesiteVmat(Vmat{i},para);			% Vmat = U * S * V' ; Vmat := U; V:= S * V'
+			mps{i} = contracttensors(mps{i},3,3,V,2,2);                 % = Ai_{l,r,n} * V'_{p,n}; This contraction is defined differently to the paper.
+		end
+		[mps{i}, U] = prepare_onesite(mps{i}, para,i);             % SVD(Ai_(l,r,n)) = Ai_(l,m,n) * U_(m,r)
+		mps{i+1} = contracttensors(U,2,2,mps{i+1},3,1);                 % U_(m,l) * A(i+1)_(l,r,n)
+		para=gennonzeroindex(mps,Vmat,para,i);                          % only if parity not 'n'
+		para=gennonzeroindex(mps,Vmat,para,i+1);                        % only if parity not 'n'
+	end
+	% use ncon, since easy and not performance-critical!
+	reducedDensity = ncon({mps{k(1)}, mps{k(2)}, conj(mps{k(1)}), conj(mps{k(2)}), Vmat{k(1)}, Vmat{k(2)}, conj(Vmat{k(1)}), conj(Vmat{k(2)})},...
+						  {[1,2,3],   [2,4,5],   [1,6,7],         [6,4,8],         [-2,3],     [-1,5],     [-4,7],           [-3,8]});
 end
-
-% now in form: Al{1}...Al{k-1} M{k} Ar{k+1}...Ar{L}
-%   with Al = left-normalized, Ar: right-normalized.
-
-reducedDensity = contracttensors(mps{k},3,[1,2],conj(mps{k}),3,[1,2]);		% contract rD_nm = Mk_abn Mk*_abm
-
-% reducedDensity = Vmat{k} * (reducedDensity * Vmat{k}');
-reducedDensity = contracttensors(reducedDensity,2,2,conj(Vmat{k}),2,2);     % contract rD_nj = rD_nm Vmat*_jm
-reducedDensity = contracttensors(Vmat{k},2,2,reducedDensity,2,1);			% contract rD_ij = Vmat_in rd_nj
-
 end
 
 function participation = calParticipation(rdm)
