@@ -35,7 +35,7 @@ function [Hright] = updateHright(Hright, h1jOBB, Opstorage2, B, BUb, h2jOBB, A, 
 		end																	% multiChain == 1 does not use updateCright -> leave empty
 	end
 
-	Hright = updateCright(Hright, B, BUb, [], A, AUb);						% transform old Hright from effective basis j+1 into j
+	Hright = updateCright(Hright, B, [], [], A, []);						% transform old Hright from effective basis j+1 into j
 
 	if ~isempty(h1jOBB)
 		Hright = Hright + updateCright([],B,[],h1jOBB,A,[]);				% transform H1{j} into effective right basis of j-1

@@ -18,7 +18,6 @@ while optV
         [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);				% left-normalize A, as r -> l sweep did right normalize.
 
 		Vmat_focused = Vmat{sitej} * V.';
-% 		Vmat_focused = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);			% set focus on Vmat
         [Vmat_focused,E] = minimizeE_onesiteVmat(op, Amat, Vmat_focused,para);			% first Energy Optimization
 %         if sitej>=3 && para.rescaling==1
 %             results.geoffset(sitej)=(results.geoffset(sitej-1)+results.leftge(sitej))*para.Lambda;
@@ -36,7 +35,7 @@ while optV
 
 % Shifting basis of bosonic sites only. Different criteria explained in declaration file.
 % prod(sitej ~= para.spinposition) excludes all spin-sites
-    if para.loop>1 && para.useshift==1 && prod(sitej ~= para.spinposition) && para.nChains == 1          % old: para.dk(sitej)>2
+    if para.loop > 1 && para.useshift == 1 && prod(sitej ~= para.spinposition) && para.nChains == 1          % old: para.dk(sitej)>2
 		if para.useFloShift == 1 && ~(para.trustsite(end)>0)						% stop loops if criterium not fulfilled
 			optV = 0;
 %		elseif para.useFloShift2 == 1 && ~(min(cellfun(@(x) x(1,1), results.Vmat_sv(2:end))) < para.FloShift2minSV)	% cellfun takes all maximum SV of each site into an array
@@ -52,47 +51,15 @@ while optV
 			optV = 0;
 			disp('Define a shift method!');
 	% && results.Eerror < sqrt(para.precision)  ---  inserted energy criterium myself!
-		else																							% apply shift
-			switch para.model
-				case 'SpinDoubleBoson'
-					[bp,bm,n] = bosonop(sqrt(para.dk(sitej)),para.shift(sitej),para.parity);
-					if para.parity=='n'
-						idm=eye(size(n));
-						bpx=kron(bp,idm);bmx=bpx';nx=kron(n,idm);
-						bpz=kron(idm,bp);bmz=bpz';nz=kron(idm,n);
-					else
-						[bpx,bmx,nx,bpz,bmz,nz]=paritykron(bp,para.bosonparity);
-					end
-					x=sqrt(2)/2*(bpx+bmx);
-				case '2SpinPhononModel'
-					[bp,bm,n] = bosonop(sqrt(para.dk(sitej)),para.shift(sitej),para.parity);
-					if para.parity=='n'
-						idm=eye(size(n));
-						bpr=kron(bp,idm);   bmr=bpr';   nr=kron(n,idm);     % right chain
-						bpl=kron(idm,bp);   bml=bpl';   nl=kron(idm,n);     % left chain
-					else
-						[bpr,bmr,nr,bpl,bml,nl]=paritykron(bp,para.bosonparity);
-					end
-					x = sqrt(2)/2*(bpr+bmr);                                % why only evaluate it for right part?
-				otherwise
-					[bp,bm,n] = bosonop(para.dk(sitej),para.shift(sitej),para.parity);
-					x=sqrt(2)/2*(bp+bm);
-			end
-			if para.useVmat==1	% shift not yet usable with Multi-Chain!
-% 				temp = Vmat{sitej}' * (x * Vmat{sitej});
-				temp = contracttensors(x,2,2,Vmat{sitej},2,1);
-				temp = contracttensors(conj(Vmat{sitej}),2,1,temp,2,1);
-			else
-				temp=x;
-			end
-			temp=contracttensors(Amat_focused,3,3,temp,2,2);
-			shift=real(contracttensors(temp,3,[1,2,3],conj(Amat_focused),3,[1,2,3]));       % calculate shift after current optimization
-			para.relativeshift(sitej)=abs(shift-para.shift(sitej))/para.maxshift(sitej);
+		else
+			shift = getObservable({'1siteshift'}, Amat_focused, Vmat{sitej}, para); % calculate applicable shift
+
+			para.relativeshift(sitej) = max(abs(shift-para.shift(:,sitej)))/para.maxshift(sitej);
 			if  para.relativeshift(sitej)>para.relativeshiftprecision                       % if relevant shift, update and rerun optimization
-				para.shift(sitej)=shift;
-				para.shifted = 1;
-				op=update_sitej_h1h2(para,op,sitej);                    % shift boson operators
-				mps{sitej}=Amat_focused;								% store Amat in mps to use in next loop
+				para.shift(:,sitej) = shift;
+				para.shifted        = 1;
+				op                  = update_sitej_h1h2(para,op,sitej);						% shift boson operators
+				mps{sitej}          = Amat_focused;											% store Amat in mps to use in next loop
 			else
 				optV=0;
                 % Amat will be returned and normalised + saved later!
@@ -104,8 +71,8 @@ while optV
 end
 
 if sitej>=3 && para.rescaling==1
-    results.geoffset(sitej)=(results.geoffset(sitej-1)+results.leftge(sitej))*para.Lambda;
-    E=(E+results.geoffset(sitej))./(para.Lambda.^(sitej-2));
+    results.geoffset(sitej)=(results.geoffset(sitej-1)+results.leftge(sitej))*para.chain{1}.Lambda;
+    E=(E+results.geoffset(sitej))./(para.chain{1}.Lambda.^(sitej-2));
 end
 %results.leftge(sitej)
 %fprintf('E = %.10g\n', E);

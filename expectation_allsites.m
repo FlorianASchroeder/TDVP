@@ -1,34 +1,32 @@
-function [n]=expectation_allsites(n_op,mps,Vmat)
-% Calculate the expectation value of the local operater "n_op" for all sites.
+function [n] = expectation_allsites(n_op,mps,Vmat)
+% Calculate the expectation value of the 1-site local operator "n_op" for all sites.
 % performs 2*3*N contractions
 % assumes precise right-normalization
-% n(j)=<\psi|n_op{j}|\psi>
+% output: n(i,j)=<\psi|n_op{i,j}|\psi>
+%
+% Usage:
+%   [n] = expectation_allsites(n_op, mps, Vmat)
+%           standard
+%   [n] = expectation_allsites(n_op, mps, cell(1,L)  )
+%           n_op is already brought onto OBB
+%           can be used for Multi-Chain code
+%
+%   n_op: i x L cell, where i can stand for subchains
 
-N=length(n_op);
-assert(N==length(mps) && N==length(Vmat));			% would also work for N < dim(mps)
 
-n=zeros(1,N);
+[M, L] = size(n_op);
+% assert(L == length(mps));			% would also work for N < dim(mps)
+
+n = zeros(M,L);
 
 Cl = [];						% contains left part in effective j-basis
-for j = 1:N
-	% calculate site operator
-	% j == 1 -> Cl = [];
-	n(1,j) = trace(updateCleft(Cl,mps{j},Vmat{j},n_op{1,j},mps{j},Vmat{j}));	% this is the result!
 
+for j = 1:L
+	% j == 1 -> Cl = [];
+	for m = 1:M
+		% calculate site operator
+		n(m,j) = trace(updateCleft(Cl,mps{j},Vmat{j},n_op{m,j},mps{j},Vmat{j}));	% this is the result!
+	end
 	% take Cleft to next site
 	Cl = updateCleft(Cl,mps{j},Vmat{j},[],mps{j},Vmat{j});
 end
-
-% old routine much slower! 3*N*N contractions
-% ndset=cell(1,N);
-%
-% for j=1:N
-%         ndset{1,j}=eye(size(Vmat{j},1));
-% end
-%
-% for j=1:N
-%     temp=ndset{1,j};
-%     ndset{1,j}=n_op{j};											% produce: 1 .... 1 n 1 .... 1
-%     n(j)=expectationvalue(ndset,mps,Vmat,mps,Vmat);
-%     ndset{1,j}=temp;
-% end

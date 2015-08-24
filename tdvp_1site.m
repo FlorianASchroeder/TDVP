@@ -75,11 +75,11 @@ end
 % estimate the actual dimension in expm() from MPS dimensions.
 % Not really needed now.
 bondDim = [1 results.D{end} 1];
-if para.useVmat
-    para.tdvp.currentExpMDim = results.d_opt{end}.*bondDim(1:end-1).*bondDim(2:end);
-else
-    para.tdvp.currentExpMDim = results.dk{end}.*bondDim(1:end-1).*bondDim(2:end);
-end
+% if para.useVmat   %%DEPRECATED!!
+%     para.tdvp.currentExpMDim = results.d_opt{end}.*bondDim(1:end-1).*bondDim(2:end);
+% else
+%     para.tdvp.currentExpMDim = results.dk{end}.*bondDim(1:end-1).*bondDim(2:end);
+% end
 
 %% 1. sweep: condition the ground state MPS and prepare hamiltonian operator terms H(n) and K(n)
     % is already done in op.opstorage and op.hlrstorage
@@ -188,8 +188,12 @@ for timeslice = para.tdvp.slices
 
         %% Do the time-evolution of A and V with H(n)
         % this is symmetric for l->r and l<-r
-        [mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
-
+		if ~para.useVtens
+			[mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
+		else
+			para.tdvp.expvCustomNow = 1;                                     % necessary setting!
+			[mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);
+		end
         % now: A and V are time-evolved, A is focused
         % OBBDim has increased by 50%. This must be truncated in the next
         % step again!
@@ -223,9 +227,9 @@ for timeslice = para.tdvp.slices
 
         end
     end
-		fprintf('\n');							%Debug!
-  		fprintf('%2g-',para.d_optnew);
-		fprintf('\n');
+% 		fprintf('\n');							%Debug!
+% 		fprintf('%2g-',para.d_optnew);
+% 		fprintf('\n');
 
     %% Log vNE etc ?
     % from prepare_onesite() and prepare_onesiteVmat():
@@ -269,7 +273,11 @@ for timeslice = para.tdvp.slices
 
         %% Do the time-evolution of A and V
         % this is symmetric for l->r and l<-r
-        [mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
+		if ~para.useVtens
+			[mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
+		else
+			[mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);
+		end
     end
 
     %% finished with both sweeps, focused on A(1) after time-evolution
@@ -285,9 +293,15 @@ for timeslice = para.tdvp.slices
 	n = 1:timeslice;
 	n = n(para.tdvp.calcTime(n,1)>0);		% compensates for zeros due to resume of aborted TDVP
 	hoursTotal = fnval(fnxtr(csaps([0,n],[0;para.tdvp.calcTime(n,1)])), length(para.tdvp.t)-1);
-	fprintf('Completed: %.3g%%, t = %3g, Time elapsed: %.2gh, Time left: %.2gh, Time total: %.2gh\n',...
-		completePercent, para.tdvp.t(timeslice+1), para.tdvp.calcTime(timeslice),...
-		hoursTotal-para.tdvp.calcTime(timeslice), hoursTotal);
+	if log10(abs(hoursTotal-para.tdvp.calcTime(timeslice))) <= 0
+		fprintf('Completed: %.3g%%, t = %3g, Time elapsed: %.2gh, Time left: %.2gm, Time total: %.2gh\n',...
+			completePercent, para.tdvp.t(timeslice+1), para.tdvp.calcTime(timeslice),...
+			(hoursTotal-para.tdvp.calcTime(timeslice))*60, hoursTotal);
+	else
+		fprintf('Completed: %.3g%%, t = %3g, Time elapsed: %.2gh, Time left: %.2gh, Time total: %.2gh\n',...
+			completePercent, para.tdvp.t(timeslice+1), para.tdvp.calcTime(timeslice),...
+			hoursTotal-para.tdvp.calcTime(timeslice), hoursTotal);
+	end
     %% save tmps and tVmat and log parameters
 	if exist('outFile','var')
 		fprintf('Saving tMPS\n');
@@ -305,7 +319,7 @@ for timeslice = para.tdvp.slices
 			results.tdvp.Amat_vNE(n,:)= results.Amat_vNE;
 		end
 		if para.tdvp.expandOBB
-	        results.tdvp.d_opt(n,:)   = para.d_opt - sum(results.tdvp.d_opt);	% sum in 1st Dim
+	        results.tdvp.d_opt(n,:)   = para.d_opt(end,:) - sum(results.tdvp.d_opt);	% sum in 1st Dim
 		end
 		if para.tdvp.truncateExpandBonds
 	        results.tdvp.D(n,:)       = para.D - sum(results.tdvp.D);
@@ -333,10 +347,12 @@ for timeslice = para.tdvp.slices
 	end
 	if para.tdvp.expandOBB
 		fprintf('para.d_opt:\n');
-		fprintf('%2g-',para.d_opt);
-		fprintf('\n');
-		fprintf('%2g-',para.d_optnew);				% debug
-		fprintf('\n');
+		out = strrep(mat2str(para.d_opt),';','\n');
+		fprintf([out(2:end-1),'\n']);
+% 		fprintf('%2g-',para.d_opt);
+% 		fprintf('\n');
+% 		fprintf('%2g-',para.d_optnew);				% debug
+% 		fprintf('\n');
 	end
 
 	%% Additional saving
@@ -361,6 +377,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
         %% Truncate OBB of mps{sitej}
         % code taken from adjustdopt.m
         % only apply if also expanded OBB before
+		if para.nChains > 1, return, end
         discarddims     = find(results.Vmat_sv{sitej} < para.svmintol);
         if ~isempty(discarddims) && para.tdvp.expandOBB
             if results.Vmat_sv{sitej}(discarddims(1)-1) > para.svmaxtol     % if next highest not-discarded element too large (causing expansion in next sweep)
@@ -397,7 +414,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		end
 		if para.tdvp.expandOBB
 			results.tdvp.d_opt              = sparse(n,para.L);
-			results.tdvp.d_opt(1,:)			= para.d_opt;
+			results.tdvp.d_opt(1,:)			= para.d_opt(end,:);		% only record MPS-OBB
 		end
 		if para.tdvp.truncateExpandBonds
 			results.tdvp.D					= sparse(n,para.L-1);

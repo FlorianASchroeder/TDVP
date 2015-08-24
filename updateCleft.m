@@ -10,7 +10,7 @@ function [Cleft] = updateCleft(Cleft, B, BUb, X, A, AUb)
 % Modified:
 %	FS 05/08/2015: better order to minimize permutations!
 	skipX = 0;
-	if isempty(X) && isempty(BUb) && ~isempty(Cleft)
+	if isempty(X) && isempty(BUb)
 		skipX = 1;
 	elseif isempty(X)
 		X = speye(size(BUb, 1));

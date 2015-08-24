@@ -19,7 +19,7 @@ switch para.sweepto
 
         % Rescale if wanted
         if sitej>=3 && para.rescaling==1
-            Lambda = para.Lambda;
+            Lambda = para.chain{1}.Lambda;
             %old: op.Hleft =Lambda.^(sitej-2).*(op.Hlrstorage{sitej}-leftge(sitej).*eye(size(op.Hlrstorage{sitej})));
 
             op.Hleft = Lambda.*(op.Hleft - leftge(sitej).*eye(size(op.Hleft)));

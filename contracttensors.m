@@ -26,7 +26,7 @@ end
 if isempty(indYr) 								% if Y will be fully contracted
     if isempty(indXl) 							% if X and Y are to be fully contracted
         X = permute(X, indX); 					% permutes array dimensions
-        X = reshape(X, [1, prod(sizeX)]); 			% rearranges columnwise into new stated array shape
+        X = reshape(X, [1, prod(sizeX)]); 		% rearranges columnwise into new stated array shape
         Y = permute(Y, indY);
         Y = reshape(Y, [prod(sizeY), 1]);
         X = X * Y; Xsize = 1;

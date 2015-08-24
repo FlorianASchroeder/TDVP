@@ -22,7 +22,13 @@ switch para.sweepto
 		% if adjustdopt -> empty h1jOBB, h2jOBB -> recompute from h1term, h2term. Else, use them!
         % collect all j-1 < parts of Hamiltonian which are not interacting with j-1, and transforms into eff basis r_{j-1}
 		if isempty(op.h1jOBB) || isempty(op.h1j)
-			[op] = H_Eff([]  , Vmat{sitej}, 'A' , op, para);		% bring into OBB -> wraps all Multi-Chain magic
+			if ~iscell(Vmat{sitej})                                     % old VMPS and OBB-MultiChain code
+				[op] = H_Eff([]  , Vmat{sitej}, 'A' , op, para);		% bring into OBB -> wraps all Multi-Chain magic
+			else
+				%% New V-Tensor MultiChain code
+				[op] = H_Eff([]  , Vmat{sitej}, 'MC-OBB', op, para);
+				[op] = H_Eff([]  , Vmat{sitej}, 'MC-A'  , op, para);
+			end
 		end
 		op.Hlrstorage{sitej}		  = updateHright(op.Hlrstorage{sitej + 1}, op.h1jOBB, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2jOBB(:,1), mps{sitej},Vmat{sitej}, M, para);
 		for m = 1:M

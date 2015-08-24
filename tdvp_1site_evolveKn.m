@@ -5,6 +5,13 @@ function [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,
 %   - Hn input as (l*r*n,l*r*n) 2D-array
 %
 % Created by Florian Schroeder @ Cambridge 20/10/2014
+
+t = para.tdvp.deltaT./2;
+
+if para.tdvp.imagT
+	t = -1i*t;
+end
+
 switch para.sweepto
     case'r'
         %% Get Dimensions
@@ -30,22 +37,20 @@ switch para.sweepto
         %% Take and apply Matrix exponential
         % C(n,t) = exp(+ i K(n) dt)_(rl'*r',rl*r) * C(n,t+dt)_(rl*r)
 		if para.tdvp.expvCustomNow == 0 && size(Kn,1) <= para.tdvp.maxExpMDim
-            Cn = expm( 1i .* Kn .* para.tdvp.deltaT./2) * reshape(Cn,[numel(Cn),1]);
+            Cn = expm( 1i .* Kn .* t) * reshape(Cn,[numel(Cn),1]);
 			err = 0;
 		else
 			if para.tdvp.expvCustomNow
 				[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
-				[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
-					reshape(Cn,[numel(Cn),1]),...
-					mps{sitej},Vmat{sitej},para,op);
+				[Cn,err] = expvCustom(1i*t, 'Kn',...
+					reshape(Cn,[numel(Cn),1]), para,op);
 			else
 				if para.tdvp.expvCustomTestAccuracy				% debug
 					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
-					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
-						reshape(Cn,[numel(Cn),1]),...
-						mps{sitej},Vmat{sitej},para,op);
+					Cn1 = expvCustom(1i*t, 'Kn',...
+						reshape(Cn,[numel(Cn),1]), para,op);
 				end
-				[Cn,err] = expv(1i*para.tdvp.deltaT./2, Kn,...
+				[Cn,err] = expv(1i*t, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 				if para.tdvp.expvCustomTestAccuracyRMS
@@ -96,12 +101,11 @@ switch para.sweepto
 				if para.tdvp.expvCustomTestAccuracy								% debug
 					para.sitej = para.sitej+1;								% needed for multi-chain reshape
 					[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
-					Cn1 = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
-						reshape(Cn,[numel(Cn),1]),...
-						mps{sitej+1},Vmat{sitej+1},para,op);
+					Cn1 = expvCustom(1i*t, 'Kn',...
+						reshape(Cn,[numel(Cn),1]), para,op);
 					para.sitej = para.sitej-1;
 				end
-				[Cn,err] = expv(1i*para.tdvp.deltaT./2, Kn,...
+				[Cn,err] = expv(1i*t, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
 				if para.tdvp.expvCustomTestAccuracyRMS
@@ -111,9 +115,8 @@ switch para.sweepto
 		else
 			para.sitej = para.sitej+1;								% needed for multi-chain reshape
 			[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
-			[Cn,err] = expvCustom(1i*para.tdvp.deltaT./2, 'Kn',...
-				reshape(Cn,[numel(Cn),1]),...
-				mps{sitej+1},Vmat{sitej+1},para,op);
+			[Cn,err] = expvCustom(1i*t, 'Kn',...
+				reshape(Cn,[numel(Cn),1]), para,op);
 			para.sitej = para.sitej-1;
 		end
 % 		results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;

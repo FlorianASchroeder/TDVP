@@ -8,10 +8,11 @@ d_opt = para.d_opt;
 mps = cell(1, L);
 
 if para.parity=='n'
-    mps{1} = randn(1,D,para.d_opt(1))./D;
-    mps{L} = randn(D,1,para.d_opt(L))./D;
-    for i = 2:(L - 1)
-        mps{i}=randn(D,D,para.d_opt(i))./D;
+    mps{1} = randn(1,D,d_opt(end,1))./sqrt(D*d_opt(end,1));
+    mps{L} = randn(D,1,d_opt(end,L))./sqrt(D*d_opt(end,L));
+	for i = 2:(L - 1)
+        mps{i} = randn(D,D,d_opt(end,i));
+		mps{i} = mps{i}./sqrt(numel(mps{i}));
 	end
 else
     mps{1} = zeros(1, D, d_opt(1));

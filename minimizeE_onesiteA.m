@@ -45,6 +45,6 @@ else
     A = zeros(DAl, DAr, d);
     A(para.Anzi{para.sitej})=Avec;
 end
-fprintf('\n Amat E: %g',E);			% Debug
+% fprintf('\n Amat E: %g',E);			% Debug
 
 end

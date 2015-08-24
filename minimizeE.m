@@ -65,10 +65,10 @@ if (strcmp(para.model,'SpinBoson') || strcmp(para.model,'SpinBoson2folded')|| st
 		mps{j} = reshape([1, zeros(1,numel(mps{j})-1)],para.D(j-1),Dr,para.d_opt(j));
 		if para.foldedChain
 			locDim      = sqrt(para.dk(j));
-			occEstimate = kron(locDim:-1:1,ones(1,locDim))+kron(ones(1,locDim),locDim:-1:1);	% kronecker sum to estimate lowest states
-			[~,order]   = sort(occEstimate);													% find order of lowest states
+			occEstimate = kron(locDim:-1:1,ones(1,locDim))+kron(ones(1,locDim),locDim:-1:1);		% kronecker sum to estimate lowest states
+			[~,order]   = sort(occEstimate);														% find order of lowest states
 		else
-			order = para.dk(j):-1:(para.dk(j)-para.d_opt(j)+1);
+			order = para.dk(j):-1:(para.dk(j)-para.d_opt(j)+1);										% inverted order
 		end
 		if para.nChains == 1
 % 			Vmat{j}	= sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));	% inverted order
@@ -105,7 +105,7 @@ while loop<=para.loopmax;
         fprintf('%g-', j); para.sweepto = 'r'; para.sitej = j;
         op=gen_sitej_op(op,para,j,results.leftge);  					% take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
         [Amat,Vmat,results,para,op]   = optimizesite(mps,Vmat,op,para,results,j);
-        if j~=L
+		if j~=L
             [mps{j}, U, para,results] = prepare_onesite(Amat,para,j,results);
             mps{j+1} = contracttensors(U,2,2,mps{j+1},3,1);
         else
@@ -154,7 +154,7 @@ while loop<=para.loopmax;
     results.lastVmat_vNE=results.Vmat_vNE;
     para=trustsite(para,results);
     fprintf('precise_sites k <= %d\t',para.precisesite);
-    fprintf('trustable_sites k <= %d\t',para.trustsite(loop));
+    fprintf('trustable_sites k <= %d\n',para.trustsite(loop));
 
     %% start sweep l <- r
     para.sweepto = 'l';

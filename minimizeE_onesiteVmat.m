@@ -46,7 +46,7 @@ else
     [Bvec, E] = eigs(@(x) HmultVmat(x, op, Db,d, M,para.parity), Db*d,1,sigma,opts);
     B         = reshape(Bvec, [Db, d]);
 end
-fprintf('\n Vmat E: %g',E);				% debug
+% fprintf('\n Vmat E: %g',E);				% debug
 
 
 end

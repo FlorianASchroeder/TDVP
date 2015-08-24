@@ -34,17 +34,19 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBosonTTM';
+para.model='SpinBoson';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments   = 1;
+para.nEnvironments  = 1;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		 = 1;
+para.nChains		= 1;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
+para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
+
 %% System Definitions:
 if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
 	% setting para for single-spin models
@@ -55,7 +57,7 @@ end
 %% Chain Definitions:
 % para.chain{i}.mapping
 	% choose: 'OrthogonalPolynomials','LanzcosTriDiag', Stieltjes'
-	%			- 'LanzcosTriDiag' Lanczos tridiagonalization
+	%			- 'LanczosTriDiag' Lanczos tridiagonalization
 	%			- 'Stieltjes': needs discretization, based on Orthogonal
 	%						   Polynomials, less stable but faster than Lanczos
 	%			- 'OrthogonalPolynomials'
@@ -77,14 +79,18 @@ para.chain{1}.discretization	= 'None';
 para.chain{1}.s					= s;			% SBM spectral function power law behaviour
 para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
 para.chain{1}.L					= para.L;
+para.chain{1}.w_cutoff          = 1;
 if alpha == 0 && para.chain{1}.L == 0
 	para.chain{1}.L = 10;						% otherwise encounter error
 end
 
 %% chain 2 & more:
 % para.chain{2}					= para.chain{1};		% simple copy
+% para.chain{2}.w_cutoff          = 1.5;
 % para.chain{2}.mapping			= 'OrthogonalPolynomials';
 % para.chain{3}					= para.chain{2};
+% para.chain{4}					= para.chain{2};
+% para.chain{5}					= para.chain{2};
 
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
 %% Parameters
@@ -108,7 +114,7 @@ for k = 1:para.nEnvironments
 	% 		assert(~strcmp(para.chain.discretization,'LogZ'), 'Lambda = 1 not possible with LogZ discretization!');
 	% 	end
 
-	elseif strcmp(para.chain{k}.mapping,'LanzcosTriDiag') || strcmp(para.chain{k}.mapping, 'Stieltjes')
+	elseif strcmp(para.chain{k}.mapping,'LanczosTriDiag') || strcmp(para.chain{k}.mapping, 'Stieltjes')
 		% 	if Lambda > 1 -> LogZ
 		% 	if Lambda = 1 -> Linear discretization, rescaling = 0
 		para.chain{k}.discrMethod = 'Analytic';
@@ -120,7 +126,7 @@ for k = 1:para.nEnvironments
 		% choose: 'LogZ','Linear'
 
 		%%
-		para.chain{k}.Lambda=1.2;						% Bath Discretization parameter
+		para.chain{k}.Lambda=1.5;						% Bath Discretization parameter
 		para.chain{k}.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
 % 		para.chain{k}.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
 % 		if L > 0								% chain length override
@@ -146,7 +152,7 @@ end
 
 %% Starting MPS Dimensions
 D = 5;
-dk = 30;
+dk = 20;
 d_opt = 5;
 
 if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for spectral function & Wilson chain
@@ -173,7 +179,7 @@ else
 	dk = dk^2;
 end
 
-para.spinposition= [1, 2];                            % This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
+para.spinposition = [1];						% This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
 para.complex=0;                                 % set to 1 if any complex parameters are used.
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
@@ -198,8 +204,6 @@ para.dk_start					= dk;						% local dimension per boson in bath. Will be increa
 para.dk							= para.dk_start*ones(nc,L);
 para.dk(1,para.spinposition)	= 2;						% Impurity dimension
 para.d_opt						= d_opt*ones(1,L);			% Dimension of first site is 2 (spin); Optimal Boson Basis dimension, was 16*ones
-% TODO: d_opt = nc+1 x L if nc > 1; d_opt(i,:) addresses chain i, while
-% d_opt(end,:) is the old OBB facing the MPS
 para.d_opt(1,para.spinposition) = 2;						% Optimal Impurity dimension
 para.eigs_tol					= 1e-8;
 para.loopmax					= 50;
@@ -274,11 +278,11 @@ end
 
 if strfind(para.model,'SpinBoson')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'artTTM';
+    para.SpinBoson.GroundStateMode = 'artificial';
         % choose: 'decoupled', 'coupled', 'artificial', 'artTTM'
 		% -artificial & artTTM does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
-    para.SpinBoson.InitialState = 'none';
+    para.SpinBoson.InitialState = '-sx';
         % choose: 'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'
 		% works with all options
 
@@ -296,7 +300,10 @@ if strfind(para.model,'SpinBoson')
         para.SpinBoson.hz = para.hz;
         para.hz = 10;                               % some value to get sz+ eigenstate
         para.hx = 0;
-    end
+	end
+	if isempty(strfind(para.model,'TTM'))
+		assert(length(para.spinposition) == 1, 'Only one spin is allowed in SBM');
+	end
 end
 
 %%
@@ -329,7 +336,7 @@ end
 
 %% %%%%%%%%%%%%%%%%%% OBB - Vmat related parameters %%%%%%%%%%%%%%%%%%%%
 % Introduces Optimized Boson Basis (OBB)
-para.useVmat=1;
+para.useVmat=1;											% General switch for the use of Vmat or Vtens
 if para.useVmat==0
     % then: d_opt = dk
     fprintf('Not using Vmat and OBB!\n');
@@ -337,10 +344,14 @@ if para.useVmat==0
      assert(para.dk_start==max(para.d_opt));
 end
 para.d_opt_min = 2;                                     % minimum d_opt dimension
+if para.useVtens
+	assert(para.nChains >= 2 && para.useVmat == 1, 'Use V Tensor only for more than 2 chains, and enable Vmat');
+	para.d_opt = repmat(para.d_opt,para.nChains+1,1);
+end
 
 %% %%%%%%%%%%%%%%%%%% dk Expansion - related parameters %%%%%%%
 % only works together with OBB!
-para.useDkExpand     = 0;		% Enable dk expansion, own algorithm. General switch
+para.useDkExpand     = 1;		% Enable dk expansion, own algorithm. General switch
 
 para.dkmax			 = 900;		% has to be square number for folded chains
 para.expandprecision = 1e-5;	% unused?
@@ -391,22 +402,30 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v59';
+para.version = 'v60';
+Descr = para.version;
 if ~strcmp(computer,'PCWIN64')
-	para.version = sprintf('%sTCM%s',para.version,para.hostname(3:end));
+	Descr = sprintf('%sTCM%s',para.version,para.hostname(3:end));
 end
 if strcmp(para.chain{1}.mapping,'OrthogonalPolynomials')
-	para.version = ['OrthPol-',para.version];
+	Descr = ['OrthPol-',Descr];
 elseif strcmp(para.chain{1}.discretization,'LogZ')
-	para.version = ['LogZ-',para.version];
+	Descr = ['LogZ-',Descr];
+end
+if para.nChains > 1
+	if para.useVtens
+		Descr = ['VT-',Descr];
+	else
+		Descr = ['VM-',Descr];
+	end
 end
 
 if para.chain{1}.s ~= 1
-	para.version = sprintf('%s-s%g',para.version,para.s);
+	Descr = sprintf('%s-s%g',Descr,para.chain{1}.s);
 end
 
 para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
-    para.model,para.version,alpha,delta,epsilon,dk,D,d_opt,L);
+    para.model,Descr,alpha,delta,epsilon,dk,D,d_opt,L);
 if strfind(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
 	para.folder = sprintf('%s-art-%s',para.folder,para.SpinBoson.InitialState);
 end
@@ -420,7 +439,7 @@ end
 
 %% Start Calculation
 [op,para]					= genh1h2term(para);
-if strcmp(para.model,'SpinBosonTTM')
+if strcmp(para.model,'SpinBosonTTM') || ((strcmp(para.model,'SpinBoson3C') || strcmp(para.model,'SpinBoson2C')) && strcmp(para.SpinBoson.GroundStateMode,'artificial'))
 	prepareArtState();
 else
 	[mps, Vmat,para,results,op] = minimizeE(op,para);
@@ -465,6 +484,7 @@ fileName = para.filename;
 	function prepareArtState()
 		results = initresults(para);
 		para
+		% system state preparation
 		if strcmp(para.SpinBoson.GroundStateMode,'artTTM') && strcmp(para.model, 'SpinBosonTTM')
 			%% create maximally entangled state between site 1&2 TLS
 			mps{1}(:,:,1) = [1/sqrt(2) 0]; mps{1}(:,:,2) = [0 1/sqrt(2)];
@@ -472,13 +492,61 @@ fileName = para.filename;
 			mps{2}(1,1,1) = 1; mps{2}(2,1,2) = 1;
 			Vmat{1} = eye(para.dk(1));
 			Vmat{2} = eye(para.dk(2));
-			for j = 3:para.L
-				if j == para.L, Dr = 1;
-				else Dr = para.D(j); end
-				mps{j}(para.D(j-1),Dr,para.d_opt(j)) = 0;
-				mps{j}(1,1,1) = 1;
-% 				Vmat{j}	= sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));	% inverted order
-				Vmat{j}	= sparse(1:para.d_opt(j),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));			% 1:n order
+			nextSite = 3;
+		elseif strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+			mps = createrandommps(para);
+			if strcmp(para.SpinBoson.InitialState, 'sz')
+				%% prepare +Sz eigenstate
+				mps{1} = reshape([1,zeros(1,numel(mps{1})-1)],[1,para.D(1),para.d_opt(1)]);
+				Vmat{1} = eye(para.dk(1));
+			elseif strcmp(para.SpinBoson.InitialState, '-sz')
+				mps{1} = reshape([  zeros(1,numel(mps{1})/2),...
+					1,zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+				Vmat{1} = eye(para.dk(1));
+			elseif strcmp(para.SpinBoson.InitialState, 'sx')
+				mps{1} = reshape([1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+					1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+				Vmat{1} = eye(para.dk(1));
+			elseif strcmp(para.SpinBoson.InitialState, '-sx')
+				mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+					1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+				Vmat{1} = eye(para.dk(1));
+			elseif strcmp(para.SpinBoson.InitialState, 'sy')
+				mps{1} = reshape([ 1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+					1i/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+				Vmat{1} = eye(para.dk(1));
+			elseif strcmp(para.SpinBoson.InitialState, '-sy')
+				mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+					1i/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+				Vmat{1} = eye(para.dk(1));
+			else
+				error('VMPS:minimizeE:DefineInitialState','InitialState=none is not implemented yet');
+			end
+			nextSite = 2;
+		else
+			error('VMPS:prepareArtState:Parameter setting invalid: No system state prepared');
+		end
+
+		% Environment preparation
+		for j = nextSite:para.L
+			if j == para.L, Dr = 1;
+			else Dr = para.D(j); end
+			mps{j} = zeros(para.D(j-1),Dr,para.d_opt(end,j));
+			mps{j}(1,1,1) = 1;
+			if ~para.useVtens % no special order for MC-Vmat!
+				if para.nChains == 1
+% 					Vmat{j}	= sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));	% inverted order
+					Vmat{j}	= sparse(1:para.d_opt(j),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));			% 1:n order
+				else
+					Vmat{j} = sparse(1,1,1, prod(para.dk(:,j)),para.d_opt(j));								% 1:n order
+				end
+			else
+				Vmat{j} = cell(1,para.nChains+1);
+				for mc = 1:para.nChains
+					Vmat{j}{mc} = sparse(1:para.d_opt(mc,j),1:para.d_opt(mc,j),1,para.dk(mc,j),para.d_opt(mc,j));	% 1:n order
+				end
+				Vmat{j}{end} = sparse(1,1,1, prod(para.d_opt(1:end-1,j)),para.d_opt(end,j));
+				Vmat{j}{end} = reshape(full(Vmat{j}{end}), para.d_opt(:,j)');
 			end
 		end
 

@@ -24,7 +24,7 @@ for i = N:-1:2
 end
 if para.adjust==1
 		dispif('(para.D-D_old)./para.D = ',para.logging)
-		(para.D-D_old)./para.D
+		disp(mat2str((para.D-D_old)./para.D,2));
 		para.D_change=mean(abs(para.D-D_old)./para.D);
 		if para.logging == 1
 			results.D{para.loop}=para.D;

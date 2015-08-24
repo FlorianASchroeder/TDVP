@@ -8,24 +8,31 @@ function op=gen_sitej_h1h2(op,para,sitej)
 %	FS 16/07/2015: - added Multi-chain support at OBB level (perhaps not
 %						used)
 
-if para.nChains == 1
-	op.h1j = op.h1term{sitej};
+NC = para.nChains;
+
+if NC == 1
+	op.h1j = op.h1term{sitej};			% matrix
 else
-	op.h1j = op.h1term(:,sitej);
+	op.h1j = op.h1term(:,sitej);		% cell
 end
 op.h2j = op.h2term(:,:,sitej,:);
 
 % apply Rescaling to bosonic chain
 if sitej>=3 && para.rescaling==1
-	assert(para.nChains == 1, 'rescaling not implemented in gen_sitej_h1h2.m yet');
-    Lambda=para.Lambda;
-    op.h1j=Lambda.^(sitej-2).*op.h1j;		% old: op.h1j=Lambda.^(sitej-2).*op.h1term{sitej};
-
-    for m=1:para.M
-        % apply rescaling only to h2term(m,1)?? perhaps since otherwise
-        % mixed scaling in interaction terms?
-    	op.h2j{m,1}=op.h2j{m,1}.*Lambda^(sitej-2);
-    end
+% 	assert(para.nChains == 1, 'rescaling not implemented in gen_sitej_h1h2.m yet');
+	for mc = 1:NC
+	    Lambda = para.chain{mc}.Lambda;
+		if NC == 1
+			op.h1j = Lambda.^(sitej-2).*op.h1j;		% old: op.h1j=Lambda.^(sitej-2).*op.h1term{sitej};
+		else
+			op.h1j{mc} = Lambda.^(sitej-2).*op.h1j{mc};
+		end
+		for m = 1:para.M
+			% apply rescaling only to h2term(m,1)?? perhaps since otherwise
+			% mixed scaling in interaction terms?
+			op.h2j{m,1,mc} = op.h2j{m,1,mc}.*Lambda^(sitej-2);
+		end
+	end
 end
 
 end

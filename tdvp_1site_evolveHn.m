@@ -28,6 +28,10 @@ else
     t = para.tdvp.deltaT;
 end
 
+if para.tdvp.imagT
+	t = -1i*t;
+end
+
 %% If using Vmat, evolve it first, only BOSON!
 if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bosonic site only!
     %% expand OBB in A and V by 50%
@@ -107,8 +111,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			% Do approximation of exp(A)*v
 			if para.tdvp.expvCustomTestAccuracy
 				V1 = expvCustom(- 1i*t,'HAA',...
-					 reshape(Vmat_focused,[dk*OBBDim,1]),...
-					 Amat, [], para, op);
+					 reshape(Vmat_focused,[dk*OBBDim,1]), para, op);
 			end
 			[Vmat_focused,err] = expv(- 1i*t,HAA,...
 						   reshape(Vmat_focused,[dk*OBBDim,1]),...
@@ -119,8 +122,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		end
 	else
 		[Vmat_focused, err] = expvCustom(- 1i*t,'HAA',...
-					   reshape(Vmat_focused,[dk*OBBDim,1]),...
-					   Amat, [], para, op);
+					   reshape(Vmat_focused,[dk*OBBDim,1]), para, op);
 	end
 % 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
@@ -160,8 +162,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		else
 			if para.tdvp.expvCustomTestAccuracy
 				V1 = expvCustom(+ 1i*t,'HAV',...
-					reshape(V,[numel(V),1]),...
-					Amat,Vmat{sitej},para,op);
+					reshape(V,[numel(V),1]), para,op);
 			end
 			[V,err] = expv(+ 1i*t,HAV,...
 					reshape(V,[numel(V),1]),...
@@ -172,8 +173,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		end
 	else
 		[V,err] = expvCustom(+ 1i*t,'HAV',...
-				reshape(V,[numel(V),1]),...
-				Amat,Vmat{sitej},para,op);
+				reshape(V,[numel(V),1]), para,op);
 	end
 % 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
@@ -221,8 +221,7 @@ if  para.tdvp.expvCustomNow == 0
 		if para.tdvp.expvCustomTestAccuracy									% debug
 			tempT = tic;
 			mpsNew1 = expvCustom(- 1i*t, 'Hn',...
-					  reshape(mps{sitej},[numel(mps{sitej}),1]),...
-					  [],[],para,op);
+					  reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
 			t1 = toc(tempT);
 		end
 		tempT = tic;
@@ -240,8 +239,7 @@ if  para.tdvp.expvCustomNow == 0
 else
 	tempT = tic;
 	[mpsNew,err] = expvCustom(- 1i*t, 'Hn',...
-		reshape(mps{sitej},[numel(mps{sitej}),1]),...
-		[],[],para,op);
+		reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
 	Hn = [];		% dummy return value;
 	t1 = toc(tempT);
 	if para.tdvp.expvCustomTestAccuracy

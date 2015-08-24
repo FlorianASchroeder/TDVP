@@ -82,3 +82,25 @@ end
 %% Plot results:
 plot((1:5) .*step,[tUCR;tNCON]);
 
+%% find(cellfun('isempty',mcOp)) --> fast enough!
+rep = 1000;
+mcOp = cell(10,1);
+mcOp{4} = eye(10);
+tic
+for i = 1:rep
+	ind = zeros(1,length(mcOp));
+	ind = find(cellfun('isempty',mcOp));
+end
+toc
+
+tic
+for i = 1:rep
+	ind = [];
+	for j = 1:length(mcOp)
+		if isempty(mcOp{j})
+			ind = [ind;j];
+		end
+	end
+end
+toc
+

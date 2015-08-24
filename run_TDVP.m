@@ -9,7 +9,8 @@ if isdeployed
 end
 
 %% start ground state calculations
-fileName =  VMPS_FullSBM(s,alpha,0.1,0,100,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+% fileName =  VMPS_FullSBM(s,alpha,0.1,0,50,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+fileName =  VMPS_FullSBM(s,alpha,0,0.1,20,0);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
 
 %maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
 maxNumCompThreads(1);						% safer in terms of results!
@@ -27,21 +28,22 @@ load(fileName);
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
 %% Define TDVP parameters
-para.tdvp.tmax = 150;
-para.tdvp.deltaT = 0.02;	                % size of timeslice in units:
+para.tdvp.imagT = 0;					% imaginary Time = Temperature evolution?
+para.tdvp.tmax = 20;
+para.tdvp.deltaT = 0.2;	                % size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
-para.tdvp.saveInterval = 50;			% save '-small.mat' every n-th step
+para.tdvp.saveInterval = 5;			% save '-small.mat' every n-th step
 para.tdvp.serialize = 0;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
-% para.tdvp.extractStarInterval = 2;	% in [t]; for calculating star occupation! Comment if not needed!
-para.tdvp.extractObsInterval  = 0.05;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.s.';		% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
+para.tdvp.extractStarInterval = 0.4;	% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractObsInterval  = 0.2;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
+para.tdvp.Observables = '.n.s.j.sn.sx.';		% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.maxExpMDim = 0;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
+para.tdvp.maxExpMDim = 280;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
 para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
@@ -74,7 +76,7 @@ end
 
 tresults = [];						% empty variable initialization
 %% Format Filename
-para.tdvp.version = 'v59';
+para.tdvp.version = 'v60';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!
@@ -86,26 +88,27 @@ else
 	para.tdvp.fromFilename = para.filename;				% or reference to VMPS Ground State File!
 end
 
-para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s.mat'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
+para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
 
 if para.tdvp.expandOBB
-	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-OBBExpand.mat']);
+	para.tdvp.filename = sprintf('%s-OBBExpand',para.tdvp.filename);
 else
-	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-noOBBExpand.mat']);
+	para.tdvp.filename = sprintf('%s-noOBBExpand',para.tdvp.filename);
 end
 if para.tdvp.truncateExpandBonds
-	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-BondExpand%d.mat'],para.tdvp.maxBondDim);
+	para.tdvp.filename = sprintf('%s-BondExpand%d',para.tdvp.filename,para.tdvp.maxBondDim);
 else
-	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-noBondExpand.mat']);
+	para.tdvp.filename = sprintf('%s-noBondExpand',para.tdvp.filename);
 end
 if para.tdvp.expvCustom
-	para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-expvCustom%d.mat'],para.tdvp.maxExpVDim);
+	para.tdvp.filename = sprintf('%s-expvCustom%d',para.tdvp.filename,para.tdvp.maxExpVDim);
 end
-para.tdvp.filename = sprintf([para.tdvp.filename(1:end-4),'-%dcore.mat'],maxNumCompThreads);
-para.tdvp.filenameSmall = [para.tdvp.filename(1:end-4),'-small.mat'];		% only for para, tresults
+% finish Filenames
+para.tdvp.filename		= sprintf('%s-%dcore.mat',para.tdvp.filename,maxNumCompThreads);
+para.tdvp.filenameSmall = sprintf('%s-small.mat',para.tdvp.filename);		% only for para, tresults
 % Set MPS filename if needed
 if para.tdvp.storeMPS == 1
-	para.tdvp.filenameMPS = [para.tdvp.filename(1:end-4),'-MPS.mat'];		% only for tmps, tVmat
+	para.tdvp.filenameMPS = [para.tdvp.filename,'-MPS.mat'];		% only for tmps, tVmat
 end
 
 %% Check for valid simulation arguments and declare unsettables

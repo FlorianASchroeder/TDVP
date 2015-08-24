@@ -10,6 +10,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 % Modified:
 %	FS 23/07/15: - changed nx to n for Multi-Chain compatibility!
 %	FS 24/07/15: - added switch to allow observable selection (especially current)
+%   FS 18/08/15: - changed to single precision for smaller tresults file!
 
 	if isfield(para.tdvp,'extractObsInterval')
 		% only works with equidistant steps and single tmps slices
@@ -31,14 +32,14 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		missingN = totalN - size(tresults.n,1);
 		if missingN > 0
 			% pre-allocate memory
-			tresults.n(totalN,end,max(para.nChains,para.nEnvironments)) = 0;
-			tresults.t(1,totalN)	= 0;
+			tresults.n(totalN,end,max(para.nChains,para.nEnvironments)) = single(0);
+			tresults.t(1,totalN)	= single(0);
 		end
 	else
 		tresults.lastIdx = 0; missingN = 0;
 		fprintf('Calculate Observables:\n');
-		tresults.n  = zeros(totalN,para.L,max(para.nChains,para.nEnvironments));
-		tresults.t  = zeros(1,totalN);
+		tresults.n  = single(zeros(totalN,para.L,max(para.nChains,para.nEnvironments)));
+		tresults.t  = single(zeros(1,totalN));
 		para.timeslice = 0;						% needed for extractObsInterval first run
 	end
 
@@ -56,44 +57,58 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 
         %% General Observables
         % 1. Chain Occupation
-        tresults.n(i,:,:) = getObservable({'occupation'},tmps(j,:),tVmat(j,:),para);
-		tresults.t(i)     = para.tdvp.t(1,para.timeslice+1);
+		tresults.n(i,:,:) = single(getObservable({'occupation'},tmps(j,:),tVmat(j,:),para));     % (L x nChain)
+		tresults.t(i)     = single(para.tdvp.t(1,para.timeslice+1));
 
 		% 2. Boson chain observables
-		if strfind(para.tdvp.Observables,'.j.')
-			%% Calculate current along entire chain
-			tresults.j(i,:) = getObservable({'current'},tmps(j,:),tVmat(j,:),para);
+		if ~isempty(strfind(para.tdvp.Observables,'.j.')) || ~isempty(strfind(para.tdvp.Observables,'.sn.'))
+			% save here, to reuse later!
+			AnAm = getObservable({'bath2correlators'}, tmps(j,:),tVmat(j,:),para);
 		end
 
-		% 3. Star Occupation
-		if isfield(para.tdvp,'extractStarInterval')
-			if mod(para.tdvp.t(1,para.timeslice+1),para.tdvp.extractStarInterval) == 0
-				pos = round(para.tdvp.t(1,para.timeslice+1)/para.tdvp.extractStarInterval) +1;
+		if strfind(para.tdvp.Observables,'.j.')
+			%% Calculate current along entire chain
+			if ~exist('AnAm','var')
+				tresults.j(i,:,:) = single(getObservable({'current'},tmps(j,:),tVmat(j,:),para));
+			else
+				tresults.j(i,:,:) = single(getObservable({'current',AnAm},tmps(j,:),tVmat(j,:),para));
+			end
+		end
+
+		% 3. Star Observables
+		if isfield(para.tdvp,'extractStarInterval') && (strfind(para.tdvp.Observables,'.sn.') || strfind(para.tdvp.Observables,'.sx.'))
+			Nslice = round(para.tdvp.extractStarInterval / para.tdvp.extractObsInterval);		% how often to extract Star Observables
+			if mod(i-1,Nslice) == 0
+				pos = ceil(i/Nslice);
 
 				if strfind(para.tdvp.Observables,'.sn.')
-					occ		= getObservable({'staroccupation'},tmps(j,:),tVmat(j,:),para);		% 2 x k
+					if ~exist('AnAm','var')
+						occ	= getObservable({'staroccupation'}     ,tmps(j,:),tVmat(j,:),para);		% (1+1) x k x nc
+					else
+						occ = getObservable({'staroccupation',AnAm},tmps(j,:),tVmat(j,:),para);		% (1+1) x k x nc
+					end
 				end
 				if strfind(para.tdvp.Observables,'.sx.')
-					polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% (1+2) x k
+					polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% (1+2) x k x nc
 				end
 
 				if ~isfield(tresults, 'star')
 					% initialise storage if first sweep
 					nElements = para.tdvp.tmax/para.tdvp.extractStarInterval +1;
-					tresults.star.n	    = zeros(nElements,length(occ));
-					tresults.star.x	    = zeros(nElements,length(polaron),2);
-					tresults.star.omega = occ(1,:);
-					tresults.star.t     = zeros(1,nElements);
+					tresults.star.n	    = single(zeros(nElements,length(occ),para.nChains));
+					tresults.star.x	    = single(zeros(nElements,length(polaron),2,para.nChains));
+					tresults.star.omega = single(occ(1,:,1));
+					tresults.star.t     = single(zeros(1,nElements));
 				end
 
 				if strfind(para.tdvp.Observables,'.sn.')
-					tresults.star.n(pos,:) = occ(2,:);
+					tresults.star.n(pos,:,:) = single(occ(2,:,:));
 				end
 				if strfind(para.tdvp.Observables,'.sx.')
-					tresults.star.x(pos,:,1) = polaron(2,:);	% up proj
-					tresults.star.x(pos,:,2) = polaron(3,:);	% down proj
+					tresults.star.x(pos,:,1,:) = single(polaron(2,:,:));	% up proj
+					tresults.star.x(pos,:,2,:) = single(polaron(3,:,:));	% down proj
 				end
-				tresults.star.t(pos)   = para.tdvp.t(1,para.timeslice+1);
+				tresults.star.t(pos)   = single(para.tdvp.t(1,para.timeslice+1));
 			end
 		end
 
@@ -101,40 +116,40 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
             %% Observables for SBM
             % 1. Spin Observables
 			if ~isfield(tresults,'spin')
-                tresults.spin.sx = zeros(totalN,1);
-                tresults.spin.sy = zeros(totalN,1);
-                tresults.spin.sz = zeros(totalN,1);
-                tresults.spin.visibility = zeros(totalN,1);
+                tresults.spin.sx = single(zeros(totalN,1));
+                tresults.spin.sy = single(zeros(totalN,1));
+                tresults.spin.sz = single(zeros(totalN,1));
+                tresults.spin.visibility = single(zeros(totalN,1));
 			elseif missingN > 0
-				tresults.spin.sx = [tresults.spin.sx; zeros(missingN,1)];
-				tresults.spin.sy = [tresults.spin.sy; zeros(missingN,1)];
-				tresults.spin.sz = [tresults.spin.sz; zeros(missingN,1)];
-				tresults.spin.visibility = [tresults.spin.visibility; zeros(missingN,1)];
+				tresults.spin.sx = single([tresults.spin.sx; zeros(missingN,1)]);
+				tresults.spin.sy = single([tresults.spin.sy; zeros(missingN,1)]);
+				tresults.spin.sz = single([tresults.spin.sz; zeros(missingN,1)]);
+				tresults.spin.visibility = single([tresults.spin.visibility; zeros(missingN,1)]);
 			end
             temp = getObservable({'spin'},tmps(j,:),tVmat(j,:),para);
-            tresults.spin.sx(i) = temp.sx;
-            tresults.spin.sy(i) = temp.sy;
-            tresults.spin.sz(i) = temp.sz;
-            tresults.spin.visibility(i) = sqrt(temp.sx^2+temp.sy^2);
+            tresults.spin.sx(i) = single(temp.sx);
+            tresults.spin.sy(i) = single(temp.sy);
+            tresults.spin.sz(i) = single(temp.sz);
+            tresults.spin.visibility(i) = single(sqrt(temp.sx^2+temp.sy^2));
 		end
 
 		if strcmp(para.model, 'MLSBM')
             %% Observables for MLSBM
             % 2. PPC Wavefunction
 			if ~isfield(tresults,'PPCWavefunction')
-                tresults.PPCWavefunction = zeros(totalN,16);
+                tresults.PPCWavefunction = single(zeros(totalN,16));
 			elseif missingN > 0
-				tresults.PPCWavefunction = [tresults.PPCWavefunction; zeros(missingN,16)];
+				tresults.PPCWavefunction = single([tresults.PPCWavefunction; zeros(missingN,16)]);
 			end
-            tresults.PPCWavefunction(i,:) = diag(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para));
+            tresults.PPCWavefunction(i,:) = single(diag(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para)));
 
             % 3. Participation on ring
 			if ~isfield(tresults,'participation')
-                tresults.participation = zeros(totalN,1);
+                tresults.participation = single(zeros(totalN,1));
 			elseif missingN > 0
-				tresults.participation = [tresults.participation; zeros(missingN,1)];
+				tresults.participation = single([tresults.participation; zeros(missingN,1)]);
 			end
-            tresults.participation(i) = getObservable({'participation'},tmps(j,:),tVmat(j,:),para);
+            tresults.participation(i) = single(getObservable({'participation'},tmps(j,:),tVmat(j,:),para));
 		end
 
 		if strcmp(para.model, 'SpinBosonTTM')
@@ -154,12 +169,12 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			Epsilon = reshape(EAm,[d^2,d^2]);
 			T = Epsilon;
 			for k = 3:i
-				T = T - tresults.TTM.T(:,:,i+1-k)*tresults.TTM.Epsilon(:,:,k-1);
+				T = T - tresults.TTM.T(:,:,i+1-k)*tresults.TTM.Epsilon(:,:,k-1);          % TODO: vectorize for loop?
 			end
 			tresults.TTM.Epsilon(:,:,i) = Epsilon;
 			if i > 1
 				tresults.TTM.T(:,:,i-1) = T;
-				tresults.TTM.Tnorm(i-1) = norm(T);
+				tresults.TTM.Tnorm(i-1) = single(norm(T));
 				fprintf('\nTTM norm: %g\n',tresults.TTM.Tnorm(i-1));
 			end
 		end

@@ -1,4 +1,4 @@
-function op=genh1h2term_onesite(para,op,s)
+function op = genh1h2term_onesite(para,op,s)
 %Define the hamiltonian
 % op.h2term{i,j,k,l}:
 %	l is chain number (only used in SpinBosonMC)
@@ -115,7 +115,8 @@ switch para.model
 
     case 'SpinDoubleBoson'
         %%%%%%%%%%%%%%%%%%%Spin double boson Model One Chain%%%%%%%%%%%%%%%%%%%%%%
-		% From Cheng, DEPRECATED
+		% From Cheng, DEPRECATED, para.foldedChain = 1!
+		% 2 Boson chains folded into supersites
         switch s
             case 1
                 [sigmaX,sigmaY,sigmaZ]=spinop(para.spinbase);
@@ -432,7 +433,7 @@ switch para.model
                 op.h2term{2,1,s,1} = para.chain{1}.t(s).*bmx; op.h2term{2,2,s,1} = bpx;
                 op.h2term{3,1,s,2} = para.chain{2}.t(s).*bpz; op.h2term{3,2,s,2} = bmz;
                 op.h2term{4,1,s,2} = para.chain{2}.t(s).*bmz; op.h2term{4,2,s,2} = bpz;
-				op.h2term{5,1,s,3} = para.chain{3}.t(s).*bmy; op.h2term{5,2,s,3} = bmy;
+				op.h2term{5,1,s,3} = para.chain{3}.t(s).*bpy; op.h2term{5,2,s,3} = bmy;
                 op.h2term{6,1,s,3} = para.chain{3}.t(s).*bmy; op.h2term{6,2,s,3} = bpy;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

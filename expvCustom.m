@@ -1,4 +1,4 @@
-function [w, err, hump] = expvCustom( t, A, v, mps, Vmat, para, op)
+function [w, err, hump] = expvCustom( t, A, v, para, op)
 %% A is string telling the operator to construct:
 %    A = {'Hn',   'HAA',  'HAV',   'Kn'}
 %  v contains the tensor to evolve in time:
@@ -22,6 +22,14 @@ switch A
 		AFUN = @HnmultA;
 	case 'Kn'
 		AFUN = @KnmultCA;
+	case 'MC-HAS'               % multi-chain HOSVD exponentials
+		AFUN = @MCmultV;
+	case 'MC-HASV'
+		AFUN = @MCmultCV;
+	case 'MC-HAV'
+		AFUN = @MCmultVS;
+	case 'MC-HAVS'
+		AFUN = @HAVmultCV;      % same as 'HAV'
 end
 
 M = para.M;
@@ -137,7 +145,7 @@ hump = hump / normv;
 		%% HAAmultV(V)
 		% Needs previous calculation of op.HrightA, op.HleftA, op.OprightA, op.OpleftA
 		% works with multi-chain model!
-		[~, ~, OBBDim]  = size(mps);
+		[OBBDim,~]  = size(op.HleftA);
 		if iscell(op.h1j)
 			dk = prod(cell2mat(cellfun(@(x) size(x,1),op.h1j, 'UniformOutput',false)));		% = dk for multi-chain Hamiltonians
 		else
@@ -153,8 +161,8 @@ hump = hump / normv;
 		%   w(n^',n~') = HAV_(n^',n~',n^,n~) * CV_(n^,n~)
 		% expects h1j, h2j in OBB
 		% Vmat = Vmat_(n,n^); since focus is taken to CV_(n^,n~)
-		[~,newOBBDim] = size(Vmat);
-		[~,~,OBBDim]  = size(mps);
+		[newOBBDim,~] = size(op.h1jOBB);
+		[OBBDim,~]    = size(op.HleftA);
 % 		CV = reshape(CV,[newOBBDim, OBBDim]);
 
 		% copy OBB into h1j, h2j to match HmultVmat behaviour. This is only
@@ -189,20 +197,19 @@ hump = hump / normv;
 		% CA_(r^,r) given as vector, r^ indicates now BondDim from SVD on A
 		%	is sweep direction dependent! C_(l,l^) and C_(r^,r)
 		% A_(l,r^,n) in mps as tensor.
-		[BondDimALeft, BondDimARight, ~] = size(mps);
 		[~,BondDimRight] = size(op.Hright);
 		[~,BondDimLeft]  = size(op.Hleft);
 		w = 0;
 
 		switch para.sweepto
 			case 'r'
-				CA = reshape(CA, [BondDimARight,BondDimRight]);
+				CA = reshape(CA, [],BondDimRight);
 				w = w + op.HleftAV * CA + CA * op.Hright.';
 				for k = 1:M
 					w = w + op.h2jAV{k} * CA * op.Opright{k}.';
 				end
 			case 'l'
-				CA = reshape(CA, [BondDimLeft,BondDimALeft]);
+				CA = reshape(CA, BondDimLeft,[]);
 				w = w + op.Hleft * CA + CA * op.HrightAV.';
 				for k = 1:M
 					w = w + op.Opleft{k} * CA * op.h2jAV{k}.';
@@ -212,5 +219,66 @@ hump = hump / normv;
 		% input V is always vectorized -> reshape
 		w = reshape(w, [numel(w),1]);
 	end
+
+	function w = MCmultV(V)
+		%% w = MCmultV(V)
+		% called by 'MC-HAS'
+		nc = para.currentChain;
+		nTerms = para.M / para.nChains;
+		iM      = 1:para.M;
+		iM(ceil(iM/nTerms) ~= nc) = [];                       % could be moved to the top!
+
+		V = reshape(V, [size(op.h1j{nc},2), size(op.HnonInt,2)]);
+
+		w = V * op.HnonInt.' + op.h1j{nc} * V;                % V_(n,n~) * HnonInt_(n~',n~)
+		for k = iM
+			w = w + op.h2j{k,2,nc} * (V * op.OpleftAS{k}.');
+			w = w + op.h2j{k,1,nc} * (V * op.OprightAS{k}.');
+		end
+		w = reshape(w, [numel(w),1]);
+	end
+
+	function w = MCmultCV(CV)
+		%% w = MCmultCV(CV)
+		% called by 'MC-HASV'
+		% Similar to MCmultV only h[1/2]j <-> h[1/2]jMCOBB
+		nc = para.currentChain;
+		nTerms = para.M / para.nChains;
+		iM      = 1:para.M;
+		iM(ceil(iM/nTerms) ~= nc) = [];                       % could be moved to the top!
+
+		CV = reshape(CV, [size(op.h1jMCOBB{nc},2), size(op.HnonInt,2)]);
+
+		w = CV * op.HnonInt.' + op.h1jMCOBB{nc} * CV;         % CV_(n,n~) * HnonInt_(n~',n~)
+		for k = iM
+			w = w + op.h2jMCOBB{k,2,nc} * (CV * op.OpleftAS{k}.');
+			w = w + op.h2jMCOBB{k,1,nc} * (CV * op.OprightAS{k}.');
+		end
+		w = reshape(w, [numel(w),1]);
+	end
+
+	function w = MCmultVS(VS)
+		%% w = MCmultVS(VS)
+		% called by 'MC-HAV'
+		d = para.d_opt(:,para.sitej).';                       % these are the dimensions of VS
+		NC = para.nChains;
+		vs = reshape(VS,[prod(d(1:end-1)), d(end)]);
+		w = vs * (op.HleftA.' + op.HrightA.');
+		w = reshape(w,d);                                     % store w as fully ordered tensor
+
+		VS = reshape(VS,d);
+		for k = 1:NC
+			order = [k, NC+1, 1:(k-1), (k+1):NC];
+			dnow = d(order);
+			vs = permute(VS, order);
+			vs = reshape(vs, [prod(dnow([1,2])), prod(dnow(3:end))]);       % now ready for multiplications
+
+			wk = op.h12jAV{k} * vs;
+			wk = reshape(wk, dnow);
+			w  = w + ipermute(wk,order);
+		end
+		w = reshape(w, [numel(w),1]);
+	end
+
 end
 

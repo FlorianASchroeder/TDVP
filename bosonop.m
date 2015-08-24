@@ -8,6 +8,7 @@ function [bp,bm,n]=bosonop(dim,shift,parity)
 % bp = gallery('tridiag',zeros(1,dim-1),zeros(1,dim),sqrt(dim-1:-1:1));
 % bp = sparse(1:dim-1, 2:dim, sqrt(dim-1:-1:1), dim, dim);		% n-1:-1:1 inverted
 bp = sparse(2:dim, 1:dim-1, sqrt(1:dim-1), dim, dim);			% 1:n-1
+if nargout == 1 && shift == 0, return, end
 
 if parity~='n'
     bp=parityorderOP(bp);

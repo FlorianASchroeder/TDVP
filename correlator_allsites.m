@@ -1,7 +1,7 @@
 function [c]=correlator_allsites(c_op,mps,Vmat)
 % Calculate the expectation value of the multi-site correlator "c_op" for all bath sites.
 % Only for successive operators. Computes any number M! M counts < a_1...a_m > number of sites being correlated at once
-% Can be used instead of expectation_allsites if M = 1;
+% Can be used instead of expectation_allsites if M = 1; But Much slower!
 % Format of c_op: M x N cell
 %   for i x j: in j-th column: all operators to compute correlator(k).
 %       First row i=1 : operator for site j

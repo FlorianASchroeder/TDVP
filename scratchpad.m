@@ -25,10 +25,24 @@ if wantSave
 end
 %% Plot Sum over Vmat
 i = 2;
-a=sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2);
+a=sum(abs((Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2);
 plot(sum(abs(real(Vmat{1,i}*diag(results.Vmat_sv{1,i}))),2))
 set(gca,'YScale','log')
 title(['k = ',num2str(i),', max SV = ',num2str(results.Vmat_sv{1,i}(1,1))])
+ylabel('Contribution to OBB')
+xlabel('$d_k$')
+%print(gcf, [saveto,'VmatScaled',num2str(i),'.eps'],'-deps')
+if wantSave
+    export_fig(sprintf('%sVmatScaled%s-%u',saveto,para.filename(1:13),i),'-transparent','-png','-eps')
+end
+%% Plot Sum over Vtens
+i = 6;
+for j = 1:para.nChains
+	a(:,j) = sum(abs((Vmat{i}{j}*diag(results.Vmat_sv{j,i}))),2)';
+end
+plot(a);
+set(gca,'YScale','log')
+title(['k = ',num2str(i)])
 ylabel('Contribution to OBB')
 xlabel('$d_k$')
 %print(gcf, [saveto,'VmatScaled',num2str(i),'.eps'],'-deps')
@@ -397,24 +411,26 @@ rotate3d on
 
 %% TDVP (2) SBM: Plot <sz> / Visibility / Coherence
 figure(3); hold all;
-tresults = res{8,1}.tresults;	% for res-extraction
+% tresults = res{3}.tresults;	% for res-extraction
 % plotOpt = {'LineWidth',1.5};
-plotOpt = {'black','LineWidth',1};
+% plotOpt = {'black','LineWidth',1};
+plotOpt = {};
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 else
 	t=para.tdvp.t;		% for the old files
 end
 % n = find(tresults.n(:,3),1,'last');
-n = length(t);
+n = find(t,1,'last');
 plot(t(1:n), tresults.spin.sx(1:n), plotOpt{:});
 plot(t(1:n), tresults.spin.sy(1:n), plotOpt{:});
-plot(t(1:n), tresults.spin.sz(1:n), plotOpt{:});
+plot(t(1:n), tresults.spin.visibility(1:n), plotOpt{:});
 set(gca,'ylim',[-1,1]);
 % set(gca,'xscale','log');
 xlabel('t');
 ylabel('$\left<\sigma_z\right>$');
-l=legend('$\left< \sigma_y \right>$','$\left< \sigma_y \right>$','$\left< \sigma_z \right>$');
+% l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left< \sigma_z \right>$');
+l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left| D(t) \right|$');
 l.Interpreter = 'latex';
 
 %% TDVP (2) SBM: Plot Bloch length
@@ -426,24 +442,26 @@ set(gca,'ylim',[0,1]);
 xlabel('t');
 ylabel('$\sqrt{<s_x>^2+<s_y>^2+<s_z>^2}$');
 legend('Bloch length','Visibility');
-
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 1;		% 0: lin, 1: log
-f=figure(4); clf; f.Name = 'Chain Occupation';
-% tresults = res{6}.tresults;
-tresults.nx = tresults.n(:,:,1);
-n = find(tresults.nx(:,3),1,'last');
+f=figure(2); clf; f.Name = 'Chain Occupation';
+% x = res{2}; tresults = x.tresults; para = x.para;
+if str2num(para.tdvp.version(2:end)) < 50
+	tresults.n = tresults.nx;
+end
+n = tresults.n(:,:,1);			% choose chain for display!
+l = find(tresults.n(:,3),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 else
 	t=para.tdvp.t;		% for the old files
 end
 if mode
-	surf(1:size(tresults.nx,2),t(1:n),log10(abs(tresults.nx(1:n,:))));
+	surf(1:size(n,2),t(1:l),log10(abs(n(1:l,:))));
 	zlabel('$\log_{10}\left<n_k\right>$');
 else
-	surf(1:size(tresults.nx,2),t(1:n),real(tresults.nx(1:n,:)));
+	surf(1:size(n,2),t(1:l),real(n(1:l,:)));
 	zlabel('$\left<n_k\right>$');
 end
 ax = gca;
@@ -459,21 +477,22 @@ rotate3d on
 axis tight
 if mode
 % 	ax.ZLim = [-30, max(max(ax.Children.ZData))];
-	ax.ZLim = [-30, 0];
+	ax.ZLim = [-5, 0];
 else
-	ax.ZLim = [0.1,1].*10^-26;
+% 	ax.ZLim = [0.1,1].*10^-26;
 end
 ax.CLim = ax.ZLim;
 %% TDVP (3.2): Plot <n> STAR
 mode = 0;		% 0: lin, 1: log
-f=figure(5); clf; f.Name = 'Star Occupation';
-n = find(tresults.star.t,1,'last');
+f=figure(4); clf; f.Name = 'Star Occupation';
+l = find(tresults.star.t,1,'last');
+n = tresults.star.n(:,:,2);
 if mode
-	surf(tresults.star.omega,tresults.star.t(1:n),log10(tresults.star.n(1:n,:)));
+	surf(tresults.star.omega,tresults.star.t(1:l),log10(n(1:l,:)));
 % 	surf(tresults.star.omega,tresults.star.t(1:n),log10(tresults.star.n(1:n,:))-log10(ones(n,1)*tresults.star.n(1,:)));
 	zlabel('$\log_{10}\left<n_k\right>$');
 else
-	surf(tresults.star.omega,tresults.star.t(1:n),tresults.star.n(1:n,:));
+	surf(tresults.star.omega,tresults.star.t(1:l),n(1:l,:));
 	zlabel('$\left<n_k\right>$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';
@@ -586,7 +605,7 @@ end
 fig = figure;
 movie(fig,F,1,200)
 %% Save Movie
-writerObj = VideoWriter('img/Polaron01-dt01');
+writerObj = VideoWriter('img/Polaron001-dt01','MPEG-4');
 writerObj.FrameRate = 60;
 open(writerObj);
 writeVideo(writerObj,F);
@@ -690,33 +709,33 @@ plot(coneFunct,1:L,'w','linewidth',4)
 plot(coneFunct,1:L,'k','linewidth',2)
 
 %% TDVP (3.8): Plot polaron STAR
-mode = 0;		% 0: lin, 1: log
-f=figure(8); clf; f.Name = 'Star Polaron';
+f=figure(9); clf; f.Name = 'Star Polaron';
 % tresults = res{9,1}.tresults;
 n = find(tresults.star.t,1,'last');
-if mode
-	surf(tresults.star.omega,tresults.star.t(1:n),log10(abs(tresults.star.x(1:n,:))).*sign(tresults.star.x(1:n,:)));
-	zlabel('$\log_{10}f_k^\uparrow$');
-else
-	surf(tresults.star.omega,tresults.star.t(1:n),tresults.star.x(1:n,:,1));
-	zlabel('$f_k^\uparrow$');
-end
-cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = get(get(gca,'zlabel'),'String');
-% cb.Title.
-xlabel('Mode $\omega_k / \omega_c$');
-ylabel('Time $\omega_c t$');
-% set(gca,'xscale','log');		% log in sites
-% set(gca,'View',[0 42]);
-set(gca,'View',[0 90]);
-shading interp
-rotate3d on
-axis tight
-if mode
-% 	set(gca,'zlim',[-1,1]);
-% 	set(gca,'clim',[-1,1]);
-end
+x = tresults.star.x(:,:,:,2);								% choose which chain!
+ax = cell(2,1);
+ax{1} = axes();
+surf(tresults.star.omega,tresults.star.t(1:n),x(1:n,:,1));
+ax{1}.Position(1) = ax{1}.Position(1)-0.02; ax{1}.Position(3) = ax{1}.Position(3)/2;
+zlabel('$f_k^\uparrow$');
 
+ax{2} = axes('Position',[ax{1}.Position(1)+ax{1}.Position(3)+0.02, ax{1}.Position(2:4)]);
+surf(tresults.star.omega,tresults.star.t(1:n),x(1:n,:,2));
+zlabel('$f_k^\downarrow$');
+ax{2}.YAxisLocation = 'right';
+for i = 1:length(ax)
+	axes(ax{i});
+	cb = colorbar;cb.Title.Interpreter = 'latex';cb.Location = 'North';
+	cb.Title.String = ax{i}.ZLabel.String;
+	cb.Position(4) = cb.Position(4)/2;
+	xlabel('Mode $\omega_k / \omega_c$');
+	ylabel('Time $\omega_c t$');
+% 	set(gca,'View',[0 42]);
+	set(gca,'View',[0 90]);
+	shading interp
+	rotate3d on
+	axis tight
+end
 %% TDVP (3.9): Plot polaron STAR spin-corrected
 mode = 0;		% 0: lin, 1: log
 f=figure(9); clf; f.Name = 'Star Polaron corrected';
@@ -754,37 +773,40 @@ ax = axes('box','on'); hold all; ax.UserData = 1;
 hPl = handle(ax); hProp = findprop(hPl,'UserData');
 n = find(tresults.star.t,1,'last');
 ax.XLim = tresults.star.t([1,n]);
+x = tresults.star.x(:,:,:,2);		% Choose Chain!
+% Sim Parameters
+a = para.chain{1}.alpha; s = para.chain{1}.s;
 % Plots & OnChange actions on ax.UserData
-pl1 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,1)));
-hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',tresults.star.x(1:n,ax.UserData,1)));
-if size(tresults.star.x,3) == 2
-	pl2 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,2)));
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',tresults.star.x(1:n,ax.UserData,2)));
+pl1 = plot(tresults.star.t(1:n),(x(1:n,1,1)));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',x(1:n,ax.UserData,1)));
+if size(x,3) == 2
+	pl2 = plot(tresults.star.t(1:n),(x(1:n,1,2)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',x(1:n,ax.UserData,2)));
 end
 ylabel('$\left<f_k\right>$');
-set(gca,'ylim',[min(min(min(tresults.star.x(1:n,:,:))));max(max(max(tresults.star.x(1:n,:,:))))]);
-if para.s == 1
-	deltaR = abs(para.hx)^(1/(1-para.alpha));
+set(gca,'ylim',[min(min(min(tresults.star.x(1:n,:,:))));max(max(max(x(1:n,:,:))))]);
+if s == 1
+	deltaR = abs(para.hx)^(1/(1-a));
 else
 	deltaR = para.hx;		% Need good formula for renormalized amplitude!
 end
 if guides
 	% expected Position of Parabolas:
 	% complete displacement
-	pl3 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'black--');
-	pl4 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'black--');
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl4,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha/tresults.star.omega(ax.UserData))));
+	pl3 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*a./tresults.star.omega(1),'black--');
+	pl4 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*a./tresults.star.omega(1),'black--');
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*a/tresults.star.omega(ax.UserData))));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl4,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*a/tresults.star.omega(ax.UserData))));
 	pl3.Visible = guide2; pl4.Visible = guide2;
 	% one wavelength
 	pl5 = plot([1 1]*2*pi/tresults.star.omega(1),get(gca,'ylim'),'black--');
 	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl5,'xdata',[1 1]*2*pi/tresults.star.omega(ax.UserData)));
 	pl5.Visible = guide1;
 	% Silbey-Harris
-	pl6 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'red--');
-	pl7 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'red--');
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl6,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl7,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
+	pl6 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*a./tresults.star.omega(1),'--', 'color',[0.5,0.5,0.5]);
+	pl7 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*a./tresults.star.omega(1),'--','color',pl6.Color);
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl6,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*a*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl7,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*a*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
 	pl6.Visible = guide3; pl7.Visible = guide3;
 end
 % labels and comments
@@ -798,8 +820,8 @@ f.Position(3:4) = [720,416];	% correction needed for legend
 axT = axes(	'Position',[l.Position(1),ax.Position(1),l.Position(3),0.6],...
 			'box','on', 'Visible','off');
 axT.YLim = [0,0.6*f.Position(4)];
-t1 = text(0.1,210,{sprintf('$s=%g$',para.s);...
-				   sprintf('$\\alpha=%g$',para.alpha);...
+t1 = text(0.1,210,{sprintf('$s=%g$',s);...
+				   sprintf('$\\alpha=%g$',a);...
 				   sprintf('$\\Delta t=%g$',para.tdvp.deltaT);...
 				   sprintf('$ \\Delta_r = %.3g $',deltaR)});
 t2 = text(0.1,t1.Extent(2)-9,sprintf('$ \\omega_k = %g$',tresults.star.omega(ax.UserData)));
@@ -848,36 +870,39 @@ end
 ax.Units = 'norm';
 %% TDVP (3.10): Animate STAR <n> <x> kinetics side-by-side
 fignum = 5; figure(fignum); clf;
+nc = 2;		% Choose chain!
 guideSH = 1;
 width = 0.8; height = 0.375; posx = 0.1; posy = 0.13;
 ax = axes(	'Position',[posx,posy,width,height],...
 			'box', 'on');
 ax2 = axes(	'Position',[posx,posy+height,width,height],...
 			'box','on');
+% Sim Parameters
+a = para.chain{nc}.alpha; s = para.chain{nc}.s;
 % polaron plot
 axes(ax); ax.UserData = 1; hold all;
 hPl = handle(ax); hProp = findprop(hPl,'UserData');
 n = find(tresults.star.t,1,'last');
-pl1 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,1)));
-hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',(tresults.star.x(1:n,ax.UserData,1))));
+pl1 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,1,nc)));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'ydata',(tresults.star.x(1:n,ax.UserData,1,nc))));
 if size(tresults.star.x,3) == 2
-	pl2 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,2)));
-	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',tresults.star.x(1:n,ax.UserData,2)));
+	pl2 = plot(tresults.star.t(1:n),(tresults.star.x(1:n,1,2,nc)));
+	hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',tresults.star.x(1:n,ax.UserData,2,nc)));
 	if guideSH
-		if para.s == 1
-			deltaR = abs(para.hx)^(1/(1-para.alpha));
+		if s == 1
+			deltaR = abs(para.hx)^(1/(1-a));
 		else
 			deltaR = para.hx;		% Need good formula for renormalized amplitude!
 		end
-		pl3 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*para.alpha./tresults.star.omega(1),'red--');
-		pl4 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*para.alpha./tresults.star.omega(1),'red--');
-		hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
-		hPl.addlistener(hProp,'PostSet',@(src,event) set(pl4,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*para.alpha*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
+		pl3 = plot(tresults.star.t(1:n),-(tresults.spin.sz(1:n)+1)./4.*s./tresults.star.omega(1),'red--');
+		pl4 = plot(tresults.star.t(1:n),(1-tresults.spin.sz(1:n))./4.*s./tresults.star.omega(1),'red--');
+		hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',-(tresults.spin.sz(1:n)+1)./4.*sqrt(2*a*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
+		hPl.addlistener(hProp,'PostSet',@(src,event) set(pl4,'ydata',(1-tresults.spin.sz(1:n))./4.*sqrt(2*a*tresults.star.omega(ax.UserData))/(tresults.star.omega(ax.UserData)+deltaR)));
 	end
 end
 xlabel('Time $\omega_c t$');
 ylabel('$\left<f_k\right>$');
-set(gca,'ylim',[min(min(min(tresults.star.x(1:n,:,:)))),max(max(max(tresults.star.x(1:n,:,:))))]);
+set(gca,'ylim',[min(min(min(tresults.star.x(1:n,:,:,nc)))),max(max(max(tresults.star.x(1:n,:,:,nc))))]);
 plot(ax.XLim,[0,0],'black');
 % OnChange actions:
 hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ \\omega_k = %g $',tresults.star.omega(ax.UserData))));
@@ -885,8 +910,8 @@ hPl.addlistener(hProp,'PostSet',@(src,event) title(sprintf('$ \\omega_k = %g $',
 % set(gca,'xlimmode','manual','xlim',[0,tresults.star.t(end)]);
 
 axes(ax2); hold all;
-pl3 = plot(tresults.star.t(1:n), tresults.star.n(1:n,ax.UserData));
-hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',tresults.star.n(1:n,ax.UserData)));
+pl3 = plot(tresults.star.t(1:n), tresults.star.n(1:n,ax.UserData,nc));
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl3,'ydata',tresults.star.n(1:n,ax.UserData,nc)));
 % xlabel('Time $\omega_c t$');
 ylabel('$\left<n_k\right>$');
 % ax2.YAxisLocation = 'right';
@@ -1033,14 +1058,15 @@ end
 %% TDVP (3.14): Plot Current <j> CHAIN
 mode = 0;		% 0: lin, 1: log
 f=figure(14); clf; f.Name = 'Chain Current';
-% tresults = res{9,1}.tresults;
+% tresults = res{1,1}.tresults;
 n = find(tresults.j(:,2),1,'last');
+j = tresults.j(:,:,2);
 t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 if mode
-	surf(1:size(tresults.j,2),t(1:n),log10(abs(tresults.j(1:n,:))));
+	surf(1:size(tresults.j,2),t(1:n),log10(abs(j(1:n,:))));
 	zlabel('$\log_{10}\left<j_k\right>$');
 else
-	surf(1:size(tresults.j,2),t(1:n),-real(tresults.j(1:n,:)));
+	surf(1:size(tresults.j,2),t(1:n),-real(j(1:n,:)));
 	zlabel('$\left<j_k\right>$');
 end
 cb = colorbar;cb.Title.Interpreter = 'latex';
@@ -2623,49 +2649,15 @@ ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdv
 % ph2 = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)-1), diff(x.para.tdvp.calcTime)), res(pick,1), 'UniformOutput', false);
 
 %% TDVP SBM multi files: v52 TDVP Benchmark s=1 0.01 < a < 0.5									% LabBook 06/08/2015
+% deleted v52 results, since no real extra information gain. If needed, rerun!
+% includes: j, sx, sn
 clear
-defPlot(1,:) = {'20150805-Benchmark-v52-dt01-Using-ExpvCustom-only',								[1:6], {'ylim',[-1,1],'xlim',[0,500]}};
-% defPlot(2,:) = {'20150805-Benchmark-v52-dt01-Using-Mixture',										[7:12],{'ylim',[-1,1],'xlim',[0,500]}};
-% defPlot(3,:) = {'20150805-Benchmark-v52n-dt01-Using-ExpvCustom-only',								[13:18], {'ylim',[-1,1],'xlim',[0,500]}};
+defPlot(1,:) = {'20150805-Benchmark-v52n-dt01-Using-ExpvCustom-only',								[1:6], {'ylim',[-1,1],'xlim',[0,500]}};
 
 i=0; cols = 5;
 n = max(cell2mat(defPlot(:,2)'));
 while true
 %1-6
-foldPattern = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L200-art-sz';
-filePattern = 'results-Till500Step0.1v52-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
-folds = rdir([foldPattern,'\',filePattern]);
-res{i+size(folds,1),cols} = []; offset = i;
-for file = {folds.name}
-	file = file{1};
-	i = i+1;
-	res{i,1} = load(file,'para','tresults');			% comment first!
-	res{i,3} = res{i,1}.para.chain{1}.alpha;
-	res{i,4} = res{i,1}.para.chain{1}.s;
-	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
-end
-res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res(offset+1:i,5) = {'expvCustom, dt0.1'};
-if size(res,1) >= n, break; end;
-
-%7-12
-foldPattern = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L200-art-sz';
-filePattern = 'results-Till500Step0.1v52-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
-folds = rdir([foldPattern,'\',filePattern]);
-res{i+size(folds,1),cols} = []; offset = i;
-for file = {folds.name}
-	file = file{1};
-	i = i+1;
-	res{i,1} = load(file,'para','tresults');			% comment first!
-	res{i,3} = res{i,1}.para.chain{1}.alpha;
-	res{i,4} = res{i,1}.para.chain{1}.s;
-	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
-end
-res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
-res(offset+1:i,5) = {'expm-expv, dt0.1'};
-if size(res,1) >= n, break; end;
-
-%13-18
 foldPattern = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L200-art-sz';
 filePattern = 'results-Till500Step0.1v52n-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
 folds = rdir([foldPattern,'\',filePattern]);
@@ -2771,7 +2763,7 @@ defPlot(2,:) = {'20150805-Benchmark-v52-dt01-Using-ExpvCustom-only',		[9:14,17,1
 
 i=0; cols = 5;
 
-%1-8: TTM Data all till t=110
+%1-8: TTM Data
 foldPattern = '20150816-0156-SpinBosonTTM-OrthPol-v59TCMde9-alpha*delta0.1epsilon0dk30D5dopt5L100';
 filePattern = 'results-Till150Step0.02v59-OBBExpand-BondExpand10-expvCustom800-1core-small.mat';
 folds = rdir([foldPattern,'\',filePattern]);
@@ -2789,7 +2781,7 @@ res(offset+1:i,5) = {'TTM, dt0.02'};
 
 %9-14: TDVP Data weak
 foldPattern = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha*delta0.1epsilon0dk30D5dopt5L200-art-sz';
-filePattern = 'results-Till500Step0.1v52-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
+filePattern = 'results-Till500Step0.1v52n-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
 folds = rdir([foldPattern,'\',filePattern]);
 res{i+size(folds,1),cols} = []; offset = i;
 for file = {folds.name}
@@ -3536,3 +3528,21 @@ plot(t(2:end),fun(squeeze(x.tresults.TTM.T(2,2,2:end)./(x.para.tdvp.deltaT.^2)))
 legend(leg);
 
 % ax.YScale = 'log';
+
+%% Convert tresults to single precision
+% tresults.star.x = single(tresults.star.x);
+tresults.star.n = single(tresults.star.n);
+tresults.star.t = single(tresults.star.t);
+tresults.star.omega = single(tresults.star.omega);
+tresults.spin.sx = single(tresults.spin.sx);
+tresults.spin.sy = single(tresults.spin.sy);
+tresults.spin.sz = single(tresults.spin.sz);
+% tresults.j = single(tresults.j);
+% tresults.t = single(tresults.t);
+tresults.nx = single(real(tresults.nx));
+save(para.tdvp.filenameSmall, 'para','tresults');
+
+%% Export to CSV
+x = tresults.t; x = reshape(x,numel(x),1);
+y = tresults.spin.visibility; y = reshape(y,numel(y),1);
+csvwrite('visibility.dat',[x,y]);

@@ -27,7 +27,7 @@ function [Hleft] = updateHleft(Hleft, h1jOBB, Opstorage1, B, BUb, h2jOBB, A, AUb
 		end															% multiChain == 1 does not use updateCright -> leave empty
 	end
 
-	Hleft = updateCleft(Hleft, B, BUb, [], A, AUb);
+	Hleft = updateCleft(Hleft, B, [], [], A, []);                   % removed Vmat since should cancel anyways!
 
 	if ~isempty(h1jOBB)
 		Hleft = Hleft + updateCleft([],B,[],h1jOBB,A,[]);

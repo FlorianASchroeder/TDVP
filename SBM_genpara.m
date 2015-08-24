@@ -79,12 +79,12 @@ if strcmp(chainpara.discrMethod,'Analytic')
 		end
 	end
 else
-	%% from here: either discretize J(w) for Lanzcos or h^2(x) for Stieltjes
+	%% from here: either discretize J(w) for Lanczos or h^2(x) for Stieltjes
 	% Uses numerical evaluation of Integrals. Works for any spectral function!
 	% numerical LogZ uses not the Zitko scheme, which is more difficult!!
 % 	try
 		% Following only works if spectral functions at the end have name scheme: J_(para.spectralDensity)
-		if strcmp(chainpara.mapping,'LanzcosTriDiag')
+		if strcmp(chainpara.mapping,'LanczosTriDiag')
 % 			fprintf('J_%s(w,i)',chainpara.spectralDensity)
 			JorH = @(w,i) eval(sprintf('J_%s(w,i)',chainpara.spectralDensity));
 			wmax = w_cutoff;
@@ -124,7 +124,7 @@ xi(isnan(xi))=0;                                    % if numbers < e-161 they be
 Gamma(isnan(Gamma))=0;
 
 %% Start mapping to Chain
-if strcmp(chainpara.mapping, 'LanzcosTriDiag')
+if strcmp(chainpara.mapping, 'LanczosTriDiag')
 	%% Start Tridiagonalization
 	indiag=zeros(bigL,1);
 	inrow=indiag;
@@ -217,7 +217,11 @@ end
 
 	function init_Leggett_Hard()
 		wc		 = 1;
-		w_cutoff = 1;
+		if isfield(chainpara,'w_cutoff')
+			w_cutoff = chainpara.w_cutoff;
+		else
+			w_cutoff = 1;
+		end
 	end
 
 	function y = J_Leggett_Soft(w,i)
