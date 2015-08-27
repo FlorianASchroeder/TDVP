@@ -15,7 +15,11 @@ if para.parity~='n'
     r.Amat_sv=cell(1,L-1);
     %r.Amat_sv=zeros(L,D/2);
 else
-    r.Vmat_sv=cell(1,L);
+	if para.useVtens
+		r.Vmat_sv=cell(para.nChains+1,L);
+	else
+		r.Vmat_sv=cell(1,L);
+	end
     %r.Vmat_sv=zeros(L,max(d_opt));
     r.Amat_sv=cell(1,L-1);
     %r.Amat_sv=zeros(L,D);

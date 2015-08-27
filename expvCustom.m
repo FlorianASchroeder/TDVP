@@ -206,13 +206,17 @@ hump = hump / normv;
 				CA = reshape(CA, [],BondDimRight);
 				w = w + op.HleftAV * CA + CA * op.Hright.';
 				for k = 1:M
-					w = w + op.h2jAV{k} * CA * op.Opright{k}.';
+					if ~isempty(op.Opright{k}) && ~isempty(op.h2jAV{k})
+						w = w + op.h2jAV{k} * CA * op.Opright{k}.';
+					end
 				end
 			case 'l'
 				CA = reshape(CA, BondDimLeft,[]);
 				w = w + op.Hleft * CA + CA * op.HrightAV.';
 				for k = 1:M
-					w = w + op.Opleft{k} * CA * op.h2jAV{k}.';
+					if ~isempty(op.Opleft{k}) && ~isempty(op.h2jAV{k})
+						w = w + op.Opleft{k} * CA * op.h2jAV{k}.';
+					end
 				end
 		end
 
@@ -257,7 +261,7 @@ hump = hump / normv;
 		w = reshape(w, [numel(w),1]);
 	end
 
-	function w = MCmultVS(VS)
+	function w = MCmultVSOld(VS)
 		%% w = MCmultVS(VS)
 		% called by 'MC-HAV'
 		d = para.d_opt(:,para.sitej).';                       % these are the dimensions of VS
@@ -268,6 +272,7 @@ hump = hump / normv;
 
 		VS = reshape(VS,d);
 		for k = 1:NC
+			if isempty(op.h12jAV{k}), continue; end;
 			order = [k, NC+1, 1:(k-1), (k+1):NC];
 			dnow = d(order);
 			vs = permute(VS, order);
@@ -280,5 +285,41 @@ hump = hump / normv;
 		w = reshape(w, [numel(w),1]);
 	end
 
+	function w = MCmultVS(VS)
+		%% w = MCmultVS(VS)
+		% called by 'MC-HAV'
+		d = para.d_opt(:,para.sitej).';                       % these are the dimensions of VS
+		nTerms = para.M/para.nChains;
+		NC = para.nChains;
+		vs = reshape(VS,[prod(d(1:end-1)), d(end)]);
+		w = vs * (op.HleftA.' + op.HrightA.');
+		w = reshape(w,d);                                     % store w as fully ordered tensor
+
+		VS = reshape(VS,d);
+		for k = 1:NC
+			vs = tensShape(VS, 'unfold', k, d);				% chain index to front!
+			if ~isempty(op.h1jMCOBB{k})
+				vsTemp = op.h1jMCOBB{k} * vs;
+				w = w + tensShape(vsTemp, 'fold',k,d);		% reshape and add to result
+			end
+			Mc = 1:para.M;
+			Mc(ceil(Mc/nTerms) ~=k) = [];					% find which m to operate on for this chain
+
+			for mm = Mc										% rather slow loop since taking out of M
+				if ~isempty(op.h2jMCOBB{mm,2,k})
+					vsTemp = op.h2jMCOBB{mm,2,k} * vs;
+					vsTemp = tensShape(vsTemp, 'fold',k,d);
+					w = w + contracttensors(vsTemp, NC+1, NC+1, op.OpleftA{mm}.',2,1);
+				end
+
+				if ~isempty(op.h2jMCOBB{mm,1,k})
+					vsTemp = op.h2jMCOBB{mm,1,k} * vs;
+					vsTemp = tensShape(vsTemp, 'fold',k,d);
+					w = w + contracttensors(vsTemp, NC+1, NC+1, op.OprightA{mm}.',2,1);
+				end
+			end
+		end
+		w = reshape(w, [numel(w),1]);
+	end
 end
 

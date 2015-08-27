@@ -113,7 +113,7 @@ switch para.sweepto
 			B = reshape(B, [DB, d, D2]); B = permute(B, [1, 3, 2]);
             % create focused center: C(n)_(l,a) = U_(l,a')*S_(a',a)
             U = U * S;
-
+            sitej = sitej - 1;				% needed for saving into the right position of results.Amat_sv
         else
             %% special parity
             A=permute(A,[2,3,1]);

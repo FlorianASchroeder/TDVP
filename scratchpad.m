@@ -251,6 +251,17 @@ if wantSave
     export_fig(sprintf('%sChangeOfVmatSV%s',saveto,para.filename(1:13)),'-transparent','-png')
 end
 
+%% Plot results.Amat_sv - logPlot
+figure;
+svCell = results.Amat_sv;
+maxN = max(cellfun(@(x) length(x),svCell));
+pTemp = zeros(maxN,length(svCell));
+for ii = 1:length(svCell)
+	pTemp(1:length(svCell{ii}),ii) = svCell{ii};
+end
+surf(log10(pTemp));
+shading interp; axis tight; rotate3d on;
+
 %% plotting first rows of uneven cell arrays
 cellfun(@(x) x(1,1), results.Vmat_sv(2:end))
 %% try to calculate Shift analytically:
@@ -410,7 +421,7 @@ set(gca,'view',[-29,16]);
 rotate3d on
 
 %% TDVP (2) SBM: Plot <sz> / Visibility / Coherence
-figure(3); hold all;
+figure(2); hold all;
 % tresults = res{3}.tresults;	% for res-extraction
 % plotOpt = {'LineWidth',1.5};
 % plotOpt = {'black','LineWidth',1};
@@ -424,13 +435,14 @@ end
 n = find(t,1,'last');
 plot(t(1:n), tresults.spin.sx(1:n), plotOpt{:});
 plot(t(1:n), tresults.spin.sy(1:n), plotOpt{:});
-plot(t(1:n), tresults.spin.visibility(1:n), plotOpt{:});
+plot(t(1:n), tresults.spin.sz(1:n), plotOpt{:});
+% plot(t(1:n), tresults.spin.visibility(1:n), plotOpt{:});
 set(gca,'ylim',[-1,1]);
 % set(gca,'xscale','log');
 xlabel('t');
 ylabel('$\left<\sigma_z\right>$');
-% l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left< \sigma_z \right>$');
-l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left| D(t) \right|$');
+l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left< \sigma_z \right>$');
+% l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left| D(t) \right|$');
 l.Interpreter = 'latex';
 
 %% TDVP (2) SBM: Plot Bloch length
@@ -444,9 +456,9 @@ ylabel('$\sqrt{<s_x>^2+<s_y>^2+<s_z>^2}$');
 legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
-mode = 1;		% 0: lin, 1: log
-f=figure(2); clf; f.Name = 'Chain Occupation';
-% x = res{2}; tresults = x.tresults; para = x.para;
+mode = 0;		% 0: lin, 1: log
+f=figure(315); clf; f.Name = 'Chain Occupation';
+% x = res{5,1}; tresults = x.tresults; para = x.para;
 if str2num(para.tdvp.version(2:end)) < 50
 	tresults.n = tresults.nx;
 end
@@ -459,9 +471,11 @@ else
 end
 if mode
 	surf(1:size(n,2),t(1:l),log10(abs(n(1:l,:))));
+% 	surf(1:size(n,2),t(1:l),log10(abs(real(n(1:l,:))-ones(l,1)*real(n(1,:)))));		% subtract intitial population
 	zlabel('$\log_{10}\left<n_k\right>$');
 else
 	surf(1:size(n,2),t(1:l),real(n(1:l,:)));
+% 	surf(1:size(n,2),t(1:l),real(n(1:l,:))-ones(l,1)*real(n(1,:)));			% subtract initial population
 	zlabel('$\left<n_k\right>$');
 end
 ax = gca;
@@ -477,16 +491,17 @@ rotate3d on
 axis tight
 if mode
 % 	ax.ZLim = [-30, max(max(ax.Children.ZData))];
-	ax.ZLim = [-5, 0];
+	ax.ZLim = [-4, 0];
 else
 % 	ax.ZLim = [0.1,1].*10^-26;
 end
 ax.CLim = ax.ZLim;
+% ax.YLim = [0,100];
 %% TDVP (3.2): Plot <n> STAR
-mode = 0;		% 0: lin, 1: log
-f=figure(4); clf; f.Name = 'Star Occupation';
+mode = 1;		% 0: lin, 1: log
+f=figure(320); clf; f.Name = 'Star Occupation';
 l = find(tresults.star.t,1,'last');
-n = tresults.star.n(:,:,2);
+n = tresults.star.n(:,:,1);
 if mode
 	surf(tresults.star.omega,tresults.star.t(1:l),log10(n(1:l,:)));
 % 	surf(tresults.star.omega,tresults.star.t(1:n),log10(tresults.star.n(1:n,:))-log10(ones(n,1)*tresults.star.n(1,:)));
@@ -513,17 +528,17 @@ end
 %% TDVP (3.3): Animate <n> propagation
 figure(3); clf;
 ax = axes('units','pixels');
-pl = plot(1:para.L,log10(real(tresults.nx(1,:))));
+pl = plot(1:para.L,log10(real(tresults.n(1,:,1))));
 set(gca,'ylimmode','manual');
-set(gca,'ylim',[-5,0]);
+set(gca,'ylim',[-5,1]);
 set(gca,'xlimmode','manual','xlim',[1,para.L]);
 xlabel('Site $k$');
 ylabel('$\left<n_k\right>$');
 % shading interp
 sld = uicontrol('Style', 'slider',...
-        'Min',1,'Max',size(tresults.nx,1),'Value',1,...
+        'Min',1,'Max',size(tresults.n,1),'Value',1,...
         'Position', [400 20 120 20],...
-        'Callback', @(source,callbackdata) set(pl,'ydata',log10(real(tresults.nx(round(source.Value),:)))));
+        'Callback', @(source,callbackdata) set(pl,'ydata',log10(real(tresults.n(round(source.Value),:,1)))));
 %% TDVP (3.4): Animate <n> star formation
 mode = 0;		% 0: lin, 1: log
 figure(3); clf;
@@ -712,7 +727,7 @@ plot(coneFunct,1:L,'k','linewidth',2)
 f=figure(9); clf; f.Name = 'Star Polaron';
 % tresults = res{9,1}.tresults;
 n = find(tresults.star.t,1,'last');
-x = tresults.star.x(:,:,:,2);								% choose which chain!
+x = tresults.star.x(:,:,:,1);								% choose which chain!
 ax = cell(2,1);
 ax{1} = axes();
 surf(tresults.star.omega,tresults.star.t(1:n),x(1:n,:,1));
@@ -870,7 +885,8 @@ end
 ax.Units = 'norm';
 %% TDVP (3.10): Animate STAR <n> <x> kinetics side-by-side
 fignum = 5; figure(fignum); clf;
-nc = 2;		% Choose chain!
+% x = res{9,1}; tresults = x.tresults; para = x.para;
+nc = 1;		% Choose chain!
 guideSH = 1;
 width = 0.8; height = 0.375; posx = 0.1; posy = 0.13;
 ax = axes(	'Position',[posx,posy,width,height],...
@@ -878,7 +894,11 @@ ax = axes(	'Position',[posx,posy,width,height],...
 ax2 = axes(	'Position',[posx,posy+height,width,height],...
 			'box','on');
 % Sim Parameters
-a = para.chain{nc}.alpha; s = para.chain{nc}.s;
+if isfield(para,'alpha')
+	a = para.alpha; s = para.s;
+else
+	a = para.chain{nc}.alpha; s = para.chain{nc}.s;
+end
 % polaron plot
 axes(ax); ax.UserData = 1; hold all;
 hPl = handle(ax); hProp = findprop(hPl,'UserData');
@@ -1059,7 +1079,7 @@ end
 mode = 0;		% 0: lin, 1: log
 f=figure(14); clf; f.Name = 'Chain Current';
 % tresults = res{1,1}.tresults;
-n = find(tresults.j(:,2),1,'last');
+n = tresults.lastIdx;
 j = tresults.j(:,:,2);
 t=tresults.t;		% for the new convention when extracting in intervals >= rev42
 if mode
@@ -1086,9 +1106,9 @@ end
 set(gca,'Xlim',[1,15]);
 %% TDVP (4) Bond Dimension Plots
 %% TDVP (4.1): Plot d_opt
-figure(4); clf;
-n = find(results.tdvp.d_opt(:,2),1,'last');
-surf(1:para.L,para.tdvp.t(1:n),cumsum(results.tdvp.d_opt(1:n,:)))
+figure(411); clf;
+lastIdx = find(tresults.t,1,'last');
+surf(1:para.L,para.tdvp.t(1:lastIdx),cumsum(results.tdvp.d_opt(1:lastIdx,:)))
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$d_{opt}$');
@@ -1098,9 +1118,10 @@ rotate3d on
 axis tight
 
 %% TDVP (4.2): Plot D
-figure(5); clf;
-n = size(tresults.nx,1);
-surf(1:para.L-1,para.tdvp.t(1:n),results.tdvp.D)
+figure(421); clf;
+n = size(tresults.n,1);
+surf(1:para.L-1,para.tdvp.t(1:n),cumsum(results.tdvp.D))
+% surf(cumsum(results.tdvp.D));
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$d_{opt}$');
@@ -1111,7 +1132,9 @@ axis tight
 
 %% TDVP (4.3): Plot d_k
 %% TDVP (6): Plot vNE of A / V
-figure(7); clf;
+ii = 1;
+figure(600+ii); clf;
+% x = res{10+ii,1}; results = x.results;
 if para.tdvp.logSV
 	results.tdvp.Amat_vNE = cell2mat(cellfun(@(x) sum(-x.^2.*log(x.^2)), results.tdvp.Amat_sv, 'UniformOutput',false));
 	results.tdvp.Vmat_vNE = cell2mat(cellfun(@(x) sum(-x.^2.*log(x.^2)), results.tdvp.Vmat_sv, 'UniformOutput',false));
@@ -1119,18 +1142,53 @@ end
 subplot(1,2,1);
 surf(1:size(results.tdvp.Amat_vNE,2),para.tdvp.t(1:size(results.tdvp.Amat_vNE,1)),results.tdvp.Amat_vNE);
 xlabel('Bond $k$'); ylabel('Time $\omega_c t$'); zlabel('$S_{vNE}(A)$');
-set(gca,'View',[0 90]);
+set(gca,'View',[90 0]);  %top: 0 90
 shading interp
 rotate3d on
 axis tight
 subplot(1,2,2);
 surf(1:size(results.tdvp.Vmat_vNE,2),para.tdvp.t(1:size(results.tdvp.Vmat_vNE,1)),results.tdvp.Vmat_vNE);
 xlabel('Bond $k$'); ylabel('Time $\omega_c t$'); zlabel('$S_{vNE}(V)$');
-set(gca,'View',[0 90]);
+set(gca,'View',[90 0]);
 shading interp
 rotate3d on
 axis tight
 % formatPlot(7)
+
+%% TDVP (6.1): Vmat, use of dk Slider in L
+nc = 1;		% which chain?
+ii = 0;
+% x = res{10+ii,1}; Vmat = x.Vmat; results = x.results;
+figure(610+ii); clf; ax = {};
+ax{1} = gca;
+hPl = handle(ax{1}); hProp = findprop(hPl,'UserData');
+pl1 = surf(abs(Vmat{2}{nc}));	% plot resets UserData!
+ax{1}.UserData = 2;
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl1,'zdata',abs(Vmat{ax{1}.UserData}{nc})));
+xlabel('$d_{OBB}$');
+ylabel('$d_k$');
+ax{1}.View = [0,90];
+shading interp; rotate3d on; axis tight;
+origHeight = ax{1}.Position(4);
+ax{1}.Position(4) = origHeight*0.8;
+ax{2} = axes('Position',[ax{1}.Position(1:2)+[0,ax{1}.Position(4)], abs(ax{1}.Position(3:4)-[0,origHeight])]);
+pl2 = plot(log10(results.Vmat_sv{nc,ax{1}.UserData})); axis tight
+hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',log10(results.Vmat_sv{nc,ax{1}.UserData})));
+% ax{2}.XTick = [];
+ax{2}.YLim=ax{2}.YLim; ax{2}.XLim = ax{1}.XLim;
+hPl.addlistener(hProp,'PostSet',@(src,event) set(ax{2},'XLim',ax{1}.XLim));
+ylabel('$log_{10}(SV(V))$');
+t = text(mean(ax{2}.XLim),ax{2}.YLim(1)/2, 'k = 2');
+hPl.addlistener(hProp,'PostSet',@(src,event) set(t,'String',sprintf('k = %d',ax{1}.UserData)));
+
+% slider definition and UserData setting:
+f = gcf; pos = f.Position;
+sldmin = 2; sldmax = para.L;
+sld = javax.swing.JScrollBar(0,sldmin,1,sldmin,sldmax);		%JScrollBar(int orientation, int value, int extent, int min, int max)
+javacomponent(sld, [pos(3)*0.05,5,200,15], f);
+sld.setUnitIncrement(1); sld.setBlockIncrement(10);
+hsld = handle(sld,'CallbackProperties');
+set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax{1},'UserData',round(source.Value)));
 
 %% TDVP: Plot temporal change in Vmat SV
 figure(4); clf;
@@ -1367,29 +1425,31 @@ ylabel('$<s_z>$');
 formatPlot(figN);
 
 %% TDVP (11) expvCustom Benchmarking
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
 figure(9);clf;
 hold all
-scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,1),'+');
-scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,3),'*');
-% scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,2),'*');
-% scatter(sqrt(results.tdvp.expvTime(:,4)),results.tdvp.expvTime(:,3));
+% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,1),'+');
+scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,1)+results.tdvp.expvTime(:,4),'+');
+% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,2),'*');
+scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,4),'*');
+scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,3),'o');
+% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,4));
 set(gca,'yscale','log')
 set(gca,'xscale','log')
-set(gca,'xlim',[1,1e5]); set(gca,'xtick',[1,10,100,1e3,1e4,1e5]);
-legend('Custom Krylov e^{At}v','Expokit')
+set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('expM','expV','expvCustom','Location','best')
 xlabel('Matrix dimension n')
 ylabel('Time/s')
-formatPlot(9)
+formatPlot(9,'twocolumn-single')
 
 %% TDVP (12) expError analysis
 
 figure(12); clf;
 [n,m] = size(results.tdvp.expError);
-surf(1:m,para.tdvp.t(2:end),log10(results.tdvp.expError))
+plot(para.tdvp.t(2:end),log10(results.tdvp.expError))
 
-xlabel('n-th Exp()');
-ylabel('Time $t$');
-zlabel('$log_{10}$(Exponential error)');
+xlabel('Time $t$');
+ylabel('$log_{10}$(Exponential error)');
 set(gca,'yscale','log');
 % set(gca,'zscale','log');
 set(gca,'View',[35 42]);
@@ -2866,6 +2926,214 @@ for k = 6:8%6:size(res,1)
 end
 toc
 
+%% THERM SBM multi load : v61 T=300K Benchmark, s=1 a=0.01							% LabBook 28/08/2015
+% Only contains the first THERM trials!
+clear
+defPlot(1,:) = {'20150828-SBM2CT-dt01-FirstTry',							[ 1:5], {'ylim',[0,0.8],'xlim',[0,200],'yscale','lin'}};
+defPlot(2,:) = {'20150828-SBM2CT-dt01-sz',									[ 6:9], {'ylim',[0,0.8],'xlim',[0,200],'yscale','lin'}};
+defPlot(3,:) = {'20150904-SBM2CT-dt01-sz-DimSweep',							[10:16], {'ylim',[0,4],'xlim',[1,20],'yscale','lin'}};
+defPlot(4,:) = {'20150905-SBM2CT-L20-sz-DimExpandSweep',					[17:31], {'ylim',[0,0.4],'xlim',[1,20],'yscale','lin'}};
+i=0; cols = 5;
+
+%1-5: Thermal Evolution from -sx
+foldPattern = '20150827-1936-SpinBoson2CT-VT-OrthPol-v61TCMde10-alpha0.01delta0epsilon0.1dk*D5dopt5L*-art--sx';
+filePattern = 'results-Till20Step0.1v61-OBBExpand-BondExpand20-expvCustom0-1core.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults','results');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.L;
+	res{i,2} = sprintf('d_k = %g', res{i,1}.para.dk(1,2));
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),[2 4]);
+res(offset+1:i,5) = {'dt0.1'};
+
+%6-9: Thermal Evolution from -sz
+foldPattern = '20150828-1406-SpinBoson2CT-VT-OrthPol-v61TCMde9-alpha0.01delta0epsilon0.1dk*D5dopt5L*-art--sz';
+filePattern = 'results-Till20Step0.1v61-OBBExpand-BondExpand20-expvCustom0-1core.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults','results');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.L;
+	res{i,2} = sprintf('d_k = %g', res{i,1}.para.dk(1,2));
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),[2 4]);
+res(offset+1:i,5) = {'dt0.1'};
+
+%10-16: Thermal Evolution from -sz
+foldPattern = '20150904-0006-SpinBoson2CT-VT-OrthPol-v61TCMde11-alpha0.01delta0epsilon0.1dk60D*dopt*L20-art--sz';
+filePattern = 'results-Till20Step0.1v61-noOBBExpand-noBondExpand-expvCustom0-1core.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	load(file,'para','tresults','results');			% comment first!
+	Vars = whos;
+	for ii = 1:size(Vars)
+		if strcmp(Vars(ii).class,'uint8')
+			eval(sprintf('%s = hlp_deserialize(%s);',Vars(ii).name,Vars(ii).name));
+		end
+	end
+ 	res{i,1}.para = para; res{i,1}.results = results; res{i,1}.tresults = tresults;
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.L;
+	res{i,2} = sprintf('dOBB=%g, D=%g', res{i,1}.para.d_opt(3,3),res{i,1}.para.D(7));
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),[2 4]);
+res(offset+1:i,5) = {'dt0.1'};
+
+%17-27: Thermal Evolution from -sz
+foldPattern = '20150905-0139-SpinBoson2CT-VT-OrthPol-v61TCM33-alpha0.01delta0epsilon0.1dk60D10dopt10L20-art--sz';
+filePattern = 'results-Till20*small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.L;
+% 	res{i,2} = sprintf('dOBB=%g, D=%g', res{i,1}.para.d_opt(3,3),res{i,1}.para.D(7));
+	[~,res{i,2}] = fileparts(res{i,1}.para.tdvp.filename);
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),[2 4]);
+res(offset+1:i,5) = {'dt0.1'};
+
+%%
+for fignum = 4:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+% 	plot([0,xmax],[0,0],'black');
+% 	ph = cellfun(@(x) plot(x.tresults.TTM.t, x.tresults.TTM.Esigma(3,:)), res(pick,1), 'UniformOutput', false);
+	ph = cellfun(@(x) plot(1:size(x.tresults.n,2), x.tresults.n(x.tresults.lastIdx,:,1)), res(pick,1), 'UniformOutput', false);
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('Site $k$');
+	ylabel('$\left<n_k\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%s\n',x),res(pick,2),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum,'twocolumn-single');
+% 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
+%% TDVP SBM multi load  : v61 T=300K Benchmark, s=1 a=0.01							% LabBook 30/08/2015
+% TDVP on THERM evolution
+clear
+defPlot(1,:) = {'20150830-SBM2CT-dt1-dk10-TH-TDVP',							[1:4], {'ylim',[0,1] ,'xlim',[0,95]}};
+defPlot(2,:) = {'20150831-SBM2CT-dt1-dk20-TH-TDVP',							[5:8], {'ylim',[0,1] ,'xlim',[0,95]}};
+
+i=0; cols = 5;
+
+%1-4: TDVP Data
+foldPattern = '20150827-1936-SpinBoson2CT-VT-OrthPol-v61TCMde10-alpha0.01delta0epsilon0.1dk10D5dopt5L50-art--sx';
+filePattern = 'results-Till350Step1v61-alpha*-OBBExpand-noBondExpand-expvCustom0-1core.mat-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.L;
+	res{i,2} = sprintf('d_k = %g', res{i,1}.para.dk(1,2));
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),[2 4]);
+res(offset+1:i,5) = {'dt1,dk10,L50'};
+
+%5-8: Thermal Evolution from -sz
+foldPattern = '20150828-1406-SpinBoson2CT-VT-OrthPol-v61TCMde9-alpha0.01delta0epsilon0.1dk20D5dopt5L200-art--sz';
+filePattern = 'results-Till350Step1v61-alpha*-OBBExpand-BondExpand20-expvCustom0-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.L;
+	res{i,2} = sprintf('d_k = %g', res{i,1}.para.dk(1,2));
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),[2 4]);
+res(offset+1:i,5) = {'dt1,dk20,L200'};
+
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+	plot([0,xmax],[0,0],'black');
+	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.visibility(1:x.tresults.lastIdx)), res(pick,1), 'UniformOutput', false);
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('Site $k$');
+	ylabel('$\left<n_k\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%s\n',x),res(pick,2),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum,'twocolumn-single');
+% 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+end
+
+figure(fignum+1);clf; hold all;
+ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
+%% TH-TDVP: v61 Evolution of thermal Bath alone										% LabBook 03/09/2015
+clear;
+defPlot(1,:) = {'20150902-SBM2CT-dt1-TH-TDVP-noExcitation',							[1:5], {'ylim',[0,0.7] ,'xlim',[1,50]}};
+
+res{1,1} = load('20150827-1936-SpinBoson2CT-VT-OrthPol-v61TCMde10-alpha0.01delta0epsilon0.1dk10D5dopt5L50-art--sx\results-Till350Step1v61-alpha0.01-noOBBExpand-noBondExpand-expvCustom0-1core-small.mat');
+res{2,1} = load('20150827-1936-SpinBoson2CT-VT-OrthPol-v61TCMde10-alpha0.01delta0epsilon0.1dk20D5dopt5L50-art--sx\results-Till350Step1v61-alpha0.01-noOBBExpand-noBondExpand-expvCustom0-1core-small.mat');
+res{3,1} = load('20150827-1936-SpinBoson2CT-VT-OrthPol-v61TCMde10-alpha0.01delta0epsilon0.1dk40D5dopt5L50-art--sx\results-Till350Step1v61-alpha0.01-noOBBExpand-noBondExpand-expvCustom0-1core-small.mat');
+res{4,1} = load('20150828-1406-SpinBoson2CT-VT-OrthPol-v61TCMde9-alpha0.01delta0epsilon0.1dk10D5dopt5L50-art--sz\results-Till350Step1v61-alpha0.01-noOBBExpand-noBondExpand-expvCustom0-1core-small.mat');
+res{5,1} = load('20150828-1406-SpinBoson2CT-VT-OrthPol-v61TCMde9-alpha0.01delta0epsilon0.1dk20D5dopt5L50-art--sz\results-Till350Step1v61-alpha0.01-noOBBExpand-noBondExpand-expvCustom0-1core-small.mat');
+for i = 1:length(res)
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.L;
+	res{i,2} = sprintf('d_k = %g', res{i,1}.para.dk(1,2));
+end
+
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+	ph = cellfun(@(x) plot(1:size(x.tresults.n,2), x.tresults.n(x.tresults.lastIdx,:,1)), res(pick,1), 'UniformOutput', false);
+	ph = cellfun(@(x) plot(1:size(x.tresults.n,2), x.tresults.n(1,:,1)), res(pick,1), 'UniformOutput', false);
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('Site $k$');
+	ylabel('$\left<n_k\right>$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%s\n',x),res(pick,2),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum,'twocolumn-single');
+% 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+end
+
+
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all
@@ -2898,8 +3166,8 @@ for fignum = 1:size(defPlot,1)
 	% set(gca,'xlim',[1,1e8]);set(gca,'xscale','log');
 	xlabel('t');
 	ylabel('$<s_z>$');
-	leg = legend([ph{:}],res{pick,2},'location','best');
-	leg.FontSize = 18;
+% 	leg = legend([ph{:}],strsplit(sprintf('%g,',res{pick,3}),','),'location','best');
+% 	leg.FontSize = 18;
 	formatPlot(fignum);
 	title(defPlot{fignum,1},'fontsize',15);
 end
@@ -2944,12 +3212,12 @@ if wantSave
     export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
 end
 
-%% TDVP SBM multi (5): plot slider STAR
-mode = 0;		% 0: lin, 1: log
+%% TDVP SBM multi (5): plot slider <n> STAR
+mode = 1;		% 0: lin, 1: log
 fignum = 7;
 f = figure(fignum); clf; x = res(1,:);
 f.Position(3) = 840; pos = f.Position; ax = gca;
-pl = surf(log10(x{1}.tresults.star.n));
+pl = surf(log10(x{1}.tresults.star.n(:,:,1)));
 % setting auto-refresh
 hPl = handle(pl); hProp = findprop(hPl,'UserData');
 hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
@@ -2960,11 +3228,11 @@ cb = colorbar;cb.Title.Interpreter = 'latex';
 prefix = 'pl.UserData{1}.tresults.star';
 if mode
 	zlabel('$log_{10}\left<n_k\right>$');
-	pl.ZDataSource = sprintf('log10(%s.n(1:find(%s.t,1,last),:));',prefix,prefix);
+	pl.ZDataSource = sprintf('log10(%s.n(1:find(%s.t,1,last),:,1));',prefix,prefix);
 % 	pl.ZDataSource = sprintf('log10(%s.n)-log10(ones(size(%s.n,1),1)*%s.n(1,:));',prefix,prefix,prefix);
 else
 	zlabel('$\left<n_k\right>$');
-	pl.ZDataSource = sprintf('%s.n(1:find(%s.t,1,last),:);',prefix,prefix);
+	pl.ZDataSource = sprintf('%s.n(1:find(%s.t,1,last),:,1);',prefix,prefix);
 end
 pl.XDataSource = [prefix,'.omega'];
 pl.YDataSource = sprintf('%s.t(1:find(%s.t,1,last))',prefix,prefix);last = 'last';refreshdata;
@@ -2987,7 +3255,7 @@ sld.setUnitIncrement(1); sld.setBlockIncrement(1);
 hsld = handle(sld,'CallbackProperties');
 set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(pl,'userdata',res(round(source.Value),:)));
 
-%% TDVP SBM multi (6): plot slider CHAIN
+%% TDVP SBM multi (6): plot slider <n> CHAIN
 mode = 1;		% 0: lin, 1: log
 fignum = 8;
 f = figure(fignum); clf; x = res(1,:);
@@ -3011,7 +3279,7 @@ set(gca,'View',[0 90],'TickDir','out','FontSize',14);
 shading interp;
 rotate3d on;axis tight;
 if mode
-	ax.ZLim = [-30,0];
+	ax.ZLim = [-1,0.5];
 	ax.CLim = ax.ZLim;
 end
 % slider definition:
@@ -3030,7 +3298,7 @@ mode = 0;		% 0: lin, 1: log
 fignum = 9;
 f = figure(fignum); clf; x = res(1,:);
 f.Position(3) = 840; pos = f.Position; ax = gca;
-pl = surf(x{1}.tresults.star.x);
+pl = surf(x{1}.tresults.star.x(:,:,1,1));
 % setting auto-refresh
 hPl = handle(pl); hProp = findprop(hPl,'UserData');
 hPl.addlistener(hProp,'PostSet',@(src,event) refreshdata(gcf));
@@ -3040,10 +3308,10 @@ pl.UserData=x;
 cb = colorbar;cb.Title.Interpreter = 'latex';
 if mode
 	zlabel('$log_{10}\left<x_k\right>$');
-	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.x);';
+	pl.ZDataSource = 'log10(pl.UserData{1}.tresults.star.x(:,:,1,1));';
 else
 	zlabel('$\left<x_k\right>$');
-	pl.ZDataSource = 'pl.UserData{1}.tresults.star.x;';
+	pl.ZDataSource = 'pl.UserData{1}.tresults.star.x(:,:,1,1);';
 end
 pl.XDataSource = 'pl.UserData{1}.tresults.star.omega';
 pl.YDataSource = 'pl.UserData{1}.tresults.star.t';refreshdata;
@@ -3542,7 +3810,45 @@ tresults.spin.sz = single(tresults.spin.sz);
 tresults.nx = single(real(tresults.nx));
 save(para.tdvp.filenameSmall, 'para','tresults');
 
+%% Diagonalise Chain
+n = para.L-1; beta = 40;
+A = full(sparse(1:n,1:n,para.chain{1}.epsilon,n,n)+sparse(2:n,1:n-1,para.chain{1}.t(2:end),n,n)+sparse(1:n-1,2:n,para.chain{1}.t(2:end),n,n));
+[V,D] = eig(A);
+occDiag = 1./(exp(beta.*diag(D))-1);
+% plot(diag(D),occDiag);set(gca,'xscale','log');		% display values
+Aocc = V*diag(occDiag)*V.';
+% plot(diag(A),diag(Aocc));set(gca,'xscale','log');
+plot(2:para.L,diag(Aocc))
+%% Diagonalise Chain with spin
+n = para.L; beta = 40;
+sigmaZ= [1,-1]; ii = 1; Aocc = zeros(n,n,2);
+for sz = sigmaZ
+	A = full(sparse(1:n,1:n,[-para.hz*sz/2; para.chain{1}.epsilon],n,n)+...
+		sparse(2:n,1:n-1,[para.chain{1}.t(1)*sz; para.chain{1}.t(2:end)],n,n)+...
+		sparse(1:n-1,2:n,[para.chain{1}.t(1)*sz; para.chain{1}.t(2:end)],n,n));
+	[V,D] = eig(A);
+	occDiag = 1./(exp(beta.*diag(D))-1); occDiag(1) = 0;
+	% plot(diag(D),occDiag);set(gca,'xscale','log');		% display values
+	Aocc(:,:,ii) = V*diag(occDiag)*V.'; Aocc(1,1,ii) = 0;				% 1-site is meaningless!
+	ii = ii+1;
+	% plot(diag(A),diag(Aocc));set(gca,'xscale','log');
+% plot(1:para.L,diag(Aocc))
+end
+pdown = (1-tresults.spin.sz(end))/2; pup = 1-pdown;
+% pdown = 0.5; pup = 1-pdown;
+occN = [diag(Aocc(:,:,1)),diag(Aocc(:,:,2))];
+% plot(occN); l=legend('$\left< n \right> @ \left| \uparrow \right>$','$\left< n \right> @ \left| \downarrow \right>$'); l.Interpreter = 'latex';
+hold on;
+% plot(occN(:,1)*pup + occN(:,2)*pdown);
 %% Export to CSV
 x = tresults.t; x = reshape(x,numel(x),1);
 y = tresults.spin.visibility; y = reshape(y,numel(y),1);
-csvwrite('visibility.dat',[x,y]);
+csvwrite('visibility05.dat',[x,y]);
+
+%% Deserialise all Variables
+Vars = whos;
+for ii = 1:size(Vars)
+if strcmp(Vars(ii).class,'uint8')
+eval(sprintf('%s = hlp_deserialize(%s);',Vars(ii).name,Vars(ii).name));
+end
+end

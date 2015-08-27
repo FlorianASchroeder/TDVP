@@ -1,4 +1,7 @@
 function [T, dOut] = tensShape(T,select,i,d)
+% Use as:
+%	tensShape(T, 'unfold', i_unfold, [d1,d2,d2])
+%	tensShape(T, 'fold', i_unfold, [d1,d2,d2])
 switch lower(select)
 	case 'unfold'
 		T = tensUnfold(T,i,d);

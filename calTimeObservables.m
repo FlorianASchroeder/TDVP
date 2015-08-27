@@ -52,7 +52,11 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 	end
 
 	for i = slices
-        fprintf('%g-',i);
+		if length(slices) > 1
+			fprintf('%g-',i);
+		else
+			fprintf('<O> for slice %d\n',i);
+		end
 		j = i-tresults.lastIdx;			% shifted index for tmps, tVmat
 
         %% General Observables

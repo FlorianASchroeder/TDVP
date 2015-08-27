@@ -16,8 +16,8 @@ end
 
 % Do not accept all-empty mcOp
 if Empty                                             % if all are empty
-	fprintf('ContractMultiChainOBB: Empty mcOp in loop %d at site %d', para.loop, para.sitej);
-	X = 0;
+% 	fprintf('ContractMultiChainOBB: Empty mcOp in loop %d at site %d', para.loop, para.sitej);
+	X = [];
 	return
 end
 
@@ -34,10 +34,16 @@ if iscell(Vmat)
 	Vmat = Vmat{end};                                % take the VS out for compatibility with snext step
 end
 
-% contract all empty parts
-Ind	 = find(Empty);                                                 % finds all empty indices
-Ind  = reshape(Ind, [], numel(Ind));                                % need row vector!
-X	 = contracttensors(conj(Vmat), NC+1, Ind, Vmat, NC+1, Ind);		% dk' x d_opt' x dk x d_opt
-X	 = contracttensors(X,4,[1,3],McOp{~Empty},2,[1,2]);
+% Old routine, inefficient
+% % contract all empty parts
+% Ind	 = find(Empty);                                                 % finds all empty indices
+% Ind  = reshape(Ind, [], numel(Ind));                                % need row vector!
+% X	 = contracttensors(conj(Vmat), NC+1, Ind, Vmat, NC+1, Ind);		% dk' x d_opt' x dk x d_opt
+% X	 = contracttensors(X,4,[1,3],McOp{~Empty},2,[1,2]);
+
+Ind  = find(~Empty);		% get index of chain
+ord = 1:NC; ord(Ind) = [];
+X = contracttensors(McOp{~Empty},2,2, Vmat, NC+1, Ind);
+X = contracttensors(conj(Vmat),NC+1, [Ind, ord] ,X, NC+1, 1:NC);
 
 end

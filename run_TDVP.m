@@ -1,19 +1,25 @@
-function run_TDVP(s,alpha,OBB,Bond)
+function run_TDVP(s,alpha,OBB,Bond,dk,L, fromFile)
 % try
 % needed if started from command line:
 if isdeployed
-	if ischar(s), s = str2num(s); end
-	if ischar(alpha), alpha = str2num(alpha); end
-	if ischar(OBB), 	OBB 	= str2num(OBB); end
-	if ischar(Bond), 	Bond 	= str2num(Bond); end
+	if ischar(s), s = str2double(s); end
+	if ischar(alpha), alpha = str2double(alpha); end
+	if ischar(OBB), 	OBB 	= str2double(OBB); end
+	if ischar(Bond), 	Bond 	= str2double(Bond); end
+	if ischar(dk),		dk		= str2double(dk); end
+	if ischar(L),		L		= str2double(L); end
 end
 
 %% start ground state calculations
+loadedFromFile = 0;
+if isempty(fromFile)
 % fileName =  VMPS_FullSBM(s,alpha,0.1,0,50,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
-fileName =  VMPS_FullSBM(s,alpha,0,0.1,20,0);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
-
-%maxNumCompThreads('automatic');			% allows multi-threading in 1pass files
-maxNumCompThreads(1);						% safer in terms of results!
+	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
+else
+	fileName = fromFile;							% simple override!
+	loadedFromFile = 1;
+end
+% maxNumCompThreads(1);						% safer in terms of results!				% does not work anymore, use -singleCompThread instead!
 
 %% Define GS config
 
@@ -27,24 +33,32 @@ load(fileName);
 % Kast 2013 Fig 4, s=0.75 OrthPol
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
+%% Only needed if previous calc was imagT
+if loadedFromFile && isfield(para.tdvp,'imagT') && para.tdvp.imagT
+	% prepare -sx eigenstate!
+% 	mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
+% 				1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
+% 	disp('Prepared -sx eigenstate');
+end
+
 %% Define TDVP parameters
 para.tdvp.imagT = 0;					% imaginary Time = Temperature evolution?
-para.tdvp.tmax = 20;
-para.tdvp.deltaT = 0.2;	                % size of timeslice in units:
+para.tdvp.tmax = 350;
+para.tdvp.deltaT = 1;					% size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
-para.tdvp.saveInterval = 5;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 0;				% much faster I/O saving
+para.tdvp.saveInterval = 5;				% save '-small.mat' every n-th step
+para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
-para.tdvp.extractStarInterval = 0.4;	% in [t]; for calculating star occupation! Comment if not needed!
-para.tdvp.extractObsInterval  = 0.2;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
+para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
 para.tdvp.Observables = '.n.s.j.sn.sx.';		% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.maxExpMDim = 280;				% For Lappy: 100, OE-PC: 80, pc52: 260; System dependent, use benchmark!
-para.tdvp.maxExpVDim = 800;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 600, Haswell: 800; E5: 960 maxExpMDim < maxExpVDim
+para.tdvp.maxExpMDim = 00;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
+para.tdvp.maxExpVDim = 00;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
@@ -60,11 +74,11 @@ para.tdvp.expandOBB = OBB;
 para.tdvp.truncateExpandBonds = Bond;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 10;
+para.tdvp.maxBondDim = 7;				%
 para.Dmin = 1;
 para.tdvp.maxOBBDim  = 30;
-para.svmaxtol = 10^-6;					% keep 1 below this!
-para.svmintol = 10^-6.5;				% throw away all below
+para.svmaxtol = 10^-4;					% keep 1 below this!
+para.svmintol = 10^-4.5;				% throw away all below
 % z-Averaging for log-Discretization
 para.tdvp.zAveraging = 0;
 if para.tdvp.zAveraging
@@ -75,8 +89,16 @@ if para.tdvp.zAveraging
 end
 
 tresults = [];						% empty variable initialization
+%% comment if no new coupling needed
+if loadedFromFile
+% 	para.chain{1}.alpha = alpha;
+% 	[para.chain{1}]=SBM_genpara(para.chain{1});
+% 	[op,para]=genh1h2term(para);
+% 	[op] = initstorage(mps, Vmat, op,para);
+end
+
 %% Format Filename
-para.tdvp.version = 'v60';
+para.tdvp.version = 'v61';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!
@@ -89,23 +111,20 @@ else
 end
 
 para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
+para.tdvp.filename = sprintf('%s-alpha%g',para.tdvp.filename,alpha);
 
 if para.tdvp.expandOBB
-	para.tdvp.filename = sprintf('%s-OBBExpand',para.tdvp.filename);
-else
-	para.tdvp.filename = sprintf('%s-noOBBExpand',para.tdvp.filename);
+	para.tdvp.filename = sprintf('%s-OBBmax%d',para.tdvp.filename, para.tdvp.maxOBBDim);
 end
 if para.tdvp.truncateExpandBonds
-	para.tdvp.filename = sprintf('%s-BondExpand%d',para.tdvp.filename,para.tdvp.maxBondDim);
-else
-	para.tdvp.filename = sprintf('%s-noBondExpand',para.tdvp.filename);
+	para.tdvp.filename = sprintf('%s-Dmax%d',para.tdvp.filename,para.tdvp.maxBondDim);
 end
 if para.tdvp.expvCustom
 	para.tdvp.filename = sprintf('%s-expvCustom%d',para.tdvp.filename,para.tdvp.maxExpVDim);
 end
 % finish Filenames
 para.tdvp.filename		= sprintf('%s-%dcore.mat',para.tdvp.filename,maxNumCompThreads);
-para.tdvp.filenameSmall = sprintf('%s-small.mat',para.tdvp.filename);		% only for para, tresults
+para.tdvp.filenameSmall = sprintf('%s-small.mat',para.tdvp.filename(1:end-4));		% only for para, tresults
 % Set MPS filename if needed
 if para.tdvp.storeMPS == 1
 	para.tdvp.filenameMPS = [para.tdvp.filename,'-MPS.mat'];		% only for tmps, tVmat
@@ -146,35 +165,34 @@ if ~strcmp(computer,'PCWIN64')
 	cd(para.tdvp.scratchDir);
 end
 
-if exist(para.tdvp.filename,'file') && para.tdvp.resume
-	% either load and resume or ignore?
+if exist(para.tdvp.filename,'file') && para.tdvp.resume && isempty(fromFile)
+	% if file already exists && resume is switched on
 	try
 		load(para.tdvp.filename);	% all the rest
+		disp('loaded para.tdvp.filename');
 	catch
 		disp('MAT-file corrupt, load BAK');
 		load([para.tdvp.filename(1:end-4),'.bak'],'-mat');		% use backup if file corrupted
 	end
-	if isnumeric(para)
-		% everything was serialized!
-		para     = hlp_deserialize(para);
-		op       = hlp_deserialize(op);
-		results  = hlp_deserialize(results);
-		tresults = hlp_deserialize(tresults);
-		mps      = hlp_deserialize(mps);
-		Vmat     = hlp_eserialize(Vmat);
+	Vars = whos;				% deserialise if needed
+	for ii = 1:size(Vars)
+		if strcmp(Vars(ii).class,'uint8')
+			eval(sprintf('%s = hlp_deserialize(%s);',Vars(ii).name,Vars(ii).name));
+		end
 	end
 	para.tdvp.resume = 1;		% need override to restore value!
-elseif ~exist(para.tdvp.filename,'file') && isempty(strfind(para.tdvp.fromFilename,'results.mat'))
+elseif ~exist(para.tdvp.filename,'file') && isempty(strfind(para.tdvp.fromFilename,'results.mat')) ...
+		&& exist(para.tdvp.fromFilename,'file') && ~loadedFromFile
 	% Only load fromFilename if it was a TDVP file!
 	% then also para and tresults are already loaded!
 	% important: load mps and Vmat!
 	load(para.tdvp.fromFilename, 'results','op','mps','Vmat');
-	if isnumeric(results)
-		% everything was serialized!
-		op       = hlp_deserialize(op);
-		results  = hlp_deserialize(results);
-		mps      = hlp_deserialize(mps);
-		Vmat     = hlp_eserialize(Vmat);
+	disp('loaded results,op,mps,Vmat from para.tdvp.fromFilename');
+	Vars = whos;				% deserialise if needed
+	for ii = 1:size(Vars)
+		if strcmp(Vars(ii).class,'uint8')
+			eval(sprintf('%s = hlp_deserialize(%s);',Vars(ii).name,Vars(ii).name));
+		end
 	end
 end
 
@@ -207,8 +225,8 @@ end
 if ~strcmp(computer,'PCWIN64')
 	copyfile(para.tdvp.filenameSmall,[currentDir,'/',para.tdvp.filenameSmall]);
 	%delete([currentDir,'/',para.tdvp.filename(1:end-4),'-incomplete.mat']);
-	sendmailCAM('fayns2@cam.ac.uk',...
-         'TDVP job completed',sprintf('The job \n %s\nHas successfully completed.',para.tdvp.filename));
+% 	sendmailCAM('fayns2@cam.ac.uk',...
+%          'TDVP job completed',sprintf('The job \n %s\nHas successfully completed.',para.tdvp.filename));
 	exit;
 end
 

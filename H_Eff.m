@@ -3,8 +3,8 @@ function [op] = H_Eff(mps, V, target, op, para)
 %	creates the effective operators for 'target' to allow fast contractions
 %	in matrix exponentials and eigs()
 %
-%	mps		: single-site A matrix
-%	Vmat	: single-site V matrix
+%	mps		: single-site A matrix, mps{sitej}
+%	Vmat	: single-site V matrix, Vmat{sitej}
 % e.g.
 %	[op] = H_Eff(Amat, []  , 'V' , op, para);
 %	[op] = H_Eff([]  , Vmat, 'A' , op, para);	% transforms op.h1j, h2j to OBB
@@ -35,18 +35,26 @@ switch target
 
 		for k=1:M
 			% same contractions as above for Hleft/Hright
-			op.OpleftA{k}= contracttensors(op.Opleft{k}, 2,2, mps,3,1);
-			op.OpleftA{k}= contracttensors(conj(mps),3,[1 2], op.OpleftA{k},3,[1 2]);
+			if isempty(op.Opleft{k})
+				op.OpleftA{k} = [];
+			else
+				op.OpleftA{k}= contracttensors(op.Opleft{k}, 2,2, mps,3,1);
+				op.OpleftA{k}= contracttensors(conj(mps),3,[1 2], op.OpleftA{k},3,[1 2]);
+			end
 
-			op.OprightA{k} = contracttensors(op.Opright{k},2,2, mps,3,2);
-			op.OprightA{k} = contracttensors(conj(mps),3,[1 2], op.OprightA{k},3,[2 1]);
+			if isempty(op.Opleft{k})
+				op.OpleftA{k} = [];
+			else
+				op.OprightA{k} = contracttensors(op.Opright{k},2,2, mps,3,2);
+				op.OprightA{k} = contracttensors(conj(mps),3,[1 2], op.OprightA{k},3,[2 1]);
+			end
 		end
 	case 'A'
 		%% multiply Vmat into op.h1j, h2j
 		% transform all bare H terms of current sitej into OBB
 		% works with multi-chain at OBB level
 		if isempty(op.h1j)
-			op=gen_sitej_h1h2(op,para,para.sitej);
+			op = gen_sitej_h1h2(op,para,para.sitej);
 		end
 		if para.nChains == 1
 			op.h1jOBB = V' * (op.h1j * V);									% faster and more accurate
@@ -128,7 +136,7 @@ switch target
 		op.HnonInt  = op.HleftAS + op.HrightAS;
 		% h1j terms of other chains
 		for mc = 1:NC
-			if mc == nc, continue; end;
+			if mc == nc || isempty(op.h1jMCOBB{mc}), continue; end;
 			IndContract = 1:NC+1; IndContract([mc,nc]) = [];
 			VS = contracttensors(conj(V{end}),NC+1, IndContract, V{end}, NC+1, IndContract);
 			if mc < nc          % -> VS_(nmc',nk',nmc,nk)
@@ -145,17 +153,29 @@ switch target
 				op.OpleftAS{m}  = contracttensors(op.OpleftA{m},  2,[1,2], VSfullContract,4,[2,4]);
 				op.OprightAS{m} = contracttensors(op.OprightA{m}, 2,[1,2], VSfullContract,4,[2,4]);
 			else % sum into op.HnonInt
-				IndContract = 1:NC; IndContract([mc,nc]) = [];
-				VS = contracttensors(conj(V{end}),NC+1, IndContract, V{end}, NC+1, IndContract);
-				if mc < nc          % -> VS_(nmc',nk',nmc,nk)
-					order = [1,3];
-				else                % -> VS_(nk',nmc',nk,nmc)
-					order = [2,4];
+				if isempty(op.h2jMCOBB{m,2,mc}) && isempty(op.h2jMCOBB{m,1,mc}), continue; end;
+				if NC > 2
+					IndContract = 1:NC; IndContract([mc,nc]) = [];
+					VS = contracttensors(conj(V{end}),NC+1, IndContract, V{end}, NC+1, IndContract);
+					if mc < nc          % -> VS_(mc',nc',nk',mc,nc,nk)
+						order = [1,3];	% indices of mc after nk contraction
+					else                % -> VS_(nc',mc',nk',nc,mc,nk)
+						order = [2,4];
+					end
+					OpTemp = contracttensors(op.OpleftA{m},  2,[1,2], VS, 6, [3,6]);                       % absorb OpleftA/right since dim: n~ > nk
+					op.HnonInt = op.HnonInt + contracttensors(op.h2jMCOBB{m,2,mc},2,[1,2], OpTemp,4,order);
+					OpTemp = contracttensors(op.OprightA{m}, 2,[1,2], VS, 6, [3,6]);
+					op.HnonInt = op.HnonInt + contracttensors(op.h2jMCOBB{m,1,mc},2,[1,2], OpTemp,4,order);
+				else % need more efficient code! NC+1 = 3
+					assert(NC+1 == 3, 'this code only works under this assumption!');
+					OpTemp = contracttensors(V{end}, NC+1, NC+1, op.OpleftA{m}.',2,1);						% _(n1,n2,nk)
+					OpTemp = contracttensors(OpTemp, NC+1, mc, op.h2jMCOBB{m,2,mc}.',2,1);					% _(nc,nk,mc)
+					op.HnonInt = op.HnonInt + contracttensors(conj(V{end}),NC+1, [mc,3], OpTemp, NC+1, [3,2]);
+
+					OpTemp = contracttensors(V{end}, NC+1, NC+1, op.OprightA{m}.',2,1);						% _(n1,n2,nk)
+					OpTemp = contracttensors(OpTemp, NC+1, mc, op.h2jMCOBB{m,1,mc}.',2,1);					% _(nc,nk,mc)
+					op.HnonInt = op.HnonInt + contracttensors(conj(V{end}),NC+1, [mc,3], OpTemp, NC+1, [3,2]);
 				end
-				OpTemp = contracttensors(op.OpleftA{m},  2,[1,2], VS, 6, [3,6]);                       % absorb OpleftA/right since dim: n~ > nk
-				op.HnonInt = op.HnonInt + contracttensors(op.h2jMCOBB{m,2,mc},2,[1,2], OpTemp,4,order);
-				OpTemp = contracttensors(op.OprightA{m}, 2,[1,2], VS, 6, [3,6]);
-				op.HnonInt = op.HnonInt + contracttensors(op.h2jMCOBB{m,1,mc},2,[1,2], OpTemp,4,order);
 			end
 		end
 		% finish with terms: op.HnonInt, op.OpleftAS{m}, op.OprightAS{m}
@@ -170,10 +190,19 @@ switch target
 		nc     = para.currentChain;
 		M      = 1:para.M;
 		M(ceil(M/nTerms) ~=nc) = [];                         % find which m to operate on
-		op.h1jMCOBB{nc} = V{nc}' * (op.h1j{nc} * V{nc});
+		if ~isempty(op.h1j{nc})
+			op.h1jMCOBB{nc} = V{nc}' * (op.h1j{nc} * V{nc});
+		else
+			op.h1jMCOBB{nc} = [];
+		end
 		for m = M
-			op.h2jMCOBB{m,1,nc} = V{nc}' * (op.h2j{m,1,nc} * V{nc});
-			op.h2jMCOBB{m,2,nc} = V{nc}' * (op.h2j{m,2,nc} * V{nc});
+			if ~isempty(op.h2j{m,1,nc})
+				op.h2jMCOBB{m,1,nc} = V{nc}' * (op.h2j{m,1,nc} * V{nc});
+				op.h2jMCOBB{m,2,nc} = V{nc}' * (op.h2j{m,2,nc} * V{nc});
+			else
+				op.h2jMCOBB{m,1,nc} = [];
+				op.h2jMCOBB{m,2,nc} = [];
+			end
 		end
 	case 'MC-OBB'
 		%% Create all OBB terms for each chain

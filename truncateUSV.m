@@ -9,6 +9,8 @@ function [U, S, V, newDim] = truncateUSV(u,sv,v, para, minDim)
 %	v : is V', truncated in rows
 %
 % by Florian Schroeder 08/08/2015
+% Modified
+%	FS 28/08/2015: - truncate after sv normalisation!
 
 if ~isempty(para)
 	svmintol = para.svmintol;
@@ -17,11 +19,14 @@ else
 	svmintol = 10^-4.5;
 	svmaxtol = 10^1;
 end
-
+if para.tdvp.imagT
+	sv = sv./norm(sv);
+end
 %% Truncate A dims
+% fprintf('\n SV norm: %g\n',sum(sv.^2));
 keepdims = find(sv > svmintol);
 if length(keepdims) < minDim                     % keep at least Dmin bonds
-	keepdims = 1:minDim;
+	keepdims = (1:minDim)';
 end
 % If smallest SV too large, keep 1 more
 if (sv(keepdims(end)) > svmaxtol)

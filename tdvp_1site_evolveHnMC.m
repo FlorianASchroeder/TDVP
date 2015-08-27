@@ -37,23 +37,27 @@ Vtens = Vmat{sitej};                    % V tensor network
 % expand always BEFORE SVD
 for mc = 1:NC
 	dk = para.dk(mc,sitej); dOBB = para.d_opt(mc,sitej);
-    if (dk ~= dOBB) && para.tdvp.expandOBB
+    if (dk ~= dOBB) && para.tdvp.expandOBB && para.tdvp.imagT == 0			% do not expand for TH since it only cools down!
 		expandBy = min([ceil(dOBB*0.2),para.tdvp.maxOBBDim-dOBB,dk-dOBB]);
-		Vtens{mc}(end,end+expandBy) = 0;
-		d = size(Vtens{end}); d(mc) = expandBy;
-		Vtens{end} = cat(mc, Vtens{end}, zeros(d));
-		para.d_opt(mc,sitej) = size(Vtens{mc},2);
+		if expandBy ~= 0
+			Vtens{mc}(end,end+expandBy) = 0;
+			d = size(Vtens{end}); d(mc) = expandBy;
+			Vtens{end} = cat(mc, Vtens{end}, zeros(d));
+			para.d_opt(mc,sitej) = size(Vtens{mc},2);
+		end
     end
 end
 d = size(mps{sitej});
 dOBB1 = prod(para.d_opt(1:end-1,sitej)); dOBB2 = para.d_opt(end,sitej);
-if (dOBB1 ~= dOBB2) && para.tdvp.expandOBB
-	expandBy = min([floor(dOBB2*0.4),para.tdvp.maxOBBDim-dOBB2,dOBB1-dOBB2, d(1)*d(2)-dOBB2]);			% expand by at least double as above!
-	if expandBy < 2, expandBy = 2; end
-	mps{sitej}(end,end,end+expandBy) = 0;
-	d = size(Vtens{end}); d(end) = expandBy;
-	Vtens{end} = cat(NC+1, Vtens{end}, zeros(d));
-	para.d_opt(end,sitej) = size(Vtens{end},NC+1);
+if (dOBB1-2 >= dOBB2) && para.tdvp.expandOBB
+	expandBy = min([ceil(dOBB2*0.4),para.tdvp.maxOBBDim-dOBB2,dOBB1-dOBB2, d(1)*d(2)-dOBB2]);			% expand by at least double as above!
+	if expandBy == 1, expandBy = 2; end
+	if expandBy >= 1
+		mps{sitej}(end,end,end+expandBy) = 0;
+		d = size(Vtens{end}); d(end) = expandBy;
+		Vtens{end} = cat(NC+1, Vtens{end}, zeros(d));
+		para.d_opt(end,sitej) = size(Vtens{end},NC+1);
+	end
 end
 
 
@@ -73,19 +77,24 @@ for mc = 1:NC
 	% enter each chain!
 	para.currentChain = mc;
 	Vtens = prepare_Vtens(Vtens, para);                    % move focus to Vtens{currentChain}
-	op = H_Eff([], Vtens, 'MC-V', op, para);               % create [H/Op][left/right]AS - terms and op.HnonInt
+	if isempty(regexp(para.model,'SpinBoson\dCT','once')) || mod(mc,2)
+		op = H_Eff([], Vtens, 'MC-V', op, para);               % create [H/Op][left/right]AS - terms and op.HnonInt
+		[dk,dOBB] = size(Vtens{mc});
 
-	[dk,dOBB] = size(Vtens{mc});
-	%% Take matrix exponential V{i}
-	% V{i}(t+dt) = exp(-i HAS_i dt)_(n',n~',n,n~) * V{i}(t)_(n,n~)
-	[Vtens{mc}, err] = expvCustom(- 1i*t,'MC-HAS',...
-		reshape(Vtens{mc},[dk*dOBB,1]), para, op);
-	Vtens{mc} = reshape(Vtens{mc}, [dk,dOBB]);
-	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
-
+		%% Take matrix exponential V{i}
+		% V{i}(t+dt) = exp(-i HAS_i dt)_(n',n~',n,n~) * V{i}(t)_(n,n~)
+		[Vtens{mc}, err] = expvCustom(- 1i*t,'MC-HAS',...
+			reshape(Vtens{mc},[dk*dOBB,1]), para, op);
+		Vtens{mc} = reshape(Vtens{mc}, [dk,dOBB]);
+		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
+	end
 	%% Move focus to VC{mc} & prepare H_Eff
-	minDim = max(para.d_opt_min, ceil(para.d_opt(end,sitej)^(1/NC)));
-	[Vtens{mc}, CV, ~, para.d_opt(mc,sitej), sv] = prepare_onesiteVmat(Vtens{mc},para,[],[],minDim);         % SVD + truncation
+	if para.tdvp.expandOBB
+		minDim = max(para.d_opt_min, ceil(para.d_opt(end,sitej)^(1/NC)));
+		[Vtens{mc}, CV, ~, para.d_opt(mc,sitej), sv] = prepare_onesiteVmat(Vtens{mc},para,[],[],minDim);         % SVD + truncation
+	else
+		[Vtens{mc}, CV, ~, para.d_opt(mc,sitej), sv] = prepare_onesiteVmat(Vtens{mc},para,results,sitej);		 % SVD
+	end
 	results.Vmat_sv{mc,sitej} = sv;
 % TODO: delete empty dimensions! Only if expanded previously!
 % 	% remove empty SV:
@@ -94,22 +103,24 @@ for mc = 1:NC
 % 	Vmat{sitej} = Vmat{sitej}(:,keep); V = V(keep, :);
 % 	[n1, n2] = size(V);
 % 	OBBDimNew = n1;
-	op = H_Eff([], Vtens, 'MC-CV', op, para);                              % create h[1/2]jMCOBB
-	[n1,n2] = size(CV);
+	if isempty(regexp(para.model,'SpinBoson\dCT','once')) || mod(mc,2)
+		op = H_Eff([], Vtens, 'MC-CV', op, para);                              % create h[1/2]jMCOBB
+		[n1,n2] = size(CV);
 
-	%% Take matrix exponential CV{i}
-	% CV{i}(t) = exp(+i HAVS dt) * CV{i}(t+dt)
-	[CV, err] = expvCustom(+ 1i*t,'MC-HASV',...
-		reshape(CV,[numel(CV),1]), para, op);
-	CV = reshape(CV,[n1,n2]);
-	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
 
+		%% Take matrix exponential CV{i}
+		% CV{i}(t) = exp(+i HAVS dt) * CV{i}(t+dt)
+		[CV, err] = expvCustom(+ 1i*t,'MC-HASV',...
+			reshape(CV,[numel(CV),1]), para, op);
+		CV = reshape(CV,[n1,n2]);
+		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
+	end
 	% contract CV with VS and finish
 	Vtens{end} = contracttensors(CV,2,2, Vtens{end},NC+1,mc);
 	Vtens{end} = permute(Vtens{end}, [2:mc,1,(mc+1):(NC+1)]);
 end
 
-op = H_Eff([],[],'MC-VS',op,para);                                         % create h12jAV for VS
+% op = H_Eff([],[],'MC-VS',op,para);                                         % create h12jAV for VS % not needed anymore!
 n = size(Vtens{end});
 %% Take matrix exponential VS
 % VS(t+dt) = exp(-i HAV dt) * VS(t)
@@ -119,8 +130,13 @@ Vtens{end} = reshape(Vtens{end}, [prod(n(1:end-1)),n(end)]);                % 2D
 results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
 
 % Take focus to CVS
-[Vtens{end}, CVS, ~, n(end), sv] = prepare_onesiteVmat(Vtens{end},para,[],[],para.d_opt_min);
+if para.tdvp.expandOBB
+	[Vtens{end}, CVS, ~, n(end), sv] = prepare_onesiteVmat(Vtens{end},para,[],[],para.d_opt_min);
+else
+	[Vtens{end}, CVS, ~, n(end), sv] = prepare_onesiteVmat(Vtens{end},para,results,sitej);
+end
 results.Vmat_sv{NC+1,sitej} = sv;
+results.Vmat_vNE(1,sitej)   = vonNeumannEntropy(diag(sv));
 para.d_opt(end,sitej) = n(end);
 Vtens{end} = reshape(Vtens{end}, n);                                        % now reshape completely
 Vmat{sitej} = Vtens;

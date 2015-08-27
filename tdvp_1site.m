@@ -237,6 +237,21 @@ for timeslice = para.tdvp.slices
     % results.Amat_sv   cell
     % results.Vmat_vNE
     % results.Vmat_sv
+	%% Output matrix dimensions if changed:
+	if para.tdvp.truncateExpandBonds
+		fprintf('para.D:\n');
+		out = strrep(mat2str(para.D),';','\n');
+		fprintf([out(2:end-1),'\n']);
+		out = mat2str(cellfun(@(x) x(find(x,1,'last')),results.Amat_sv),2);
+		fprintf([out(2:end-1),'\n']);
+	end
+	if para.tdvp.expandOBB
+		fprintf('para.d_opt:\n');
+		out = strrep(mat2str(para.d_opt),';','\n');
+		fprintf([out(2:end-1),'\n']);
+		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(3,2:end)),2);
+		fprintf([out(2:end-1),'\n']);
+	end
 
     %% SWEEP l <- r:
     para.sweepto = 'l';
@@ -247,8 +262,11 @@ for timeslice = para.tdvp.slices
         %% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
         % normalisation needed for updateop()!
         % Applies to bond n -> use sitej for result storage
-        [mps{sitej+1}, Cn, para] = prepare_onesite(mps{sitej+1},para,sitej+1);
-        % if A SV needed: [mps{sitej+1}, Cn, para,results] = prepare_onesite(mps{sitej+1},para,sitej+1,results);
+		if para.tdvp.truncateExpandBonds
+	        [mps{sitej+1}, Cn, para, results] = prepare_onesite_truncate(mps{sitej+1},para,sitej+1, results);
+		else
+			[mps{sitej+1}, Cn, para, results] = prepare_onesite(mps{sitej+1},para,sitej+1, results);
+		end
 
         %% Do the time-evolution of C
         % evolve non-site center between sitej and sitej+1
@@ -294,11 +312,11 @@ for timeslice = para.tdvp.slices
 	n = n(para.tdvp.calcTime(n,1)>0);		% compensates for zeros due to resume of aborted TDVP
 	hoursTotal = fnval(fnxtr(csaps([0,n],[0;para.tdvp.calcTime(n,1)])), length(para.tdvp.t)-1);
 	if log10(abs(hoursTotal-para.tdvp.calcTime(timeslice))) <= 0
-		fprintf('Completed: %.3g%%, t = %3g, Time elapsed: %.2gh, Time left: %.2gm, Time total: %.2gh\n',...
+		fprintf('Completed: %5.3g%%, t = %4.3g, Time elapsed: %4.2gh, Time left: %4.2gm, Time total: %4.2gh\n',...
 			completePercent, para.tdvp.t(timeslice+1), para.tdvp.calcTime(timeslice),...
 			(hoursTotal-para.tdvp.calcTime(timeslice))*60, hoursTotal);
 	else
-		fprintf('Completed: %.3g%%, t = %3g, Time elapsed: %.2gh, Time left: %.2gh, Time total: %.2gh\n',...
+		fprintf('Completed: %5.3g%%, t = %4.3g, Time elapsed: %4.2gh, Time left: %4.2gh, Time total: %4.2gh\n',...
 			completePercent, para.tdvp.t(timeslice+1), para.tdvp.calcTime(timeslice),...
 			hoursTotal-para.tdvp.calcTime(timeslice), hoursTotal);
 	end
@@ -312,7 +330,11 @@ for timeslice = para.tdvp.slices
 	if para.logging && mod(timeslice, round(para.tdvp.extractObsInterval/para.tdvp.deltaT))==0			% at extractObsInterval
 		n = 1+tresults.lastIdx;
 		if para.tdvp.logSV
-			results.tdvp.Vmat_sv(n,:) = results.Vmat_sv;
+			if size(results.Vmat_sv,1) == para.L
+				results.tdvp.Vmat_sv(n,:,:)	 = results.Vmat_sv;
+			else
+				results.tdvp.Vmat_sv(n,:,:)	 = results.Vmat_sv.';
+			end
 			results.tdvp.Amat_sv(n,:) = results.Amat_sv;
 		else
 			results.tdvp.Vmat_vNE(n,:)= results.Vmat_vNE;
@@ -342,17 +364,17 @@ for timeslice = para.tdvp.slices
 	%% Output matrix dimensions if changed:
 	if para.tdvp.truncateExpandBonds
 		fprintf('para.D:\n');
-		fprintf('%2g-',para.D);
-		fprintf('\n');
+		out = strrep(mat2str(para.D),';','\n');
+		fprintf([out(2:end-1),'\n']);
+		out = mat2str(cellfun(@(x) x(find(x,1,'last')),results.Amat_sv),2);
+		fprintf([out(2:end-1),'\n']);
 	end
 	if para.tdvp.expandOBB
 		fprintf('para.d_opt:\n');
 		out = strrep(mat2str(para.d_opt),';','\n');
 		fprintf([out(2:end-1),'\n']);
-% 		fprintf('%2g-',para.d_opt);
-% 		fprintf('\n');
-% 		fprintf('%2g-',para.d_optnew);				% debug
-% 		fprintf('\n');
+		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(3,2:end)),2);
+		fprintf([out(2:end-1),'\n']);
 	end
 
 	%% Additional saving
@@ -402,10 +424,14 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		fprintf('Initialize results.tdvp\n');
 		n = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
 		if para.tdvp.logSV
-			results.tdvp.Vmat_sv{n,para.L}	= [];
-			results.tdvp.Vmat_sv(1,:)		= results.Vmat_sv;
-			results.tdvp.Amat_sv{n,para.L-1}= [];
-			results.tdvp.Amat_sv(1,:)		= results.Amat_sv;
+			results.tdvp.Vmat_sv{n,para.L,para.nChains+1}	= [];
+			if size(results.Vmat_sv,1) == para.L
+				results.tdvp.Vmat_sv(1,:,:)	 = results.Vmat_sv;
+			else
+				results.tdvp.Vmat_sv(1,:,:)	 = results.Vmat_sv.';
+			end
+			results.tdvp.Amat_sv{n,para.L-1} = [];
+			results.tdvp.Amat_sv(1,:)		 = results.Amat_sv;
 		else
 			results.tdvp.Vmat_vNE(n,para.L) = 0;
 			results.tdvp.Vmat_vNE(1,:)		= results.Vmat_vNE;

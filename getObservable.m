@@ -754,7 +754,9 @@ end
 for mc = 1:para.nChains
 	bpContract = cell(para.L);
 	for j = 1:para.L-1
-		fprintf('%g-',j);
+		if j == 1 || mod(j,10) == 0
+			fprintf('%g-',j);
+		end
 		for i = 1:j+2
 			if (i < j) && (j <= floor( (para.L+i)/2))
 				% take a^+ to next effective basis
@@ -783,7 +785,9 @@ for mc = 1:para.nChains
 
 	bmContract = cell(para.L);
 	for j = para.L:-1:2
-		fprintf('%g-',j);
+		if j == 1 || mod(j,10) == 0
+			fprintf('%g-',j);
+		end
 		for i = para.L:-1:j
 			if (i > j) && (j > ceil( i/2 ) )
 				bmContract{i,j} = updateCright(bmContract{i,j+1},mps{j},[],[],mps{j},[]);
@@ -820,10 +824,12 @@ end
 function E = calEnergy(mps,Vmat,para,op)
 	%%
 	sitej=1;
-	[~,BondDimRight] = size(op.Hright);
-	[~,BondDimLeft]  = size(op.Hleft);
+% 	[~,BondDimRight] = size(op.Hright);
+% 	[~,BondDimLeft]  = size(op.Hleft);
 	op = h1h2toOBB(Vmat{sitej},para,op);
-	[~,OBBDim]	 = size(op.h1j);
+% 	op  = H_Eff([],Vmat{sitej},'A',op,para);
+% 	[~,OBBDim]	 = size(op.h1j);
+	[BondDimLeft, BondDimRight, OBBDim] = size(mps{sitej});
 	M = size(op.h2j,1);
 	A = reshape(mps{sitej},[numel(mps{sitej}),1]);
 	E = A'*HmultA(A, op, BondDimLeft, BondDimRight, OBBDim, M,para.parity,[]);

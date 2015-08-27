@@ -22,6 +22,7 @@ if ~iscell(op.h1j)
 		out = out + (op.h1j * V);
 	end
 	for m = 1:M
+		if isempty(op.h2j{m,2}) && isempty(op.h2j{m,1}), continue; end;
 		outSl = op.h2j{m,2} * (V * op.OpleftA{m}.');
 		outSr = op.h2j{m,1} * (V * op.OprightA{m}.');
 

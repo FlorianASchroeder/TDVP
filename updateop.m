@@ -16,7 +16,11 @@ switch para.sweepto
         % sweep to right already computed OBB
         op.Hlrstorage{sitej + 1}      = updateHleft(op.Hleft, op.h1jOBB, op.Opleft(:), mps{sitej}, Vmat{sitej}, op.h2jOBB(:,2), mps{sitej}, Vmat{sitej}, M, para);
 		for m = 1:M
-			op.Opstorage{m,1,sitej+1} = updateCleft([],mps{sitej},[],op.h2jOBB{m,1},mps{sitej},[]);			% replaced h2term by h2jOBB. is this right??
+			if ~isempty(op.h2jOBB{m,1})
+				op.Opstorage{m,1,sitej+1} = updateCleft([],mps{sitej},[],op.h2jOBB{m,1},mps{sitej},[]);			% replaced h2term by h2jOBB. is this right??
+			else
+				op.Opstorage{m,1,sitej+1} = [];
+			end
 		end
     case 'l'
 		% if adjustdopt -> empty h1jOBB, h2jOBB -> recompute from h1term, h2term. Else, use them!
@@ -33,7 +37,11 @@ switch para.sweepto
 		op.Hlrstorage{sitej}		  = updateHright(op.Hlrstorage{sitej + 1}, op.h1jOBB, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2jOBB(:,1), mps{sitej},Vmat{sitej}, M, para);
 		for m = 1:M
 			% 2nd term of interaction term into ef. basis of r_j-1; (1st is already in site basis.)
-			op.Opstorage{m, 2, sitej} = updateCright([], mps{sitej},[], op.h2jOBB{m,2}, mps{sitej},[]);
+			if ~isempty(op.h2jOBB{m,2})
+				op.Opstorage{m, 2, sitej} = updateCright([], mps{sitej},[], op.h2jOBB{m,2}, mps{sitej},[]);
+			else
+				op.Opstorage{m, 2, sitej} = [];
+			end
 		end
 end
 

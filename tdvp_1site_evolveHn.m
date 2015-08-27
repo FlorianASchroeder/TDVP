@@ -205,7 +205,7 @@ if para.tdvp.expvCustomNow == 0
 		Hn = Hn + kron(op.h2jOBB{m,1},kron(op.Opright{m},eye(BondDimLeft)));
 	end
 	if para.tdvp.expvCustomTestAccuracy
-		t3 = toc(tempT);
+		t4 = toc(tempT);
 	end
 end
 %% Take and apply Matrix exponential
@@ -220,9 +220,13 @@ if  para.tdvp.expvCustomNow == 0
 	else
 		if para.tdvp.expvCustomTestAccuracy									% debug
 			tempT = tic;
-			mpsNew1 = expvCustom(- 1i*t, 'Hn',...
-					  reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
+			mpsNew1 = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[numel(mps{sitej}),1]);
 			t1 = toc(tempT);
+
+			tempT = tic;
+			mpsNew2 = expvCustom(- 1i*t, 'Hn',...
+					  reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
+			t3 = toc(tempT);
 		end
 		tempT = tic;
 		[mpsNew,err] = expv(- 1i*t, Hn,...
@@ -233,7 +237,7 @@ if  para.tdvp.expvCustomNow == 0
 			disp(rms(mpsNew-mpsNew1));	% debug
 		end
 		if para.tdvp.expvCustomTestAccuracy
-			results.tdvp.expvTime = [results.tdvp.expvTime; t1, t2, t3, numel(Hn)];
+			results.tdvp.expvTime = [results.tdvp.expvTime; t1, t2, t3, t4, numel(Hn)]; % times for [ expM, expV, exvCustom, Hn building]
 		end
 	end
 else
@@ -243,7 +247,7 @@ else
 	Hn = [];		% dummy return value;
 	t1 = toc(tempT);
 	if para.tdvp.expvCustomTestAccuracy
-		results.tdvp.expvTime = [results.tdvp.expvTime; t1,0,0,BondDimLeft*BondDimRight*OBBDim];
+		results.tdvp.expvTime = [results.tdvp.expvTime; t1,0,0,0, BondDimLeft*BondDimRight*OBBDim];
 	end
 end
 % results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;

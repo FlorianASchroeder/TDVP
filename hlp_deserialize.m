@@ -1,4 +1,4 @@
-function v = hlp_deserialize(m)
+function varargout = hlp_deserialize(varargin)
 % Convert a serialized byte vector back into the corresponding MATLAB data structure.
 % Data = hlp_deserialize(Bytes)
 %
@@ -23,7 +23,11 @@ function v = hlp_deserialize(m)
 %                                (C) 2010 Tim Hutt
 
 % wrap dispatcher
-v = deserialize_value(uint8(m(:)),1);
+assert( nargout == nargin, 'You need the same number of output and input arguments');
+varargout{nargin} = [];
+for ii = 1:nargin
+	varargout{ii} = deserialize_value(uint8(varargin{ii}(:)),1);
+end
 
 end
 

@@ -27,12 +27,15 @@ end
 
 % collect interacting parts:
 for m=1:M
-    outSl = contracttensors(op.Opleft{m},2,2,inA,3,1);
-    outSl = contracttensors(outSl,3,3,op.h2jOBB{m,2},2,2);
-
-    outSr = contracttensors(inA,3,2,op.Opright{m},2,2);
-    outSr = contracttensors(outSr,3,2,op.h2jOBB{m,1},2,2);
-
+	outSl = 0; outSr = 0;
+	if ~isempty(op.h2jOBB{m,2}) && ~isempty(op.Opleft{m})
+		outSl = contracttensors(op.Opleft{m},2,2,inA,3,1);
+		outSl = contracttensors(outSl,3,3,op.h2jOBB{m,2},2,2);
+	end
+	if ~isempty(op.h2jOBB{m,1}) && ~isempty(op.Opright{m})
+		outSr = contracttensors(inA,3,2,op.Opright{m},2,2);
+		outSr = contracttensors(outSr,3,2,op.h2jOBB{m,1},2,2);
+	end
     out = out+outSr+outSl;
 end
 
