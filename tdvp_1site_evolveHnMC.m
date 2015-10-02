@@ -168,6 +168,10 @@ results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timesli
 % now: A and V are time-evolved, A is focused
 % if sitej = L, then start lr sweep with decomposition of mps
 
+% Only return current-site matrices!
+mps = mps{sitej};
+Vmat = Vmat{sitej};
+
 end
 
 %% NESTED FUNCTIONS

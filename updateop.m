@@ -13,6 +13,15 @@ M = para.M;
 switch para.sweepto
     case 'r'
         % still use scaled op.Hleft to accomodate energy minimisation in
+		if isempty(op.h1jOBB) || isempty(op.h1j)
+			if ~iscell(Vmat{sitej})                                     % old VMPS and OBB-MultiChain code
+				[op] = H_Eff([]  , Vmat{sitej}, 'A' , op, para);		% bring into OBB -> wraps all Multi-Chain magic
+			else
+				%% New V-Tensor MultiChain code
+				[op] = H_Eff([]  , Vmat{sitej}, 'MC-OBB', op, para);
+				[op] = H_Eff([]  , Vmat{sitej}, 'MC-A'  , op, para);
+			end
+		end
         % sweep to right already computed OBB
         op.Hlrstorage{sitej + 1}      = updateHleft(op.Hleft, op.h1jOBB, op.Opleft(:), mps{sitej}, Vmat{sitej}, op.h2jOBB(:,2), mps{sitej}, Vmat{sitej}, M, para);
 		for m = 1:M

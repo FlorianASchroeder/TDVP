@@ -28,7 +28,11 @@ end
 
 d_opt_old = para.d_opt;
 
-for s = 2:min(para.trustsite(end)+0,para.L) 			% Only modify boson sites
+adjSites = 1:para.L;
+adjSites(para.spinposition) = [];						% remove spins
+adjSites(adjSites > para.trustsite(end)) = [];			% remove j > trustsite
+
+for s = adjSites 			% Only modify boson sites
     %% Adjust d_opt OBB dimensions
     if para.useVmat
         para.increasedk = 0;

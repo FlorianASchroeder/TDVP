@@ -80,7 +80,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		end
 
 		% 3. Star Observables
-		if isfield(para.tdvp,'extractStarInterval') && (strfind(para.tdvp.Observables,'.sn.') || strfind(para.tdvp.Observables,'.sx.'))
+		if isfield(para.tdvp,'extractStarInterval') && (~isempty(strfind(para.tdvp.Observables,'.sn.')) || ~isempty(strfind(para.tdvp.Observables,'.sx.')))
 			Nslice = round(para.tdvp.extractStarInterval / para.tdvp.extractObsInterval);		% how often to extract Star Observables
 			if mod(i-1,Nslice) == 0
 				pos = ceil(i/Nslice);
@@ -165,7 +165,6 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			d = para.dk(1,2);
 			ONOB = eye(d^2); ONOB = reshape(ONOB,[d,d,d^2]);
 			EAm = zeros(d,d,d^2);
-			sparse
 			for k = 1:d^2
 				EAm(:,:,k) = ncon({rdm, squeeze(ONOB(:,:,k))'},...
 								  {[-1,2,-2,1], [1,2]})*d;			% apply Op, contract / trace; perhaps *d
@@ -179,7 +178,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			if i > 1
 				tresults.TTM.T(:,:,i-1) = T;
 				tresults.TTM.Tnorm(i-1) = single(norm(T));
-				fprintf('\nTTM norm: %g\n',tresults.TTM.Tnorm(i-1));
+				fprintf('\n|TTM|/dt^2: %g\n',tresults.TTM.Tnorm(i-1)/para.tdvp.deltaT^2);
 			end
 		end
 		missingN = 0;					% shall only be used in first loop!

@@ -36,18 +36,18 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson2CT';
+para.model='SpinBosonTTM';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 2;
+para.nEnvironments  = 1;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 2;
+para.nChains		= 1;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
-para.useVtens = 1;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
+para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
 
 %% System Definitions:
 if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
@@ -88,7 +88,7 @@ if alpha == 0 && para.chain{1}.L == 0
 end
 
 %% chain 2 & more:
-para.chain{2}					= para.chain{1};		% simple copy
+% para.chain{2}					= para.chain{1};		% simple copy
 % para.chain{2}.w_cutoff          = 1.5;
 % para.chain{2}.mapping			= 'OrthogonalPolynomials';
 % para.chain{3}					= para.chain{2};
@@ -182,7 +182,7 @@ else
 	dk = dk^2;
 end
 
-para.spinposition = [1];						% This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
+para.spinposition = [1,2];						% This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
 para.complex=0;                                 % set to 1 if any complex parameters are used.
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
@@ -285,13 +285,13 @@ end
 
 if strfind(para.model,'SpinBoson')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'artificial';
+    para.SpinBoson.GroundStateMode = 'coupled';
         % choose: 'decoupled', 'coupled', 'artificial', 'artTTM'
 		% -artificial & artTTM does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
 		% - 'artificial' for SBM2CT sets up maximally entangled state between odd and even chains in the Bath
 		%	odd: thermal bath, even: ancilla
-    para.SpinBoson.InitialState = '-sz';
+    para.SpinBoson.InitialState = 'sz';
         % choose: 'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'
 		% works with all options
 
@@ -411,7 +411,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v61';
+para.version = 'v62';
 Descr = para.version;
 if ~strcmp(computer,'PCWIN64')
 	Descr = sprintf('%sTCM%s',para.version,para.hostname(3:end));
@@ -448,7 +448,7 @@ end
 
 %% Start Calculation
 [op,para]					= genh1h2term(para);
-if strcmp(para.model,'SpinBosonTTM') || ~isempty(regexp(para.model,'SpinBoson\dCT','match')) ...
+if (strcmp(para.model,'SpinBosonTTM') && strcmp(para.SpinBoson.GroundStateMode,'artTTM')) || ~isempty(regexp(para.model,'SpinBoson\dCT','match')) ...
 		|| (~isempty(regexp(para.model,'SpinBoson\dC','match')) && strcmp(para.SpinBoson.GroundStateMode,'artificial'))
 	prepareArtState();
 else
@@ -464,7 +464,13 @@ if ~isempty(strfind(para.model,'SpinBoson'))
     if (strcmp(para.SpinBoson.InitialState, 'sx') || strcmp(para.SpinBoson.InitialState, 'sz')) && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
         para.hx = para.SpinBoson.hx;
         para.hz = para.SpinBoson.hz;
-    end
+	end
+	if strcmp(para.model,'SpinBosonTTM')
+		%% recreate maximally entangled state on A&S
+		mps{1}(:,:,1) = [1/sqrt(2) 0]; mps{1}(:,:,2) = [0 1/sqrt(2)];
+		mps{2} = zeros(para.D(1),para.D(2),para.d_opt(2));
+		mps{2}(1,1,1) = 1; mps{2}(2,1,2) = 1;
+	end
     [op,para]   = genh1h2term(para);                % restore operators!
     [op]        = initstorage(mps, Vmat, op,para);
 

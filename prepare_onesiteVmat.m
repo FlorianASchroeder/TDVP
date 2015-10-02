@@ -8,8 +8,8 @@ function [Vmat, V, results, d_opt, sv] = prepare_onesiteVmat(Vmat,para,results,s
 if dk>=d_opt
 	if para.parity=='n'
 		[Vmat, S, V] = svd2(Vmat);				% TODO: if nargin ==4 then SVD, store results else QR; only for 'n'
-		if norm(S) ~= 1
-			S = S./norm(S);						% normalisation necessary for thermal steps
+		if norm(diag(S)) ~= 1
+			S = S./norm(diag(S));						% normalisation necessary for thermal steps
 		end
 		sv = diag(S);
 		if nargin == 5 && MinDim < d_opt % Do Truncation

@@ -37,10 +37,10 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     %% expand OBB in A and V by 50%
     % since this expansion is temporarily, save change later.
     % expand always BEFORE SVD
-    if (dk ~= OBBDim) && para.tdvp.expandOBB
+    if (dk > OBBDim) && para.tdvp.expandOBB
         % next line: argument ,BondDimLeft*BondDimRight-OBBDim in min() is
         % wrong I think. can be removed, but has to be checked again!
-		expandBy = min([floor(OBBDim*0.2),para.tdvp.maxOBBDim-OBBDim,BondDimLeft*BondDimRight-OBBDim]);
+		expandBy = min([floor(OBBDim*0.2),para.tdvp.maxOBBDim-OBBDim,BondDimLeft*BondDimRight-OBBDim, dk-OBBDim]);
 		if expandBy == 0, expandBy = 1; end
         mps{sitej} = cat(3,mps{sitej},zeros(BondDimLeft, BondDimRight, expandBy));
         Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, expandBy));
@@ -133,10 +133,12 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 
     %% normalise Vmat and take focus to A
     [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);
-	% remove empty SV:
-	keep = results.Vmat_sv{sitej} ~= 0;
-	results.Vmat_sv{sitej} = results.Vmat_sv{sitej}(keep);
-	Vmat{sitej} = Vmat{sitej}(:,keep); V = V(keep, :);
+	if para.tdvp.expandOBB
+		% remove empty SV:
+		keep = results.Vmat_sv{sitej} ~= 0;
+		results.Vmat_sv{sitej} = results.Vmat_sv{sitej}(keep);
+		Vmat{sitej} = Vmat{sitej}(:,keep); V = V(keep, :);
+	end
 	[n1, n2] = size(V);
 	OBBDimNew = n1;
 	% put h1j, h2j into OBB. writes into op.h1jOBB, op.h2jOBB only! Since h1j, h2j should be
@@ -256,6 +258,10 @@ results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timesli
 mps{sitej} = reshape(mpsNew,[BondDimLeft,BondDimRight,OBBDim]);
 % now: A and V are time-evolved, A is focused
 % if sitej = L, then start lr sweep with decomposition of mps
+
+% Only return current-site matrices!
+mps = mps{sitej};
+Vmat = Vmat{sitej};
 
 
 end

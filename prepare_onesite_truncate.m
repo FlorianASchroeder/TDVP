@@ -19,8 +19,8 @@ switch para.sweepto
             A = permute(A, [3, 1, 2]);
             A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
             [B, S, U] = svd2(A);				% Anew with orthonormal columns
-			if norm(S) ~= 1
-				S = S./norm(S);					% normalisation necessary for thermal steps
+			if norm(diag(S)) ~= 1
+				S = S./norm(diag(S));					% normalisation necessary for thermal steps
 			end
             sv = diag(S);
             if para.tdvp.truncateExpandBonds && sitej ~= para.L         % only used in TDVP. For VMPS add: && sitej <= para.trustsite(end)
@@ -29,13 +29,16 @@ switch para.sweepto
 					if sv(end) > para.svmaxtol
 						dimincratio = log10(sv(end)/para.svmaxtol)/2;						% aggressive expansion if min(SV) > SVmaxtol.
 					else
-						dimincratio = log10(sv(end)/para.svmintol)/abs(log10(sv(end)));		% new scheme, also weighted by current lowest exponent, less aggressive than above
+						dimincratio = log10(sv(end)/para.svmintol)/(abs(log10(sv(end)))-1);		% new scheme, also weighted by current lowest exponent, less aggressive than above
 					end
 					adddim = ceil(D2*dimincratio);
 					adddim = min(adddim, para.tdvp.maxBondDim - para.D(sitej));
 
 					A = cat(2,A,zeros(d * D1,adddim));
                     [B, S, U] = svd2(A);                % better since B contains no zeros but orthonormal vectors!
+					if norm(diag(S)) ~= 1
+						S = S./norm(diag(S));					% normalisation necessary for thermal steps
+					end
                     U = U(:,1:D2);                      % form old Bond Dim in columns == U=cat(2,U,addmat);
 				else
                     %% Truncate A dims
@@ -59,8 +62,8 @@ switch para.sweepto
             A = permute(A, [1, 3, 2]);
             A = reshape(A, [D1, d * D2]);
             [U, S, B] = svd2(A);
-            if norm(S) ~= 1
-				S = S./norm(S);					% normalisation necessary for thermal steps
+			if norm(diag(S)) ~= 1
+				S = S./norm(diag(S));					% normalisation necessary for thermal steps
 			end
             sv = diag(S);
             %% Start Truncation / Expansion
@@ -72,7 +75,7 @@ switch para.sweepto
                     if sv(end) > para.svmaxtol
 						dimincratio = log10(sv(end)/para.svmaxtol)/2;						% aggressive expansion if min(SV) > SVmaxtol.
 					else
-						dimincratio = log10(sv(end)/para.svmintol)/abs(log10(sv(end)));		% new scheme, also weighted by current lowest exponent, less aggressive than above
+						dimincratio = log10(sv(end)/para.svmintol)/(abs(log10(sv(end)))-1);		% new scheme, also weighted by current lowest exponent, less aggressive than above
 					end
                     adddim = ceil(D1*dimincratio);          %increase 20%
 					if isfield(para,'tdvp')
@@ -80,6 +83,9 @@ switch para.sweepto
 					end
                     A = cat(1,A,zeros(adddim, d * D2));
                     [U, S, B] = svd2(A);                % better since B contains no zeros but orthonormal vectors!
+					if norm(diag(S)) ~= 1
+						S = S./norm(diag(S));					% normalisation necessary for thermal steps
+					end
                     U = U(1:D1,:);                      % form old Bond Dim in columns == U=cat(2,U,addmat);
                 else
                     %% Truncate A dims
@@ -103,7 +109,8 @@ end
 
 if nargin == 4
     results.Amat_vNE(resultsSite) = vonNeumannEntropy(S);
-    sv = diag(S);                                               % Expand and truncate might have changed S
+    sv = diag(S);                       % Expand and truncate might have changed S
+	sv(sv < eps) = 0;					% need to set to zero, since otherwise might have artifacts after expansion!
     if length(sv)==para.D(resultsSite) || (length(sv)==para.D(resultsSite)/2 && (para.parity~='n'))
         results.Amat_sv{resultsSite} = sv;
     end

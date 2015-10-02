@@ -1,5 +1,5 @@
-function tdvp_1site(mps,Vmat,para,results,op,tresults)
-%% VMPS Time-dependent variational principle
+function tdvp_1siteTH(mps,Vmat,para,results,op,tresults)
+%% VMPS Time-dependent variational principle for Thermal Evolution
 %   implementation following Haegeman et al. 2014, arXiv:1408.5056
 %   using Expokit for expv()
 %
@@ -183,49 +183,100 @@ for timeslice = para.tdvp.slices
     % sweep l->r and time evolve each site
     for sitej = 1:para.L
         fprintf('%g', sitej); para.sitej = sitej;
-        %% Update on-site Operators
-        op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
 
-        %% Do the time-evolution of A and V with H(n)
-        % this is symmetric for l->r and l<-r
-		if ~para.useVtens
-			[mps{sitej}, Vmat{sitej}, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
-		else
-			para.tdvp.expvCustomNow = 1;                                     % necessary setting!
-			[mps{sitej}, Vmat{sitej}, para, results, op, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);
-		end
-        % now: A and V are time-evolved, A is focused
-        % OBBDim has increased by 50%. This must be truncated in the next
-        % step again!
-        % if sitej = L, then start lr sweep with decomposition of mps
-
-        %% Take focus to next site, evolve with K(n)
-        if sitej ~= para.L
-            fprintf('-');
-            %% Left-normalize A and get Center matrix C(n,t+dt)_(rl,r)
-            % expand/truncate BondDimensions here?
-            [mps{sitej}, Cn, para,results] = prepare_onesite_truncate(mps{sitej}, para,sitej,results);
-
-            %% Do the time-evolution of C
-            % evolve non-site center between sitej and sitej+1
-            % and focus A(n+1)
-            [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
-            clear('Hn','Cn');
-
-            %% update Left Hamiltonian operators
-            op = updateop(op,mps,Vmat,sitej,para);
-
-			if para.useVmat
-                truncateOBB(sitej);			% speedup by truncating within SVD from V to A ?
+        EvolutionAccept = 0; expandBy = 0; hasExpanded = 0;
+		while EvolutionAccept == 0
+			%% Pre-Expand D if previous D was also expanded!
+			if expandBy == 0 && all(sitej ~= [1 para.L]) && para.D(sitej-1) > para.D(sitej)
+				% probably last site was expanded! -> expand now a bit more! ~ 10%?
+				expandBy = ceil((para.D(sitej-1)-para.D(sitej))*1.1);
+				expandBy = min(expandBy, para.tdvp.maxBondDim-para.D(sitej));
 			end
+			% expand if needed (2. iteration mostly)
+			if expandBy > 0
+% 				fprintf('\n Need to expand MPS D by %d',expandBy);
+				mps{sitej}(end,end+expandBy,end) = 0;
+				mps{sitej+1}(end+expandBy,end,end) = 0;
+				% do SVD from sitej+1->sitej
+				para.sweepto = 'l';
+				[mps{sitej+1}, Cn, para] = prepare_onesite(mps{sitej+1},para,sitej+1);
+				mps{sitej} = contracttensors(mps{sitej},3,2, Cn,2,1);               % A_(l,n,r)
+				mps{sitej} = permute(mps{sitej},[1,3,2]);                           % A_(l,r,n)
+				clear('Cn');
+				% Expand/update operators!
+				op.h1j=[];op.h2j=[];op.h1jOBB=[];op.h2jOBB=[];op.h1jMCOBB=[];op.h2jMCOBB=[];	% just to make sure!
+				para.sitej = para.sitej+1;
+				op = updateop(op,mps,Vmat,sitej+1,para);
+				para.sweepto = 'r'; para.sitej = sitej;
+				% also expand all operators
+				hasExpanded = hasExpanded + 1;
+			end
+			%% Update on-site Operators
+			op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
 
-        else % sitej = L
-            %% Normalize with last SVD
-			[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);
-			% Cn = 1 approximately. can be thrown away -> mps normalized
-            % finish with focus on A after time evolution
+			%% Do the time-evolution of A and V with H(n)
+			% this is symmetric for l->r and l<-r
 
-        end
+			if ~para.useVtens
+				[ATmp, VTmp, paraTmp, resultsTmp, opTmp, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
+			else
+				para.tdvp.expvCustomNow = 1;                                     % necessary setting!
+				[ATmp, VTmp, paraTmp, resultsTmp, opTmp, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);
+			end
+			% now: A and V are time-evolved, A is focused
+			% all are Tmp since changes have to be accepted first!
+			% OBBDim has increased by 50%. This must be truncated in the next
+			% step again!
+			% if sitej = L, then start lr sweep with decomposition of mps
+
+			%% Take focus to next site, evolve with K(n)
+			if sitej ~= para.L
+				fprintf('-');
+				%% Left-normalize A and get Center matrix C(n,t+dt)_(rl,r)
+				% get SV and estimate
+				D = size(ATmp, 2);
+				[ATmp, Cn, paraTmp, resultsTmp] = prepare_onesite_truncate(ATmp, paraTmp,sitej,resultsTmp);
+
+				% check the SV for confidence and
+				lastNonZeroSV = find(resultsTmp.Amat_sv{sitej},1,'last');
+				if all(sitej ~= para.spinposition) && resultsTmp.Amat_sv{sitej}(lastNonZeroSV) > para.svmaxtol && lastNonZeroSV ~= 1 && ...
+						hasExpanded <= 1 && D ~= para.tdvp.maxBondDim
+					% Do not accept this! ATemp was expanded in prepare
+					% -> get the number of added dims and add them in next sweep
+% 					fprintf('\nmin(SV)= %g',resultsTmp.Amat_sv{sitej}(lastNonZeroSV));
+					expandBy = size(ATmp,2)-D;
+					if expandBy == 0, expandBy = 1; end
+					if expandBy > 0
+						continue;		% back to start of while loop!
+					end
+				end
+
+				mps{sitej} = ATmp; Vmat{sitej} = VTmp; para = paraTmp; results = resultsTmp; op = opTmp;
+
+				%% Do the time-evolution of C
+				% evolve non-site center between sitej and sitej+1
+				% and focus A(n+1)
+				[mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
+				clear('Hn','Cn');
+
+				%% update Left Hamiltonian operators
+				op = updateop(op,mps,Vmat,sitej,para);
+
+				if para.useVmat
+					truncateOBB(sitej);			% speedup by truncating within SVD from V to A ?
+				end
+
+			else % sitej = L
+				mps{sitej} = ATmp; Vmat{sitej} = VTmp; para = paraTmp; results = resultsTmp; op = opTmp;
+
+				%% Normalize with last SVD
+				[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);
+				% Cn = 1 approximately. can be thrown away -> mps normalized
+				% finish with focus on A after time evolution
+
+			end
+			EvolutionAccept = 1;
+		end
     end
 % 		fprintf('\n');							%Debug!
 % 		fprintf('%2g-',para.d_optnew);
@@ -249,7 +300,7 @@ for timeslice = para.tdvp.slices
 		fprintf('para.d_opt:\n');
 		out = strrep(mat2str(para.d_opt),';','\n');
 		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv))),2);
+		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(3,2:end)),2);
 		fprintf([out(2:end-1),'\n']);
 	end
 
@@ -259,42 +310,93 @@ for timeslice = para.tdvp.slices
     for sitej = para.L-1:-1:1
         fprintf('-'); para.sitej = sitej;
 
-        %% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
-        % normalisation needed for updateop()!
-        % Applies to bond n -> use sitej for result storage
-		if para.tdvp.truncateExpandBonds
-	        [mps{sitej+1}, Cn, para, results] = prepare_onesite_truncate(mps{sitej+1},para,sitej+1, results);
-		else
-			[mps{sitej+1}, Cn, para, results] = prepare_onesite(mps{sitej+1},para,sitej+1, results);
+		%% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
+		% normalisation needed for updateop()!
+		% Applies to bond n -> use sitej for result storage
+		if sitej+1 == para.L
+			if para.tdvp.truncateExpandBonds
+				[mps{sitej+1}, Cn, para, results] = prepare_onesite_truncate(mps{sitej+1},para,sitej+1, results);
+			else
+				[mps{sitej+1}, Cn, para, results] = prepare_onesite(mps{sitej+1},para,sitej+1, results);
+			end
 		end
 
-        %% Do the time-evolution of C
-        % evolve non-site center between sitej and sitej+1
-        % and focus A(n)
-        [mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
-        clear('Hn','Cn');
+		%% Do the time-evolution of C
+		% evolve non-site center between sitej and sitej+1
+		% and focus A(n)
+		[mps, Vmat, para, results] = tdvp_1site_evolveKn(mps,Vmat,para,results,op,sitej,Cn,Hn);
+		clear('Hn','Cn');
 
-        fprintf('%g', sitej);
+		fprintf('%g', sitej);
 
-        %% update right Hamiltonian operators
-        % prepare operators in (sitej+1) for time-evolution on sitej
-		para.sitej = para.sitej+1;					% needed for multi-chain reshape
-        op = updateop(op,mps,Vmat,sitej+1,para);
-		para.sitej = para.sitej-1;
+		%% update right Hamiltonian operators
+		% prepare operators in (sitej+1) for time-evolution on sitej
+		para.sitej = sitej+1;					% needed for multi-chain reshape
+		op = updateop(op,mps,Vmat,sitej+1,para);
+		para.sitej = sitej;
 
 		if para.useVmat
-            truncateOBB(sitej+1);
+			truncateOBB(sitej+1);
 		end
 
-        %% Get on-site Operators and dimensions
-        op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
+		EvolutionAccept = 0; expandBy = 0; hasExpanded = 0;
+		while EvolutionAccept == 0
+			if expandBy == 0 && all(sitej ~= [1 para.L]) && para.D(sitej) > para.D(sitej-1)
+				% probably last site was expanded! -> expand now a bit more! ~ 10%?
+				expandBy = ceil((para.D(sitej)-para.D(sitej-1))*1.1);
+				expandBy = min(expandBy, para.tdvp.maxBondDim-para.D(sitej-1));
+			end
+			% expand if needed (2. iteration mostly)
+			if expandBy > 0
+% 				fprintf('\n Need to expand MPS D by %d',expandBy);
+				mps{sitej}(end+expandBy,end,end) = 0;
+				mps{sitej-1}(end,end+expandBy,end) = 0;
+				% do SVD from sitej-1->sitej
+				para.sweepto = 'r';
+				[mps{sitej-1}, Cn, para] = prepare_onesite(mps{sitej-1},para,sitej-1);			% No Truncate!
+				mps{sitej} = contracttensors(Cn,2,2, mps{sitej},3,1);
+				clear('Cn');
+				% Expand/update operators!
+				op.h1j=[];op.h2j=[];op.h1jOBB=[];op.h2jOBB=[];op.h1jMCOBB=[];op.h2jMCOBB=[];	% just to make sure!
+				para.sitej = sitej-1;
+				op = gen_sitej_op(op,para,sitej-1,results.leftge);				% Load sitej Operators for updateop
+				op = updateop(op,mps,Vmat,sitej-1,para);
+				para.sweepto = 'l'; para.sitej = sitej;
+				% also expand all operators
+				hasExpanded = hasExpanded + 1;
+			end
 
-        %% Do the time-evolution of A and V
-        % this is symmetric for l->r and l<-r
-		if ~para.useVtens
-			[mps{sitej}, Vmat{sitej}, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
-		else
-			[mps{sitej}, Vmat{sitej}, para, results, op, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);
+			%% Get on-site Operators and dimensions
+			op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
+
+			%% Do the time-evolution of A and V
+			% this is symmetric for l->r and l<-r
+			if ~para.useVtens
+				[ATmp, VTmp, paraTmp, resultsTmp, opTmp, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
+			else
+				[ATmp, VTmp, paraTmp, resultsTmp, opTmp, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);
+			end
+			if sitej ~= 1
+				D = size(ATmp,1);
+				[ATmp, Cn, paraTmp, resultsTmp] = prepare_onesite_truncate(ATmp, paraTmp,sitej,resultsTmp);
+
+				% check the SV for confidence and
+				lastNonZeroSV = find(resultsTmp.Amat_sv{sitej-1},1,'last');
+				if all(sitej ~= para.spinposition) && resultsTmp.Amat_sv{sitej-1}(lastNonZeroSV) > para.svmaxtol && lastNonZeroSV ~= 1 && ...
+						hasExpanded <= 1 && D ~= para.tdvp.maxBondDim
+					% Do not accept this! ATemp was expanded in prepare
+					% -> get the number of added dims and add them in next sweep
+% 					fprintf('\nmin(SV)= %g',resultsTmp.Amat_sv{sitej-1}(lastNonZeroSV));
+					expandBy = size(ATmp,1)-D;
+					if expandBy == 0, expandBy = 1; end		% ensures expansion by at least 1
+					if sitej ~= 2 && expandBy > 0			% cannot have large D directly after spinsite!
+						fprintf('-');
+						continue;							% back to start of while loop!
+					end
+				end
+			end
+			mps{sitej} = ATmp; Vmat{sitej} = VTmp; para = paraTmp; results = resultsTmp; op = opTmp;
+			EvolutionAccept = 1;
 		end
     end
 
@@ -373,7 +475,7 @@ for timeslice = para.tdvp.slices
 		fprintf('para.d_opt:\n');
 		out = strrep(mat2str(para.d_opt),';','\n');
 		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv))),2);
+		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(3,2:end)),2);
 		fprintf([out(2:end-1),'\n']);
 	end
 

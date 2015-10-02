@@ -134,11 +134,11 @@ while loop<=para.loopmax;
 		results.shift{para.loop} = para.shift;
 	end
 	if para.logging
-		results.Vmat_svLog{para.loop} = cellfun(@(x) x(1,1), results.Vmat_sv(2:end));		% log the highest SV of Vmat
+		results.Vmat_svLog{para.loop} = cellfun(@(x) x(1,1), results.Vmat_sv(~cellfun('isempty',results.Vmat_sv)));		% log the highest SV of Vmat
 		results.EvaluesLog{para.loop} = results.Evalues;
 	end
 	if para.useFloShift3
-		para.FloShift3minMaxSV = min(cellfun(@(x) x(1,1), results.Vmat_sv(2:end)));
+		para.FloShift3minMaxSV = min(cellfun(@(x) x(1,1), results.Vmat_sv(~cellfun('isempty',results.Vmat_sv))));
 	end
     fprintf('\nE = %.10g\t', results.E);							% print last energy Eigenvalue calculated
     results.Eerror(loop)=std(results.Evalues)/abs(mean(results.Evalues));
@@ -189,7 +189,7 @@ while loop<=para.loopmax;
     if abs(para.d_opt_change)<para.minDimChange && abs(para.D_change)<para.minDimChange
       para.dimlock=1;
     end
-    results.maxVmatsv=max(cellfun(@(x) x(end), results.Vmat_sv(2:para.trustsite(end))));fprintf('maxVmatsv=%g\t',results.maxVmatsv);
+    results.maxVmatsv=max(cellfun(@(x) x(end), results.Vmat_sv(max(para.spinposition+1):para.trustsite(end))));fprintf('maxVmatsv=%g\t',results.maxVmatsv);
     results.maxAmatsv=max(cellfun(@(x) x(end), results.Amat_sv(2:para.trustsite(end))));fprintf('maxAmatsv=%g\n',results.maxAmatsv);
     %if para.trustsite(loop)>=para.L-2 && max(vNEdiff)<1e-3 && results.maxVmatsv<para.svmintol && results.maxAmatsv<para.svmintol
     if (results.Eerror(end)<para.precision && para.dimlock == 1) || (para.loop > 10 && prod(results.Eerror(end-10:end)<para.precision)) %&& para.trustsite(end)>para.L-5

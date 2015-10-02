@@ -47,7 +47,10 @@ if chainpara.Lambda > 1
 elseif chainpara.Lambda == 1
 	assert(chainpara.L > 1,'You need to define a chain length > 1!');
 	% TODO: make sensible estimate!
-	bigL = 6*chainpara.L		% arbitrary now
+	bigL = 10*chainpara.L		% arbitrary now
+	if strcmp(chainpara.discrMethod,'Direct') && strcmp(chainpara.mapping,'Stieltjes')
+		bigL = 1000*bigL;							% can deal with much more!
+	end
 else
 	error('VMPS:SBM_genpara','Please define Lambda >= 1 for discretization!');
 end
@@ -112,12 +115,22 @@ else
 		w_limits = wmax.*(1:-1/bigL:0);
 	end
 
-    for j=1:bigL
-        intJ	  = integral(@(w) JorH(w,0),w_limits(j+1),w_limits(j));
-        intJoverW = integral(@(w) JorH(w,1),w_limits(j+1),w_limits(j));
-        xi(j)	  = intJ/intJoverW;							% bath energy levels
-        Gamma(j)  = sqrt(intJ);								% bath couplings.
-    end
+	if strcmp(chainpara.discrMethod,'Numeric')
+		for j=1:bigL
+			intJ	  = integral(@(w) JorH(w,0),w_limits(j+1),w_limits(j));
+			intJoverW = integral(@(w) JorH(w,1),w_limits(j+1),w_limits(j));
+			xi(j)	  = intJ/intJoverW;							% bath energy levels
+			Gamma(j)  = sqrt(intJ);								% bath couplings.
+		end
+	elseif strcmp(chainpara.discrMethod,'Direct')
+		xi    = flipud(w_limits.');								% flip necessary to make vectorised code work
+		difXi = diff(xi);										% width of each interval
+		xi    = xi(1:end-1)+difXi./2;							% take middle of each interval
+		Gamma = sqrt(JorH(xi,0).*difXi);						% need to calc sqrt(area)
+		if strcmp(chainpara.mapping,'Stieltjes')
+			xi = xi.*w_cutoff;                                  % rescale to make right
+		end
+	end
 end
 
 xi(isnan(xi))=0;                                    % if numbers < e-161 they become NaN. This is fix for it.
@@ -230,11 +243,20 @@ end
 		% additional hard cutoff for numeric integration
 		% i to get function J*w^(-i)
 
-		y = 2*pi*chainpara.alpha*wc^(1-chainpara.s).*w.^(chainpara.s-i).*exp(-w./wc).*~stepfun(w,w_cutoff);
+% 		y = 2*pi*chainpara.alpha*wc^(1-chainpara.s).*w.^(chainpara.s-i).*exp(-w./wc).*~stepfun(w,w_cutoff);
+		y = 2*pi*chainpara.alpha*wc^(1-chainpara.s).*w.^(chainpara.s-i).*exp(-w./wc).*ceil(heaviside(w_cutoff-w));	% non-zero for w = w_cutoff
 	end
 
 	function init_Leggett_Soft()
 		wc		 = 1;				% characteristic frequency ~= w_cutoff!
-		w_cutoff = 100;
-	end
+		w_cutoff = chainpara.w_cutoff;
+    end
+
+    function y = J_Coupling_Discrete(w,i)
+
+    end
+
+    function init_Coupling_Discrete(w,i)
+
+    end
 end

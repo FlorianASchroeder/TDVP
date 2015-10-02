@@ -1,20 +1,23 @@
-function run_TDVP(s,alpha,OBB,Bond,dk,L, fromFile)
+function run_TDVP(alpha,maxDim)
 % try
 % needed if started from command line:
 if isdeployed
-	if ischar(s), s = str2double(s); end
+% 	if ischar(s), s = str2double(s); end
 	if ischar(alpha), alpha = str2double(alpha); end
-	if ischar(OBB), 	OBB 	= str2double(OBB); end
-	if ischar(Bond), 	Bond 	= str2double(Bond); end
-	if ischar(dk),		dk		= str2double(dk); end
-	if ischar(L),		L		= str2double(L); end
+	if ischar(maxDim), 	maxDim 	= str2double(maxDim); end
+% 	if ischar(Bond), 	Bond 	= str2double(Bond); end
+% 	if ischar(dk),		dk		= str2double(dk); end
+% 	if ischar(L),		L		= str2double(L); end
 end
+
+fromFile = sprintf('20150907-0014-SpinBoson2CT-VT-OrthPol-v62TCMde10-alpha0.01delta0epsilon0.1dk70D5dopt5L20-art--sz/results-Till20Step0.1v62-OBBmax%d-Dmax%d-expvCustom0-1core.mat',maxDim,maxDim);
 
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,5);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+% fileName =  VMPS_FullSBM(s,alpha,0.1,0,50,0);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
+error('please load a file');
 else
 	fileName = fromFile;							% simple override!
 	loadedFromFile = 1;
@@ -25,12 +28,6 @@ end
 
 load(fileName);
 
-% load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha0.01delta0.1epsilon0dk20D5dopt5L100\results.mat')
-% load(sprintf('20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha%gdelta0.1epsilon0dk30D5dopt5L300-artificial/results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat',alpha));
-% load('20150806-1334-SpinBoson-OrthPol-v52-alpha0.5delta0.1epsilon0dk30D5dopt5L200-art-sz/results.mat');
-% load('20150815-2007-SpinBosonTTM-OrthPol-v58-alpha0.5delta0.1epsilon0dk30D5dopt5L100/results.mat');
-
-% Kast 2013 Fig 4, s=0.75 OrthPol
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
 
 %% Only needed if previous calc was imagT
@@ -43,8 +40,8 @@ end
 
 %% Define TDVP parameters
 para.tdvp.imagT = 0;					% imaginary Time = Temperature evolution?
-para.tdvp.tmax = 100;
-para.tdvp.deltaT = 0.1;					% size of timeslice in units:
+para.tdvp.tmax = 350;
+para.tdvp.deltaT = 1;					% size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
@@ -53,12 +50,12 @@ para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
 para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
-% para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
+para.tdvp.Observables = '.n.s.j.sn.sx.';		% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
-para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
+para.tdvp.maxExpMDim = 00;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
+para.tdvp.maxExpVDim = 00;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
@@ -69,14 +66,14 @@ para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); defa
     %   else        : use Expokit expv(t,A,v, expvTol, expvM)
     %   set maxExpMDim = 0 to only use expv()
 % OBB settings
-para.tdvp.expandOBB = OBB;
+para.tdvp.expandOBB = 1;
 % Bond-Dim settings
-para.tdvp.truncateExpandBonds = Bond;
+para.tdvp.truncateExpandBonds = 1;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 150;				%
+% para.tdvp.maxBondDim = 80;				% keep imagT maxDim
 para.Dmin = 1;
-para.tdvp.maxOBBDim  = 40;
+% para.tdvp.maxOBBDim  = 30;
 para.svmaxtol = 10^-6;					% keep 1 below this!
 para.svmintol = 10^-6.5;				% throw away all below
 % z-Averaging for log-Discretization
@@ -90,11 +87,11 @@ end
 
 tresults = [];						% empty variable initialization
 %% comment if no new coupling needed
-if loadedFromFile
-% 	para.chain{1}.alpha = alpha;
-% 	[para.chain{1}]=SBM_genpara(para.chain{1});
-% 	[op,para]=genh1h2term(para);
-% 	[op] = initstorage(mps, Vmat, op,para);
+if loadedFromFile && para.chain{1}.alpha ~= alpha
+	para.chain{1}.alpha = alpha;
+	[para.chain{1}]=SBM_genpara(para.chain{1});
+	[op,para]=genh1h2term(para);
+	[op] = initstorage(mps, Vmat, op,para);
 end
 
 %% Format Filename
