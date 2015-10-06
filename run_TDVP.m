@@ -13,7 +13,7 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,5);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,20);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
@@ -44,18 +44,18 @@ end
 %% Define TDVP parameters
 para.tdvp.imagT = 0;					% imaginary Time = Temperature evolution?
 para.tdvp.tmax = 100;
-para.tdvp.deltaT = 0.1;					% size of timeslice in units:
+para.tdvp.deltaT = 1;					% size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 1;				% much faster I/O saving
+para.tdvp.serialize = 0;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 % para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
+para.tdvp.Observables = '.n.j.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
@@ -74,11 +74,11 @@ para.tdvp.expandOBB = OBB;
 para.tdvp.truncateExpandBonds = Bond;
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 150;				%
+para.tdvp.maxBondDim = 40;				%
 para.Dmin = 1;
 para.tdvp.maxOBBDim  = 40;
-para.svmaxtol = 10^-6;					% keep 1 below this!
-para.svmintol = 10^-6.5;				% throw away all below
+para.svmaxtol = 10^-4;					% keep 1 below this!
+para.svmintol = 10^-4.5;				% throw away all below
 % z-Averaging for log-Discretization
 para.tdvp.zAveraging = 0;
 if para.tdvp.zAveraging
@@ -98,7 +98,7 @@ if loadedFromFile
 end
 
 %% Format Filename
-para.tdvp.version = 'v62';
+para.tdvp.version = 'v63';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!

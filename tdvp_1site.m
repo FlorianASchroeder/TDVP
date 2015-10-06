@@ -249,7 +249,7 @@ for timeslice = para.tdvp.slices
 		fprintf('para.d_opt:\n');
 		out = strrep(mat2str(para.d_opt),';','\n');
 		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv))),2);
+		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv(end,:)))),2);
 		fprintf([out(2:end-1),'\n']);
 	end
 
@@ -373,7 +373,7 @@ for timeslice = para.tdvp.slices
 		fprintf('para.d_opt:\n');
 		out = strrep(mat2str(para.d_opt),';','\n');
 		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv))),2);
+		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv(end,:)))),2);
 		fprintf([out(2:end-1),'\n']);
 	end
 

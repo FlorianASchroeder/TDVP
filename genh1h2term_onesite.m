@@ -516,8 +516,8 @@ switch para.model
 					[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
 					zm = sparse(size(bp,1),size(bp,1));
 					op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
-					op.h1term{2*i-1,1,s,i} = zm; op.h1term{2*i-1,2,s,i} = bm;
-					op.h1term{2*i  ,1,s,i} = zm; op.h1term{2*i  ,2,s,i} = bp;
+					op.h2term{2*i-1,1,s,i} = zm; op.h2term{2*i-1,2,s,i} = bm;
+					op.h2term{2*i  ,1,s,i} = zm; op.h2term{2*i  ,2,s,i} = bp;
 				end
 			otherwise
 				if para.parity ~= 'n'
@@ -526,8 +526,56 @@ switch para.model
 				for i = 1:5
 					[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
 					op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
-					op.h1term{2*i-1,1,s,i} = para.chain{i}.t(s).*bp; op.h1term{2*i-1,2,s,i} = bm;
-					op.h1term{2*i  ,1,s,i} = para.chain{i}.t(s).*bm; op.h1term{2*i  ,2,s,i} = bp;
+					op.h2term{2*i-1,1,s,i} = para.chain{i}.t(s).*bp; op.h2term{2*i-1,2,s,i} = bm;
+					op.h2term{2*i  ,1,s,i} = para.chain{i}.t(s).*bm; op.h2term{2*i  ,2,s,i} = bp;
+				end
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+		case 'DPMES3-4C'
+        %%%%%%%%%%%%%%%%%%% DP-MES Model - 4-Chain %%%%%%%%%%%%%%%%%%%%%%
+		% Not linear, but in multi-chain configuration!
+		% Spin is always in chain 1 for backward compatibility
+		%
+		% working??
+		% Created 05/10/15 by F.S.
+        switch s
+            case 1		% is the pentacene system!
+				[H0,H1] = DPMES_Operators('3-4C');
+				zm      = zeros(3);
+				op.h1term{1,1}      = H0;
+				for i = 1:4
+					op.h2term{2*i-1, 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i-1, 2,1,1} = zm;
+					op.h2term{2*i  , 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i  , 2,1,1} = zm;
+				end
+% 				op.h2term{1 ,1,1,1} = para.chain{1}.t(1).*H1{1}; op.h2term{1 ,2,1,1} = zm;	% A1 chain 1
+% 				op.h2term{2 ,1,1,1} = para.chain{1}.t(1).*H1{1}; op.h2term{2 ,2,1,1} = zm;
+% 				op.h2term{3 ,1,1,1} = para.chain{2}.t(1).*H1{2}; op.h2term{3 ,2,1,1} = zm;	% A1 chain 2
+% 				op.h2term{4 ,1,1,1} = para.chain{2}.t(1).*H1{2}; op.h2term{4 ,2,1,1} = zm;
+% 				op.h2term{5 ,1,1,1} = para.chain{3}.t(1).*H1{3}; op.h2term{5 ,2,1,1} = zm;	% B1 chain
+% 				op.h2term{6 ,1,1,1} = para.chain{3}.t(1).*H1{3}; op.h2term{6 ,2,1,1} = zm;
+% 				op.h2term{7 ,1,1,1} = para.chain{4}.t(1).*H1{4}; op.h2term{7 ,2,1,1} = zm;	% A2 chain
+% 				op.h2term{8 ,1,1,1} = para.chain{4}.t(1).*H1{4}; op.h2term{8 ,2,1,1} = zm;
+            case para.L
+				if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+				end
+				for i = 1:4			% slow, but easy to modify!
+					[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+					op.h2term{2*i-1,1,s,i} = zm; op.h2term{2*i-1,2,s,i} = bm;
+					op.h2term{2*i  ,1,s,i} = zm; op.h2term{2*i  ,2,s,i} = bp;
+				end
+			otherwise
+				if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+				end
+				for i = 1:4
+					[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+					op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+					op.h2term{2*i-1,1,s,i} = para.chain{i}.t(s).*bp; op.h2term{2*i-1,2,s,i} = bm;
+					op.h2term{2*i  ,1,s,i} = para.chain{i}.t(s).*bm; op.h2term{2*i  ,2,s,i} = bp;
 				end
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -561,6 +609,23 @@ switch para.MLSB_mode
 		H1 = zeros(5);
 		error('VMPS:genh1h2term_onesite','DP_MES Hamiltonian not yet available.')
     otherwise
+end
+
+end
+
+function [H0, H1] = DPMES_Operators(nModel)
+%% creates the Hamiltonian terms for the DPMES molecule.
+states = load('DPMESdata/states.dat');		% [#state, E(eV)]
+switch nModel
+	case '3-4C'
+		% TT, LE+, CT+ with 4 chains
+		% chain order: 1-2: A1(1,2); 3: B1, 4: A2
+		H0 = eye(3).* (ones(3,1)*states([1,2,4],2).');
+		H1 = cell(4,1);
+		H1{1} = eye(3);   H1{1}(1,1) = 0;
+		H1{2} = eye(3);   H1{2}(1,1) = 2;
+		H1{3} = zeros(3); H1{3}(2,3) = 1; H1{3}(3,2) = 1;
+		H1{4} = zeros(3); H1{4}(1,3) = 1; H1{4}(3,1) = 1;
 end
 
 end

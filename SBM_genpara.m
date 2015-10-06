@@ -17,8 +17,17 @@ function [chainpara,xi,Gamma]=SBM_genpara(chainpara)
 %					  Allows for many more combinations!
 %	FS 09/07/2015:	- Tidied up the necessary variables and shortened code
 %					- Introduced init_() for cutoff initialization
+%	FS 05/10/2015:	- Added J(w) interpolated from points: spectralDensity = 'PointsInterp'
+%					  Needed definitions: w_cutoff, datapoints = [w,J(w)]
+% 					- Added J(w) interp from broadened peaks: spectralDensity = 'CoupBroad'
+% 					  Needed defs: w_cutoff, dataPoints = [w,lambda(w)], peakWidth
+%					- Added spectralDensity = 'CoupDiscr'
+% 					  direct use of given dataPoints = [w,lambda(w)]
 
-s = chainpara.s; wc = 1;
+if isfield(chainpara,'s')
+	s = chainpara.s;
+end
+wc = 1;
 % initialise fixed model parameters
 eval(sprintf('init_%s()',chainpara.spectralDensity));
 
@@ -81,25 +90,31 @@ if strcmp(chainpara.discrMethod,'Analytic')
             Gamma(j-1)=sqrt(fac*(tempLam-1)*tempLam^(2-j-z));           % replace this by a vector notation
 		end
 	end
+elseif strcmp(chainpara.discrMethod,'None') && strcmp(chainpara.spectralDensity,'CoupDiscr')
+    % if directly tridiagonalizing given couplings!
+    % define values via the init_CoupDiscr function.
 else
 	%% from here: either discretize J(w) for Lanczos or h^2(x) for Stieltjes
 	% Uses numerical evaluation of Integrals. Works for any spectral function!
 	% numerical LogZ uses not the Zitko scheme, which is more difficult!!
-% 	try
-		% Following only works if spectral functions at the end have name scheme: J_(para.spectralDensity)
-		if strcmp(chainpara.mapping,'LanczosTriDiag')
-% 			fprintf('J_%s(w,i)',chainpara.spectralDensity)
-			JorH = @(w,i) eval(sprintf('J_%s(w,i)',chainpara.spectralDensity));
-			wmax = w_cutoff;
-		elseif strcmp(chainpara.mapping,'Stieltjes')
-			JorH = @(x,i) eval(sprintf('J_%s(x.*w_cutoff,i)./pi.*w_cutoff',chainpara.spectralDensity));
-			wmax = 1;				% need to redefine cutoff = 1 since x = [0,1]!
-		else
-			error('VMPS:SBM_genpara','Wrong mapping defined');
-		end
-% 	catch
-% 		error('cannot not find J_%s(w,i); Please define para.spectralDensity properly!',chainpara.spectralDensity);
-% 	end
+
+	% assign spectral function to J:
+	switch chainpara.spectralDensity
+		case 'Leggett_Hard'
+			J = @J_Leggett_Hard;
+		case 'Leggett_Soft'
+			J = @J_Leggett_Soft;
+		case 'Renger'
+			J = @J_Renger;
+		case 'PointsInterp'
+% 			J = @J_PointsInterp;   Do not do that!
+            J = @(w,i) interp1(w_i, j_i, w,'spline')./(w.^i).*ceil(heaviside(w_cutoff-w));
+        case 'CoupBroad'
+            J = @(w,i) interp1(w_i, j_i, w,'pchip')./(w.^i).*ceil(heaviside(w_cutoff-w));
+		otherwise
+			error('cannot not find J_%s(w,i); Please define para.spectralDensity properly!',chainpara.spectralDensity);
+	end
+	wmax = w_cutoff;
 
     xi	  = zeros(bigL,1);
     Gamma = zeros(bigL,1);			% not overloading gamma function!
@@ -117,19 +132,18 @@ else
 
 	if strcmp(chainpara.discrMethod,'Numeric')
 		for j=1:bigL
-			intJ	  = integral(@(w) JorH(w,0),w_limits(j+1),w_limits(j));
-			intJoverW = integral(@(w) JorH(w,1),w_limits(j+1),w_limits(j));
+			intJ	  = integral(@(w) J(w,0)./pi,w_limits(j+1),w_limits(j));
+			intJoverW = integral(@(w) J(w,1)./pi,w_limits(j+1),w_limits(j));
 			xi(j)	  = intJ/intJoverW;							% bath energy levels
 			Gamma(j)  = sqrt(intJ);								% bath couplings.
 		end
+		figure(1);plot(xi,Gamma);
 	elseif strcmp(chainpara.discrMethod,'Direct')
 		xi    = flipud(w_limits.');								% flip necessary to make vectorised code work
 		difXi = diff(xi);										% width of each interval
 		xi    = xi(1:end-1)+difXi./2;							% take middle of each interval
-		Gamma = sqrt(JorH(xi,0).*difXi);						% need to calc sqrt(area)
-		if strcmp(chainpara.mapping,'Stieltjes')
-			xi = xi.*w_cutoff;                                  % rescale to make right
-		end
+		Gamma = sqrt(J(xi,0).*difXi./pi);						% need to calc sqrt(area)
+        figure(1);plot(xi,Gamma);
 	end
 end
 
@@ -139,34 +153,17 @@ Gamma(isnan(Gamma))=0;
 %% Start mapping to Chain
 if strcmp(chainpara.mapping, 'LanczosTriDiag')
 	%% Start Tridiagonalization
-	indiag=zeros(bigL,1);
-	inrow=indiag;
+	[chainpara.epsilon, chainpara.t] = chainParams_Lanczos(xi, Gamma);
 
-	inrow(2:bigL)  = Gamma(1:bigL-1)./sqrt(pi);                         % factor of 1/2 only affected t(1) -> was moved into Hamiltonian; 1/sqrt(pi) changes only t(1)
-	indiag(2:bigL) = xi(1:bigL-1);
-
-	[epsilon,t]    = star2tridiag(indiag,inrow);
-
-	if chainpara.L == 0
-		chainpara.L = find(epsilon > chainpara.precision, 1,'Last') + 1;    % +1 as L includes spin site
-		dispif(sprintf('Optimum chain length is: %u',chainpara.L),chainpara.logging)
-	end
-
-	[epsilon,t]			= extroplate(epsilon,t,chainpara.L);              % extrapolate very small levels for higher precision
-	chainpara.epsilon	= epsilon(1:chainpara.L-1);
-	chainpara.t			= t(1:chainpara.L-1);
 	%chainpara.t=abs(chainpara.t); %I noticed that the r form hess() function sometimes changed sign.
 elseif strcmp(chainpara.mapping, 'Stieltjes')
 	%% Start Stieltjes
 	% assume: xi = levels = x
 	%		  gamma = coupling strengths = h^2(x)
-	ab = stieltjes(chainpara.L-1,[xi,Gamma.^2]);
-	chainpara.epsilon = ab(:,1);
-	chainpara.t		  = ab(:,2);
-	% for eta_0: integrate [0,Inf]; any cutoff must be within the spectral function (stepfun)
-	chainpara.t       = [sqrt(integral(@(w) eval(sprintf('J_%s(w,0)./pi',chainpara.spectralDensity)),0,Inf));chainpara.t(1:end-1)];		% put sqrt(eta_0/pi) = t(1) by hand in!
+    [chainpara.epsilon, chainpara.t] = chainParams_Stieltjes(xi, Gamma);
+
 else
-	error('VMPS:SBM_genpara:l153','This is really hard to reach!');
+	error('VMPS:SBM_genpara:l179','This is really hard to reach!');
 end
 
     function [w, t] = chainParams_OrthogonalPolynomials()
@@ -175,22 +172,48 @@ end
         % No need for tridiagonalization since analytical result.
         % t(1) == sqrt(eta_0/pi)/2
 % 		wc = 1;     % cutoff is set to 1 always!
-        n = 0:chainpara.L-2;
+        n = (0:chainpara.L-2)';
 		if ~isempty(strfind(chainpara.spectralDensity,'Leggett')) && strcmp(chainpara.discretization, 'None')
 			if ~isempty(strfind(chainpara.spectralDensity,'Hard'))
 				w = w_cutoff/2.*(1+ (s^2./((s+2.*n).*(2+s+2.*n))));                                     % w(1) = w(n=0)
 				t = (w_cutoff.*(1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));   % t(1) = t(n=0) != coupling to system
-				t = [ w_cutoff*sqrt(2*pi*chainpara.alpha/(1+s))/(sqrt(pi)), t(1:end-1)];				% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
+				t = [ w_cutoff*sqrt(2*pi*chainpara.alpha/(1+s))/(sqrt(pi)); t(1:end-1)];				% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
 			elseif ~isempty(strfind(chainpara.spectralDensity,'Soft'))
 				w = wc.*(2.*n+1+s);																		% w(1) = w(n=0)
 				t = wc.*sqrt((n+1).*(n+s+1));															% t(1) = t(n=0) != coupling to system
-				t = [ wc*sqrt(2*pi*chainpara.alpha*gamma(s+1))/(sqrt(pi)), t(1:end-1)];					% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
+				t = [ wc*sqrt(2*pi*chainpara.alpha*gamma(s+1))/(sqrt(pi)); t(1:end-1)];					% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
 			end
 		else
 			error('VMPS:SBM_genpara:chainParams_OrthogonalPolynomials','Only available for power-law spectral functions');
-		end
-		w = w'; t = t';
-	end
+        end
+    end
+
+    function [w, t] = chainParams_Lanczos(xi, Gamma)
+        % Tridiagonalize using Lanczos algorithm with complete reorthogonalization
+        indiag=zeros(length(Gamma)+1,1);
+        inrow = indiag;
+
+        inrow(2:end)  = Gamma;                         % factor of 1/2 only affected t(1) -> was moved into Hamiltonian; 1/sqrt(pi) changes only t(1)
+        indiag(2:end) = xi;
+
+        [epsilon,t]    = star2tridiag(indiag,inrow);
+
+        if chainpara.L == 0
+            chainpara.L = find(epsilon > chainpara.precision, 1,'Last') + 1;    % +1 as L includes spin site
+            dispif(sprintf('Optimum chain length is: %u',chainpara.L),chainpara.logging)
+        end
+
+        [epsilon,t]			= extroplate(epsilon,t,chainpara.L);              % extrapolate very small levels for higher precision
+        w	= epsilon(1:chainpara.L-1);
+        t	= t(1:chainpara.L-1);
+    end
+
+    function [w, t] = chainParams_Stieltjes(xi, Gamma)
+        ab = stieltjes(chainpara.L-1,[xi,Gamma.^2]);
+        w  = ab(:,1);
+		t  = ab(:,2);
+		t  = [sqrt(sum(Gamma.^2)); t(1:end-1)];                             % put sqrt(eta_0/pi) = t(1) by hand in!
+    end
 
 	function y = J_Renger(w,i)
 		%% Spectral function for LH2 of Rhodoblastus acidophilus  from: F. Müh and T. Renger, Biochim. Biophys. Acta 1817, 1446 (2012). DOI: 10.1016/j.bbabio.2012.02.016
@@ -225,7 +248,7 @@ end
 		%% Section for Spectral function for Spin-Boson Model from A. Leggett
 		% Hard cutoff at wc using stepfunction
 		% i to get function J*w^(-i)
-		y = 2*pi*chainpara.alpha*w_cutoff.^(1-chainpara.s).*w.^(chainpara.s-i).*~stepfun(w,w_cutoff);
+		y = 2*pi*chainpara.alpha*w_cutoff.^(1-chainpara.s).*w.^(chainpara.s-i).*ceil(heaviside(w_cutoff-w));
 	end
 
 	function init_Leggett_Hard()
@@ -252,11 +275,72 @@ end
 		w_cutoff = chainpara.w_cutoff;
     end
 
-    function y = J_Coupling_Discrete(w,i)
+%     function y = J_Coupling_Discrete(w,i)
+%         %%
+%         x_i = [0,0.1,0.3,0.5,0.8,1];
+%         w_i = [0,0.1,0.5,0.8,0.2,0];
+%         y = interp1(x_i,w_i, w,'pchip')./(w.^i).*ceil(heaviside(w_cutoff-w));
+%     end
 
+    function init_PointsInterp()
+        %default values:
+        w_cutoff = 1;
+        w_i = [0,0.1,0.3,0.5,0.8,1];
+        j_i = [0,0.1,0.3,0.5,0.8,1];
+        % overrides:
+        if isfield(chainpara,'w_cutoff')
+			w_cutoff = chainpara.w_cutoff;
+        end
+        if isfield(chainpara,'dataPoints')
+            w_i = chainpara.dataPoints(:,1);
+            j_i = chainpara.dataPoints(:,2);
+        end
     end
 
-    function init_Coupling_Discrete(w,i)
+    function init_CoupDiscr()
+		if isfield(chainpara,'dataPoints')
+            xi = chainpara.dataPoints(:,1);
+            Gamma = chainpara.dataPoints(:,2);
+		end
+		chainpara.discrMethod = 'None';			% nothing else possible!
+	end
 
-    end
+	function init_CoupBroad()
+		if isfield(chainpara,'dataPoints')
+            w_i = chainpara.dataPoints(:,1);			% omega
+            j_i = pi.*chainpara.dataPoints(:,2).^2;			% lambda
+		end
+		w_cutoff = 1;
+		if isfield(chainpara,'w_cutoff')
+			w_cutoff = chainpara.w_cutoff;
+		end
+		sigma = 0.01;									% width of broadened peaks
+		if isfield(chainpara,'peakWidth')
+			sigma = chainpara.peakWidth;
+		end
+		minRes = min(diff(w_i),sigma)/10;				% the needed freq resolution
+		omega = (0:minRes:w_cutoff).';				% omega-axis
+		y = 0;									% the final broadened J(w)
+
+		for ii = 1:length(w_i)
+			A = 1/(integral(@(w) normpdf(w,w_i(ii),sigma)./w, 0,inf)*w_i(ii));		% normalization constant to keep constant reorganisation Energy
+			y = y + A .* j_i(ii) .*normpdf(omega,w_i(ii),sigma);
+		end
+
+		% overwrite interpolation points for use above
+		w_i = omega;
+		j_i = y;
+
+% 		J_CoupBroad = @(w,i) interp1(omega,y,w,'pchip')./(w.^i).*ceil(heaviside(w_cutoff-w));		% Define function for use later
+	end
+
+    function y = normpdf(X,mu,sigma)
+		% gaussian shape
+        y = exp(-(X-mu).^2 ./2 ./sigma.^2)./sigma ./sqrt(2*pi);
+	end
+
+	function y = cauchypdf(X,mu,gamma)
+		% lorentzian shape
+		y = 1./(pi .* gamma .* (1+((X-mu)./gamma ).^2));
+	end
 end

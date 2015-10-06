@@ -1,20 +1,51 @@
 %%
 para.chain{1}.mapping			= 'Stieltjes';
-para.chain{1}.spectralDensity	= 'Coupling_Discrete'; para.chain{1}.w_cutoff = 1;
+% para.chain{1}.mapping			= 'LanczosTriDiag';
+% J given though points
+para.chain{1}.spectralDensity	= 'CoupBroad'; para.chain{1}.w_cutoff = 1;
+para.chain{1}.dataPoints        = [0.2:0.1:1;abs(sin(2*(0.2:0.1:1)))]';          % [w, J(w)]
+para.chain{1}.peakWidth			= 0.005;
+
+% para.chain{1}.spectralDensity	= 'PointsInterp'; para.chain{1}.w_cutoff = 1;
+% para.chain{1}.dataPoints        = [0:0.1:1;abs(sin(6*(0:0.1:1)))]';          % [w, J(w)]
+% % para.chain{1}.peakWidth			= 0.004;
+
+% lambda given through points
 para.chain{1}.discrMethod		= 'Direct';
 para.chain{1}.discretization	= 'Linear';
 
-para.chain{1}.s		 = 0;                            % SBM spectral function power law behaviour
-para.chain{1}.alpha  = 0.04;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+para.chain{1}.s		 = 1;                            % SBM spectral function power law behaviour
+para.chain{1}.alpha  = 0.2;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
 para.chain{1}.Lambda = 1;
 para.chain{1}.z      = 1;
 para.chain{1}.L		 = 40;
 %%
+a=[0:0.1:1;abs(sin(6*(0:0.1:1)))]';          % [w,
+b = [0.25, 2; 0.3, 3];
+w = 0:0.0001:1;
+sigma = 0.010;
+figure(3); clf; hold all;
+stem(b(:,1),b(:,2));
+% normpdf = @(X,mu,sigma) exp(-(X-mu).^2 ./2 ./sigma.^2)./sigma ./sqrt(2*pi);			% normal dist
+normpdf = @(X,mu,gamma) 1./(pi .* gamma .* (1+((X-mu)./gamma ).^2));				% cauchy -> not really good
+y = 0;
+for ii = 1:size(b,1)
+
+	A = 1/(b(ii,1) * integral(@(w) normpdf(w,b(ii,1),sigma)./w, -inf,inf));
+	y = y + A .* b(ii,2) .* normpdf(w,b(ii,1),sigma);			% good way!
+% 	y = y + sqrt(A .* b(ii,2) .* normpdf(w,b(ii,1),sigma));		% bad way!
+end
+% A = arrayfun(@(mu) 1/(mu*integral(@(w) normpdf(w,mu,0.5)./w, -inf,inf)), b(:,1));
+% y = A(1).*b(1,2).*normpdf(w,b(1,1),0.5)+A(2).*b(2,2).* normpdf(w,b(2,1),0.5);
+% plot(w, y)
+plot(w,sqrt(y))
+%%
 para.chain{1} = SBM_genpara(para.chain{1});
 %%
 para.chain{2} = para.chain{1};
-para.chain{2}.mapping = 'Stieltjes';
-para.chain{2}.discretization = 'Linear'; para.chain{2}.Lambda = 1;
+% para.chain{2}.mapping = 'Stieltjes';
+para.chain{2}.mapping = 'LanczosTriDiag';
+% para.chain{2}.discretization = 'Linear'; para.chain{2}.Lambda = 1;
 para.chain{2} = SBM_genpara(para.chain{2});
 %%
 f = figure(2); clf; hold on;
@@ -23,7 +54,7 @@ for i = 1:length(para.chain)
 	plot(para.chain{i}.epsilon,col{i});
 	plot(para.chain{i}.t,col{i});
 end
-set(gca,'yscale','log');
+% set(gca,'yscale','log');
 
 %% test accuracy of Direct Stieltjes vs bigL
 % need to adjust bigL for each chain by hand!

@@ -297,13 +297,13 @@ end
 figure(2)
 title('Chain hopping and site energies');
 subplot(1,2,1)
-pl(1) = plot(para.t);
-set(gca,'YScale','log');
+pl = plot(cell2mat(cellfun(@(x) x.t, para.chain, 'UniformOutput',false)));
+% set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$t_k$')
 subplot(1,2,2)
-pl(2) = plot(para.epsilon);
-set(gca,'YScale','log');
+pl = plot(cell2mat(cellfun(@(x) x.epsilon, para.chain, 'UniformOutput',false)));
+% set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$\epsilon_k$')
 
@@ -2777,7 +2777,7 @@ clear
 defPlot(1,:) = {'20150805-Benchmark-v52n-dt01-Using-ExpvCustom-only',		[1:6],  {'ylim',[-1,1],'xlim',[0,500]}};
 defPlot(2,:) = {'20150928-Benchmark-v62-dt01-Bond5',						[7:14], {'ylim',[-1,1],'xlim',[0,300]}};
 defPlot(3,:) = {'20150928-Benchmark-v62-dt01-Bond20',						[15:22],{'ylim',[-1,1],'xlim',[0,300]}};
-defPlot(3,:) = {'20150928-Benchmark-v62-dt01-Bond150',						[23:30],{'ylim',[-1,1],'xlim',[0,300]}};
+defPlot(4,:) = {'20150928-Benchmark-v62-dt01-Bond150',						[23:30],{'ylim',[-1,1],'xlim',[0,300]}};
 
 i=0; cols = 5;
 n = max(cell2mat(defPlot(:,2)'));
@@ -2869,15 +2869,32 @@ for fignum = 1:size(defPlot,1)
 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 % 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 	set(gca,'color','none');
-	if fignum ~= 3
+	if fignum ~= 4
 		ax.ColorOrderIndex = 1;
-		ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx),'.black'), res(defPlot{3,2},1), 'UniformOutput', false);
+		ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx),'.black'), res(defPlot{4,2},1), 'UniformOutput', false);
 	end
 end
 
+% plot time taken
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+%% plot error wrt D150 run															% LabBook 25/09/2015
 
+for jj = 2:3
+	figure(fignum+jj); clf; hold all;
+	pick = defPlot{jj,2};
+	for ii = 1:8
+		plot( res{pick(ii),1}.tresults.t, res{ii+22,1}.tresults.spin.sz - res{pick(ii),1}.tresults.spin.sz);
+	% 	plot( res{ii,1}.tresults.t, res{ii+16,1}.tresults.spin.sz -
+	% 	res{ii+8}.tresults.spin.sz);	% D20
+% 		plot( res{ii,1}.tresults.t, res{ii+16,1}.tresults.spin.sz - res{ii}.tresults.spin.sz);
+	end
+	leg = legend(cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum+jj,'twocolumn-single');
+end
 %% TDVP SBM multi files: v58 SBM2C Benchmark s=1 0.01 < a < 1						% LabBook ??/08/2015
 clear
 defPlot(1,:) = {'20150812-SBM2C-dt1-FirstTry',								[1:8], {'ylim',[-1,1],'xlim',[0,100]}};
@@ -2929,7 +2946,8 @@ ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdv
 clear
 defPlot(1,:) = {'20150816-SBMTTM-dt002-FirstTry',							[1:8], {'ylim',[1e-8,1],'xlim',[0,100],'yscale','log'}};
 defPlot(2,:) = {'20150805-Benchmark-v52-dt01-Using-ExpvCustom-only',		[9:14,17,18], {'ylim',[-1,1],'xlim',[0,500]}};
-
+defPlot(3,:) = {'20150929-SBMTTM-dt01-szcoup',								[19:21],{'ylim',[-1,1],'xlim',[0,400]}};
+defPlot(4,:) = {'20150928-Benchmark-v62-dt01-Bond150',						[22:29],{'ylim',[-1,1],'xlim',[0,300]}};
 i=0; cols = 5;
 
 %1-8: TTM Data
@@ -2981,19 +2999,53 @@ end
 res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
 res(offset+1:i,5) = {'TDVP, dt0.1'};
 cd('./../TDVP/');
-	%% plot
-for fignum = 1%:size(defPlot,1)
+
+%19-21: TTM Data
+foldPattern = '20150929-1353-SpinBosonTTM-OrthPol-v62TCMde9-alpha*delta0.1epsilon0dk40D5dopt5L200';
+filePattern = 'results-Till100Step0.1v62-alpha*-OBBmax40-Dmax150-expvCustom700-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.chain{1}.s;
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,5) = {'TTM, dt0.02'};
+
+%22-29
+foldPattern = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha*delta0.1epsilon0dk40D5dopt5L200';
+filePattern = 'results-Till300Step0.1v62-alpha*-OBBmax40-Dmax150-expvCustom700-1core-small.mat';
+folds = rdir([foldPattern,'\',filePattern]);
+res{i+size(folds,1),cols} = []; offset = i;
+for file = {folds.name}
+	file = file{1};
+	i = i+1;
+	res{i,1} = load(file,'para','tresults');			% comment first!
+	res{i,3} = res{i,1}.para.chain{1}.alpha;
+	res{i,4} = res{i,1}.para.chain{1}.s;
+	res{i,2} = sprintf('$\\alpha$ = %g', res{i,3});
+end
+res((offset+1):end,:) = sortrows(res((offset+1):end,:),3);
+res(offset+1:i,5) = {'OBB40E, D150E, v62, dt0.1'};
+
+	%% plot TTM norm
+for fignum = [1,3]%:size(defPlot,1)
 	f = figure(fignum); clf; hold all;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
 	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
 	plot([0,xmax],[0,0],'black');
-% 	ph = cellfun(@(x) plot(x.tresults.TTM.t, x.tresults.TTM.Esigma(3,:)), res(pick,1), 'UniformOutput', false);
-	ph = cellfun(@(x) plot(x.tresults.t(2:x.tresults.lastIdx), x.tresults.TTM.Tnorm(1:x.tresults.lastIdx-1)), res(pick,1), 'UniformOutput', false);
+% 	ph = cellfun(@(x) plot(x.tresults.t, x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
+	ph = cellfun(@(x) plot(x.tresults.t(2:x.tresults.lastIdx), x.tresults.TTM.Tnorm(1:x.tresults.lastIdx-1)./(x.para.tdvp.deltaT.^2)), res(pick,1), 'UniformOutput', false); % plot TTM norm
 	axis tight; ax = gca;
 	set(ax,defPlot{fignum,3}{:});
 	xlabel('$\omega_ct$');
-	ylabel('$\left<\sigma_z\right>$');
+% 	ylabel('$\left<\sigma_z\right>$');
+	ylabel('$|T|/\Delta t^2$');
 	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
 	legend boxoff
 	fs = 22;
@@ -3010,7 +3062,7 @@ ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdv
 finalT = 1000;
 [sx,sy,sz] = spinop('Z');
 tic;
-for k = 6:8%6:size(res,1)
+for k = 19:21%6:size(res,1)
 	n = round(finalT/res{k,1}.para.tdvp.deltaT)+1;
 	rhoT = zeros(length(res{k,1}.tresults.TTM.T)*4,1);
 	Esigma = zeros(n,3);

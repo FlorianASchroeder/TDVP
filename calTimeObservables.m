@@ -137,13 +137,13 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
             tresults.spin.visibility(i) = single(sqrt(temp.sx^2+temp.sy^2));
 		end
 
-		if strcmp(para.model, 'MLSBM')
+		if strcmp(para.model, 'MLSBM') || ~isempty(strfind(para.model,'DPMES'))
             %% Observables for MLSBM
             % 2. PPC Wavefunction
 			if ~isfield(tresults,'PPCWavefunction')
-                tresults.PPCWavefunction = single(zeros(totalN,16));
+                tresults.PPCWavefunction = single(zeros(totalN,para.dk(1,1)));
 			elseif missingN > 0
-				tresults.PPCWavefunction = single([tresults.PPCWavefunction; zeros(missingN,16)]);
+				tresults.PPCWavefunction = single([tresults.PPCWavefunction; zeros(missingN,para.dk(1,1))]);
 			end
             tresults.PPCWavefunction(i,:) = single(diag(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para)));
 

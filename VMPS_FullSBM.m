@@ -36,18 +36,18 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBosonTTM';
+para.model='DPMES3-4C';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 1;
+para.nEnvironments  = 4;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 1;
+para.nChains		= 4;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
-para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
+para.useVtens = 1;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
 
 %% System Definitions:
 if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
@@ -74,25 +74,29 @@ end
 	%	other methods not yet supported
 para.L = L;
 %% chain 1:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
-para.chain{1}.mapping			= 'OrthogonalPolynomials';
-para.chain{1}.spectralDensity	= 'Leggett_Hard';
-para.chain{1}.discretization	= 'None';
-	% para.chain{1}.discrMethod		= 'Numeric';
+para.chain{1}.mapping			= 'LanczosTriDiag';
+para.chain{1}.spectralDensity	= 'CoupDiscr';
+para.chain{1}.dataPoints		= cmToeV(load('DPMESdata/W44-A1-10-01.dat'));
+% para.chain{1}.discretization	= 'None';
+% para.chain{1}.discrMethod		= 'Numeric';
 
-para.chain{1}.s					= s;			% SBM spectral function power law behaviour
-para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
-para.chain{1}.L					= para.L;
-para.chain{1}.w_cutoff          = 1;
+% para.chain{1}.s					= s;			% SBM spectral function power law behaviour
+% para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+para.chain{1}.L					= length(para.chain{1}.dataPoints)+1;
+% para.chain{1}.w_cutoff          = 1;
 if alpha == 0 && para.chain{1}.L == 0
 	para.chain{1}.L = 10;						% otherwise encounter error
 end
 
 %% chain 2 & more:
-% para.chain{2}					= para.chain{1};		% simple copy
+para.chain{2}					= para.chain{1};		% simple copy
+para.chain{2}.dataPoints		= cmToeV(load('DPMESdata/W44-A1-10-x1.dat'));
 % para.chain{2}.w_cutoff          = 1.5;
 % para.chain{2}.mapping			= 'OrthogonalPolynomials';
-% para.chain{3}					= para.chain{2};
-% para.chain{4}					= para.chain{2};
+para.chain{3}					= para.chain{2};
+para.chain{3}.dataPoints		= cmToeV(load('DPMESdata/W24-B1-10.dat'));
+para.chain{4}					= para.chain{2};
+para.chain{4}.dataPoints		= cmToeV(load('DPMESdata/W14-A2-10.dat'));
 % para.chain{5}					= para.chain{2};
 
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
@@ -120,16 +124,17 @@ for k = 1:para.nEnvironments
 	elseif strcmp(para.chain{k}.mapping,'LanczosTriDiag') || strcmp(para.chain{k}.mapping, 'Stieltjes')
 		% 	if Lambda > 1 -> LogZ
 		% 	if Lambda = 1 -> Linear discretization, rescaling = 0
-		para.chain{k}.discrMethod = 'Analytic';
-		% choose: 'Analytic', 'Numerical'
+		para.chain{k}.discrMethod = 'None';
+		% choose: 'Analytic', 'Numerical', 'None'
 		%	Sets way of evaluation of integrals
+		%	'None' takes values of J(w); should be used with 'Linear'
 		%	Analytic only for 'Leggett_hard' and 'LogZ'. Uses modified scheme by Žitko
 		%
-		para.chain{k}.discretization = 'LogZ';
+		para.chain{k}.discretization = 'Linear';
 		% choose: 'LogZ','Linear'
 
 		%%
-		para.chain{k}.Lambda=1.5;						% Bath Discretization parameter
+		para.chain{k}.Lambda=1;							% Bath Discretization parameter
 		para.chain{k}.z=1;                               % z-shift of bath; see Zitko 2009 - 10.1103/PhysRevB.79.085106
 % 		para.chain{k}.L=0;                               % Length per bath; if L=0: choose optimal chain length according to para.precision;
 % 		if L > 0								% chain length override
@@ -182,7 +187,7 @@ else
 	dk = dk^2;
 end
 
-para.spinposition = [1,2];						% This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
+para.spinposition = [1];						% This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
 para.complex=0;                                 % set to 1 if any complex parameters are used.
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
@@ -198,7 +203,9 @@ for k = 1:para.nEnvironments
 		L = para.chain{k}.L;                         % Take best L if not specially defined
 		para.L = para.chain{k}.L;					 % not the best solution.
 	end
+	para.L = min(para.L, para.chain{k}.L);
 end
+L = para.L;
 
 %%
 nc = para.nChains;											% = 1 for single chain models
@@ -237,6 +244,13 @@ if strcmp(para.model,'2SpinPhononModel')
    para.dk(1) = 4;                      % As kron(site1,site2), dim=4 on first site!
    para.d_opt(1) = 4;
    para.foldedChain=1;
+end
+
+if strcmp(para.model,'DPMES3-4C')
+	para.M = 4*2;
+	para.dk(1,para.spinposition)	= 3;
+	para.dk(2:end,para.spinposition) = 1;	% non-existent singleton!
+	para.d_opt(1:end,para.spinposition) = 3;
 end
 
 %% Multi-Level Spin Boson Model for PPC
@@ -295,11 +309,11 @@ if strfind(para.model,'SpinBoson')
         % choose: 'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'
 		% works with all options
 
-    if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
+	if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
         para.SpinBoson.t1 = para.t(1);
         para.t(1) = 0;                              % switches off interaction with bath
-    end
-    if strcmp(para.SpinBoson.InitialState, 'sx') && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+	end
+	if strcmp(para.SpinBoson.InitialState, 'sx') && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
         para.SpinBoson.hx = para.hx;
         para.SpinBoson.hz = para.hz;
         para.hz = 0;
@@ -411,7 +425,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v62';
+para.version = 'v63';
 Descr = para.version;
 if ~strcmp(computer,'PCWIN64')
 	Descr = sprintf('%sTCM%s',para.version,para.hostname(3:end));
@@ -429,13 +443,17 @@ if para.nChains > 1
 	end
 end
 
-if para.chain{1}.s ~= 1
+if isfield(para.chain{1},'s') && para.chain{1}.s ~= 1
 	Descr = sprintf('%s-s%g',Descr,para.chain{1}.s);
 end
 
 para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
-    para.model,Descr,alpha,delta,epsilon,dk,D,d_opt,L);
-if strfind(para.model,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artificial')
+    para.model,Descr,alpha,delta,epsilon,dk,D,d_opt,para.L);
+if ~isempty(strfind(para.model,'DPMES'))
+	para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-dk%.10gD%.10gdopt%gL%d'],...
+		para.model,Descr,dk,D,d_opt,para.L);
+end
+if ~isempty(strfind(para.model,'SpinBoson')) && strcmp(para.SpinBoson.GroundStateMode,'artificial')
 	para.folder = sprintf('%s-art-%s',para.folder,para.SpinBoson.InitialState);
 end
 para.filename=strcat(para.folder,'/results.mat');
@@ -451,17 +469,19 @@ end
 if (strcmp(para.model,'SpinBosonTTM') && strcmp(para.SpinBoson.GroundStateMode,'artTTM')) || ~isempty(regexp(para.model,'SpinBoson\dCT','match')) ...
 		|| (~isempty(regexp(para.model,'SpinBoson\dC','match')) && strcmp(para.SpinBoson.GroundStateMode,'artificial'))
 	prepareArtState();
+elseif ~isempty(strfind(para.model,'DPMES'))
+	prepareArtState();
 else
 	[mps, Vmat,para,results,op] = minimizeE(op,para);
 end
 
 if ~isempty(strfind(para.model,'SpinBoson'))
 %% Reset original parameters after specific ground state preparation!
-    if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
+	if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
 		% restore coupling to chain
         para.t(1) = para.SpinBoson.t1;
-    end
-    if (strcmp(para.SpinBoson.InitialState, 'sx') || strcmp(para.SpinBoson.InitialState, 'sz')) && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+	end
+	if (strcmp(para.SpinBoson.InitialState, 'sx') || strcmp(para.SpinBoson.InitialState, 'sz')) && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
         para.hx = para.SpinBoson.hx;
         para.hz = para.SpinBoson.hz;
 	end
@@ -502,7 +522,7 @@ fileName = para.filename;
 		para
 		NC = para.nChains;
 		% system state preparation
-		if strcmp(para.SpinBoson.GroundStateMode,'artTTM') && strcmp(para.model, 'SpinBosonTTM')
+		if isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode,'artTTM') && strcmp(para.model, 'SpinBosonTTM')
 			%% create maximally entangled state between site 1&2 TLS
 			mps{1}(:,:,1) = [1/sqrt(2) 0]; mps{1}(:,:,2) = [0 1/sqrt(2)];
 			mps{2}(para.D(1),para.D(2),para.d_opt(2)) = 0;
@@ -510,7 +530,7 @@ fileName = para.filename;
 			Vmat{1} = eye(para.dk(1));
 			Vmat{2} = eye(para.dk(2));
 			nextSite = 3;
-		elseif strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+		elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
 			mps = createrandommps(para);
 			if strcmp(para.SpinBoson.InitialState, 'sz')
 				%% prepare +Sz eigenstate
@@ -540,9 +560,16 @@ fileName = para.filename;
 				error('VMPS:minimizeE:DefineInitialState','InitialState=none is not implemented yet');
 			end
 			nextSite = 2;
+		elseif ~isempty(strfind(para.model,'DPMES'))
+			mps{1} = zeros(1,para.D(1),para.dk(1,1));
+			mps{1}(1,1,2) = 1;
+			Vmat{1} = eye(para.dk(1,1));
+			nextSite = 2;
 		else
 			error('VMPS:prepareArtState:Parameter setting invalid: No system state prepared');
 		end
+
+
 
 		% Environment preparation
 		for j = nextSite:para.L
