@@ -12,6 +12,8 @@ NC = para.nChains;
 
 if NC == 1
 	op.h1j = op.h1term{sitej};			% matrix
+elseif para.useStarMPS && sitej == 1
+	op.h1j = op.h1term{1,sitej};
 else
 	op.h1j = op.h1term(:,sitej);		% cell
 end

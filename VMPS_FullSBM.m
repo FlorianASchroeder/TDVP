@@ -47,7 +47,9 @@ para.nChains		= 4;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
-para.useVtens = 1;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
+para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
+
+para.useStarMPS = 1;
 
 %% System Definitions:
 if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
@@ -59,7 +61,7 @@ end
 
 %% Chain Definitions:
 % para.chain{i}.mapping
-	% choose: 'OrthogonalPolynomials','LanzcosTriDiag', Stieltjes'
+	% choose: 'OrthogonalPolynomials','LanczosTriDiag', 'Stieltjes'
 	%			- 'LanczosTriDiag' Lanczos tridiagonalization
 	%			- 'Stieltjes': needs discretization, based on Orthogonal
 	%						   Polynomials, less stable but faster than Lanczos
@@ -82,7 +84,7 @@ para.chain{1}.dataPoints		= cmToeV(load('DPMESdata/W44-A1-10-01.dat'));
 
 % para.chain{1}.s					= s;			% SBM spectral function power law behaviour
 % para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
-para.chain{1}.L					= length(para.chain{1}.dataPoints)+1;
+para.chain{1}.L					= min(length(para.chain{1}.dataPoints)+1,L);
 % para.chain{1}.w_cutoff          = 1;
 if alpha == 0 && para.chain{1}.L == 0
 	para.chain{1}.L = 10;						% otherwise encounter error
@@ -140,7 +142,7 @@ for k = 1:para.nEnvironments
 % 		if L > 0								% chain length override
 % 			para.chain{k}.L = L;
 % 		end
-		para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
+		para.rescaling = 0;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
 
 	% Consistency checks
 		if strcmp(para.chain{k}.discrMethod,'Analytic')
@@ -222,6 +224,13 @@ para.eigs_tol					= 1e-8;
 para.loopmax					= 50;
 para.increasedk					= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
 
+if para.useStarMPS
+	para.D     = repmat(para.D,nc,1);
+	para.d_opt = repmat(para.d_opt,nc,1);					% copy for each chain
+	para.d_opt(2:end,1) = 1;								% Central System only on first site!
+
+end
+
 if strcmp(para.model, 'SpinBosonTTM')
 	para.D([1,2]) = [2,4];
 end
@@ -251,6 +260,7 @@ if strcmp(para.model,'DPMES3-4C')
 	para.dk(1,para.spinposition)	= 3;
 	para.dk(2:end,para.spinposition) = 1;	% non-existent singleton!
 	para.d_opt(1:end,para.spinposition) = 3;
+	para.dk(3,2)     = 500;
 end
 
 %% Multi-Level Spin Boson Model for PPC
@@ -425,7 +435,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v63';
+para.version = 'v64';
 Descr = para.version;
 if ~strcmp(computer,'PCWIN64')
 	Descr = sprintf('%sTCM%s',para.version,para.hostname(3:end));
@@ -438,6 +448,8 @@ end
 if para.nChains > 1
 	if para.useVtens
 		Descr = ['VT-',Descr];
+	elseif para.useStarMPS
+		Descr = ['Star-',Descr];
 	else
 		Descr = ['VM-',Descr];
 	end
@@ -471,11 +483,13 @@ if (strcmp(para.model,'SpinBosonTTM') && strcmp(para.SpinBoson.GroundStateMode,'
 	prepareArtState();
 elseif ~isempty(strfind(para.model,'DPMES'))
 	prepareArtState();
+elseif isfield(para, 'useStarMPS') && para.useStarMPS == 1
+	prepareArtState();		% for now only artificial vacuum state
 else
 	[mps, Vmat,para,results,op] = minimizeE(op,para);
 end
 
-if ~isempty(strfind(para.model,'SpinBoson'))
+if ~isempty(strfind(para.model,'SpinBoson')) && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
 %% Reset original parameters after specific ground state preparation!
 	if strcmp(para.SpinBoson.GroundStateMode, 'decoupled')
 		% restore coupling to chain
@@ -530,39 +544,61 @@ fileName = para.filename;
 			Vmat{1} = eye(para.dk(1));
 			Vmat{2} = eye(para.dk(2));
 			nextSite = 3;
-		elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+		elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial') && para.useStarMPS == 0
 			mps = createrandommps(para);
 			if strcmp(para.SpinBoson.InitialState, 'sz')
 				%% prepare +Sz eigenstate
 				mps{1} = reshape([1,zeros(1,numel(mps{1})-1)],[1,para.D(1),para.d_opt(1)]);
-				Vmat{1} = eye(para.dk(1));
 			elseif strcmp(para.SpinBoson.InitialState, '-sz')
 				mps{1} = reshape([  zeros(1,numel(mps{1})/2),...
 					1,zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
-				Vmat{1} = eye(para.dk(1));
 			elseif strcmp(para.SpinBoson.InitialState, 'sx')
 				mps{1} = reshape([1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
 					1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
-				Vmat{1} = eye(para.dk(1));
 			elseif strcmp(para.SpinBoson.InitialState, '-sx')
 				mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
 					1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
-				Vmat{1} = eye(para.dk(1));
 			elseif strcmp(para.SpinBoson.InitialState, 'sy')
 				mps{1} = reshape([ 1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
 					1i/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
-				Vmat{1} = eye(para.dk(1));
 			elseif strcmp(para.SpinBoson.InitialState, '-sy')
 				mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
 					1i/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
-				Vmat{1} = eye(para.dk(1));
 			else
 				error('VMPS:minimizeE:DefineInitialState','InitialState=none is not implemented yet');
 			end
+			Vmat{1} = eye(para.dk(1));
 			nextSite = 2;
-		elseif ~isempty(strfind(para.model,'DPMES'))
+		elseif ~isempty(strfind(para.model,'DPMES')) && ~para.useStarMPS
 			mps{1} = zeros(1,para.D(1),para.dk(1,1));
 			mps{1}(1,1,2) = 1;
+			Vmat{1} = eye(para.dk(1,1));
+			nextSite = 2;
+		elseif isfield(para, 'useStarMPS') && para.useStarMPS == 1
+			mps{1} = zeros([1,para.D(:,1).',para.dk(1,1)]);
+			if ~isempty(strfind(para.model,'DPMES'))
+				idx = num2cell([ones(1,NC+1),2]);			% start in second excited state!
+				mps{1}(idx{:}) = 1;
+			elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+				if strcmp(para.SpinBoson.InitialState, 'sz')
+					%% prepare +Sz eigenstate
+					idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states
+					mps{1}(idx{:},1) = 1;
+				elseif strcmp(para.SpinBoson.InitialState, '-sz')
+					idx = num2cell(ones(1,NC+1));
+					mps{1}(idx{:},2) = 1;
+				elseif strcmp(para.SpinBoson.InitialState, 'sx')
+					idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states
+					mps{1}(idx{:},1) = 1/sqrt(2);
+					mps{1}(idx{:},2) = 1/sqrt(2);
+				elseif strcmp(para.SpinBoson.InitialState, '-sx')
+					idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states
+					mps{1}(idx{:},1) = -1/sqrt(2);
+					mps{1}(idx{:},2) = 1/sqrt(2);
+				end
+			else
+				mps{1}(1) = 1;									% just pick one random element for now!
+			end
 			Vmat{1} = eye(para.dk(1,1));
 			nextSite = 2;
 		else
@@ -573,18 +609,25 @@ fileName = para.filename;
 
 		% Environment preparation
 		for j = nextSite:para.L
-			if j == para.L, Dr = 1;
-			else Dr = para.D(j); end
-			mps{j} = zeros(para.D(j-1),Dr,para.d_opt(end,j));
-			mps{j}(1,1,1) = 1;
-			if ~para.useVtens % no special order for MC-Vmat!
-				if NC == 1
-% 					Vmat{j}	= sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));	% inverted order
-					Vmat{j}	= sparse(1:para.d_opt(j),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));			% 1:n order
-				else
-					Vmat{j} = sparse(1,1,1, prod(para.dk(:,j)),para.d_opt(j));								% 1:n order
+			% Construct single-site MPS
+			if para.useStarMPS
+				mps{j} = cell(1,NC);
+				for mc = 1:NC
+					if j > para.chain{mc}.L, continue; end
+					if j == para.chain{mc}.L, Dr = 1;
+					else Dr = para.D(mc,j); end
+					mps{j}{mc} = zeros(para.D(mc,j-1),Dr,para.d_opt(mc,j));
+					mps{j}{mc}(1,1,1) = 1;
 				end
 			else
+				if j == para.L, Dr = 1;
+				else Dr = para.D(j); end
+				mps{j} = zeros(para.D(j-1),Dr,para.d_opt(end,j));
+				mps{j}(1,1,1) = 1;
+			end
+
+			% Construct single-site Vmat
+			if para.useVtens
 				Vmat{j} = cell(1,NC+1);
 				for mc = 1:NC
 					Vmat{j}{mc} = sparse(1:para.d_opt(mc,j),1:para.d_opt(mc,j),1,para.dk(mc,j),para.d_opt(mc,j));	% 1:n order
@@ -599,13 +642,55 @@ fileName = para.filename;
 					Vmat{j}{end} = sparse(1,1,1, prod(para.d_opt(1:end-1,j)),para.d_opt(end,j));
 					Vmat{j}{end} = reshape(full(Vmat{j}{end}), para.d_opt(:,j)');
 				end
+			elseif para.useStarMPS
+				Vmat{j} = cell(1,NC);
+				for mc = 1:NC
+					Vmat{j}{mc} = sparse(1:para.d_opt(mc,j),1:para.d_opt(mc,j),1,para.dk(mc,j),para.d_opt(mc,j));	% 1:n order
+				end
+			else  % no special order for MC-Vmat!
+				if NC == 1
+% 					Vmat{j}	= sparse(order(1:para.d_opt(j)),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));	% inverted order
+					Vmat{j}	= sparse(1:para.d_opt(j),1:para.d_opt(j),1,para.dk(j),para.d_opt(j));			% 1:n order
+				else
+					Vmat{j} = sparse(1,1,1, prod(para.dk(:,j)),para.d_opt(j));								% 1:n order
+				end
 			end
 		end
 
 		[mps,Vmat,para] = prepare(mps,Vmat,para);
-		[op] = initstorage(mps, Vmat, op,para);
+		if ~para.useStarMPS
+			[op] = initstorage(mps, Vmat, op,para);
+		else
+			% copied from prepare_ChainOp
+			for mc = 1:NC
+				cL = para.chain{mc}.L;
+				cM = para.M/NC;
+
+				mpsChain    = cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false);
+				VmatChain   = cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false);
+
+				paraChain   = para;
+				paraChain.L = cL-1;
+				paraChain.M = cM;
+				paraChain.nChains = 1;
+				paraChain.useStarMPS = 0;
+
+				% Copy operators
+				opChain.h1term = cell(1,cL-1);
+				opChain.h2term = cell(cM, 2,cL-1);
+
+				opChain.h1term = op.h1term(mc, 2:cL);
+				opChain.h2term = op.h2term( cM*(mc-1)+(1:cM), :, 2:cL, mc);
+
+				opChain = initstorage(mpsChain,VmatChain,opChain,paraChain);
+				paraChain.sitej = 1;
+				opChain = updateop(opChain,mpsChain,VmatChain,1,paraChain);
+				op.chain(mc).Hlrstorage = opChain.Hlrstorage;
+				op.chain(mc).Opstorage  = opChain.Opstorage;
+			end
+		end
+
 		para.trustsite = para.L;		% needed for TDVP
 		return;
 	end
-
 end

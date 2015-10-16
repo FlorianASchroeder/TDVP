@@ -20,12 +20,13 @@ switch para.sweepto
         %           |             |
         %           n            n+1
         [BondDimCLeft, BondDimCRight] = size(Cn);                       % BondDimCRight == true right bond dimension of non-site center
-        [BondDimALeft, BondDimARight, OBBDim] = size(mps{sitej});       % if no Vmat, then this = dk
-        assert(BondDimCLeft == BondDimARight);
 
 		if para.tdvp.expvCustomNow == 0
 			%% prepare K(n) from H(n)
 			% through contraction with A(t+dt)
+			[BondDimALeft, BondDimARight, OBBDim] = size(mps{sitej});       % if no Vmat, then this = dk
+			assert(BondDimCLeft == BondDimARight);
+
 			% K(n)_(rl',r',rl,r) = [A*_(l',rl',n') * H(n)_(l',r',n',l,r,n)]_(rl',r',l,r,n) * A_(l,rl,n)
 			Hn = reshape(Hn, [BondDimALeft, BondDimCRight, OBBDim, BondDimALeft, BondDimCRight, OBBDim]);
 				% Hn has dimensions like focused A(n)
@@ -41,7 +42,13 @@ switch para.sweepto
 			err = 0;
 		else
 			if para.tdvp.expvCustomNow
-				[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
+				if ~isfield(op,'chain')
+					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
+				else
+					op.HleftAV = op.chain(para.currentChain).Hleft;		% star-MPS
+					op.h2jAV   = op.chain(para.currentChain).Opleft;
+					% make sure H/Opright is correct
+				end
 				[Cn,err] = expvCustom(1i*t, 'Kn',...
 					reshape(Cn,[numel(Cn),1]), para,op);
 			else
@@ -124,6 +131,11 @@ switch para.sweepto
 
         Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
         clear('Kn', 'Hn');
+
+		if sitej == 0
+			mps = Cn;		% shortcut for StarMPS
+			return;
+		end
 
         %% Multiply Ac(n) = Al(n) * C(n)
         % set focus on next site A

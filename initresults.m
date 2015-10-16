@@ -2,26 +2,34 @@ function r = initresults(para)
 %
 % Modified:
 %   FS 25/10/2014: - added line for ~para.useVmat to prepare Vmat_sv == 1
+%	FS 12/10/2015: - better multi chain support: Vtens and StarMPS
+L     = para.L;
+d_opt = para.d_opt;
+if L ~= 1
+	D     = para.D(end);
+end
+NC    = para.nChains;
 
-L=para.L;
-d_opt=para.d_opt;
-D=para.D(end);
-
-r.Vmat_vNE =zeros(1,L); %phonon basis von Neumann Amat_vNEj
-r.Amat_vNE = zeros(1,L);
+r.Vmat_sv  = cell(1,L);
+r.Amat_sv  = cell(1,L-1);
+r.Vmat_vNE = zeros(1,L); %phonon basis von Neumann Amat_vNEj
+r.Amat_vNE = zeros(1,L-1);
 if para.parity~='n'
-    r.Vmat_sv=cell(1,L);
+    % old code:
     %r.Vmat_sv=zeros(L,max(d_opt)/2);
-    r.Amat_sv=cell(1,L-1);
     %r.Amat_sv=zeros(L,D/2);
 else
 	if para.useVtens
-		r.Vmat_sv=cell(para.nChains+1,L);
+		r.Vmat_sv = cell(NC+1,L);
+	elseif para.useStarMPS
+		r.Vmat_sv  = cell(NC,L);
+		r.Vmat_vNE = zeros(NC,L);
+		r.Amat_sv  = cell(NC,L-1);
+		r.Amat_vNE = zeros(NC,L-1);
 	else
-		r.Vmat_sv=cell(1,L);
+		r.Vmat_sv = cell(1,L);
 	end
     %r.Vmat_sv=zeros(L,max(d_opt));
-    r.Amat_sv=cell(1,L-1);
     %r.Amat_sv=zeros(L,D);
 end
 

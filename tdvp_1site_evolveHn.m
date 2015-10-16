@@ -10,7 +10,7 @@ function [mps, Vmat, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,
 %	- FS 22/11/2014: - replaced extra h1j and h2j by op.h1j, op.h2j
 
 [BondDimLeft, BondDimRight, OBBDim]  = size(mps{sitej});
-dk = prod(results.dk{end}(:,sitej));
+dk = prod(para.dk(:,sitej));			% not for Vtens, StarMPS only with extracted chain!
 if ~para.useVmat || any(sitej == para.spinposition)
     assert(OBBDim == dk) ;
 	if para.nChains > 1
@@ -41,7 +41,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
         % next line: argument ,BondDimLeft*BondDimRight-OBBDim in min() is
         % wrong I think. can be removed, but has to be checked again!
 		expandBy = min([floor(OBBDim*0.2),para.tdvp.maxOBBDim-OBBDim,BondDimLeft*BondDimRight-OBBDim, dk-OBBDim]);
-		if expandBy == 0, expandBy = 1; end
+		if (expandBy == 0) && para.tdvp.maxOBBDim > OBBDim, expandBy = 1; end
         mps{sitej} = cat(3,mps{sitej},zeros(BondDimLeft, BondDimRight, expandBy));
         Vmat{sitej} = cat(2,Vmat{sitej}, zeros(dk, expandBy));
         [~, ~, OBBDim]  = size(mps{sitej});
@@ -62,7 +62,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 
 	%% if HAA or any other operators have size < 1GB, construct them explicitly.
 	% 16 bytes per complex number -> 2^26 = 6.7e7 elements in matrix.
-	if (BondDimLeft * BondDimRight * OBBDim) > para.tdvp.maxExpVDim && para.tdvp.expvCustom
+	if ((BondDimLeft * BondDimRight * OBBDim) > para.tdvp.maxExpVDim || (dk*OBBDim) > para.tdvp.maxExpVDim) && para.tdvp.expvCustom
 		% Largest Operator for matrix Exp. is Hn -> use as criterion
 		% use expvCustom for this entire site sweep!
 		para.tdvp.expvCustomNow = 1;
@@ -132,10 +132,14 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 
 
     %% normalise Vmat and take focus to A
-    [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);
+%     [Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej);
+	[Vmat{sitej}, V, results] = prepare_onesiteVmat(Vmat_focused,para,results,sitej,3);		% last entry enables SV-truncation
 	if para.tdvp.expandOBB
 		% remove empty SV:
 		keep = results.Vmat_sv{sitej} ~= 0;
+		if sum(keep) == 1
+			keep(2) = 1;
+		end
 		results.Vmat_sv{sitej} = results.Vmat_sv{sitej}(keep);
 		Vmat{sitej} = Vmat{sitej}(:,keep); V = V(keep, :);
 	end

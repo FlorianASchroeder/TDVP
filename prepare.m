@@ -11,8 +11,14 @@ function [mps,Vmat,para] = prepare(mps,Vmat,para)
 % Changed:
 %   FS 20/10/2014: - use para.sweeepto for l or r part.
 %	FS 24/08/2015: - Multi-Chain Vmat/Vtens support; MPS normalization added;
+%	FS 09/10/2015: - Star-MPS support in prepare_Star_MPS(mps,Vmat,para); Only 'l' sweep on each chain!
 
 N = length(mps);
+if para.useStarMPS == 1
+	[mps,Vmat,para] = prepare_Star_MPS(mps,Vmat,para);
+	return;
+end
+
 para.sweepto = 'r';
 
 for i = 1:N-1
@@ -65,3 +71,37 @@ fprintf('Norm was: %g', CA);
 
 
 end
+
+function [mps,Vmat,para] = prepare_Star_MPS(mps,Vmat,para)
+%% normalizes the Star-MPS network on each chain
+
+para.sweepto = 'l';
+NC = para.nChains;
+
+for mc = 1:para.nChains
+	L = para.chain{mc}.L;
+	for ii = L:-1:2
+		[Vmat{ii}{mc}, V] = prepare_onesiteVmat(Vmat{ii}{mc},para);		% normalize V
+		mps{ii}{mc} = contracttensors(mps{ii}{mc},3,3, V.',2,1);		% focus onto MPS
+
+		[mps{ii}{mc}, U] = prepare_onesite(mps{ii}{mc},para,ii);
+
+		if ii ~= 2
+			mps{ii-1}{mc}    = contracttensors(mps{ii-1}{mc}, 3, 2, U, 2, 1);
+			mps{ii-1}{mc}    = permute(mps{ii-1}{mc}, [1, 3, 2]);
+		else
+			mps{1} = contracttensors(mps{1},NC+2,mc+1, U,2,1);
+			mps{1} = permute(mps{1}, [1:mc, NC+2, mc+1:NC+1]);
+		end
+		para.D(mc,ii-1) = size(U,2);
+	end
+
+end
+	d = size(mps{1});
+	[mps{1}, U] = prepare_onesite(reshape(mps{1},[1,prod(para.D(:,1)),para.dk(1,1)]),para,1);
+	mps{1} = reshape(mps{1},d);
+	fprintf('MPS norm: %g',U);
+end
+
+
+

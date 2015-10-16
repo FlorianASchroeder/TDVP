@@ -33,7 +33,7 @@ if dk>=d_opt
         V = blkdiag(S_odd * V_odd,S_even*V_even);
     end
 end
-if nargin == 4 && ~isempty(results)
+if nargin >= 4 && ~isempty(results)
     results.Vmat_vNE(sitej) = Vmat_vNE;
     results.Vmat_sv{sitej}  = sv;
 end

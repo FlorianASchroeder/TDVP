@@ -7,16 +7,16 @@ function out = getObservable(type,mps,Vmat,para)
 %   Use as: first argument is cell, with descriptor as type{1}
 %               all other type{n} are options defined in each function
 %           getObservable({'spin'}					,mps,Vmat,para)
-%			getObservable({'occupation'}			,mps,Vmat,para)
-%			getObservable({'current',AnAm}			,mps,Vmat,para)
-%			getObservable({'shift'}					,mps,Vmat,para)
+%           getObservable({'occupation'}			,mps,Vmat,para)
+%           getObservable({'current',AnAm}			,mps,Vmat,para)
+%           getObservable({'shift'}					,mps,Vmat,para)
 %           getObservable({'rdm',2}					,mps,Vmat,para)
 %           getObservable({'tunnelenergy',op}		,mps,Vmat,para)
-%			getObservable({'bath1correlators'}		,mps,Vmat,para)
-%			getObservable({'bath2correlators'}		,mps,Vmat,para)
-%			getObservable({'starpolaron'}			,mps,Vmat,para)
-%			getObservable({'staroccupation',AnAm}	,mps,Vmat,para)
-%			getObservable({'energy',op}				,mps,Vmat,para)
+%           getObservable({'bath1correlators'}		,mps,Vmat,para)
+%           getObservable({'bath2correlators'}		,mps,Vmat,para)
+%           getObservable({'starpolaron'}			,mps,Vmat,para)
+%           getObservable({'staroccupation',AnAm}	,mps,Vmat,para)
+%           getObservable({'energy',op}				,mps,Vmat,para)
 %
 % In 'current' and 'staroccupation': AnAm optional!
 %
@@ -70,6 +70,7 @@ switch type{1}
 		% intended for use in optimizesite. Only for focused single-site
 		% mps and Vmat are single-site matrices
 		out = cal1siteShift(mps,Vmat,para);
+
     case 'rdm'
         % applicable to all systems.
         if type{2} <= para.L
@@ -94,56 +95,50 @@ switch type{1}
 	case 'bath2correlators'
 		% needed for mapping from chain to star
 		% returns triangular L x L Matrix
+		if para.useStarMPS
+			NC = para.nChains;
+			out = zeros(para.L, para.L, NC);
+			for mc = 1:NC
+				% extract MPS for each chain and calculate <anam> separately
+				cL = para.chain{mc}.L;
+				mpsC  = [mps{1}, cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false)];
+				VmatC = [Vmat{1}, cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false)];
+				mpsC{1} = permute(mpsC{1}, [1:mc,mc+2:NC+1, mc+1, NC+2]);
+				mpsC{1} = reshape(mpsC{1}, [],para.D(mc,1),para.dk(1,1));
 
-		out = calBath2SiteCorrelators_MC(mps,Vmat,para);
+				paraC = para;
+				paraC.nChains = 1; paraC.L = para.chain{mc}.L;
+				paraC.dk = para.dk(mc,:); paraC.dk(1) = para.dk(1,1);	% need to preserve system dk
+				paraC.shift = para.shift(mc,:);
+				% calculate <anam>
+				out(1:paraC.L,1:paraC.L,mc) = calBath2SiteCorrelators_MC(mpsC,VmatC,paraC);
+			end
+		else
+			out = calBath2SiteCorrelators_MC(mps,Vmat,para);
+		end
 
 	case 'staroccupation'
 		%% does mapping chain -> star
 		% uses bath2correlators
 		if para.foldedChain == 1, error('Not yet implemented'); end
-		step = max(1/para.L/10,10^-3);
-		x = (0:step:1)';		% resolution
-		n = 0:(para.L-2);		% length(n) = L-1
+		% Get the correlator
 		if length(type) == 2
 			AmAn = real(type{2});
 		else
-			AmAn = real(calBath2SiteCorrelators_MC(mps,Vmat,para));		% L x L x nChains
+			AmAn = real(getObservable({'bath2correlators'},mps,Vmat,para));		% L x L x nChains
 		end
-
-		pxn = zeros(length(x),para.L);			% these are orthonormalized polynomials. examples:
-					% pxn(:,1) = 0; pxn(:,2) = px(0) = 1/t(1); pxn(:,3) =
-					% x-alpha(0)/norm();
-		alphaN   = zeros(length(n),1);
-		betaN    = zeros(length(n),1);			% this is sqrt(betaN); betaN(1) = beta_0 is meaningless!
-		hsquared = ones(length(x),1);
+		% preallocate output array
+		[x,~,~] = getStarMapping(para,1);
 		out      = zeros(2,length(x),para.nChains);
 		for mc = 1:para.nChains
-			s = para.chain{mc}.s;
-			% find bath parameters:
-			if strcmp(para.chain{mc}.mapping,'OrthogonalPolynomials')
-				if strcmp(para.chain{mc}.spectralDensity,'Leggett_Hard')
-					hsquared = 2.*para.chain{mc}.alpha.*(x.^s);
-					alphaN = (1+( (s^2)./((s+2.*n).*(2+s+2.*n)) ))./2;
-					betaN  = ((1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));
-				elseif strcmp(para.chain{mc}.spectralDensity,'Leggett_Soft')
-					x = x.*3;						% need some longer range since spectralDensity is not limited in bandwidth!
-					hsquared = 2.*para.chain{mc}.alpha.*(x.^s).*exp(-x);
-					alphaN = 2.*n+1+s;
-					betaN  = sqrt((n+1).*(n+1+s));
-				end
+			[x,hsquared,pxn] = getStarMapping(para,mc);
+			if strcmp(para.chain{mc}.mapping, 'LanczosTriDiag')
+				result = diag(pxn * (AmAn(:,:,mc) + triu(AmAn(:,:,mc),1).') * pxn.');	% pxn == U map -> no need for hsquared
+				out(:,1:length(x),mc) = [x,result(2:end)].';
 			else
-				error('Have not implemented yet!');
+% 				out(:,1:length(x),mc) = [x, hsquared.*((pxn.^2)*diag(AmAn(:,:,mc)) + 2.* diag(pxn*(AmAn(:,:,mc)-diag(diag(AmAn(:,:,mc))))*pxn.') )]';
+				out(:,1:length(x),mc) = [x, hsquared.*diag(pxn*(AmAn(:,:,mc)+triu(AmAn(:,:,mc),1).')*pxn.')].';
 			end
-			% find OrthPol:
-			pxn(:,2) = ones(length(x),1).*1/para.chain{mc}.t(1);		% p(0) = constant normalized pol.
-			for i = 1:para.L-2
-				% p(i+1) = ((x - a(i))p(i)-b(i)p(i-1))/b(i+1)
-				pxn(:,i+2) = ( (x - alphaN(i)).*pxn(:,i+1) - betaN(i).*pxn(:,i) )./betaN(i+1);
-			end
-
-			% imagine polynomials were found now! and hsquared
-
-			out(:,:,mc) = [x, hsquared.*((pxn.^2)*diag(AmAn(:,:,mc)) + 2.* diag(pxn*(AmAn(:,:,mc)-diag(diag(AmAn(:,:,mc))))*pxn.') )]';
 		end
 
 	case 'current'
@@ -153,7 +148,7 @@ switch type{1}
 		if length(type) == 2
 			AmAn = imag(type{2});												% (L x L x NC)
 		else
-			AmAn = imag(calBath2SiteCorrelators_MC(mps,Vmat,para));				% tridiagonal
+			AmAn = imag(getObservable({'bath2correlators'},mps,Vmat,para));		% tridiagonal
 		end
 		out = zeros(L-1,NC);
 		for mc = 1:NC
@@ -165,8 +160,32 @@ switch type{1}
 		% returns a L x 2 x nChains Vector
 
 		out(para.L,2,para.nChains) = 0;
-		out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,1);	% spin up
-		out(:,2,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,-1);	% spin down
+		if para.useStarMPS
+			NC = para.nChains;
+			out = zeros(para.L, para.dk(1,1), NC);
+			for mc = 1:NC
+				% extract MPS for each chain and calculate <anam> separately
+				cL = para.chain{mc}.L;
+				mpsC  = [mps{1}, cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false)];
+				VmatC = [Vmat{1}, cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false)];
+				mpsC{1} = permute(mpsC{1}, [1:mc,mc+2:NC+1, mc+1, NC+2]);
+				mpsC{1} = reshape(mpsC{1}, [],para.D(mc,1),para.dk(1,1));
+
+				paraC = para;
+				paraC.nChains = 1; paraC.L = para.chain{mc}.L;
+				paraC.dk = para.dk(mc,:); paraC.dk(1) = para.dk(1,1);	% need to preserve system dk
+				paraC.shift = para.shift(mc,:);
+				% calculate <anam>
+				out(1:paraC.L,1,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,1);
+				out(1:paraC.L,2,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,2);
+				if para.dk(1,1) == 3
+					out(1:paraC.L,3,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,3);
+				end
+			end
+		else
+			out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,1);	% spin up
+			out(:,2,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,2);	% spin down
+		end
 
 	case 'starpolaron'
 		%% does mapping chain -> star
@@ -175,47 +194,24 @@ switch type{1}
 		% Does up/down projection!
 		% Works with Single and Multi Chain Vmat / Vtens
 		if para.foldedChain == 1, error('FoldedChain not yet implemented for polaron'); end
-		L = para.L; NC = para.nChains;
-		step = max(1/L/10,10^-3);
-		x = (0:step:1)';		% resolution
-		n = 0:(L-2);		% length(n) = L-1
-		AnUp   = real(calBath1SiteCorrelators_MC(mps,Vmat,para,1));			% L x nChains
-		AnDown = real(calBath1SiteCorrelators_MC(mps,Vmat,para,-1));		% L x nChains
+		NC = para.nChains;
+		% Get correlators
+		An = real(getObservable({'bath1correlators'},mps,Vmat,para));		% L x states x nChains
+% 		AnUp   = real(calBath1SiteCorrelators_MC(mps,Vmat,para,1));			% L x nChains
+% 		AnDown = real(calBath1SiteCorrelators_MC(mps,Vmat,para,-1));		% L x nChains
 
-		pxn = zeros(length(x),L);				% these are orthonormalized polynomials. examples:
-					% pxn(:,1) = 0; pxn(:,2) = px(0) = 1/t(1); pxn(:,3) =
-					% x-alpha(0)/norm();
-		alphaN = zeros(length(n),1);
-		betaN  = zeros(length(n),1);				% this is sqrt(betaN); betaN(1) = beta_0 is meaningless!
-		h = ones(length(x),1);						% h(x)
-		out = zeros(3, length(x), NC);
+		[x,~,~] = getStarMapping(para,1);
+		out = zeros(size(An,2)+1, length(x), NC);
 		for mc = 1:NC % for each chain:
-			s = para.chain{mc}.s;
-			% find bath parameters:
-			if strcmp(para.chain{mc}.mapping,'OrthogonalPolynomials')
-				if strcmp(para.chain{mc}.spectralDensity,'Leggett_Hard')
-					h = sqrt(2.*para.chain{mc}.alpha.*(x.^s));
-					alphaN = (1+( (s^2)./((s+2.*n).*(2+s+2.*n)) ))./2;
-					betaN  = ((1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));
-				elseif strcmp(para.chain{mc}.spectralDensity,'Leggett_Soft')
-					x = x.*3;						% need some longer range since spectralDensity is not limited in bandwidth!
-					h = sqrt(2.*para.chain{mc}.alpha.*(x.^s).*exp(-x));
-					alphaN = 2.*n+1+s;
-					betaN  = sqrt((n+1).*(n+1+s));
-				end
+			[x,h,pxn] = getStarMapping(para,mc);
+			if strcmp(para.chain{mc}.mapping, 'LanczosTriDiag')
+				result = 2.* pxn * An(:,:,mc);	% pxn == U map -> no need for hsquared
+				out(:,1:length(x),mc) = [x,result(2:end,:)].';
 			else
-				error('Have not implemented yet!');
-			end
-			% find OrthPol:
-			pxn(:,2) = ones(length(x),1).*1/para.chain{mc}.t(1);		% p(0) = constant normalized pol.
-			for i = 1:L-2
-				% p(i+1) = ((x - a(i))p(i)-b(i)p(i-1))/b(i+1)
-				pxn(:,i+2) = ( (x - alphaN(i)).*pxn(:,i+1) - betaN(i).*pxn(:,i) )./betaN(i+1);
+% 				out(:,:,mc) = [x, 2.*h.*(pxn*An(:,1,mc)),2.*h.*(pxn*An(:,2,mc))]';
+				out(:,:,mc) = [x, 2.*(h*ones(1,size(An,2))).*(pxn*An(:,:,mc))]';
 			end
 
-			% polynomials and h(x) were found now!
-
-			out(:,:,mc) = [x, 2.*h.*(pxn*AnUp(:,mc)),2.*h.*(pxn*AnDown(:,mc))]';
 		end
 
     case 'energy'
@@ -244,10 +240,14 @@ function spin = calSpin(mps,Vmat,para)
 %
 %   TODO: Needs extension to use information about dimension of spin site.
 %
-if para.useVtens               % only Quick Fix for Vtens code, Could be used as Standard code!
+if para.useVtens || para.useStarMPS               % only Quick Fix for Vtens code, Could be used as Standard code!
 	McOp = cell(1,1,3);        % L x NC x N
 	[McOp{1}, McOp{2}, McOp{3}] = spinop(para.spinbase);
-	spinVal = real(expectation_allsites_MC(McOp,mps,Vmat,para));
+	if para.useVtens
+		spinVal = real(expectation_allsites_MC(McOp,mps,Vmat,para));
+	else
+		spinVal = real(expectation_allsites_StarMPS(McOp,mps,Vmat,para));
+	end
 	spin.sx = spinVal(1);
 	spin.sy = spinVal(2);
 	spin.sz = spinVal(3);
@@ -338,7 +338,7 @@ end
 function n = calBosonOcc_MC(mps,Vtens,para)
 %% calculate the boson occupation for Single / Multi-Chain + Vmat / V-tensor-network
 % Zero operator for spin site
-% calculate for all chains simulatneously
+% calculate for all chains simultaneously
 %
 % Created 18/08/2015 by FS
 assert(para.foldedChain == 0, 'not for folded chains');
@@ -347,7 +347,7 @@ L = para.L; NC = para.nChains;
 % create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
 McOp = cell(L, NC, NC);
 for mc = 1:NC
-	for j = 1:L
+	for j = 1:para.chain{mc}.L
 		if j ~= para.spinposition                     % works with array
 			[~,~,McOp{j,mc,mc}] = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
 		else
@@ -356,7 +356,11 @@ for mc = 1:NC
 	end
 end
 
-n = real(expectation_allsites_MC(McOp,mps,Vtens,para));  % (NC x L)
+% if para.useStarMPS
+% 	n = real(expectation_allsites_StarMPS(McOp,mps,Vtens,para));
+% else
+	n = real(expectation_allsites_MC(McOp,mps,Vtens,para));  % (NC x L)
+% end
 
 end
 
@@ -473,7 +477,8 @@ if length(k) == 1		% single-site RDM
 	% now in form: Al{1}...Al{k-1} M{k} Ar{k+1}...Ar{L}
 	%   with Al = left-normalized, Ar: right-normalized.
 
-	reducedDensity = contracttensors(mps{k},3,[1,2],conj(mps{k}),3,[1,2]);		% contract rD_nm = Mk_abn Mk*_abm
+	n = ndims(mps{k});
+	reducedDensity = contracttensors(mps{k},n,1:n-1,conj(mps{k}),n,1:n-1);		% contract rD_nm = Mk_abn Mk*_abm
 
 	% reducedDensity = Vmat{k} * (reducedDensity * Vmat{k}');
 	reducedDensity = contracttensors(reducedDensity,2,2,conj(Vmat{k}),2,2);     % contract rD_nj = rD_nm Vmat*_jm
@@ -569,7 +574,7 @@ end
 
 end
 
-function An = calBath1SiteCorrelators_MC(mps,Vmat,para,spinProj)
+function An = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj)
 % calculates Re<(1+-sz)/4 * a_n^+>.
 % output is matrix containing all values for all chains (L x nChains)
 % Only calculate Re, since Im is not needed! -> saves space!
@@ -589,10 +594,10 @@ for j = 1:para.L
 		if j ~= para.spinposition
 			bp{mc}        = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
 			bp_OBB{j, mc} = contractMultiChainOBB(Vmat{j}, bp, para);
-		else
-			[~,~,sz] = spinop(para.spinbase);
-			bp{1}    = (eye(2)+spinProj*sz)/4;						% additional 1/2 for displacement; spinsites only on chain 1
-			bp_OBB{j,mc} = Vmat{j}' * bp{1} * Vmat{j};				% Spin-site Vmat
+		else	% Spin & Multi-Level System
+			bp = zeros(size(Vmat{j},1));
+			bp(stateProj,stateProj) = 1/2;
+			bp_OBB{j,mc} = Vmat{j}' * bp * Vmat{j};				% Spin-site Vmat
 		end
 	end
 end
@@ -723,8 +728,8 @@ function AmAn = calBath2SiteCorrelators_MC(mps,Vmat,para)
 assert(para.foldedChain == 0, 'FoldedChain not yet supported');
 AmAn = zeros(para.L,para.L,para.nChains);	% initialize results array
 bpbm = cell(3,para.L,para.nChains);			% containing all necessary operators, contracted with OBB
-leftDM  = cell(para.L);						% left-effective Density Matrix for each site; right-effective should always be 1
-rightDM = cell(para.L);
+leftDM  = cell(para.L,1);					% left-effective Density Matrix for each site; right-effective should always be 1
+rightDM = cell(para.L,1);
 %% generate all operators and contract OBB
 %  also produce left-effective DM
 for j = 1:para.L
@@ -824,10 +829,14 @@ end
 function E = calEnergy(mps,Vmat,para,op)
 	%%
 	sitej=1;
+	if para.useStarMPS
+		E = 0;			% nut supported for now!
+		return;
+	end
 % 	[~,BondDimRight] = size(op.Hright);
 % 	[~,BondDimLeft]  = size(op.Hleft);
-	op = h1h2toOBB(Vmat{sitej},para,op);
-% 	op  = H_Eff([],Vmat{sitej},'A',op,para);
+% 	op = h1h2toOBB(Vmat{sitej},para,op);		% DEPRECATED
+	op  = H_Eff([],Vmat{sitej},'A',op,para);
 % 	[~,OBBDim]	 = size(op.h1j);
 	[BondDimLeft, BondDimRight, OBBDim] = size(mps{sitej});
 	M = size(op.h2j,1);
@@ -842,6 +851,10 @@ function n = expectation_allsites_MC(McOp,mps,Vmat,para)
 %
 % McOp : L x NC x N
 % NC = para.nChains;
+if para.useStarMPS		% shortcut for StarMPS
+	n = expectation_allsites_StarMPS(McOp,mps,Vmat,para);
+	return;
+end
 [L,~,N] = size(McOp);               % N = number of "observable chains"
 % assert(L == length(mps));			% would also work for N < dim(mps)
 
@@ -864,3 +877,77 @@ n = expectation_allsites(McOp_OBB, mps, cell(1,para.L));	% N x L
 
 end
 
+function n = expectation_allsites_StarMPS(McOp,mps,Vmat,para)
+%% Multi Chain Expectation values for StarMPS code
+% copied from expectation_allsites since faster to write
+%
+% McOp : L x NC x N
+NC = para.nChains;
+[L,M,N] = size(McOp);               % N = number of "observable chains";
+% assert(L == length(mps));			% would also work for N < dim(mps)
+
+n = zeros(N,L);
+% Here: iterate over chains and determine whether McOp is empty
+for mc = 1:M
+	tempOp = reshape(McOp(:,mc,:),L,N);				% L x N
+	empty  = sum(cellfun('isempty',tempOp),1);		% 0 where Op, L where empty
+	if all(empty == L), continue; end
+	% else: extract mpsChain, mpsVmat including system site
+	cL = para.chain{mc}.L;
+	mpsChain  = [mps{1}, cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false)];
+	VmatChain = [Vmat{1}, cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false)];
+	mpsChain{1} = permute(mpsChain{1}, [1:mc,mc+2:NC+1, mc+1, NC+2]);
+	mpsChain{1} = reshape(mpsChain{1}, [],para.D(mc,1),para.dk(1,1));
+	for ii = find(empty ~= L)
+		n(ii,1:min(L,cL)) = expectation_allsites(tempOp(1:min(L,cL),ii).', mpsChain, VmatChain);
+	end
+end
+
+end
+
+function [x,hsquared,pxn] = getStarMapping(para,mc)
+	%% finds mapping chain -> star
+		n = 0:(para.L-2);		% length(n) = L-1
+		alphaN   = zeros(length(n),1);
+		betaN    = zeros(length(n),1);			% this is sqrt(betaN); betaN(1) = beta_0 is meaningless!
+
+		% find bath parameters:
+		if strcmp(para.chain{mc}.mapping,'OrthogonalPolynomials')
+			step = max(1/para.L/10,10^-3);
+			x = (0:step:1)';		% resolution
+			hsquared = ones(length(x),1);
+			pxn = zeros(length(x),para.L);			% these are orthonormalized polynomials. examples:
+					% pxn(:,1) = 0; pxn(:,2) = px(0) = 1/t(1); pxn(:,3) =
+					% x-alpha(0)/norm();
+			s = para.chain{mc}.s;
+			if strcmp(para.chain{mc}.spectralDensity,'Leggett_Hard')
+				hsquared = 2.*para.chain{mc}.alpha.*(x.^s);
+				alphaN = (1+( (s^2)./((s+2.*n).*(2+s+2.*n)) ))./2;
+				betaN  = ((1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));
+			elseif strcmp(para.chain{mc}.spectralDensity,'Leggett_Soft')
+				x = x.*3;						% need some longer range since spectralDensity is not limited in bandwidth!
+				hsquared = 2.*para.chain{mc}.alpha.*(x.^s).*exp(-x);
+				alphaN = 2.*n+1+s;
+				betaN  = sqrt((n+1).*(n+1+s));
+			end
+		elseif strcmp(para.chain{mc}.mapping, 'Stieltjes')
+			x        = reshape(para.chain{mc}.xi, [],1);
+			hsquared = reshape(para.chain{mc}.Gamma.^2,[],1);
+			alphaN   = reshape(para.chain{mc}.epsilon, 1,[]);
+			betaN    = reshape(para.chain{mc}.t(2:end),1,[]);
+			pxn      = zeros(length(x),para.chain{mc}.L);
+		elseif strcmp(para.chain{mc}.mapping, 'LanczosTriDiag')
+			x        = reshape(para.chain{mc}.xi, [],1);			% frequency Axis
+			hsquared = reshape(para.chain{mc}.Gamma.^2,[],1);		% not needed
+			pxn      = para.chain{mc}.U;							% not poly, but map U
+			return;
+		end
+		% find OrthPol:
+		pxn(:,2) = ones(length(x),1).*1/para.chain{mc}.t(1);		% p(0) = constant normalized pol.
+		for i = 1:para.L-2
+			% p(i+1) = ((x - a(i))p(i)-b(i)p(i-1))/b(i+1)
+			pxn(:,i+2) = ( (x - alphaN(i)).*pxn(:,i+1) - betaN(i).*pxn(:,i) )./betaN(i+1);
+		end
+
+
+end

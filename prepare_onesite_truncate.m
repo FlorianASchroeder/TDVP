@@ -1,4 +1,4 @@
-function [B, U, para, results] = prepare_onesite_truncate(A,para,sitej,results)
+function [B, U, para, results, sv, vNE] = prepare_onesite_truncate(A,para,sitej,results)
 % Truncate Bond dimension via SV of A
 %
 % Changed:
@@ -32,7 +32,7 @@ switch para.sweepto
 						dimincratio = log10(sv(end)/para.svmintol)/(abs(log10(sv(end)))-1);		% new scheme, also weighted by current lowest exponent, less aggressive than above
 					end
 					adddim = ceil(D2*dimincratio);
-					adddim = min(adddim, para.tdvp.maxBondDim - para.D(sitej));
+					adddim = min(adddim, para.tdvp.maxBondDim(end) - para.D(sitej));
 
 					A = cat(2,A,zeros(d * D1,adddim));
                     [B, S, U] = svd2(A);                % better since B contains no zeros but orthonormal vectors!
@@ -79,7 +79,11 @@ switch para.sweepto
 					end
                     adddim = ceil(D1*dimincratio);          %increase 20%
 					if isfield(para,'tdvp')
-						adddim = min(adddim, para.tdvp.maxBondDim - D1);
+						if sitej ~= 1 && length(para.tdvp.maxBondDim) > 1
+							adddim = min(adddim, para.tdvp.maxBondDim(2) - D1);
+						else
+							adddim = min(adddim, para.tdvp.maxBondDim(1) - D1);
+						end
 					end
                     A = cat(1,A,zeros(adddim, d * D2));
                     [U, S, B] = svd2(A);                % better since B contains no zeros but orthonormal vectors!
@@ -107,10 +111,12 @@ switch para.sweepto
         resultsSite = sitej-1;
 end
 
-if nargin == 4
-    results.Amat_vNE(resultsSite) = vonNeumannEntropy(S);
-    sv = diag(S);                       % Expand and truncate might have changed S
-	sv(sv < eps) = 0;					% need to set to zero, since otherwise might have artifacts after expansion!
+sv  = diag(S);
+vNE = vonNeumannEntropy(S);
+
+if nargin == 4 && resultsSite >= 1
+    results.Amat_vNE(resultsSite) = vNE;
+    sv(sv < eps) = 0;					% need to set to zero, since otherwise might have artifacts after expansion!
     if length(sv)==para.D(resultsSite) || (length(sv)==para.D(resultsSite)/2 && (para.parity~='n'))
         results.Amat_sv{resultsSite} = sv;
     end

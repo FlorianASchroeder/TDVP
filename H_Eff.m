@@ -17,7 +17,11 @@ function [op] = H_Eff(mps, V, target, op, para)
 %   [op] = H_Eff([]  ,Vtens, 'MC-V'  , op, para);  % create HnonInt and Hleft/rightAS for single-chain V evolution
 %   [op] = H_Eff([]  ,[]   , 'MC-VS' , op, para);  % create h12jAV terms for VS evolution
 %   [op] = H_Eff([]  ,Vtens, 'MC-A'  , op, para);  % create h1/2jOBB terms, depends on MC-OBB
-%s
+%
+%	Only in Star-MPS code:
+%
+%	[op] = H_Eff(mps{1}, [], 'ST-CA', op, para);   % transforms System + all other chains into Hleft, Opleft defined by para.currentChain
+%
 %	Created 04/08/2015 by FS
 M = para.M;
 switch target
@@ -53,17 +57,17 @@ switch target
 		%% multiply Vmat into op.h1j, h2j
 		% transform all bare H terms of current sitej into OBB
 		% works with multi-chain at OBB level
-		if isempty(op.h1j)
+		if ~isfield(op,'h1j') || isempty(op.h1j)
 			op = gen_sitej_h1h2(op,para,para.sitej);
 		end
-		if para.nChains == 1
+		if para.nChains == 1 || (~iscell(V) && ~iscell(op.h1j))
 			op.h1jOBB = V' * (op.h1j * V);									% faster and more accurate
 			op.h2jOBB = cell(M,2);
 			for i=1:M
 				op.h2jOBB{i,1} = V' * (op.h2j{i,1} * V);									% faster and more accurate
 				op.h2jOBB{i,2} = V' * (op.h2j{i,2} * V);									% faster and more accurate
 			end
-		else  % nChains > 1
+		else  % nChains > 1 && iscell(V)
 			h1jnew = 0;
 			for i = find(~cellfun('isempty',op.h1j'))
 				H1 = cell(para.nChains,1);
@@ -155,17 +159,23 @@ switch target
 			else % sum into op.HnonInt
 				if isempty(op.h2jMCOBB{m,2,mc}) && isempty(op.h2jMCOBB{m,1,mc}), continue; end;
 				if NC > 2
-					IndContract = 1:NC; IndContract([mc,nc]) = [];
-					VS = contracttensors(conj(V{end}),NC+1, IndContract, V{end}, NC+1, IndContract);
-					if mc < nc          % -> VS_(mc',nc',nk',mc,nc,nk)
-						order = [1,3];	% indices of mc after nk contraction
-					else                % -> VS_(nc',mc',nk',nc,mc,nk)
-						order = [2,4];
-					end
-					OpTemp = contracttensors(op.OpleftA{m},  2,[1,2], VS, 6, [3,6]);                       % absorb OpleftA/right since dim: n~ > nk
-					op.HnonInt = op.HnonInt + contracttensors(op.h2jMCOBB{m,2,mc},2,[1,2], OpTemp,4,order);
-					OpTemp = contracttensors(op.OprightA{m}, 2,[1,2], VS, 6, [3,6]);
-					op.HnonInt = op.HnonInt + contracttensors(op.h2jMCOBB{m,1,mc},2,[1,2], OpTemp,4,order);
+					% better contraction scheme?:
+					[idxA, idxB] = getIdxTensChain(NC+1,mc,nc);
+% 					idxA = 1:NC+1; idxB = idxA;
+% 					idxA([mc,nc]) = [];	idxA = [idxA,mc];	% Do not contract nc
+% 					if mc < nc
+% 						idxB(nc-1) = [];					% since nc shifted
+% 					else
+% 						idxB(nc)   = [];
+% 					end
+
+					OpTemp = contracttensors(V{end}, NC+1, NC+1, op.OpleftA{m}.',2,1);						%_(ni..,nk)
+					OpTemp = contracttensors(OpTemp, NC+1, mc, op.h2jMCOBB{m,2,mc}.',2,1);					%_(ni,...,nk,mc)
+					op.HnonInt = op.HnonInt + contracttensors(conj(V{end}),NC+1, idxA, OpTemp, NC+1, idxB);
+
+					OpTemp = contracttensors(V{end}, NC+1, NC+1, op.OprightA{m}.',2,1);						% _(ni..,nk)
+					OpTemp = contracttensors(OpTemp, NC+1, mc, op.h2jMCOBB{m,1,mc}.',2,1);					% _(nc,nk,mc)
+					op.HnonInt = op.HnonInt + contracttensors(conj(V{end}),NC+1, idxA, OpTemp, NC+1, idxB);
 				else % need more efficient code! NC+1 = 3
 					assert(NC+1 == 3, 'this code only works under this assumption!');
 					OpTemp = contracttensors(V{end}, NC+1, NC+1, op.OpleftA{m}.',2,1);						% _(n1,n2,nk)
@@ -240,5 +250,74 @@ switch target
 			op.h2jOBB{i,1} = contractMultiChainOBB(V{end}, op.h2jMCOBB(i,1,:), para);
 			op.h2jOBB{i,2} = contractMultiChainOBB(V{end}, op.h2jMCOBB(i,2,:), para);
 		end
+
+	case 'ST-CA'
+		%% Create the effective Chain-System terms for STAR-MPS
+		% Store in op.chain(para.currentChain).H/Opleft
+		% Only used once for entering a chain
+		% similar to MC-V in structure
+		nc = para.currentChain;
+		NC = para.nChains;
+		M = para.M / NC;			% what is M for each single chain?
+% 		d  = size(mps);
+		% MPS is only mps{1}: 1 x D1 x D2 x D3 x ... X D(NC) x dk
+		%   chain index in mps is shifted by 1 due to first singleton
+		%   dimension!! -> Compatibility with 1-chain models and future Boundary Conditions?
+
+		op.chain(nc).Hleft = 0;						% contains effective H of all other chains
+		op.chain(nc).Opleft = cell(para.M/NC,1);	% contains only terms interacting with Chain #nc
+
+		for mc = 1:NC
+			if mc == nc, continue; end;
+			% always make sure that Hlrstorage{1} and Opstorage{:,2,1} are up-to-date!
+			% 1. Contract to non-interacting parts -> Hleft
+			[idxA, idxB] = getIdxTensChain(NC+2,mc+1,nc+1);
+			OpTemp = contracttensors(mps, NC+2, mc+1, op.chain(mc).Hlrstorage{1}.',2,1);						%_(ni..,nk)
+			op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+
+			% 2. Contract the other chain-system interacting parts -> Hleft
+			for m = 1:M
+				% this chain's m
+				systemM = M*(mc-1) + m;
+				OpTemp = contracttensors(mps   , NC+2, NC+2, op.h2jOBB{systemM,1}.'   ,2,1);
+				OpTemp = contracttensors(OpTemp, NC+2, mc+1, op.chain(mc).Opstorage{m,2,1}.',2,1);					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+				op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+			end
+		end
+
+		% 3. Contract h1jOBB -> Hleft
+		idx = 1:NC+2; idx(nc+1) = [];
+		OpTemp = contracttensors(mps, NC+2, NC+2, op.h1jOBB.', 2, 1);
+		op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
+
+		% 4. Contract h2jOBB which will interact with chain nc
+		for m = 1:M
+			systemM = M*(nc-1) + m;
+			OpTemp = contracttensors(mps, NC+2, NC+2, op.h2jOBB{systemM,1}.', 2, 1);
+			op.chain(nc).Opleft{m} = contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
+		end
+		% overwrite main vars for evolve Kn
+% 		op.Hleft   = op.chain(nc).Hleft;
+% 		op.Opleft  = op.chain(nc).Opleft;
+		op.Hright  = op.chain(nc).Hlrstorage{1};
+		op.Opright = op.chain(nc).Opstorage(:,2,1);
+
 end
+end
+
+function [idxA, idxB] = getIdxTensChain(N,m,n)
+	% generate two arrays with indices corresponding to the desired contractions in the case:
+	%	m : 1 position which got moved in one Tensor(e.g. by contraction)
+	%	n : 1 position which should be the output bonds
+	idxA = 1:N; idxB = idxA;
+	idxA([m,n]) = [];	idxA = [idxA,m];
+
+	if m < n
+		idxB(n-1) = [];
+	elseif m > n
+		idxB(n)   = [];
+	else
+		error('This is only meant to be used for m ~= n');
+	end
+
 end

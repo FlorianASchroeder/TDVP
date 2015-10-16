@@ -289,6 +289,9 @@ for timeslice = para.tdvp.slices
         %% Get on-site Operators and dimensions
         op = gen_sitej_op(op,para,sitej,results.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
 
+% 		shift = getObservable({'1siteshift'}, mps{sitej}, Vmat{sitej}, para); % calculate applicable shift
+% 		fprintf('\n Shift: %s', mat2str(shift));
+%
         %% Do the time-evolution of A and V
         % this is symmetric for l->r and l<-r
 		if ~para.useVtens
@@ -423,27 +426,28 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		% save Dimension Log only as difference! reconstruct with cumsum(A)
 		fprintf('Initialize results.tdvp\n');
 		n = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
+		NC = para.nChains; L = para.L;
 		if para.tdvp.logSV
-			results.tdvp.Vmat_sv{n,para.L,para.nChains+1}	= [];
-			if size(results.Vmat_sv,1) == para.L
+			results.tdvp.Vmat_sv{n,L,NC+1}	= [];
+			if size(results.Vmat_sv,1) == L
 				results.tdvp.Vmat_sv(1,:,:)	 = results.Vmat_sv;
 			else
 				results.tdvp.Vmat_sv(1,:,:)	 = results.Vmat_sv.';
 			end
-			results.tdvp.Amat_sv{n,para.L-1} = [];
+			results.tdvp.Amat_sv{n,L-1} = [];
 			results.tdvp.Amat_sv(1,:)		 = results.Amat_sv;
 		else
-			results.tdvp.Vmat_vNE(n,para.L) = 0;
+			results.tdvp.Vmat_vNE(n,L) = 0;
 			results.tdvp.Vmat_vNE(1,:)		= results.Vmat_vNE;
-			results.tdvp.Amat_vNE(n,para.L)	= 0;
+			results.tdvp.Amat_vNE(n,L-1)	= 0;
 			results.tdvp.Amat_vNE(1,:)		= results.Amat_vNE;
 		end
 		if para.tdvp.expandOBB
-			results.tdvp.d_opt              = sparse(n,para.L);
+			results.tdvp.d_opt              = sparse(n,L);
 			results.tdvp.d_opt(1,:)			= para.d_opt(end,:);		% only record MPS-OBB
 		end
 		if para.tdvp.truncateExpandBonds
-			results.tdvp.D					= sparse(n,para.L-1);
+			results.tdvp.D					= sparse(n,L-1);
 			results.tdvp.D(1,:)				= para.D;
 		end
 % 		dk not expanded yet -> do not log!

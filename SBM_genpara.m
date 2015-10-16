@@ -93,7 +93,8 @@ if strcmp(chainpara.discrMethod,'Analytic')
 elseif strcmp(chainpara.discrMethod,'None') && strcmp(chainpara.spectralDensity,'CoupDiscr')
     % if directly tridiagonalizing given couplings!
     % define values via the init_CoupDiscr function.
-else
+	bigL = length(xi);
+elseif strcmp(chainpara.discrMethod,'Direct') || strcmp(chainpara.discrMethod,'Numeric')
 	%% from here: either discretize J(w) for Lanczos or h^2(x) for Stieltjes
 	% Uses numerical evaluation of Integrals. Works for any spectral function!
 	% numerical LogZ uses not the Zitko scheme, which is more difficult!!
@@ -144,16 +145,24 @@ else
 		xi    = xi(1:end-1)+difXi./2;							% take middle of each interval
 		Gamma = sqrt(J(xi,0).*difXi./pi);						% need to calc sqrt(area)
         figure(1);plot(xi,Gamma);
+	else
+		error('Please choose discrMethod = [Direct | Numeric]');
 	end
+else
+	error('Unsupported combination of discrMethod & spectralDensity');
 end
 
 xi(isnan(xi))=0;                                    % if numbers < e-161 they become NaN. This is fix for it.
 Gamma(isnan(Gamma))=0;
+% Needed for mapping chain->star
+chainpara.xi = xi;
+chainpara.Gamma = Gamma;
 
 %% Start mapping to Chain
+% keep one more t to allow chain->star mapping: t = L+1 x 1
 if strcmp(chainpara.mapping, 'LanczosTriDiag')
 	%% Start Tridiagonalization
-	[chainpara.epsilon, chainpara.t] = chainParams_Lanczos(xi, Gamma);
+	[chainpara.epsilon, chainpara.t, chainpara.U] = chainParams_Lanczos(xi, Gamma);
 
 	%chainpara.t=abs(chainpara.t); %I noticed that the r form hess() function sometimes changed sign.
 elseif strcmp(chainpara.mapping, 'Stieltjes')
@@ -177,42 +186,46 @@ end
 			if ~isempty(strfind(chainpara.spectralDensity,'Hard'))
 				w = w_cutoff/2.*(1+ (s^2./((s+2.*n).*(2+s+2.*n))));                                     % w(1) = w(n=0)
 				t = (w_cutoff.*(1+n).*(1+s+n))./(s+2+2.*n)./(3+s+2.*n).*sqrt((3+s+2.*n)./(1+s+2.*n));   % t(1) = t(n=0) != coupling to system
-				t = [ w_cutoff*sqrt(2*pi*chainpara.alpha/(1+s))/(sqrt(pi)); t(1:end-1)];				% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
+				t = [ w_cutoff*sqrt(2*pi*chainpara.alpha/(1+s))/(sqrt(pi)); t];				% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
 			elseif ~isempty(strfind(chainpara.spectralDensity,'Soft'))
 				w = wc.*(2.*n+1+s);																		% w(1) = w(n=0)
 				t = wc.*sqrt((n+1).*(n+s+1));															% t(1) = t(n=0) != coupling to system
-				t = [ wc*sqrt(2*pi*chainpara.alpha*gamma(s+1))/(sqrt(pi)); t(1:end-1)];					% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
+				t = [ wc*sqrt(2*pi*chainpara.alpha*gamma(s+1))/(sqrt(pi)); t];				% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
 			end
 		else
 			error('VMPS:SBM_genpara:chainParams_OrthogonalPolynomials','Only available for power-law spectral functions');
         end
     end
 
-    function [w, t] = chainParams_Lanczos(xi, Gamma)
+    function [w, t, U] = chainParams_Lanczos(xi, Gamma)
         % Tridiagonalize using Lanczos algorithm with complete reorthogonalization
+		% U is transformation U_(k,n), useful for chain->star mapping
         indiag=zeros(length(Gamma)+1,1);
         inrow = indiag;
 
         inrow(2:end)  = Gamma;                         % factor of 1/2 only affected t(1) -> was moved into Hamiltonian; 1/sqrt(pi) changes only t(1)
         indiag(2:end) = xi;
 
-        [epsilon,t]    = star2tridiag(indiag,inrow);
+        [epsilon,t,U]    = star2tridiag(indiag,inrow);
 
         if chainpara.L == 0
             chainpara.L = find(epsilon > chainpara.precision, 1,'Last') + 1;    % +1 as L includes spin site
             dispif(sprintf('Optimum chain length is: %u',chainpara.L),chainpara.logging)
-        end
+		end
 
-        [epsilon,t]			= extroplate(epsilon,t,chainpara.L);              % extrapolate very small levels for higher precision
-        w	= epsilon(1:chainpara.L-1);
-        t	= t(1:chainpara.L-1);
+		if ~strcmp(chainpara.spectralDensity,'CoupDiscr')
+	        [epsilon,t]			= extroplate(epsilon,t,chainpara.L);              % extrapolate very small levels for higher precision
+		end
+        w = epsilon(1:chainpara.L-1);
+        t = t(1:chainpara.L-1);
+		U = U(:,1:chainpara.L);
     end
 
     function [w, t] = chainParams_Stieltjes(xi, Gamma)
         ab = stieltjes(chainpara.L-1,[xi,Gamma.^2]);
         w  = ab(:,1);
 		t  = ab(:,2);
-		t  = [sqrt(sum(Gamma.^2)); t(1:end-1)];                             % put sqrt(eta_0/pi) = t(1) by hand in!
+		t  = [sqrt(sum(Gamma.^2)); t];                             % put sqrt(eta_0/pi) = t(1) by hand in!
     end
 
 	function y = J_Renger(w,i)
@@ -299,8 +312,11 @@ end
 
     function init_CoupDiscr()
 		if isfield(chainpara,'dataPoints')
+			chainpara.dataPoints = sortrows(chainpara.dataPoints,1);
             xi = chainpara.dataPoints(:,1);
             Gamma = chainpara.dataPoints(:,2);
+		else
+			error('Please give dataPoints with CoupDiscr');
 		end
 		chainpara.discrMethod = 'None';			% nothing else possible!
 	end

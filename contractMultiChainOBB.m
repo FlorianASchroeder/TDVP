@@ -31,7 +31,7 @@ if iscell(Vmat)
 	if sum(~Empty) > 1, error('Only input 1 operator per contraction'); end;
 	Ind       = find(~Empty);                        % get position, has to be single number!
 	McOp{Ind} = Vmat{Ind}' * McOp{Ind} * Vmat{Ind};
-	Vmat = Vmat{end};                                % take the VS out for compatibility with snext step
+	Vmat = Vmat{end};                                % take the VS out for compatibility with next step
 end
 
 % Old routine, inefficient
@@ -43,7 +43,7 @@ end
 
 Ind  = find(~Empty);		% get index of chain
 ord = 1:NC; ord(Ind) = [];
-X = contracttensors(McOp{~Empty},2,2, Vmat, NC+1, Ind);
+X = contracttensors(full(McOp{~Empty}),2,2, Vmat, NC+1, Ind);
 X = contracttensors(conj(Vmat),NC+1, [Ind, ord] ,X, NC+1, 1:NC);
 
 end

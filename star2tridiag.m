@@ -1,4 +1,4 @@
-function [alpha,beta]=star2tridiag(indiag,inrow)
+function [alpha,beta,v]=star2tridiag(indiag,inrow)
 % indiag(1) = inrow(1) = 0
 % Modified:
 %	FS 29/05/2014: replaced first loop to fill A
@@ -22,7 +22,7 @@ r=zeros(dim,1);
 r(1)=1;
 beta(1)=norm(r);
 for j=1:dim
-  % Basic recursion
+  % Basic recursion, Equivalent to Orthogonal Polynomials
   v(:,j)=r/beta(j);						% Normalize vec
   r=A*v(:,j);							% Get next vec, r_j+1
   if j>1, r=r-v(:,j-1)*beta(j); end;

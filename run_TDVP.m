@@ -1,9 +1,11 @@
-function run_TDVP(s,alpha,OBB,Bond,dk,L, fromFile)
+function run_TDVP(tmax,dt,s,alpha,OBB,Bond,dk,L, fromFile)
 % try
 % needed if started from command line:
 if isdeployed
-	if ischar(s), s = str2double(s); end
-	if ischar(alpha), alpha = str2double(alpha); end
+	if ischar(tmax),	tmax	= str2double(tmax); end
+	if ischar(dt),		dt		= str2double(dt); end
+	if ischar(s),		s		= str2double(s); end
+	if ischar(alpha),	alpha	= str2double(alpha); end
 	if ischar(OBB), 	OBB 	= str2double(OBB); end
 	if ischar(Bond), 	Bond 	= str2double(Bond); end
 	if ischar(dk),		dk		= str2double(dk); end
@@ -13,7 +15,7 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,20);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,rescaling)
+	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,10);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
@@ -28,10 +30,16 @@ load(fileName);
 % load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha0.01delta0.1epsilon0dk20D5dopt5L100\results.mat')
 % load(sprintf('20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha%gdelta0.1epsilon0dk30D5dopt5L300-artificial/results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat',alpha));
 % load('20150806-1334-SpinBoson-OrthPol-v52-alpha0.5delta0.1epsilon0dk30D5dopt5L200-art-sz/results.mat');
-% load('20150815-2007-SpinBosonTTM-OrthPol-v58-alpha0.5delta0.1epsilon0dk30D5dopt5L100/results.mat');
+% load('20151006-1741-DPMES3-4C-VT-v63TCMde9-dk100D20dopt5L11/results.mat');
+% load('20151007-1325-DPMES3-4C-VT-v63-dk30D20dopt5L11/results.mat');
 
 % Kast 2013 Fig 4, s=0.75 OrthPol
 % load(sprintf('20150307-0341-SpinBoson-OrthPol-v41TCMde9-s0.75-alpha%gdelta0.1epsilon0dk20D5dopt5L50-artificial/results.mat',alpha));
+
+% load('20151011-1659-DPMES3-4C-Star-v63-dk40D5dopt5L11/results.mat');
+% load('20151012-0208-DPMES3-4C-Star-v64TCMde9-dk60D5dopt5L11/results.mat');
+% load('20151012-2306-SpinBoson2C-Star-OrthPol-v64TCM74-alpha0.1delta0epsilon0.1dk20D5dopt5L50-art--sx/results.mat');
+
 
 %% Only needed if previous calc was imagT
 if loadedFromFile && isfield(para.tdvp,'imagT') && para.tdvp.imagT
@@ -43,19 +51,19 @@ end
 
 %% Define TDVP parameters
 para.tdvp.imagT = 0;					% imaginary Time = Temperature evolution?
-para.tdvp.tmax = 100;
-para.tdvp.deltaT = 1;					% size of timeslice in units:
+para.tdvp.tmax = tmax;
+para.tdvp.deltaT = dt;					% size of timeslice in units:
     % For PPC:
     %   H defined in eV, h\bar left out
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 0;				% much faster I/O saving
+para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
-% para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.j.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
+para.tdvp.Observables = '.dm.n.sn.sx.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
@@ -69,14 +77,14 @@ para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); defa
     %   else        : use Expokit expv(t,A,v, expvTol, expvM)
     %   set maxExpMDim = 0 to only use expv()
 % OBB settings
-para.tdvp.expandOBB = OBB;
+para.tdvp.expandOBB = min(1,OBB);
 % Bond-Dim settings
-para.tdvp.truncateExpandBonds = Bond;
+para.tdvp.truncateExpandBonds = min(1,Bond);
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = 40;				%
-para.Dmin = 1;
-para.tdvp.maxOBBDim  = 40;
+para.tdvp.maxBondDim = [10,Bond];		%
+para.Dmin = 2;
+para.tdvp.maxOBBDim  = OBB;
 para.svmaxtol = 10^-4;					% keep 1 below this!
 para.svmintol = 10^-4.5;				% throw away all below
 % z-Averaging for log-Discretization
@@ -87,7 +95,7 @@ if para.tdvp.zAveraging
 		stepFrom = 1;					% comment if need override!
 	end
 end
-
+para.logging = 1;
 tresults = [];						% empty variable initialization
 %% comment if no new coupling needed
 if loadedFromFile
@@ -98,7 +106,7 @@ if loadedFromFile
 end
 
 %% Format Filename
-para.tdvp.version = 'v63';
+para.tdvp.version = 'v64';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!
@@ -111,13 +119,13 @@ else
 end
 
 para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
-para.tdvp.filename = sprintf('%s-alpha%g',para.tdvp.filename,alpha);
+% para.tdvp.filename = sprintf('%s-alpha%g',para.tdvp.filename,alpha);
 
 if para.tdvp.expandOBB
 	para.tdvp.filename = sprintf('%s-OBBmax%d',para.tdvp.filename, para.tdvp.maxOBBDim);
 end
 if para.tdvp.truncateExpandBonds
-	para.tdvp.filename = sprintf('%s-Dmax%d',para.tdvp.filename,para.tdvp.maxBondDim);
+	para.tdvp.filename = sprintf('%s-Dmax%d',para.tdvp.filename,para.tdvp.maxBondDim(end));
 end
 if para.tdvp.expvCustom
 	para.tdvp.filename = sprintf('%s-expvCustom%d',para.tdvp.filename,para.tdvp.maxExpVDim);
@@ -199,7 +207,7 @@ end
 %% Do Time-Evolution with 1-site TDVP
 if para.tdvp.zAveraging == 0
     para.tdvp.starttime = tic;
-    tdvp_1site(mps,Vmat,para,results,op,tresults);
+    tdvp_1site_star(mps,Vmat,para,results,op,tresults);
 else
 	basename = para.tdvp.filename;
     for z = stepFrom:-para.tdvp.zStep:1e-5

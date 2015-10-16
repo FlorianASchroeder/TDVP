@@ -347,8 +347,8 @@ switch para.model
 				[sigmaX,~,sigmaZ]  = spinop(para.spinbase);
                 zm_spin			   = zeros(2);
                 op.h1term{1,1}     = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
-                op.h2term{1,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{1,2,1,1} = zm_spin;	% X chain
-                op.h2term{2,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{2,2,1,1} = zm_spin;
+                op.h2term{1,1,1,1} = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1,1} = zm_spin;	% X chain
+                op.h2term{2,1,1,1} = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,1,1} = zm_spin;
                 op.h2term{3,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{3,2,1,1} = zm_spin;	% Z chain
                 op.h2term{4,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{4,2,1,1} = zm_spin;
             case para.L

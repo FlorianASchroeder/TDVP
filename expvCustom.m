@@ -30,6 +30,8 @@ switch A
 		AFUN = @MCmultVS;
 	case 'MC-HAVS'
 		AFUN = @HAVmultCV;      % same as 'HAV'
+	case 'STAR-Hn1'
+		AFUN = @STARmultA;
 end
 
 M = para.M;
@@ -197,12 +199,11 @@ hump = hump / normv;
 		% CA_(r^,r) given as vector, r^ indicates now BondDim from SVD on A
 		%	is sweep direction dependent! C_(l,l^) and C_(r^,r)
 		% A_(l,r^,n) in mps as tensor.
-		[~,BondDimRight] = size(op.Hright);
-		[~,BondDimLeft]  = size(op.Hleft);
 		w = 0;
 
 		switch para.sweepto
 			case 'r'
+				[~,BondDimRight] = size(op.Hright);
 				CA = reshape(CA, [],BondDimRight);
 				w = w + op.HleftAV * CA + CA * op.Hright.';
 				for k = 1:M
@@ -211,6 +212,7 @@ hump = hump / normv;
 					end
 				end
 			case 'l'
+				[~,BondDimLeft]  = size(op.Hleft);
 				CA = reshape(CA, BondDimLeft,[]);
 				w = w + op.Hleft * CA + CA * op.HrightAV.';
 				for k = 1:M
@@ -317,6 +319,44 @@ hump = hump / normv;
 					vsTemp = tensShape(vsTemp, 'fold',k,d);
 					w = w + contracttensors(vsTemp, NC+1, NC+1, op.OprightA{mm}.',2,1);
 				end
+			end
+		end
+		w = reshape(w, [numel(w),1]);
+	end
+
+	function w = STARmultA(A)
+		%% w = STARmultA(A)
+		% called by 'STAR-Hn1'
+		d = [1,para.D(:,1).',para.dk(1,1)];					% dim(A)
+		NC = para.nChains;
+		nTerms = para.M/NC;
+
+		A = reshape(A,d);
+
+		% 1. on-site H1
+		w =	contracttensors(A, NC+2, NC+2, op.h1jOBB.', 2,1);
+
+		for mc = 1:NC
+			% Order for permute after contraction
+% 			ord = [1:mc,NC+2,mc+1:NC+1];
+			Atemp = tensShape(A, 'unfold', mc+1, d);		% chain index to front
+			% 2. non-interacting Hlrstorage (Hright)
+			OpTemp = op.chain(mc).Hlrstorage{1} * Atemp;
+			w = w + tensShape(OpTemp,'fold',mc+1, d);
+
+			% 3. all interacting parts
+			for mm = 1:nTerms
+				systemM = nTerms*(mc-1) + mm;				% position in op.h2j
+
+				OpTemp = op.chain(mc).Opstorage{mm,2,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+				OpTemp = tensShape(OpTemp,'fold',mc+1, d);
+				w = w+ contracttensors(OpTemp, NC+2, NC+2, op.h2jOBB{systemM,1}.',2,1);
+% 				w = w + OpTemp;
+
+% 				OpTemp = contracttensors(A, NC+2, NC+2, op.h2jOBB{systemM,1}.',2,1);
+% 				OpTemp = contracttensors(OpTemp, NC+2, mc+1, op.chain(mc).Opstorage{mm,2,1}.',2,1);
+% 				OpTemp = permute(OpTemp,ord);
+
 			end
 		end
 		w = reshape(w, [numel(w),1]);

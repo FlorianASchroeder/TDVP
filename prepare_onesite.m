@@ -1,4 +1,4 @@
-function [B, U, para,results] = prepare_onesite(A,para,sitej,results)
+function [B, U, para,results,sv,vNE] = prepare_onesite(A,para,sitej,results)
 % Does SVD on the A-MPS matrix
 % 1. prepare_onesite(A,para,sitej)
 %       is enough for right-norm A
@@ -34,10 +34,6 @@ switch para.sweepto
 %
 %           else
 %               end
-            if nargin == 4					% these values are only used in this script if results are passed
-                vNE = vonNeumannEntropy(S);
-                sv = diag(S);
-            end
             DB = size(S, 1);				% new a2 dimension of B
             para.D(sitej)=DB;
             B = reshape(B, [d, D1, DB]);
@@ -101,10 +97,6 @@ switch para.sweepto
 
             % decompose: A_(l,r*n) = U_(l,a')*S_(a',a)*B_(a,r*n)
             [U, S, B] = svd2(A);            % since m<n: B = new A
-            if nargin == 4					% only if results are passed
-                vNE = vonNeumannEntropy(S);
-                sv = diag(S);
-            end
             DB = size(S, 1);
 			if sitej ~= 1
 	            para.D(sitej-1) = DB;
@@ -158,7 +150,11 @@ switch para.sweepto
 
         end
 end
-if nargin == 4
+
+sv  = diag(S);
+vNE = vonNeumannEntropy(S);
+
+if nargin == 4 && sitej >= 1
     results.Amat_vNE(sitej) =vNE;
     if length(sv)==para.D(sitej) || (length(sv)==para.D(sitej)/2 && (para.parity~='n'))
         results.Amat_sv{sitej}=sv;

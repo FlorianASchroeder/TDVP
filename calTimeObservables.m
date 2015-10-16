@@ -100,8 +100,8 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 					% initialise storage if first sweep
 					nElements = para.tdvp.tmax/para.tdvp.extractStarInterval +1;
 					tresults.star.n	    = single(zeros(nElements,length(occ),para.nChains));
-					tresults.star.x	    = single(zeros(nElements,length(polaron),2,para.nChains));
-					tresults.star.omega = single(occ(1,:,1));
+					if exist('polaron','var'), tresults.star.x = single(zeros(nElements,length(polaron),2,para.nChains)); end
+					tresults.star.omega = squeeze(single(occ(1,:,:)));		% get rid of leading singleton
 					tresults.star.t     = single(zeros(1,nElements));
 				end
 
@@ -111,6 +111,9 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 				if strfind(para.tdvp.Observables,'.sx.')
 					tresults.star.x(pos,:,1,:) = single(polaron(2,:,:));	% up proj
 					tresults.star.x(pos,:,2,:) = single(polaron(3,:,:));	% down proj
+					if size(polaron,1) > 3
+						tresults.star.x(pos,:,3,:) = single(polaron(4,:,:));	% down proj
+					end
 				end
 				tresults.star.t(pos)   = single(para.tdvp.t(1,para.timeslice+1));
 			end
@@ -135,6 +138,16 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
             tresults.spin.sy(i) = single(temp.sy);
             tresults.spin.sz(i) = single(temp.sz);
             tresults.spin.visibility(i) = single(sqrt(temp.sx^2+temp.sy^2));
+		end
+
+		% 1. Density matrix
+		if strfind(para.tdvp.Observables,'.dm.')
+			if ~isfield(tresults,'rho')
+				tresults.rho = single(zeros(totalN,para.dk(1,1),para.dk(1,1)));
+			elseif missingN > 0
+				tresults.rho = single([tresults.rho; zeros(missingN,para.dk(1,1),para.dk(1,1))]);
+			end
+			tresults.rho(i,:,:) = single(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para));
 		end
 
 		if strcmp(para.model, 'MLSBM') || ~isempty(strfind(para.model,'DPMES'))

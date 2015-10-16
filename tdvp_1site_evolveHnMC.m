@@ -50,7 +50,7 @@ end
 d = size(mps{sitej});
 dOBB1 = prod(para.d_opt(1:end-1,sitej)); dOBB2 = para.d_opt(end,sitej);
 if (dOBB1-2 >= dOBB2) && para.tdvp.expandOBB
-	expandBy = min([ceil(dOBB2*0.4),para.tdvp.maxOBBDim-dOBB2,dOBB1-dOBB2, d(1)*d(2)-dOBB2]);			% expand by at least double as above!
+	expandBy = min([ceil(dOBB2*0.4),para.tdvp.maxOBBDim*2-dOBB2,dOBB1-dOBB2, d(1)*d(2)-dOBB2]);			% expand by at least double as above!
 	if expandBy == 1, expandBy = 2; end
 	if expandBy >= 1
 		mps{sitej}(end,end,end+expandBy) = 0;
