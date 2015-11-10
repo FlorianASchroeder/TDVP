@@ -19,6 +19,15 @@ if ~para.useVmat || any(sitej == para.spinposition)
 		op.h1jOBB = op.h1j;								% Overhead only for spinsites mostly -> negligible!
 		op.h2jOBB = op.h2j;
 	end
+
+	% needed for para.useVmat == 0
+	if ((BondDimLeft * BondDimRight * OBBDim) > para.tdvp.maxExpVDim || (dk*OBBDim) > para.tdvp.maxExpVDim) && para.tdvp.expvCustom
+		% Largest Operator for matrix Exp. is Hn -> use as criterion
+		% use expvCustom for this entire site sweep!
+		para.tdvp.expvCustomNow = 1;
+	else
+		para.tdvp.expvCustomNow = 0;
+	end
 end
 M = size(op.h2j,1);
 

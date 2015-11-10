@@ -63,7 +63,7 @@ para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.dm.n.sn.sx.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron
+para.tdvp.Observables = '.dm.n.sn.sx.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron, dm: rdm of site 1
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
@@ -106,7 +106,7 @@ if loadedFromFile
 end
 
 %% Format Filename
-para.tdvp.version = 'v64';
+para.tdvp.version = 'v65';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!
@@ -194,7 +194,7 @@ elseif ~exist(para.tdvp.filename,'file') && isempty(strfind(para.tdvp.fromFilena
 	% Only load fromFilename if it was a TDVP file!
 	% then also para and tresults are already loaded!
 	% important: load mps and Vmat!
-	load(para.tdvp.fromFilename, 'results','op','mps','Vmat');
+	load(para.tdvp.fromFilename, 'results','op','mps','Vmat','tresults');		% load all except para
 	disp('loaded results,op,mps,Vmat from para.tdvp.fromFilename');
 	Vars = whos;				% deserialise if needed
 	for ii = 1:size(Vars)

@@ -69,6 +69,7 @@ elseif ~isempty(tresults)
 % 			error('tresults were not in fromFile!');
 % 		end
 		startSize = para.timeslice+1;
+		fprintf('\nSet resumeTDVP = 2, startSize = %d', startSize);
 	end
 end
 

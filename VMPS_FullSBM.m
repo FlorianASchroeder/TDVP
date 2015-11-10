@@ -36,14 +36,15 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='DPMES3-4C';
+para.model='DPMES4-5C';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
+	%		  'DPMES3-4C', 'DPMES4-5C'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 4;
+para.nEnvironments  = 5;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 4;
+para.nChains		= 5;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
@@ -78,7 +79,7 @@ para.L = L;
 %% chain 1:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
 para.chain{1}.mapping			= 'LanczosTriDiag';
 para.chain{1}.spectralDensity	= 'CoupDiscr';
-para.chain{1}.dataPoints		= cmToeV(load('DPMESdata/W44-A1-10-01.dat'));
+para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151105/W44-A1-7-01.dat'));
 % para.chain{1}.discretization	= 'None';
 % para.chain{1}.discrMethod		= 'Numeric';
 
@@ -92,14 +93,15 @@ end
 
 %% chain 2 & more:
 para.chain{2}					= para.chain{1};		% simple copy
-para.chain{2}.dataPoints		= cmToeV(load('DPMESdata/W44-A1-10-x1.dat'));
+para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151105/W44-A1-10-x1.dat'));
 % para.chain{2}.w_cutoff          = 1.5;
 % para.chain{2}.mapping			= 'OrthogonalPolynomials';
 para.chain{3}					= para.chain{2};
-para.chain{3}.dataPoints		= cmToeV(load('DPMESdata/W24-B1-10.dat'));
+para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151105/W24-B1-high.dat'));
 para.chain{4}					= para.chain{2};
-para.chain{4}.dataPoints		= cmToeV(load('DPMESdata/W14-A2-10.dat'));
-% para.chain{5}					= para.chain{2};
+para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151105/W14-A2-high.dat'));
+para.chain{5}					= para.chain{2};
+para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151105/W45-B2-all.dat'));
 
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
 %% Parameters
@@ -260,6 +262,12 @@ if strcmp(para.model,'DPMES3-4C')
 	para.dk(1,para.spinposition)	= 3;
 	para.dk(2:end,para.spinposition) = 1;	% non-existent singleton!
 	para.d_opt(1:end,para.spinposition) = 3;
+	para.dk(3,2)     = 500;
+elseif strcmp(para.model,'DPMES4-5C')
+	para.M = 5*2;
+	para.dk(1,para.spinposition)	= 4;
+	para.dk(2:end,para.spinposition) = 1;	% non-existent singleton!
+	para.d_opt(1:end,para.spinposition) = 4;
 	para.dk(3,2)     = 500;
 end
 
@@ -435,7 +443,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v64';
+para.version = 'v65';
 Descr = para.version;
 if ~strcmp(computer,'PCWIN64')
 	Descr = sprintf('%sTCM%s',para.version,para.hostname(3:end));

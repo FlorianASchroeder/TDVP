@@ -167,6 +167,18 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 				tresults.participation = single([tresults.participation; zeros(missingN,1)]);
 			end
             tresults.participation(i) = single(getObservable({'participation'},tmps(j,:),tVmat(j,:),para));
+
+			% 4. Hs + Hi
+			if ~isfield(tresults,'hshi')
+				tmp = single(getObservable({'hshi'},tmps(j,:),tVmat(j,:),para));
+                tresults.hshi = single(zeros(totalN,length(tmp)));
+				tresults.hshi(i,:) = tmp;
+			elseif missingN > 0
+				tresults.hshi = single([tresults.hshi; zeros(missingN,1)]);
+			else
+				tresults.hshi(i,:) = single(getObservable({'hshi'},tmps(j,:),tVmat(j,:),para));
+			end
+
 		end
 
 		if strcmp(para.model, 'SpinBosonTTM')

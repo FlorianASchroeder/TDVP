@@ -17,6 +17,7 @@ function out = getObservable(type,mps,Vmat,para)
 %           getObservable({'starpolaron'}			,mps,Vmat,para)
 %           getObservable({'staroccupation',AnAm}	,mps,Vmat,para)
 %           getObservable({'energy',op}				,mps,Vmat,para)
+%           getObservable({'hshi',op}				,mps,Vmat,para)		% op is optional
 %
 % In 'current' and 'staroccupation': AnAm optional!
 %
@@ -33,6 +34,7 @@ function out = getObservable(type,mps,Vmat,para)
 %		'current':			array	(NC x L-1)
 %		'starpolaron':		array	(3 x X x NC)
 %		'energy'			scalar
+%		'hshi'				scalar
 %		'coherence'			not implemented yet
 %
 %   Created 03/06/2014 by Florian Schroeder @ University of Cambridge
@@ -227,6 +229,20 @@ switch type{1}
 	case 'coherence'
         % only for spin in SBM
 
+	case 'hshi'
+        % Calculates the entire energy of the system hamiltonian and first interaction terms
+		% needs type{2} = op
+		if length(type) == 2
+            out = calHsHi(mps,Vmat,para,type{2});
+		else
+            op.h1term = cell(1,2); % One body terms of the Hamiltonian
+			op.h2term = cell(para.M, 2,2);			% default: nearest neighbor interaction
+
+			for s=1:2
+				op=genh1h2term_onesite(para,op,s);
+			end
+			out = calHsHi(mps,Vmat,para,op);
+		end
 end
 
 end
@@ -948,6 +964,115 @@ function [x,hsquared,pxn] = getStarMapping(para,mc)
 			% p(i+1) = ((x - a(i))p(i)-b(i)p(i-1))/b(i+1)
 			pxn(:,i+2) = ( (x - alphaN(i)).*pxn(:,i+1) - betaN(i).*pxn(:,i) )./betaN(i+1);
 		end
+
+
+end
+
+function E = calHsHi(mps,Vmat,para,op)
+%% function E = calHsHi(mps,Vmat,para,op)
+% calculates the expectation value of <H_s + H_i(1,2)>
+% of only System and first bond.
+if ~exist('op','var') || ~isfield(op,'h1term')
+	error('op is needed to use calHsHi');
+end
+
+% create n_op for expectation_general_StarMPS
+% n_op = M+1 x L x NC
+%	where H1term = n_op(1,1,1)
+M  = para.M;
+NC = para.nChains;
+L  = para.L;
+
+n_op = cell(M+1,L,NC);
+
+n_op{1,1,1} = op.h1term{1,1};
+for m = 1:M
+	idx = squeeze(~cellfun('isempty',op.h2term(m,2,2,:)));
+	n_op(m+1,1,idx) = op.h2term(m,1,1,1);
+	n_op(m+1,2,idx) = op.h2term(m,2,2,idx);
+end
+
+E_i = expectation_general_StarMPS(n_op,mps,Vmat,para);
+E = [real(E_i(1));2*real(E_i(2:2:end))]';				% find a better solution for this! But not now..
+
+% E = sum(E_i);
+
+end
+
+function n = expectation_general(n_op, mps, Vmat, para)
+%% function n = expectation_general(n_op, mps, Vmat, para)
+% computes the expectation value of an arbitrary (general) multi-site operator defined as:
+% O = 1 x L cell
+%		where site-operators are stored in respective cells. Other cells: []
+%	e.g:  < O_i O_j O_k >
+%		O = {[],...,[],O_i,[],...,[],O_j,[],...,[],O_k,[],...}
+%
+% if multiple operators are desired on the same chain
+% n_Op = M x L cell
+%       where n_Op{1,:} = O{1}
+%             n_Op{2,:} = O{2}  ...
+%
+% only for single-chain MPS
+% output contains no site-dependence, such as expectation_allsites(). This has to be dealt with inside the calling function!
+%
+% written by FS 09/11/2015
+
+[M,~] = size(n_op);						% M x L
+empty = cellfun('isempty',n_op);
+
+tempC = cell(M,1);						% will contain temporary right-effective operators.
+lastnz = find(sum(~empty,1),1,'last');	% last non-zero
+
+for ii = lastnz:-1:1
+	% sweep from back
+	for m = 1:M
+		tempC{m} = updateCright(tempC{m},mps{ii},Vmat{ii},n_op{m,ii},mps{ii},Vmat{ii});
+	end
+end
+
+n = cellfun(@(x) trace(x), tempC);
+
+
+end
+
+function n = expectation_general_StarMPS(n_op, mps, Vmat, para)
+%% function n = expectation_general(n_op, mps, Vmat, para)
+% computes the expectation value of an arbitrary (general) multi-site operator defined as:
+% O = 1 x L cell
+%		where site-operators are stored in respective cells. Other cells: []
+%	e.g:  < O_i O_j O_k >
+%		O = {[],...,[],O_i,[],...,[],O_j,[],...,[],O_k,[],...}
+%
+% if multiple operators are desired on any chain mc
+% n_Op = M x L x NC cell
+%       where n_Op{1,:,mc} = O{1}
+%             n_Op{2,:,mc} = O{2}  ...
+%
+%
+% only for single-chain MPS
+% output contains no site-dependence, such as expectation_allsites(). This has to be dealt with inside the calling function!
+%
+% written by FS 09/11/2015
+
+[M,~,NC] = size(n_op);					% M x Lmax x NC
+empty = cellfun('isempty',n_op);
+
+n = zeros(M,1);
+
+for mc = 1:NC
+	% find which m can be computed
+	allnz = find(sum(~empty(:,:,mc),2));	% all non-zero for mc
+
+	% reshape MPS into single-chain
+	cL = para.chain{mc}.L;
+	mpsChain  = [mps{1}, cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false)];
+	VmatChain = [Vmat{1}, cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false)];
+	mpsChain{1} = permute(mpsChain{1}, [1:mc,mc+2:NC+1, mc+1, NC+2]);
+	mpsChain{1} = reshape(mpsChain{1}, [],para.D(mc,1),para.dk(1,1));
+
+	% calculate the observables for that chain:
+	n(allnz) = expectation_general(n_op(allnz,:,mc),mpsChain,VmatChain,para);
+end
 
 
 end

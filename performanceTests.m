@@ -104,3 +104,71 @@ for i = 1:rep
 end
 toc
 
+%% Test CPU vs GPU performance (matrix)
+Nruns = 10;
+dims = 10:20:5000;
+tCPU = zeros(length(dims),Nruns);
+tGPU = zeros(length(dims),Nruns);
+gd = gpuDevice;
+
+for ii = 1:length(dims)
+	A = randn(dims(ii));
+	B = randn(dims(ii));
+	C = gpuArray(A);
+	D = gpuArray(B);
+
+	for jj = 1:Nruns
+		t = tic;
+		AB = A*B;
+		tCPU(ii,jj) = toc(t);
+
+		t = tic;
+		CD = C*D;
+		wait(gd);
+		tGPU(ii,jj) = toc(t);
+	end
+
+	fprintf('D = %d, Average CPU time: %g, STD: %g\n', dims(ii), mean(tCPU(ii,:)), std(tCPU(ii,:)));
+	fprintf('D = %d, Average GPU time: %g, STD: %g\n', dims(ii), mean(tGPU(ii,:)), std(tGPU(ii,:)));
+
+end
+
+%% Test CPU vs GPU performance (tensor)
+Nruns = 10;
+dims = 10:20:2000;
+tCPU = zeros(length(dims),Nruns);
+tGPU = zeros(length(dims),Nruns);
+gd = gpuDevice;
+
+for ii = 1:length(dims)
+	A = rand(20,dims(ii),50);
+	B = rand(dims(ii),40);
+	C = gpuArray(A);
+	D = gpuArray(B);
+
+	for jj = 1:Nruns
+		t = tic;
+		A = permute(A,[1,3,2]);
+		A = reshape(A,[],dims(ii));
+		AB = A*B;
+		AB = reshape(AB,20,50,[]);
+		AB = permute(AB,[1,3,2]);
+		tCPU(ii,jj) = toc(t);
+
+		t = tic;
+		CD = pagefun(@mtimes, C,D);
+		wait(gd);
+		tGPU(ii,jj) = toc(t);
+	end
+
+	fprintf('D = %d, Average CPU time: %g, STD: %g\n', dims(ii), mean(tCPU(ii,:)), std(tCPU(ii,:)));
+	fprintf('D = %d, Average GPU time: %g, STD: %g\n', dims(ii), mean(tGPU(ii,:)), std(tGPU(ii,:)));
+
+end
+	%%	Plot results
+	f = figure(); f.Name = 'GPUbench'; ax=gca; hold all
+	plot(dims,mean(tCPU,2));
+	plot(dims,mean(tGPU,2));
+	xlabel('Array Dim');
+	ylabel('Time in s');
+	ax.Color = 'None';
