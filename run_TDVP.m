@@ -59,11 +59,11 @@ para.tdvp.deltaT = dt;					% size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 1;				% much faster I/O saving
+para.tdvp.serialize = 0;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.dm.n.sn.sx.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron, dm: rdm of site 1
+para.tdvp.Observables = '.n.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron, dm: rdm of site 1
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
@@ -76,13 +76,16 @@ para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); defa
     %   if dim(A) < : use built-in expm(At)*v
     %   else        : use Expokit expv(t,A,v, expvTol, expvM)
     %   set maxExpMDim = 0 to only use expv()
+% Dk settings & overrides
+para.tdvp.useDkExpand = 1; para.useDkExpand = 1; para.dkEx2_minExp = 10; para.dkmax	= 1000;
 % OBB settings
 para.tdvp.expandOBB = min(1,OBB);
 % Bond-Dim settings
 para.tdvp.truncateExpandBonds = min(1,Bond);
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = [10,Bond];		%
+% para.tdvp.maxBondDim = [10,Bond];		%
+para.tdvp.maxBondDim = Bond;
 para.Dmin = 2;
 para.tdvp.maxOBBDim  = OBB;
 para.svmaxtol = 10^-4;					% keep 1 below this!
@@ -106,7 +109,7 @@ if loadedFromFile
 end
 
 %% Format Filename
-para.tdvp.version = 'v65';
+para.tdvp.version = 'v66';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!

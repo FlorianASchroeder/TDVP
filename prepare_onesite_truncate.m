@@ -72,12 +72,14 @@ switch para.sweepto
                     %% Expand A dims
                     % Expand A then do SVD since this leaves B with orthonormal
                     % rows. Padding after SVD would only leave zeros.
-                    if sv(end) > para.svmaxtol
+					if sv(end) > para.svmaxtol
 						dimincratio = log10(sv(end)/para.svmaxtol)/2;						% aggressive expansion if min(SV) > SVmaxtol.
+					elseif abs(log10(sv(end))) > 2
+						dimincratio = log10(sv(end)/para.svmintol)/(abs(log10(sv(end)))-1);	% new scheme, also weighted by current lowest exponent, less aggressive than above
 					else
-						dimincratio = log10(sv(end)/para.svmintol)/(abs(log10(sv(end)))-1);		% new scheme, also weighted by current lowest exponent, less aggressive than above
+						dimincratio = log10(sv(end)/para.svmintol)/2;						% new scheme for big SV, even less aggressive than above
 					end
-                    adddim = ceil(D1*dimincratio);          %increase 20%
+                    adddim = ceil(D1*dimincratio);          % at least 1 for dimincratio != 0
 					if isfield(para,'tdvp')
 						if sitej ~= 1 && length(para.tdvp.maxBondDim) > 1
 							adddim = min(adddim, para.tdvp.maxBondDim(2) - D1);

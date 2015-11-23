@@ -541,7 +541,7 @@ switch para.model
 	% Created 05/10/15 by F.S.
 	switch s
 		case 1		% is the pentacene system!
-			[H0,H1] = DPMES_Operators('3-4C');
+			[H0,H1] = DPMES_Operators('3-4C',para);
 			zm      = zeros(3);
 			op.h1term{1,1}      = H0;
 			for i = 1:4
@@ -589,7 +589,7 @@ switch para.model
 	% Created 04/10/15 by F.S.
 	switch s
 		case 1		% is the pentacene system!
-			[H0,H1] = DPMES_Operators('4-5C');
+			[H0,H1] = DPMES_Operators('4-5C',para);
 			zm      = zeros(size(H0,1));
 			op.h1term{1,1}      = H0;
 			for i = 1:length(H1)
@@ -653,9 +653,9 @@ end
 
 end
 
-function [H0, H1] = DPMES_Operators(nModel)
+function [H0, H1] = DPMES_Operators(nModel,para)
 %% creates the Hamiltonian terms for the DPMES molecule.
-states = load('DPMESdata_20151105/states.dat');		% [#state, E(eV)]
+states = para.systemStates;
 switch nModel
 	case '3-4C'
 		% TT, LE+, CT+ with 4 chains

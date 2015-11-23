@@ -472,6 +472,7 @@ legend('Bloch length','Visibility');
 mode = 0;		% 0: lin, 1: log
 f=figure(312); clf; f.Name = 'Chain Occupation';
 % x = res{9,1}; tresults = x.tresults; para = x.para;
+x = res(9); tresults = x.tresults; para = x.para;
 mc = 1;							% choose chain for display!
 if str2double(para.tdvp.version(2:end)) < 50
 	tresults.n = tresults.nx;
@@ -518,6 +519,7 @@ del = findobj(f,'Type','hgjavacomponent'); del.delete;	% get rid of old sliders
 hold all; ax = gca; ax.UserData = 1;
 hPl = handle(ax); hProp = findprop(hPl,'UserData');
 % x = res{9,1}; tresults = x.tresults; para = x.para;
+% x = res(9); tresults = x.tresults; para = x.para;
 if str2double(para.tdvp.version(2:end)) < 50
 	tresults.n = tresults.nx;
 end
@@ -564,6 +566,19 @@ javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
 sld.setUnitIncrement(1); sld.setBlockIncrement(3);
 hsld = handle(sld,'CallbackProperties');
 set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax,'userdata',round(source.Value)));
+%% TDVP (3.1): Plot <n> CHAIN - TDVPData
+mode = 0;		% 0: lin, 1: log
+f=figure(313); clf; f.Name = 'Chain Occupation';
+del = findobj(f,'Type','hgjavacomponent'); del.delete;	% get rid of old sliders
+hold all;
+
+% x = res(35);
+
+if mode
+	h = x.plotSld2D('chain-n','-log');
+else
+	h = x.plotSld2D('chain-n','-fsev');
+end
 
 %% TDVP (3.2): Plot <n> STAR
 mode = 0;		% 0: lin, 1: log
@@ -1191,7 +1206,7 @@ if mode
 end
 % set(gca,'Xlim',[1,15]);
 %% TDVP (4) Bond Dimension Plots
-%% TDVP (4.1): Plot d_opt
+%% TDVP (4.1): Plot d_opt - per chain
 f=figure(411); clf; f.Name = 'OBB Dimension';
 mc = 2;				% choose Chain!
 if issparse(results.tdvp.d_opt)							% convert into full array & reshape
@@ -1209,10 +1224,25 @@ set(gca,'View',[0 90]);
 shading interp
 rotate3d on
 axis tight
+%% TDVP (4.1): Plot d_opt - all chains
+f=figure(411); clf; f.Name = 'OBB Dimension';
+if issparse(results.tdvp.d_opt)							% convert into full array & reshape
+	n = find(sum(abs(results.tdvp.d_opt),2),1,'last');	%tresults.lastIdx;
+else
+	n = size(results.tdvp.d_opt,1);
+end
+surf(1:size(results.tdvp.d_opt,2),para.tdvp.t(1:n),cumsum(results.tdvp.d_opt(1:n,:)))
+xlabel('Site $k$');
+ylabel('Time $t$');
+zlabel('$d_{opt}$');
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
 
-%% TDVP (4.2): Plot D
+%% TDVP (4.2): Plot D - per chain
 f=figure(421); clf; f.Name = 'Bond Dimension';
-mc = 1;				% choose Chain!
+mc = 3;				% choose Chain!
 if issparse(results.tdvp.D)						% convert into full array & reshape
 	n = find(sum(abs(results.tdvp.D),2),1,'last'); %tresults.lastIdx;
 	results.tdvp.D = uint8(full(cumsum(results.tdvp.D(1:n,:))));
@@ -1221,7 +1251,23 @@ else
 	n = size(results.tdvp.D,1);
 end
 surf(1:para.L-1,para.tdvp.t(1:n),results.tdvp.D(:,:,mc))
-
+colorbar
+xlabel('Site $k$');
+ylabel('Time $t$');
+zlabel('$D$');
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
+%% TDVP (4.2): Plot D - all chains
+f=figure(421); clf; f.Name = 'Bond Dimension';
+if issparse(results.tdvp.D)
+	n = find(sum(abs(results.tdvp.D),2),1,'last'); %tresults.lastIdx;
+else
+	n = size(results.tdvp.D,1);
+end
+surf(1:size(results.tdvp.D,2),para.tdvp.t(1:n),cumsum(results.tdvp.D(1:n,:)))
+colorbar
 xlabel('Site $k$');
 ylabel('Time $t$');
 zlabel('$D$');
@@ -1231,6 +1277,24 @@ rotate3d on
 axis tight
 
 %% TDVP (4.3): Plot d_k
+f=figure(431); clf; f.Name = 'Local Dimension';
+mc = 1;				% choose Chain!
+if issparse(results.tdvp.dk)						% convert into full array & reshape
+	n = find(sum(abs(results.tdvp.dk),2),1,'last'); %tresults.lastIdx;
+	results.tdvp.dk = uint8(full(cumsum(results.tdvp.dk(1:n,:))));
+	results.tdvp.dk = reshape(results.tdvp.dk,n,para.L-1,[]);
+else
+	n = size(results.tdvp.dk,1);
+end
+surf(1:para.L*para.nChains,para.tdvp.t(1:n),results.tdvp.dk(:,:,mc))
+
+xlabel('Site $k$');
+ylabel('Time $t$');
+zlabel('$D$');
+set(gca,'View',[0 90]);
+shading interp
+rotate3d on
+axis tight
 %% TDVP (6): Plot vNE of A / V
 ii = 4;
 figure(600+ii); clf;
@@ -1259,7 +1323,7 @@ axis tight
 % formatPlot(7)
 
 %% TDVP (6.1): Vmat, use of dk Slider in L for Multi-Chain!
-nc = 5;		% which chain?
+nc = 1;		% which chain?
 ii = 0;
 % x = res{10+ii,1}; Vmat = x.Vmat; results = x.results;
 figure(610+ii); clf; ax = {};
@@ -1277,7 +1341,7 @@ ax{1}.Position(4) = origHeight*0.8;
 ax{2} = axes('Position',[ax{1}.Position(1:2)+[0,ax{1}.Position(4)], abs(ax{1}.Position(3:4)-[0,origHeight])]);
 pl2 = plot(log10(results.Vmat_sv{nc,ax{1}.UserData})); axis tight
 hPl.addlistener(hProp,'PostSet',@(src,event) set(pl2,'ydata',log10(results.Vmat_sv{nc,ax{1}.UserData})));
-% ax{2}.XTick = [];
+ax{2}.XTickLabel = [];
 % ax{2}.YLim=ax{2}.YLim;
 ax{2}.XLim = ax{1}.XLim;
 hPl.addlistener(hProp,'PostSet',@(src,event) set(ax{2},'XLim',ax{1}.XLim));
@@ -1501,12 +1565,20 @@ else
 	t=para.tdvp.t;		% for the old files
 end
 for ii = 1:size(n,2)
-% 	plot(t(1:idx)*0.658,n(1:idx,ii))
-	plot(t(1:idx),(n(1:idx,ii)));
+	plot(t(1:idx)*0.658,n(1:idx,ii))
+% 	plot(t(1:idx),(n(1:idx,ii)));
 end
 leg = legend('TT','LE+','CT+','CT-');
-% xlabel('t in fs')
-xlabel('t');
+xlabel('t in fs')
+% xlabel('t');
+grid on
+	%% TDVPData
+f=figure(702);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
+x = res(9);
+% pl = x.plot('rhoii'); xlabel('$t$');
+pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
+leg = legend('TT','LE+','CT+','CT-');
+ylabel('$\rho_{ii}$');
 grid on
 
 %% TDVP (7.2) MLSBM RHO 1D
@@ -1529,6 +1601,16 @@ leg = legend('TT/LE+','LE+/CT+','TT/CT+');
 xlabel('t in fs')
 grid on
 set(gca,'yscale','log')
+
+%% TDVP (7.3) MLSBM HsHi
+f=figure(731);  f.Name = 'DPMES HsHi'; clf; hold all; ax = gca;
+x = res(9);
+% pl = x.plot('hshi');xlabel('$t$')
+pl = x.plot('hshi','-fsev');xlabel('$t/fs$')
+leg = legend('$H_S$','$H_I(1)$','$H_I(2)$','$H_I(3)$','$H_I(4)$','$H_I(5)$','$H_S+\sum H_I$');
+ylabel('$\left<H\right>/eV$');
+grid on
+% set(gca,'yscale','log')
 
 %% TDVP z-averaging in one file
 % naming scheme to find files:
@@ -4074,12 +4156,13 @@ end
 % Purpose to Benchmark StarMPS
 clear
 defPlot(1,:) = {'20151109-DPMES-v64-L7DSweep-D10-2ndParams',				[ 1: 2], {'xlim',[0,1.5e3],'yscale','lin'}};
-defPlot(2,:) = {'20151109-DPMES4-5C-v64-L7DSweep-D10-3rdParams',			[ 3: 7], {'xlim',[0,600],'yscale','lin'}};
-% defPlot(2,:) = {'20151109-DPMES4-5C-v64-L7DSweep-D10-3rdParams',			[ 3: 7], {'xlim',[0,100],'yscale','lin'}};
+defPlot(2,:) = {'20151109-DPMES4-5C-v64-L7DSweep-D10-3rdParams',			[ 3: 7], {'xlim',[0,1.5e3],'yscale','lin'}};
+defPlot(3,:) = {'20151110-DPMES4-5C-v65-L7DSweep-D10-3rdParams-high',		[ 8:13], {'xlim',[0,1.5e3],'yscale','lin'}};
+defPlot(4,:) = {'20151113-DPMES4-5C-v65-L7DSweep-D10-3rdParams-high-dk200',	[14:16], {'xlim',[0,1.5e3],'yscale','lin'}};
+
 i=0; cols = 5;
 %%To update library:
-%%TDVPfolds = TDVPData.getTDVPLib();
-%%save('TDVPLib.mat','TDVPfolds');
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
 %
 load('TDVPLib.mat');
 %
@@ -4130,15 +4213,43 @@ for file = {matches.name}
 end
 [y,I] = sort([res((offset+1):end).dt]);
 res((offset+1):end,1) = res(offset+I,1);
+
+% 8-13: Params v3-high simulation + HsHi
+foldPattern = '20151110-1125-DPMES4-5C-Star-v65TCMde10-dk100D10dopt5L7';
+filePattern = 'results-Till1500Step0.1v65-OBBmax60-Dmax.*0-expvCustom.*-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('D%g',res(i).para.tdvp.maxBondDim(end)));
+	res(i) = res(i).setComment('dk100, OBB60, D10');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 14-16: Params v3-high simulation + HsHi + dk200/1000
+foldPattern = '20151113-1357-DPMES4-5C-Star-v65TCMde10-dk200D10dopt5L7';
+filePattern = 'results-Till1500Step0.1v65-OBBmax60-Dmax.*0-expvCustom.*-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('D%g',res(i).para.tdvp.maxBondDim(end)));
+	res(i) = res(i).setComment('dk200, OBB60, D10');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
 %%
 for fignum = 1:size(defPlot,1)
 	f = figure(fignum); clf; hold all; ax = gca;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
-% 	xmax = max(arrayfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
-% 	col = ax.ColorOrder;
-% 	ax.ColorOrder = kron(col,[1;1;1;1]);
-	ph = arrayfun(@(x) x.plot('rhoii'), res(pick), 'UniformOutput', false);
+% 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
+	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx)*0.658, abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
 % 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
 % 	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
@@ -4150,8 +4261,8 @@ for fignum = 1:size(defPlot,1)
 	fs = 22;
 	leg.FontSize = fs;
 	set(ax,defPlot{fignum,3}{:});
-% 	xlabel('$t/fs$');
-	xlabel('$t$');
+	xlabel('$t/fs$');ax.XLim(2) = 0.658*ax.XLim(2);
+% 	xlabel('$t$');
 	ylabel('$\rho_{ii} (t)$');
 	fs = 22;
 	formatPlot(fignum,'twocolumn-single');
@@ -5039,7 +5150,7 @@ csvwrite('visibility02.dat',[x,y]);
 %% Save all currently opend figures
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
-	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m3', f_handles(ii));
+	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
 end
 
 %% Deserialise all Variables

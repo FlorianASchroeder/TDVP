@@ -612,7 +612,7 @@ for j = 1:para.L
 			bp_OBB{j, mc} = contractMultiChainOBB(Vmat{j}, bp, para);
 		else	% Spin & Multi-Level System
 			bp = zeros(size(Vmat{j},1));
-			bp(stateProj,stateProj) = 1/2;
+			bp(stateProj,stateProj) = 1/2;						% since f = (a + a^+)/2
 			bp_OBB{j,mc} = Vmat{j}' * bp * Vmat{j};				% Spin-site Vmat
 		end
 	end
@@ -910,8 +910,8 @@ for mc = 1:M
 	if all(empty == L), continue; end
 	% else: extract mpsChain, mpsVmat including system site
 	cL = para.chain{mc}.L;
-	mpsChain  = [mps{1}, cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false)];
-	VmatChain = [Vmat{1}, cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false)];
+	mpsChain  = [mps(1), cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false)];
+	VmatChain = [Vmat(1), cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false)];
 	mpsChain{1} = permute(mpsChain{1}, [1:mc,mc+2:NC+1, mc+1, NC+2]);
 	mpsChain{1} = reshape(mpsChain{1}, [],para.D(mc,1),para.dk(1,1));
 	for ii = find(empty ~= L)
@@ -1026,12 +1026,16 @@ lastnz = find(sum(~empty,1),1,'last');	% last non-zero
 for ii = lastnz:-1:1
 	% sweep from back
 	for m = 1:M
-		tempC{m} = updateCright(tempC{m},mps{ii},Vmat{ii},n_op{m,ii},mps{ii},Vmat{ii});
+		if ii == 1 && size(mps{1},1) > size(mps{1},2)
+			n(m) = trace(updateCleft([],mps{ii},Vmat{ii},n_op{m,ii},mps{ii},Vmat{ii})*tempC{m}.');		% contract left first, since memory can blow up!
+		else
+			tempC{m} = updateCright(tempC{m},mps{ii},Vmat{ii},n_op{m,ii},mps{ii},Vmat{ii});
+			if ii == 1
+				n(m) = trace(tempC{m});
+			end
+		end
 	end
 end
-
-n = cellfun(@(x) trace(x), tempC);
-
 
 end
 

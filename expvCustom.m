@@ -64,11 +64,19 @@ while t_now < t_out
   V(:,1) = (1/beta)*w;
   for j = 1:m
 		p = AFUN(V(:,j));			% AFUN is handle to specific function
+%		pt = p; normp = norm(p);
 %      p = A*V(:,j);
      for i = 1:j					% Modified Gram-Schmidt orthogonalisation
         H(i,j) = V(:,i)'*p;
         p = p-H(i,j)*V(:,i);
      end;
+	% Reorthogonalize to ensure orthogonal V-matrix. This is time consuming and might not be essential to the algorithm
+	% Nevertheless, without it, V can deviate quite strongly!
+% 		nonOrthRest = V(:,1:j)' * p;	% vectorised Modified Gram-Schmidt orthogonalisation, based on orthogonal V(:,1:j), slower than for-loop!
+% 		while norm(nonOrthRest) > btol
+% 			p = p - V(:,1:j)*nonOrthRest;
+% 			nonOrthRest = V(:,1:j)' * p;
+% 		end
      s = norm(p);
      if s < btol,					% if residual orthogonal vector shorter than btol -> invariant subspace -> step out
         k1 = 0;

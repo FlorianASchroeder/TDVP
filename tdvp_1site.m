@@ -276,6 +276,11 @@ for timeslice = para.tdvp.slices
 
         fprintf('%g', sitej);
 
+		%% Expand / Truncate dk if needed!
+		if para.tdvp.useDkExpand
+			[Vmat{sitej}, para, results, op] = truncateExpandDk(Vmat{sitej},para,results,op);
+		end
+
         %% update right Hamiltonian operators
         % prepare operators in (sitej+1) for time-evolution on sitej
 		para.sitej = para.sitej+1;					% needed for multi-chain reshape
@@ -349,7 +354,9 @@ for timeslice = para.tdvp.slices
 		if para.tdvp.truncateExpandBonds
 	        results.tdvp.D(n,:)       = para.D - sum(results.tdvp.D);
 		end
-%		if expand... then results.tdvp.dk(n,:)      = para.dk - results.tdvp.dk(n-1,:);
+		if para.tdvp.useDkExpand
+			results.tdvp.dk(n,:)      = para.dk - results.tdvp.dk(n-1,:);
+		end
 	end
 	if ~exist('tresults','var')
 		% calculate everything up to now!
@@ -420,6 +427,34 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
             para.d_opt(sitej)=size(Vmat{sitej},2);
             results.Vmat_sv{sitej}(discarddims(difference+1:end))=[];
         end
+	end
+
+	function [Vmat,para,results,op] = truncateExpandDk(Vmat,para,results,op)
+		%% function [Vmat, para, op] = truncateExpandDk(Vmat,para,op)
+		%	truncates or expands the local dimension dk based on the OBB usage
+		%	the vectors in Vmat and their SV are the indicators
+		%	for now only for standard single-chain VMPS
+		%	Input: Vmat = Vmat{sitej}, single-site Vmat
+		if para.useVtens || ~para.useDkExpand || ~para.useVmat
+			return;			% Do nothing
+		end
+
+		%% Determine whether to truncate or to expand: Copied from adjustdopt.m
+		adddim = estimateDkExpand(Vmat,results.Vmat_sv{1,para.sitej}, para);
+		if adddim > 0
+        %% Apply the expansion
+			[dk,dOBB]   = size(Vmat);
+			para.dk(s)  = dk+adddim;						% operators will be expanded in genh1h2term?
+			addmat  = zeros(adddim,dOBB);
+% 			Vmat{s} = cat(1,addmat,Vmat{s});			% N:1 ordering
+			Vmat{s} = cat(1,Vmat{s},addmat);			% 1:N ordering
+			para.hasexpanded = 1;
+			para.increasedk  = 0;							% reset this value
+% 			dispif('Increased dk',para.logging)
+		end
+		% expand the operators:
+		op = genh1h2term_onesite(para,op,para.sitej);
+		% since only zeros were added, no further update of h1j/OBB etc is needed.
 	end
 
 	function initresultsTDVP()

@@ -76,6 +76,7 @@ end
 	%	'None': exact mapping
 	%	other methods not yet supported
 para.L = L;
+para.systemStates = load('DPMESdata_20151105/states.dat');		% [#state, E(eV)]
 %% chain 1:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
 para.chain{1}.mapping			= 'LanczosTriDiag';
 para.chain{1}.spectralDensity	= 'CoupDiscr';
@@ -262,13 +263,13 @@ if strcmp(para.model,'DPMES3-4C')
 	para.dk(1,para.spinposition)	= 3;
 	para.dk(2:end,para.spinposition) = 1;	% non-existent singleton!
 	para.d_opt(1:end,para.spinposition) = 3;
-	para.dk(3,2)     = 500;
+% 	para.dk(3,2)     = 500;
 elseif strcmp(para.model,'DPMES4-5C')
 	para.M = 5*2;
 	para.dk(1,para.spinposition)	= 4;
 	para.dk(2:end,para.spinposition) = 1;	% non-existent singleton!
 	para.d_opt(1:end,para.spinposition) = 4;
-	para.dk(3,2)     = 500;
+% 	para.dk(3,2)     = 500;					% Do not specially treat when para.tdvp.useDkExpand = 1;
 end
 
 %% Multi-Level Spin Boson Model for PPC
@@ -443,7 +444,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v65';
+para.version = 'v66';
 Descr = para.version;
 if ~strcmp(computer,'PCWIN64')
 	Descr = sprintf('%sTCM%s',para.version,para.hostname(3:end));

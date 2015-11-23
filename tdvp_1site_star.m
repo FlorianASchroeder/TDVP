@@ -117,7 +117,7 @@ elseif resumeTDVP == 1
 	% need to regenerate hamiltonian operators?
 % 	[para]		= SBM_genpara(para);					% chain parameters have not changed!
 % 	[op,para]	= genh1h2term(para);					% Hamiltonian has not changed!
-	[op]		= initstorage(mps, Vmat, op,para);
+% 	[op]		= initstorage(mps, Vmat, op,para);		% REMOVED since not compatible with StarMPS! also: not necessary anymore (I hope)
 	% since op is backed up less often!
 elseif resumeTDVP == 2
 	%% If continue previously completed TDVP
@@ -315,10 +315,16 @@ for timeslice = para.tdvp.slices
 
 			fprintf('%g', sitej);
 
+			%% Expand / Truncate dk if needed!
+			if para.tdvp.useDkExpand && sitej+1 >= 1
+				% para is needed to call genh1h2term_onesite correctly
+				[VmatChain{sitej+1}, para, paraChain, resultsChain, op, opChain] = truncateExpandDk(VmatChain{sitej+1},para, paraChain,resultsChain,op,opChain, sitej+1);
+			end
+
 			%% update right Hamiltonian operators
 			% prepare operators in (sitej+1) for time-evolution on sitej
 			paraChain.sitej = paraChain.sitej+1;					% needed for multi-chain reshape
-			opChain = updateop(opChain,mpsChain,VmatChain,sitej+1,paraChain);
+			opChain         = updateop(opChain,mpsChain,VmatChain,sitej+1,paraChain);
 			paraChain.sitej = paraChain.sitej-1;
 
 			if paraChain.useVmat
@@ -366,6 +372,7 @@ for timeslice = para.tdvp.slices
 	d = size(mps{1}); para.sweepto = 'l';
 	[mps{1}, Cn] = prepare_onesite(reshape(mps{1},1,[],d(end)),para,1);
 	mps{1} = reshape(mps{1},d);
+
 
 	fprintf('\n');
 	if paraChain.tdvp.truncateExpandBonds
@@ -429,7 +436,9 @@ for timeslice = para.tdvp.slices
 		if para.tdvp.truncateExpandBonds
 	        results.tdvp.D(n,:)       = reshape(para.D.',1,[]) - sum(results.tdvp.D);
 		end
-%		if expand... then results.tdvp.dk(n,:)      = para.dk - results.tdvp.dk(n-1,:);
+		if para.tdvp.useDkExpand
+			results.tdvp.dk(n,:)      = reshape(para.dk.',1,[]) - sum(results.tdvp.dk);
+		end
 	end
 	if ~exist('tresults','var')
 		% calculate everything up to now!
@@ -488,6 +497,43 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
         end
 	end
 
+	function [Vmat,para,paraC,results,op,opC] = truncateExpandDk(Vmat,para,paraC,results,op,opC,s)
+			%% function [Vmat, para, op] = truncateExpandDk(Vmat,para,op)
+			%	truncates or expands the local dimension dk based on the OBB usage
+			%	the vectors in Vmat and their SV are the indicators
+			%	for now only for standard single-chain VMPS
+			%	Input: Vmat = Vmat{sitej}, single-site Vmat
+			if para.useVtens || ~para.useDkExpand || ~para.useVmat
+				return;			% Do nothing
+			end
+			% s = sitej;
+			nc = para.currentChain;
+			M = para.M/para.nChains;
+
+			%% Determine whether to truncate or to expand: Copied from adjustdopt.m
+			adddim = estimateDkExpand(Vmat,results.Vmat_sv{1,s}, para);
+			if adddim > 0
+			%% Apply the expansion
+				[dk,dOBB]   = size(Vmat);
+				paraC.dk(s)  = dk+adddim;						% operators will be expanded in genh1h2term?
+				para.dk(nc,s+1) = paraC.dk(s);				% needs to be updated now!
+				addmat  = zeros(adddim,dOBB);
+	% 			Vmat = cat(1,addmat,Vmat);			% N:1 ordering
+				Vmat = cat(1,Vmat,addmat);			% 1:N ordering
+				paraC.hasexpanded = 1;
+				paraC.increasedk  = 0;							% reset this value
+	% 			dispif('Increased dk',para.logging)
+			end
+			% expand the operators of the Full StarMPS:
+			op = genh1h2term_onesite(para,op,s+1);			% additional s+1, since in StarMPS picture
+			% copy out the chain operators
+			%   although they might not be needed anymore
+			opC.h1term(s)     = op.h1term(nc, s+1);
+			opC.h2term(:,:,s) = op.h2term( M*(nc-1)+(1:M), :, s+1, nc);
+
+			% since only zeros were added in Vmat, no further update of h1j/OBB etc is needed.
+	end
+
 	function results = initresultsTDVP(para, results)
 		% save Dimension Log only as difference! reconstruct with cumsum(A)
 		fprintf('Initialize results.tdvp\n');
@@ -533,7 +579,14 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			end
 			results.tdvp.D(1,:)				= reshape(para.D.',1,[]);
 		end
-% 		dk not expanded yet -> do not log!
+		if para.tdvp.useDkExpand
+			if para.useStarMPS
+				results.tdvp.dk				= sparse(n,L*NC);
+			else
+				results.tdvp.dk				= sparse(n,L);
+			end
+			results.tdvp.dk(1,:)			= reshape(para.dk.',1,[]);
+		end
 %		results.tdvp.dk 		  = sparse(n,para.L);
 %		results.tdvp.dk(1,:)      = para.dk;
 		results.tdvp.expvTime     = [];
