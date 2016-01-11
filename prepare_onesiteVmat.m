@@ -5,6 +5,7 @@ function [Vmat, V, results, d_opt, sv] = prepare_onesiteVmat(Vmat,para,results,s
 %	put result saving within first if-statement, as otherwise assigned NULL??
 
 [dk, d_opt] = size(Vmat);
+err = 0;
 if dk>=d_opt
 	if para.parity=='n'
 		[Vmat, S, V] = svd2(Vmat);				% TODO: if nargin ==4 then SVD, store results else QR; only for 'n'
@@ -13,7 +14,7 @@ if dk>=d_opt
 		end
 		sv = diag(S);
 		if nargin == 5 && MinDim < d_opt % Do Truncation
-			[Vmat, sv, V] = truncateUSV(Vmat, sv, V, para, MinDim);
+			[Vmat, sv, V, ~, err] = truncateUSV(Vmat, sv, V, para, MinDim);
 			S = diag(sv);
 		end
         Vmat_vNE = vonNeumannEntropy(S);
@@ -36,5 +37,6 @@ end
 if nargin >= 4 && ~isempty(results)
     results.Vmat_vNE(sitej) = Vmat_vNE;
     results.Vmat_sv{sitej}  = sv;
+	results.Vmat_truncErr(sitej) = err;
 end
 end

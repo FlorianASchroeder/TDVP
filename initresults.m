@@ -14,6 +14,9 @@ r.Vmat_sv  = cell(1,L);
 r.Amat_sv  = cell(1,L-1);
 r.Vmat_vNE = zeros(1,L); %phonon basis von Neumann Amat_vNEj
 r.Amat_vNE = zeros(1,L-1);
+r.Vmat_truncErr = zeros(1,L);
+r.Amat_truncErr = zeros(1,L-1);
+
 if para.parity~='n'
     % old code:
     %r.Vmat_sv=zeros(L,max(d_opt)/2);

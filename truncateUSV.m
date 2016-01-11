@@ -23,14 +23,15 @@ end
 if para.tdvp.imagT
 	sv = sv./norm(sv);
 end
+err = 0;
 %% Truncate A dims
 % fprintf('\n SV norm: %g\n',sum(sv.^2));
 keepdims = find(sv > svmintol);
 if length(keepdims) < minDim                     % keep at least Dmin bonds
 	keepdims = (1:minDim)';
 end
-% If smallest SV too large, keep 1 more
-if (sv(keepdims(end)) > svmaxtol)
+% If smallest SV too large (also after normalisation), keep 1 more
+while (sv(keepdims(end))/norm(sv(keepdims)) > svmaxtol)
 	if keepdims(end)+1 < length(sv)
 		keepdims = [keepdims;keepdims(end)+1];
 	else
@@ -41,10 +42,14 @@ if (sv(keepdims(end)) > svmaxtol)
 end
 if length(keepdims) < length(sv)
 	U = u(:,keepdims);                          % keep columns
-	S = sv(keepdims);
+	S = sv(keepdims)./norm(sv(keepdims));		% normalise to keep ||psi|| = 1
 	V = v(keepdims,:);                          % keep rows
     newDim = length(keepdims);
-	err = norm(sv)-norm(S);
+
+	% truncation error estimation
+	truncdims = 1:length(sv);
+	truncdims(keepdims) = [];
+	err = sum(sv(truncdims).^2);				% all disregarded SV^2
 else
 	U = u; S = sv; V = v; newDim = length(sv);
 end

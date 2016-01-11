@@ -12,6 +12,7 @@ function [B, U, para, results, sv, vNE] = prepare_onesite_truncate(A,para,sitej,
 
 [D1, D2, d] = size(A);
 D_old = para.D;
+err = 0;
 switch para.sweepto
     case 'r'
         if para.parity=='n'
@@ -42,7 +43,7 @@ switch para.sweepto
                     U = U(:,1:D2);                      % form old Bond Dim in columns == U=cat(2,U,addmat);
 				else
                     %% Truncate A dims
-                    [B, S, U] = truncate(B,S,U);
+                    [B, S, U, err] = truncate(B,S,U);
                 end
             end
             DB = size(S, 1);				% new a2 dimension of B
@@ -95,7 +96,7 @@ switch para.sweepto
                     U = U(1:D1,:);                      % form old Bond Dim in columns == U=cat(2,U,addmat);
                 else
                     %% Truncate A dims
-                    [U, S, B] = truncate(U,S,B);
+                    [U, S, B, err] = truncate(U,S,B);
                     % If Bond Dim truncated then sv(end) < para.svmaxtol
                 end
             end
@@ -119,37 +120,44 @@ vNE = vonNeumannEntropy(S);
 if nargin == 4 && resultsSite >= 1
     results.Amat_vNE(resultsSite) = vNE;
     sv(sv < eps) = 0;					% need to set to zero, since otherwise might have artifacts after expansion!
-    if length(sv)==para.D(resultsSite) || (length(sv)==para.D(resultsSite)/2 && (para.parity~='n'))
+	if length(sv)==para.D(resultsSite) || (length(sv)==para.D(resultsSite)/2 && (para.parity~='n'))
         results.Amat_sv{resultsSite} = sv;
-    end
+	end
+	results.Amat_truncErr(resultsSite) = err;
 end
 
-    function [U, S, V] = truncate(U,S,V)
+    function [U, S, V, err] = truncate(U,S,V)
     %% Truncates Bond Dimensions
     % keeps always one SV in range [para.svmaxtol, para.svmintol]
     %   if not possible -> Do nothing, expand later
     % keeps always at least para.Dmin many dimensions
     % by Florian Schroeder 29/10/2014
         sv = diag(S);
+		err = 0;
 		%% Truncate A dims
         keepdims = find(sv > para.svmintol);
         % If smallest SV too large, keep 1 more
-        if (sv(keepdims(end)) > para.svmaxtol)
-            if keepdims(end)+1 <= length(sv)
+		while (sv(keepdims(end))/norm(sv(keepdims)) > para.svmaxtol)
+			if keepdims(end)+1 <= length(sv)
                 keepdims = [keepdims;keepdims(end)+1];
-            else
+			else
 %                 newBondDim = length(sv);        % = old Dim
                 % expand Bond dims! Happens automatically!
-            end
-        end
+			end
+		end
         if length(keepdims) < para.Dmin                     % keep at least Dmin bonds
             keepdims = 1:para.Dmin;
         end
         if length(keepdims) < length(sv)				% && sitej < para.trustsite(end)
             U = U(:,keepdims);                          % keep columns
-            S = S(keepdims,keepdims);
+            S = diag(sv(keepdims)./norm(sv(keepdims)));
             V = V(keepdims,:);                          % keep rows
 %             newBondDim = length(keepdims);
+
+			% truncation error estimation
+			truncdims = 1:length(sv);
+			truncdims(keepdims) = [];
+			err = sum(sv(truncdims).^2);				% all disregarded SV^2
         end
     end
 
