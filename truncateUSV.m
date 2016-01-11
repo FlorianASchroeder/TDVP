@@ -1,5 +1,5 @@
-function [U, S, V, newDim] = truncateUSV(u,sv,v, para, minDim)
-%% [U, S, V] = truncateUSV(U,S,V, para, minDim)
+function [U, S, V, newDim, err] = truncateUSV(u,sv,v, para, minDim)
+%% [U, S, V, newDim, epsilon] = truncateUSV(U,S,V, para, minDim)
 % Truncates Bond Dimensions according to Singular Values
 % keeps always one SV in range [para.svmaxtol, para.svmintol]
 % keeps always at least minDim dimensions
@@ -11,6 +11,7 @@ function [U, S, V, newDim] = truncateUSV(u,sv,v, para, minDim)
 % by Florian Schroeder 08/08/2015
 % Modified
 %	FS 28/08/2015: - truncate after sv normalisation!
+%	FS 11/01/2016: - return truncation error
 
 if ~isempty(para)
 	svmintol = para.svmintol;
@@ -43,6 +44,7 @@ if length(keepdims) < length(sv)
 	S = sv(keepdims);
 	V = v(keepdims,:);                          % keep rows
     newDim = length(keepdims);
+	err = norm(sv)-norm(S);
 else
 	U = u; S = sv; V = v; newDim = length(sv);
 end

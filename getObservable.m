@@ -158,10 +158,14 @@ switch type{1}
 		end
 
 	case 'bath1correlators'
+		% = state projected chain polaron
 		% needed for mapping from chain to star, starpolaron
-		% returns a L x 2 x nChains Vector
+		% returns a L x dk(1,1) x nChains Vector
+		%
+		% by default:
+		% {'bath1correlators'}            : projects onto diabatic states
+		% {'bath1correlators','adiabatic'}: projects onto adiabatic states
 
-		out(para.L,2,para.nChains) = 0;
 		if para.useStarMPS
 			NC = para.nChains;
 			out = zeros(para.L, para.dk(1,1), NC);
@@ -178,27 +182,44 @@ switch type{1}
 				paraC.dk = para.dk(mc,:); paraC.dk(1) = para.dk(1,1);	% need to preserve system dk
 				paraC.shift = para.shift(mc,:);
 				% calculate <anam>
-				out(1:paraC.L,1,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,1);
-				out(1:paraC.L,2,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,2);
-				if para.dk(1,1) == 3
-					out(1:paraC.L,3,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,3);
+				if length(type) == 1 || strcmpi(type{2},'diabatic')
+					% diabatic projections (H0 eigenstates)
+					for kk = 1:paraC.dk(1,1)
+						stateProj = zeros(paraC.dk(1,1)); stateProj(kk,kk) = 1;
+						bondProj  = [];
+						out(1:paraC.L,kk,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,stateProj,bondProj);
+					end
+				elseif strcmpi(type{2},'adiabatic')
+					% adiabatic states
+					for kk = 1:paraC.dk(1,1)
+						stateProj = [];
+						bondProj  = zeros(para.D(mc,1)); bondProj(kk,kk) = 1;
+						out(1:paraC.L,kk,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,stateProj,bondProj);
+					end
 				end
 			end
-		else
-			out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,1);	% spin up
-			out(:,2,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,2);	% spin down
+		else			% standard SBM -> dk = 2
+			out(para.L,2,para.nChains) = 0;
+			out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[1,0;0,0]);	% spin up
+			out(:,2,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[0,0;0,1]);	% spin down
 		end
 
 	case 'starpolaron'
 		%% does mapping chain -> star
 		% uses bath1correlators
 		% x stands for continuous variable (momentum k)
-		% Does up/down projection!
+		% Does state projection!
 		% Works with Single and Multi Chain Vmat / Vtens
+		%
+		%
 		if para.foldedChain == 1, error('FoldedChain not yet implemented for polaron'); end
 		NC = para.nChains;
 		% Get correlators
-		An = real(getObservable({'bath1correlators'},mps,Vmat,para));		% L x states x nChains
+		if length(type) == 1 || strcmpi(type{2},'diabatic')
+			An = real(getObservable({'bath1correlators'},mps,Vmat,para));		% L x states x nChains
+		elseif strcmpi(type{2},'adiabatic')
+			An = real(getObservable({'bath1correlators','adiabatic'},mps,Vmat,para));		% L x states x nChains
+		end
 % 		AnUp   = real(calBath1SiteCorrelators_MC(mps,Vmat,para,1));			% L x nChains
 % 		AnDown = real(calBath1SiteCorrelators_MC(mps,Vmat,para,-1));		% L x nChains
 
@@ -590,12 +611,15 @@ end
 
 end
 
-function An = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj)
+function An = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj,bondProj)
 % calculates Re<(1+-sz)/4 * a_n^+>.
 % output is matrix containing all values for all chains (L x nChains)
 % Only calculate Re, since Im is not needed! -> saves space!
 % custom made solution for biggest speedup, exact solution!
-% spinProj = +-1 to select up/down projection.
+% 	stateProj: equals state-projection operator, normalised!
+%	bondProj:  selecting nth-dominant state of bond
+%				[]: no selection, take entire bond
+%				n : select nth-state
 % supports Multi-Chain with Vmat and Vtens, Works with single chain!
 
 assert(para.foldedChain == 0, 'Please use single-chain code for folded Chains');
@@ -611,9 +635,11 @@ for j = 1:para.L
 			bp{mc}        = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
 			bp_OBB{j, mc} = contractMultiChainOBB(Vmat{j}, bp, para);
 		else	% Spin & Multi-Level System
-			bp = zeros(size(Vmat{j},1));
-			bp(stateProj,stateProj) = 1/2;						% since f = (a + a^+)/2
-			bp_OBB{j,mc} = Vmat{j}' * bp * Vmat{j};				% Spin-site Vmat
+			if ~isempty(stateProj)
+				bp_OBB{j,mc} = Vmat{j}' * (stateProj./2) * Vmat{j};				% Spin-site Vmat, 1/2 since f = (a + a^+)/2
+			else
+				bp_OBB{j,mc} = (Vmat{j}' * Vmat{j})/2;							% = eye(d_opt)/2; remains unused, since using bondProj below!
+			end
 		end
 	end
 end
@@ -632,7 +658,11 @@ for j = 1:para.L
 	if j ~=1
 		bpContract{j,1} = updateCleft(bpContract{j-1,1},mps{j},[],[],mps{j},[]);				% Vmat is normalised -> leave out!
 	else % j == 1
-		bpContract{1,1} = updateCleft([],mps{j},[],bp_OBB{j,1},mps{j},[]);						% for spin-projection
+		if isempty(bondProj)
+			bpContract{1,1} = updateCleft([],mps{j},[],bp_OBB{j,1},mps{j},[]);					% for state-projection; = (r',r)
+		else
+			bpContract{1,1} = bondProj/2;														% 1/2 since f = (a + a^+)/2
+		end
 	end
 end
 

@@ -259,7 +259,7 @@ switch target
 		nc = para.currentChain;
 		NC = para.nChains;
 		M = para.M / NC;			% what is M for each single chain?
-% 		d  = size(mps);
+		d  = size(mps);
 		% MPS is only mps{1}: 1 x D1 x D2 x D3 x ... X D(NC) x dk
 		%   chain index in mps is shifted by 1 due to first singleton
 		%   dimension!! -> Compatibility with 1-chain models and future Boundary Conditions?
@@ -270,18 +270,42 @@ switch target
 		for mc = 1:NC
 			if mc == nc, continue; end;
 			% always make sure that Hlrstorage{1} and Opstorage{:,2,1} are up-to-date!
-			% 1. Contract to non-interacting parts -> Hleft
-			[idxA, idxB] = getIdxTensChain(NC+2,mc+1,nc+1);
-			OpTemp = contracttensors(mps, NC+2, mc+1, op.chain(mc).Hlrstorage{1}.',2,1);						%_(ni..,nk)
-			op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
-
-			% 2. Contract the other chain-system interacting parts -> Hleft
-			for m = 1:M
-				% this chain's m
-				systemM = M*(mc-1) + m;
-				OpTemp = contracttensors(mps   , NC+2, NC+2, op.h2jOBB{systemM,1}.'   ,2,1);
-				OpTemp = contracttensors(OpTemp, NC+2, mc+1, op.chain(mc).Opstorage{m,2,1}.',2,1);					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+			if para.tdvp.HEffSplitIsometry == 0
+				% 1. Contract to non-interacting parts -> Hleft
+				[idxA, idxB] = getIdxTensChain(NC+2,mc+1,nc+1);
+				OpTemp = contracttensors(mps, NC+2, mc+1, op.chain(mc).Hlrstorage{1}.',2,1);						%_(ni..,nk)
 				op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+
+				% 2. Contract the other chain-system interacting parts -> Hleft
+				for m = 1:M
+					% this chain's m
+					systemM = M*(mc-1) + m;
+					OpTemp = contracttensors(mps   , NC+2, NC+2, op.h2jOBB{systemM,1}.'   ,2,1);
+					OpTemp = contracttensors(OpTemp, NC+2, mc+1, op.chain(mc).Opstorage{m,2,1}.',2,1);					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+					op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+				end
+			else
+				% 1. Split-off isometry
+				%    but need D(mc), D(nc) and dk in Atens!
+% 				para.currentChain = mc;
+				[Atens,dOut] = tensShape(mps, 'unfoldiso', [mc+1,nc+1,NC+2], d);	% +1 for leading singleton
+
+				[Iso, Atens] = qr(Atens,0);			% Iso is isometry with all unused chains
+
+				Atens = reshape(Atens,[size(Atens,1),dOut(end-2:end)]);		% D(mc)*D(nc)*dk x D(mc) x D(nc) x dk
+				idxA = [1, 2, 4]; idxB = [1, 4, 3];
+				% 2. Contract to non-interacting parts -> Hleft
+				OpTemp = contracttensors(Atens, 4, 2, op.chain(mc).Hlrstorage{1}.',2,1);						%_(ni..,nk)
+				op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(Atens),4, idxA, OpTemp, 4, idxB);
+
+				% 3. Contract the other chain-system interacting parts -> Hleft
+				for m = 1:M
+					% this chain's m
+					systemM = M*(mc-1) + m;
+					OpTemp = contracttensors(Atens , 4, 4, op.h2jOBB{systemM,1}.'         ,2,1);
+					OpTemp = contracttensors(OpTemp, 4, 2, op.chain(mc).Opstorage{m,2,1}.',2,1);					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+					op.chain(nc).Hleft = op.chain(nc).Hleft + contracttensors(conj(Atens),4, idxA, OpTemp, 4, idxB);
+				end
 			end
 		end
 

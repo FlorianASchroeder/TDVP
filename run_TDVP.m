@@ -15,7 +15,7 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,10);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
+%	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,10);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
@@ -25,7 +25,7 @@ end
 
 %% Define GS config
 
-load(fileName);
+%load(fileName);
 
 % load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha0.01delta0.1epsilon0dk20D5dopt5L100\results.mat')
 % load(sprintf('20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha%gdelta0.1epsilon0dk30D5dopt5L300-artificial/results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat',alpha));
@@ -39,7 +39,8 @@ load(fileName);
 % load('20151011-1659-DPMES3-4C-Star-v63-dk40D5dopt5L11/results.mat');
 % load('20151012-0208-DPMES3-4C-Star-v64TCMde9-dk60D5dopt5L11/results.mat');
 % load('20151012-2306-SpinBoson2C-Star-OrthPol-v64TCM74-alpha0.1delta0epsilon0.1dk20D5dopt5L50-art--sx/results.mat');
-
+% load('20151218-1626-59-DPMES4-5C-Star-v66-dk20D10dopt5L8/results.mat');
+load('20151218-1624-57-DPMES4-5C-Star-v66-dk20D10dopt5L8');
 
 %% Only needed if previous calc was imagT
 if loadedFromFile && isfield(para.tdvp,'imagT') && para.tdvp.imagT
@@ -59,12 +60,17 @@ para.tdvp.deltaT = dt;					% size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 0;				% much faster I/O saving
+para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.';			% n: occupation, j: current, s: spin, sn: star n, sx: star polaron, dm: rdm of site 1
+para.tdvp.Observables = '.dm.n.x2.sn.sx2.';
+	% n: occupation, j: current, s: spin,
+	% sn: star n, sx: star polaron,
+	% dm: rdm of site 1
 para.tdvp.storeMPS = 0;					% save tmps or not!
+para.tdvp.evolveSysTrotter = 0;			% Trotter splitting in System evolution?
+para.tdvp.HEffSplitIsometry = 1;		% split mps{1} into isometry + relevant part
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
@@ -84,9 +90,9 @@ para.tdvp.expandOBB = min(1,OBB);
 para.tdvp.truncateExpandBonds = min(1,Bond);
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-% para.tdvp.maxBondDim = [10,Bond];		%
-para.tdvp.maxBondDim = Bond;
-para.Dmin = 2;
+para.tdvp.maxBondDim = [10,Bond];		%
+% para.tdvp.maxBondDim = Bond;
+para.Dmin = 4;
 para.tdvp.maxOBBDim  = OBB;
 para.svmaxtol = 10^-4;					% keep 1 below this!
 para.svmintol = 10^-4.5;				% throw away all below
@@ -99,6 +105,8 @@ if para.tdvp.zAveraging
 	end
 end
 para.logging = 1;
+para.tdvp.logError = 0;				% calculate and log the TDVP error for A and V evolution (not implemented yet)
+para.tdvp.logTruncError = 0;		% log the truncation error after A and V evolution
 tresults = [];						% empty variable initialization
 %% comment if no new coupling needed
 if loadedFromFile

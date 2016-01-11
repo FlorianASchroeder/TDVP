@@ -65,13 +65,31 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		tresults.t(i)     = single(para.tdvp.t(1,para.timeslice+1));
 
 		% 2. Boson chain observables
-		if ~isempty(strfind(para.tdvp.Observables,'.j.')) || ~isempty(strfind(para.tdvp.Observables,'.sn.'))
+		if strContains(para.tdvp.Observables,'.j.','.sn.')
 			% save here, to reuse later!
 			AnAm = getObservable({'bath2correlators'}, tmps(j,:),tVmat(j,:),para);
 		end
 
+		% Chain polaron
+		if strContains(para.tdvp.Observables,'.x.','.x2.')		% diabatic or adiabatic states
+			% 2*Re<a^+>
+			if strfind(para.tdvp.Observables,'.x.')
+				chainX = 2*real(getObservable({'bath1correlators'}, tmps(j,:),tVmat(j,:),para));				% L x nStates x nChains
+			elseif strfind(para.tdvp.Observables,'.x2.')
+				chainX = 2*real(getObservable({'bath1correlators','adiabatic'}, tmps(j,:),tVmat(j,:),para));	% L x nStates x nChains
+			end
+			[~, nStates, nChains] = size(chainX);
+			if ~isfield(tresults,'x') || missingN > 0
+				tresults.x(totalN,para.L,nStates, nChains) = single(0);
+			end
+			tresults.x(i,:,:,:) = chainX;
+		end
+
 		if strfind(para.tdvp.Observables,'.j.')
 			%% Calculate current along entire chain
+			if ~isfield(tresults,'j') || missingN > 0
+				tresults.j(totalN,para.L,nChains) = single(0);
+			end
 			if ~exist('AnAm','var')
 				tresults.j(i,:,:) = single(getObservable({'current'},tmps(j,:),tVmat(j,:),para));
 			else
@@ -93,7 +111,12 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 					end
 				end
 				if strfind(para.tdvp.Observables,'.sx.')
-					polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);			% (1+2) x k x nc
+					polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);				% (1+2) x k x nc, diabatic states
+				elseif strfind(para.tdvp.Observables,'.sx2.')
+					% not state projecting, but selecting single dominating states across the first bond!
+					% kind of similar to diabatic states picture!
+					polaron = getObservable({'starpolaron','adiabatic'},tmps(j,:),tVmat(j,:),para);	% (1+2) x k x nc
+
 				end
 
 				if ~isfield(tresults, 'star')
@@ -108,11 +131,9 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 				if strfind(para.tdvp.Observables,'.sn.')
 					tresults.star.n(pos,:,:) = single(occ(2,:,:));
 				end
-				if strfind(para.tdvp.Observables,'.sx.')
-					tresults.star.x(pos,:,1,:) = single(polaron(2,:,:));	% up proj
-					tresults.star.x(pos,:,2,:) = single(polaron(3,:,:));	% down proj
-					if size(polaron,1) > 3
-						tresults.star.x(pos,:,3,:) = single(polaron(4,:,:));	% down proj
+				if strContains(para.tdvp.Observables,'.sx.','.sx2.')
+					for kk = 1:size(polaron,1)-1
+						tresults.star.x(pos,:,kk,:) = single(polaron(kk+1,:,:));	% SBM: 1: up-proj, 2: down-proj
 					end
 				end
 				tresults.star.t(pos)   = single(para.tdvp.t(1,para.timeslice+1));
@@ -153,12 +174,15 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		if strcmp(para.model, 'MLSBM') || ~isempty(strfind(para.model,'DPMES'))
             %% Observables for MLSBM
             % 2. PPC Wavefunction
-			if ~isfield(tresults,'PPCWavefunction')
-                tresults.PPCWavefunction = single(zeros(totalN,para.dk(1,1)));
-			elseif missingN > 0
-				tresults.PPCWavefunction = single([tresults.PPCWavefunction; zeros(missingN,para.dk(1,1))]);
+			%    only if not extracting Density Matrix
+			if ~strfind(para.tdvp.Observables,'.dm.')
+				if ~isfield(tresults,'PPCWavefunction')
+					tresults.PPCWavefunction = single(zeros(totalN,para.dk(1,1)));
+				elseif missingN > 0
+					tresults.PPCWavefunction = single([tresults.PPCWavefunction; zeros(missingN,para.dk(1,1))]);
+				end
+				tresults.PPCWavefunction(i,:) = single(diag(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para)));
 			end
-            tresults.PPCWavefunction(i,:) = single(diag(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para)));
 
             % 3. Participation on ring
 			if ~isfield(tresults,'participation')
@@ -210,4 +234,12 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 	end
 	tresults.lastIdx = i;
     fprintf('\n');
+end
+
+function out = strContains(str, varargin)
+out = false;
+for ii = 1:length(varargin)
+	out = out || ~isempty(strfind(str,varargin{ii}));
+end
+
 end

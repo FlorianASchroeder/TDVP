@@ -678,6 +678,11 @@ function [Atens, CA] = prepare_Tens(Atens, para)
 end
 
 function mps = tdvp_1site_evolveSystem(mps,Vmat,para,op,results)
+%% function mps = tdvp_1site_evolveSystem(mps,Vmat,para,op,results)
+%	evolves the system = site 1 of a Star-MPS
+%
+% Created 01/10/2015 by FS
+%
 t = para.tdvp.deltaT./2;
 
 if para.tdvp.imagT
@@ -690,9 +695,59 @@ d = size(mps{1});
 [op] = H_Eff([]    ,Vmat{1}, 'A'    , op, para);
 %% Take matrix exponential
 % A (t+dt) = exp(-i ?? dt) * A(t)
-[mps{1}, err] = expvCustom(- 1i*t,'STAR-Hn1',...
-	reshape(mps{1},[numel(mps{1}),1]), para, op);
+if para.tdvp.evolveSysTrotter == 0
+	% old scheme, evolves system in one single step interacting with all chains at once
+	[mps{1}, err] = expvCustom(- 1i*t,'STAR-Hn1',...
+		reshape(mps{1},[numel(mps{1}),1]), para, op);
 
-mps{1} = reshape(mps{1},d);
+	mps{1} = reshape(mps{1},d);
+else
+	% newer scheme, trotterise in system-chain interactions to decrease complexity
+	Atens = mps{1};
+	dIn = d;
+	for mc = 1:para.nChains
+		%% create isometry into chain direction
+		% rotate chain bonds
+		para.currentChain = mc;
+		if mc == 1
+			[Atens,dOut] = tensShape(Atens, 'foldrotunfoldiso', 2, dIn);	% rot by 2 since leading singleton!
+		else
+			[Atens,dOut] = tensShape(Atens, 'foldrotunfoldiso', 1, dIn);	% rotates such that A: prod(D(1:NC without mc)) x (D(mc,1) * dk)
+		end
+
+		[Iso, A] = qr(Atens,0);			% Iso is isometry with all unused chains
+		% evolve simplified mps matrix
+		[A, err] = expvCustom(- 1i*t,'STAR-Hn1Trotter',...
+			reshape(A,[numel(A),1]), para, op);
+		A = reshape(A, prod(dOut(end-1:end)),[]);			% D*dk x D*dk
+		% contract back together
+		Atens = Iso * A;
+
+		dIn = dOut;			% reset the new dimensions after rotation
+
+	end
+
+	mps{1} = reshape(Atens, d);
+end
+
+% function [A, Iso] = prepare_IsometryDkChain(Atens, para)
+% 	%% Input: focused AS = mps{1} of star-MPS
+% 	%  Splits Atens into Center A, containing bonds n_k, and D(para.currentChain)
+% 	%	and the Isometry containing all other chain bonds
+% 	%	see PEPS techniques for Trotter gates
+% 	%  no truncation!
+% 	% Output:
+% 	%	A: D(NC,1)*dk x D(NC,1) x dk
+% 	%	I:
+% 	mc = para.currentChain;								% the chain to focus on
+% 	d  = size(Atens);
+%
+% 	[AS]     = tensShape(Atens, 'unfold', mc+1, d);		% D(mc) x rest
+%
+% 	[AS, CA] = prepare_onesiteVmat(AS.', para);			% need for transpose since m x n, m > n input needed
+%
+% 	Atens	 = tensShape(AS.', 'fold', mc+1, d);
+%
+% end
 
 end

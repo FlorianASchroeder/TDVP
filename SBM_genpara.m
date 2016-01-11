@@ -208,7 +208,7 @@ end
 
         [epsilon,t,U]    = star2tridiag(indiag,inrow);
 
-        if chainpara.L == 0
+		if chainpara.L == 0
             chainpara.L = find(epsilon > chainpara.precision, 1,'Last') + 1;    % +1 as L includes spin site
             dispif(sprintf('Optimum chain length is: %u',chainpara.L),chainpara.logging)
 		end

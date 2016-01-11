@@ -18,6 +18,7 @@ function fileName = VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
 
 % maxNumCompThreads(1);
 format short e
+rng('shuffle');
 
 starttime = tic;
 if isdeployed           % take care of command line arguments
@@ -76,11 +77,11 @@ end
 	%	'None': exact mapping
 	%	other methods not yet supported
 para.L = L;
-para.systemStates = load('DPMESdata_20151105/states.dat');		% [#state, E(eV)]
+para.systemStates = load('DPMESdata_20151123/states.dat');		% [#state, E(eV)]
 %% chain 1:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
 para.chain{1}.mapping			= 'LanczosTriDiag';
 para.chain{1}.spectralDensity	= 'CoupDiscr';
-para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151105/W44-A1-7-01.dat'));
+para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
 % para.chain{1}.discretization	= 'None';
 % para.chain{1}.discrMethod		= 'Numeric';
 
@@ -94,19 +95,22 @@ end
 
 %% chain 2 & more:
 para.chain{2}					= para.chain{1};		% simple copy
-para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151105/W44-A1-10-x1.dat'));
+para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-10-x1.dat'));
 % para.chain{2}.w_cutoff          = 1.5;
 % para.chain{2}.mapping			= 'OrthogonalPolynomials';
 para.chain{3}					= para.chain{2};
-para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151105/W24-B1-high.dat'));
+para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151123/W24-B1-highv2.dat'));
 para.chain{4}					= para.chain{2};
-para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151105/W14-A2-high.dat'));
+para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151123/W14-A2-highv2.dat'));
 para.chain{5}					= para.chain{2};
-para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151105/W45-B2-all.dat'));
+para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151123/W45-B2-all.dat'));
 
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
 %% Parameters
 for k = 1:para.nEnvironments
+	% add random static disorder to Bosons: (comment if not wanted!)
+% 	para.chain{k}.dataPoints = arrayfun(@(x) (randn*0.1+1)*x, para.chain{k}.dataPoints);		% 10% static disorder (SDV)
+
 	if strcmp(para.chain{k}.mapping,'OrthogonalPolynomials')
 		%% now only for SBM, to be extended for any J(w)
 		% no need to define:
@@ -468,10 +472,10 @@ if isfield(para.chain{1},'s') && para.chain{1}.s ~= 1
 	Descr = sprintf('%s-s%g',Descr,para.chain{1}.s);
 end
 
-para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
+para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
     para.model,Descr,alpha,delta,epsilon,dk,D,d_opt,para.L);
 if ~isempty(strfind(para.model,'DPMES'))
-	para.folder=sprintf([datestr(now,'yyyymmdd-HHMM'),'-%s-%s-dk%.10gD%.10gdopt%gL%d'],...
+	para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-dk%.10gD%.10gdopt%gL%d'],...
 		para.model,Descr,dk,D,d_opt,para.L);
 end
 if ~isempty(strfind(para.model,'SpinBoson')) && strcmp(para.SpinBoson.GroundStateMode,'artificial')
