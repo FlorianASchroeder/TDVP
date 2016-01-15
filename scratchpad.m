@@ -4483,7 +4483,7 @@ end
 %% DPMES4-5C v66  StarMPS Totter - TDVPData											% LabBook 18/12/2015
 % Purpose to Benchmark StarMPS Trotter
 clear
-defPlot(1,:) = {'20151204-DPMES4-5C-v66-disorder10-D10-4thParams-highv2',		[ 2: 5], {'xlim',[0,4e2],'yscale','lin'}};
+defPlot(1,:) = {'20151204-DPMES4-5C-v66-disorder10-D10-4thParams-highv2',		[ 2: 5], {'xlim',[0,400],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -4531,7 +4531,7 @@ for fignum = 1:size(defPlot,1)
 	pick = defPlot{fignum,2};			% plot all
 % 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
-	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','CT+','CT-')
+	ph = arrayfun(@(x) x.plot('rhoii','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','CT+','CT-')
 % 	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx)*0.658, abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
 % 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
 % 	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
@@ -4544,14 +4544,23 @@ for fignum = 1:size(defPlot,1)
 % 	leg.FontSize = fs;
 	set(ax,defPlot{fignum,3}{:});
 % 	xlabel('$t/fs$');
-% 	xlabel('$t$');
+	xlabel('Time $\omega_c t$');
 	ylabel('$\rho_{ii} (t)$');
 	fs = 22;
 	formatPlot(fignum,'twocolumn-single');
 	set(gca,'color','none');
 	grid on
-	res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+	res(1).plot('rhoii','-unicol','k.');	% overlay of old v3-high simulation
 end
+% export_fig(['img/20151218 - DPMES TDVP Benchmark - Dynamics'],'-transparent','-png','-m2',gca)
+
+% further plots:
+figure(3);clf;hold all; arrayfun(@(x) x.plot('calctime'), res,'UniformOutput',false);xlabel('Time $\omega_c t$'); ylabel('Total CPU time in h'); legend toggle;
+% export_fig(['img/20151218 - DPMES TDVP Benchmark - Total t'],'-transparent','-png','-m2',gca)
+figure(4);clf;hold all; arrayfun(@(x) x.plot('calctime-d'), res,'UniformOutput',false);xlabel('Time $\omega_c t$'); ylabel('CPU time per sweep in h'); legend toggle;
+% export_fig(['img/20151218 - DPMES TDVP Benchmark - t per sweep'],'-transparent','-png','-m2',gca)
+
+
 %%	find correlation between TT trace and "parameter distance"
 chainPara = [];
 for ii = 1:length(res)

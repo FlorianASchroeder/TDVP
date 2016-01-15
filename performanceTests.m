@@ -15,6 +15,10 @@ switch lower(variant)
 		testGPUTensContract1();
 	case 'tenscontract2'
 		out = testGPUTensContract2();
+	case 'rrqr'
+		out = testRandomizedQR();
+	case 'rrqrsweep'
+		out = testRandomizedQRsweep();
 end
 
 end
@@ -434,5 +438,97 @@ end
 	out.tGPU = tGPU;
 end
 
+function out = testRandomizedQR(N,r)
+% function testRandomizedQR()
+%   call with performanceTests('rrQR')
+%	tests the randomized reduced rank QR rrQR()
+
+out = zeros(2);
+
+if nargin == 0
+	N = 1000;	% dimension of A
+	r = 200;		% rank of A accurate up to eps. Only used to construct A
+end
+Nruns = 10;
+
+% 1. create a randomized A
+A = randn(N);
+[U,S,V] = svd(A);
+S=diag(exp(-30/r*(1:N)));		% make S such that for i>r S_i < eps. log(eps) = -36, but 30 gives the right rank(A) = r
+
+A = U*S*V';		% now A is low rank!
+rank(A)
+t = zeros(Nruns,1);			% keep the timings for each run
+for ii = 1:Nruns
+	tic
+	[Q,R] = qr(A,0);
+	t(ii) = toc;
+end
+out(1,1) = mean(t);			% mean time per calculation
+out(1,2) = norm(A-Q*R);		% error estimate
+
+t = zeros(Nruns,1);
+for ii = 1:Nruns
+	tic
+	[Q,R] = rrQR(A,floor(r*0.4),0);
+	t(ii) = toc;
+end
+out(2,1) = mean(t);			% mean time per calculation
+out(2,2) = norm(A-Q*R);		% error estimate
+
+% compare SV:
+B = Q'*A;
+[u,s,v] = svd(B,0);
+plot(log10(abs(diag(S(1:size(s,1),1:size(s,1)))-diag(s))));
+
+end
+
+function out = testRandomizedQRsweep()
+%  function out = testRandomizedQRsweep()
+% sweeps through parameter space!
+% different N and different r
+step = 10;
+N = 10:step:1000;
+
+tQR  = zeros(length(N));	% timing of QR
+eQR  = tQR;					% error
+trrQR = tQR;				% timing of rrQR
+errQR = tQR;				% error of rrQR
+
+for ii = 1:length(N)
+	r = 10:step:N(ii);
+	for jj = 1:length(r)
+		A = testRandomizedQR(N(ii),r(jj));
+		tQR(ii,jj) = A(1,1);
+		eQR(ii,jj) = A(1,2);
+		trrQR(ii,jj) = A(2,1);
+		errQR(ii,jj) = A(2,2);
+		fprintf('finished N = %d, r = %d\n', N(ii),r(jj));
+	end
+	figure(1);
+	surf(tQR)
+	figure(2);
+	surf(eQR);
+
+	figure(3);
+	surf(trrQR)
+	figure(4);
+	surf(errQR);
+	if mod(ii,10)
+		drawnow
+	end
+end
+% plot all results
+figure(1);
+surf(tQR)
+figure(2);
+surf(eQR);
+
+figure(3);
+surf(trrQR)
+figure(4);
+surf(errQR);
+
+end
 
 %% How to replace tensor contraction with bsxfun

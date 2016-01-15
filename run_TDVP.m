@@ -15,7 +15,7 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-%	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,10);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
+	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,10);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
@@ -25,7 +25,7 @@ end
 
 %% Define GS config
 
-%load(fileName);
+load(fileName);
 
 % load('E:\Documents\Uni\PhD\Theory\schroederflorian-vmps-tdvp\TDVP\20150327-1434-SpinBoson-OrthPol-v42TCMde10-s0.5-alpha0.01delta0.1epsilon0dk20D5dopt5L100\results.mat')
 % load(sprintf('20150512-1604-SpinBoson-OrthPol-v43TCMde10-alpha%gdelta0.1epsilon0dk30D5dopt5L300-artificial/results-Till500Step0.2v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat',alpha));
@@ -40,7 +40,7 @@ end
 % load('20151012-0208-DPMES3-4C-Star-v64TCMde9-dk60D5dopt5L11/results.mat');
 % load('20151012-2306-SpinBoson2C-Star-OrthPol-v64TCM74-alpha0.1delta0epsilon0.1dk20D5dopt5L50-art--sx/results.mat');
 % load('20151218-1626-59-DPMES4-5C-Star-v66-dk20D10dopt5L8/results.mat');
-load('20151218-1624-57-DPMES4-5C-Star-v66-dk20D10dopt5L8');
+% load('20151218-1624-57-DPMES4-5C-Star-v66-dk20D10dopt5L8');
 
 %% Only needed if previous calc was imagT
 if loadedFromFile && isfield(para.tdvp,'imagT') && para.tdvp.imagT
@@ -69,7 +69,7 @@ para.tdvp.Observables = '.dm.n.x2.sn.sx2.';
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.evolveSysTrotter = 0;			% Trotter splitting in System evolution?
+para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution?
 para.tdvp.HEffSplitIsometry = 1;		% split mps{1} into isometry + relevant part
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim

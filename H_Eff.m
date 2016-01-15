@@ -292,6 +292,11 @@ switch target
 
 				[Iso, Atens] = qr(Atens,0);			% Iso is isometry with all unused chains
 
+				% TODO: comment if not testing!!
+				[Iso2,A2,err]= rrQR(Atens, floor(0.1*prod(dOut(end-2:end))),0);		% low rank QR approximation
+				fprintf('H_eff: rank(A) = %d, dim(A,2) = %d, rrQR error = %g; %g\n', rank(Atens), prod(dOut(end-2:end)),norm(Atens - Iso2*A2), err);
+
+
 				Atens = reshape(Atens,[size(Atens,1),dOut(end-2:end)]);		% D(mc)*D(nc)*dk x D(mc) x D(nc) x dk
 				idxA = [1, 2, 4]; idxB = [1, 4, 3];
 				% 2. Contract to non-interacting parts -> Hleft
