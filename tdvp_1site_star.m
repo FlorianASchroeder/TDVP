@@ -558,7 +558,9 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 				results.tdvp.Amat_vNE(n,L-1)	 = 0;
 			elseif para.useStarMPS
 				results.tdvp.Vmat_vNE(n,L, NC)   = 0;
-				results.tdvp.Amat_vNE(n,L-1, NC) = 0;
+				if L ~= 1
+					results.tdvp.Amat_vNE(n,L-1, NC) = 0;
+				end
 			end
 			results.tdvp.Vmat_vNE(1,:,:)	= results.Vmat_vNE.';
 			results.tdvp.Amat_vNE(1,:,:)	= results.Amat_vNE.';

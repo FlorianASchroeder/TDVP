@@ -620,6 +620,44 @@ switch para.model
 	end
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+	case 'Holstein-Cavity-16'
+	%%%%%%%%%%%%%%%%%%% Holstein - Cavity Model - 16 Sites %%%%%%%%%%%%%%%%%%%%%%
+	% Multi-chain configuration.
+	% Cavity + Excitons are in site 1
+	%
+	% working
+	% Created 18/01/16 by F.S.
+	switch s
+		case 1		% is the pentacene system!
+			[H0,H1] = DPMES_Operators('4-5C',para);
+			zm      = zeros(size(H0,1));
+			op.h1term{1,1}      = H0;
+			for i = 1:length(H1)
+				op.h2term{2*i-1, 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i-1, 2,1,1} = zm;
+				op.h2term{2*i  , 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i  , 2,1,1} = zm;
+			end
+		case para.L
+			if para.parity ~= 'n'
+				error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			for i = 1:para.nChains			% slow, but easy to modify!
+				[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+				zm = sparse(size(bp,1),size(bp,1));
+				op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+				op.h2term{2*i-1,1,s,i} = zm; op.h2term{2*i-1,2,s,i} = bm;
+				op.h2term{2*i  ,1,s,i} = zm; op.h2term{2*i  ,2,s,i} = bp;
+			end
+		otherwise
+			if para.parity ~= 'n'
+				error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			for i = 1:para.nChains
+				[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+				op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+				op.h2term{2*i-1,1,s,i} = para.chain{i}.t(s).*bp; op.h2term{2*i-1,2,s,i} = bm;
+				op.h2term{2*i  ,1,s,i} = para.chain{i}.t(s).*bm; op.h2term{2*i  ,2,s,i} = bp;
+			end
+	end
 end
 end
 
@@ -682,3 +720,34 @@ switch nModel
 end
 
 end
+
+function [H0, H1] = Holstein_Operators(nModel,para)
+%% creates the Hamiltonian terms for the Holstein B850 model.
+%	Define in k-space to reduce number of bosons by factor of 2
+states = para.systemStates; %??
+switch nModel
+	case '4C'
+		% TT, LE+, CT+ with 4 chains
+		% chain order: 1-2: A1(1,2); 3: B1, 4: A2
+% 		H0 = diag(states([1,2,4],2));
+% 		n = size(H0,1);
+% 		H1 = cell(n,1);
+% 		H1{1} = eye(n);   H1{1}(1,1) = 0;
+% 		H1{2} = eye(n);   H1{2}(1,1) = 2;
+% 		H1{3} = zeros(n); H1{3}(2,3) = 1; H1{3}(3,2) = 1;
+% 		H1{4} = zeros(n); H1{4}(1,3) = 1; H1{4}(3,1) = 1;
+	case 16
+		% 16 excitons with 8 boson chains
+% 		H0 =
+		n = size(H0,1);			% = 17
+		H1 = cell(8,1);
+		H1{1} = eye(n);   H1{1}(1,1) = 0;		% k = 0, diagonal coupling
+		H1{2} = sparse();   H1{2}(1,1) = 2;
+		H1{3} = zeros(n); H1{3}(2,3) = 1;          H1{3}(3,2) = 1;	        % B1, W24
+						  H1{3}(1,4) = -sqrt(3)/2; H1{3}(4,1) = -sqrt(3)/2;	%	, W15
+		H1{4} = zeros(n); H1{4}(1,3) = 1;          H1{4}(3,1) = 1;			% A2, W14
+		H1{5} = zeros(n); H1{5}(3,4) = 1;          H1{5}(4,3) = 1;			% B2, W45
+end
+
+end
+
