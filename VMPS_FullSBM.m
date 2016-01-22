@@ -144,6 +144,9 @@ elseif ~isempty(strfind(para.model,'UniformBosonTTM'))
 	% put in parameters by hand!
 	para.chain{1}.epsilon = 0.5;
 	para.chain{1}.t       = 0.25;
+	para.chain{1}.L		  = L;
+	para.chain{1}.mapping = '';
+	para.chain{1}.discretization = '';
 end
 
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
@@ -282,6 +285,13 @@ end
 
 if strcmp(para.model, 'SpinBosonTTM')
 	para.D([1,2]) = [2,4];
+end
+
+if strcmp(para.model, 'UniformBosonTTM')
+	para.dk(1,para.spinposition) = dk;						% local Boson Hilbert space, on ancilla
+	para.spinposition = [];									% pure Boson chain
+	para.D(1,1) = para.dk(1,1);								% need same Dim for maximally entangled state
+	para.D(1,2) = 2*D;										% keep bond larger in case of rapid entanglement growth
 end
 
 if strcmp(para.model, 'SpinBoson2CT')
@@ -544,6 +554,8 @@ elseif ~isempty(strfind(para.model,'DPMES'))
 	prepareArtState();
 elseif isfield(para, 'useStarMPS') && para.useStarMPS == 1
 	prepareArtState();		% for now only artificial vacuum state
+elseif strcmp(para.model,'UniformBosonTTM')
+	prepareArtState();
 else
 	[mps, Vmat,para,results,op] = minimizeE(op,para);
 end
@@ -602,6 +614,15 @@ fileName = para.filename;
 			mps{2}(1,1,1) = 1; mps{2}(2,1,2) = 1;
 			Vmat{1} = eye(para.dk(1));
 			Vmat{2} = eye(para.dk(2));
+			nextSite = 3;
+		elseif strcmp(para.model,'UniformBosonTTM')
+			%% create maximally entangled state between site 1&2 TLS
+			Vmat{1} = eye(para.dk(1));
+			Vmat{2} = eye(para.dk(2));
+			mps{1} = zeros(1,para.D(1),para.dk(1));
+			mps{2} = zeros(para.D(1),para.D(2),para.dk(2));
+			mps{1}(1,:,:) = eye(para.dk(1))./sqrt(para.dk(1));
+			mps{2}(:,1,:) = eye(para.dk(1));
 			nextSite = 3;
 		elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial') && para.useStarMPS == 0
 			mps = createrandommps(para);
