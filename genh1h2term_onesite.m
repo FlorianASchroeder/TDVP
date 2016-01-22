@@ -658,6 +658,40 @@ switch para.model
 				op.h2term{2*i  ,1,s,i} = para.chain{i}.t(s).*bm; op.h2term{2*i  ,2,s,i} = bp;
 			end
 	end
+	
+	case 'UniformBosonTTM'
+	%%%%%%%%%%%%%%%%%%% Uniform Boson Chain Model for Transfer Tensor Method %%%%%%%%%%%%%%%%%%%%%%
+	% site 1 is Boson ancilla
+	% site 2 is actual boson
+	% epsilon and t are equal for all Boson sites!
+	% working ??
+	% Created 20/01/16 by F.S.
+        switch s
+			case 1                                                  % first chain pos = ancilla system, needs to be maximally entangled with site 2
+                [bp,~,~]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+                zm				  = sparse(size(bp,1),size(bp,1));
+                op.h1term{s}	  = zm;
+                op.h2term{1,1,s}  = zm; op.h2term{1,2,s} = zm;
+                op.h2term{2,1,s}  = zm; op.h2term{2,2,s} = zm;
+            case 2                                                  % second chain pos = Boson to be analysed
+                [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+                zm				  = sparse(size(bp,1),size(bp,1));	% zero matrix
+                op.h1term{s}	  = para.chain{1}.epsilon(1).*n;
+                op.h2term{1,1,s}  = para.chain{1}.t(1).*bp; op.h2term{1,2,s} = zm;
+                op.h2term{2,1,s}  = para.chain{1}.t(1).*bm; op.h2term{2,2,s} = zm;
+            case para.L                                             % last chain pos: only one coupling?
+                [bp,bm,n]		  = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
+                zm				  = sparse(size(bp,1),size(bp,1));
+                op.h1term{s}	  = para.chain{1}.epsilon(1).*n;
+                op.h2term{1,1,s}  = zm; op.h2term{1,2,para.L} = bm;
+                op.h2term{2,1,s}  = zm; op.h2term{2,2,para.L} = bp;
+            otherwise
+                [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+                op.h1term{s}	  = para.chain{1}.epsilon(1).*n;							% e(1) == w
+                op.h2term{1,1,s}  = para.chain{1}.t(1).*bp; op.h2term{1,2,s} = bm;			% t(1) == t
+                op.h2term{2,1,s}  = para.chain{1}.t(1).*bm; op.h2term{2,2,s} = bp;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end
 end
 

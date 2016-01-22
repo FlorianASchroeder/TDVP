@@ -98,7 +98,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		end
 
 		% 3. Star Observables
-		if isfield(para.tdvp,'extractStarInterval') && (~isempty(strfind(para.tdvp.Observables,'.sn.')) || ~isempty(strfind(para.tdvp.Observables,'.sx.')))
+		if isfield(para.tdvp,'extractStarInterval') && strContains(para.tdvp.Observables,'.sn.','.sx.','.sx2.')
 			Nslice = round(para.tdvp.extractStarInterval / para.tdvp.extractObsInterval);		% how often to extract Star Observables
 			if mod(i-1,Nslice) == 0
 				pos = ceil(i/Nslice);
@@ -109,22 +109,27 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 					else
 						occ = getObservable({'staroccupation',AnAm},tmps(j,:),tVmat(j,:),para);		% (1+1) x k x nc
 					end
+					starOmega = squeeze(single(occ(1,:,:)));				% get rid of leading singleton
 				end
-				if strfind(para.tdvp.Observables,'.sx.')
-					polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);				% (1+2) x k x nc, diabatic states
-				elseif strfind(para.tdvp.Observables,'.sx2.')
-					% not state projecting, but selecting single dominating states across the first bond!
-					% kind of similar to diabatic states picture!
-					polaron = getObservable({'starpolaron','adiabatic'},tmps(j,:),tVmat(j,:),para);	% (1+2) x k x nc
+				
+				if strContains(para.tdvp.Observables,'.sx.','.sx2.')
+					if strfind(para.tdvp.Observables,'.sx.')
+						polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);				% (1+2) x k x nc, diabatic states
+					elseif strfind(para.tdvp.Observables,'.sx2.')
+						% not state projecting, but selecting single dominating states across the first bond!
+						% kind of similar to diabatic states picture!
+						polaron = getObservable({'starpolaron','adiabatic'},tmps(j,:),tVmat(j,:),para);	% (1+2) x k x nc
 
+					end
+					starOmega = squeeze(single(polaron(1,:,:)));			% get rid of leading singleton
 				end
-
+				
 				if ~isfield(tresults, 'star')
 					% initialise storage if first sweep
 					nElements = para.tdvp.tmax/para.tdvp.extractStarInterval +1;
-					tresults.star.n	    = single(zeros(nElements,length(occ),para.nChains));
+					if exist('occ','var'),     tresults.star.n = single(zeros(nElements,length(occ),para.nChains)); end
 					if exist('polaron','var'), tresults.star.x = single(zeros(nElements,length(polaron),2,para.nChains)); end
-					tresults.star.omega = squeeze(single(occ(1,:,:)));		% get rid of leading singleton
+					tresults.star.omega = starOmega;
 					tresults.star.t     = single(zeros(1,nElements));
 				end
 
@@ -162,13 +167,18 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		end
 
 		% 1. Density matrix
-		if strfind(para.tdvp.Observables,'.dm.')
+		if strContains(para.tdvp.Observables,'.dm.','.dm2.')
 			if ~isfield(tresults,'rho')
 				tresults.rho = single(zeros(totalN,para.dk(1,1),para.dk(1,1)));
 			elseif missingN > 0
 				tresults.rho = single([tresults.rho; zeros(missingN,para.dk(1,1),para.dk(1,1))]);
 			end
-			tresults.rho(i,:,:) = single(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para));
+			tresults.rho(i,:,:,1) = single(getObservable({'rdm',1},tmps(j,:),tVmat(j,:),para));
+			if strContains(para.tdvp.Observables,'.dm2.')
+				% only for 2-lvl system for now; only calculates largest bond state.
+				tresults.rho(i,:,:,2) = single(getObservable({'rdm_adiabatic',1,1},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
+				tresults.rho(i,:,:,3) = single(getObservable({'rdm_adiabatic',1,2},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
+			end
 		end
 
 		if strcmp(para.model, 'MLSBM') || ~isempty(strfind(para.model,'DPMES'))

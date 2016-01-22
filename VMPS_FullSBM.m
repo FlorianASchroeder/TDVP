@@ -37,21 +37,22 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='DPMES4-5C';
+para.model='UniformBosonTTM';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
 	%		  'DPMES3-4C', 'DPMES4-5C'
+	%		  'UniformBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 5;
+para.nEnvironments  = 1;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 5;
+para.nChains		= 1;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
 para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
 
-para.useStarMPS = 1;
+para.useStarMPS = 0;
 
 %% System Definitions:
 if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
@@ -77,33 +78,44 @@ end
 	%	'None': exact mapping
 	%	other methods not yet supported
 para.L = L;
-para.systemStates = load('DPMESdata_20151123/states.dat');		% [#state, E(eV)]
-%% chain 1:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
-para.chain{1}.mapping			= 'LanczosTriDiag';
-para.chain{1}.spectralDensity	= 'CoupDiscr';
-para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
-% para.chain{1}.discretization	= 'None';
-% para.chain{1}.discrMethod		= 'Numeric';
 
-% para.chain{1}.s					= s;			% SBM spectral function power law behaviour
-% para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
-para.chain{1}.L					= min(length(para.chain{1}.dataPoints)+1,L);
-% para.chain{1}.w_cutoff          = 1;
-if alpha == 0 && para.chain{1}.L == 0
-	para.chain{1}.L = 10;						% otherwise encounter error
+if ~isempty(strfind(para.model,'DPMES'))
+	%% chain 1 for DPMES:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
+	para.systemStates = load('DPMESdata_20151123/states.dat');		% [#state, E(eV)]
+	para.chain{1}.mapping			= 'LanczosTriDiag';
+	para.chain{1}.spectralDensity	= 'CoupDiscr';
+	para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
+	
+	para.chain{1}.L					= min(length(para.chain{1}.dataPoints)+1,L);
+	
+	%% chain 2 & more:
+	para.chain{2}					= para.chain{1};		% simple copy
+	para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-10-x1.dat'));
+	para.chain{3}					= para.chain{2};
+	para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151123/W24-B1-highv2.dat'));
+	para.chain{4}					= para.chain{2};
+	para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151123/W14-A2-highv2.dat'));
+	para.chain{5}					= para.chain{2};
+	para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151123/W45-B2-all.dat'));
+elseif ~isempty(strfind(para.model,'SpinBoson'))
+	%% chain 1 for SBM:
+	para.chain{1}.mapping			= 'OrthogonalPolynomials';
+	para.chain{1}.spectralDensity	= 'Leggett_Hard';
+	para.chain{1}.discretization	= 'None';
+	% para.chain{1}.discrMethod		= 'Numeric';
+
+	para.chain{1}.s					= s;			% SBM spectral function power law behaviour
+	para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+	para.chain{1}.L					= L;
+% 	para.chain{1}.w_cutoff          = 1;
+	if alpha == 0 && para.chain{1}.L == 0                  
+		para.chain{1}.L = 10;						% otherwise encounter error
+	end
+elseif ~isempty(strfind(para.model,'UniformBosonTTM'))
+	% put in parameters by hand!
+	para.chain{1}.epsilon = 0.5;
+	para.chain{1}.t       = 0.25;
 end
-
-%% chain 2 & more:
-para.chain{2}					= para.chain{1};		% simple copy
-para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-10-x1.dat'));
-% para.chain{2}.w_cutoff          = 1.5;
-% para.chain{2}.mapping			= 'OrthogonalPolynomials';
-para.chain{3}					= para.chain{2};
-para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151123/W24-B1-highv2.dat'));
-para.chain{4}					= para.chain{2};
-para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151123/W14-A2-highv2.dat'));
-para.chain{5}					= para.chain{2};
-para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151123/W45-B2-all.dat'));
 
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
 %% Parameters
@@ -134,7 +146,7 @@ for k = 1:para.nEnvironments
 		% 	if Lambda > 1 -> LogZ
 		% 	if Lambda = 1 -> Linear discretization, rescaling = 0
 		para.chain{k}.discrMethod = 'None';
-		% choose: 'Analytic', 'Numerical', 'None'
+		% choose: 'Analytic', 'Numerical', 'None', 'Direct'
 		%	Sets way of evaluation of integrals
 		%	'None' takes values of J(w); should be used with 'Linear'
 		%	Analytic only for 'Leggett_hard' and 'LogZ'. Uses modified scheme by Žitko
@@ -235,7 +247,6 @@ if para.useStarMPS
 	para.D     = repmat(para.D,nc,1);
 	para.d_opt = repmat(para.d_opt,nc,1);					% copy for each chain
 	para.d_opt(2:end,1) = 1;								% Central System only on first site!
-
 end
 
 if strcmp(para.model, 'SpinBosonTTM')
@@ -322,7 +333,7 @@ end
 
 if strfind(para.model,'SpinBoson')
 %% Set-up parameters for specific ground state preparation!
-    para.SpinBoson.GroundStateMode = 'coupled';
+    para.SpinBoson.GroundStateMode = 'artificial';
         % choose: 'decoupled', 'coupled', 'artificial', 'artTTM'
 		% -artificial & artTTM does no optimization! this only sets up an artificial
 		%		ground state with <n> = 0 on chain and InitialState 'sz'

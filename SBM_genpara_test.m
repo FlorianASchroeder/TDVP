@@ -30,7 +30,6 @@ stem(b(:,1),b(:,2));
 normpdf = @(X,mu,gamma) 1./(pi .* gamma .* (1+((X-mu)./gamma ).^2));				% cauchy -> not really good
 y = 0;
 for ii = 1:size(b,1)
-
 	A = 1/(b(ii,1) * integral(@(w) normpdf(w,b(ii,1),sigma)./w, -inf,inf));
 	y = y + A .* b(ii,2) .* normpdf(w,b(ii,1),sigma);			% good way!
 % 	y = y + sqrt(A .* b(ii,2) .* normpdf(w,b(ii,1),sigma));		% bad way!

@@ -43,7 +43,7 @@ load(fileName);
 % load('20151218-1624-57-DPMES4-5C-Star-v66-dk20D10dopt5L8');
 
 %% Only needed if previous calc was imagT
-if loadedFromFile && isfield(para.tdvp,'imagT') && para.tdvp.imagT
+if loadedFromFile && isfield(para,'tdvp') && isfield(para.tdvp,'imagT') && para.tdvp.imagT
 	% prepare -sx eigenstate!
 	mps{1} = reshape([-1/sqrt(2),zeros(1,numel(mps{1})/2-1),...
 				1/sqrt(2),zeros(1,numel(mps{1})/2-1)],[1,para.D(1),para.d_opt(1)]);
@@ -64,10 +64,11 @@ para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.';
+para.tdvp.Observables = '.n.dm2.';
 	% n: occupation, j: current, s: spin,
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1
+	% dm2: adiabatic rdms of site 1
 	% x, x2, sx, sx2: displacements, diabatic, adiabatic
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution?
@@ -219,7 +220,11 @@ end
 %% Do Time-Evolution with 1-site TDVP
 if para.tdvp.zAveraging == 0
     para.tdvp.starttime = tic;
-    tdvp_1site_star(mps,Vmat,para,results,op,tresults);
+	if para.useStarMPS
+	    tdvp_1site_star(mps,Vmat,para,results,op,tresults);
+	else
+	 	tdvp_1site(mps,Vmat,para,results,op,tresults);
+	end
 else
 	basename = para.tdvp.filename;
     for z = stepFrom:-para.tdvp.zStep:1e-5

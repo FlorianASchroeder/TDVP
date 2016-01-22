@@ -72,19 +72,66 @@ switch type{1}
 		% intended for use in optimizesite. Only for focused single-site
 		% mps and Vmat are single-site matrices
 		out = cal1siteShift(mps,Vmat,para);
-
+		
     case 'rdm'
         % applicable to all systems.
-        if type{2} <= para.L
+		if type{2} <= para.L
             out = calRDM(mps,Vmat,para,type{2});
-        else
+		else
             out = [];
-        end
-
+		end
+		
+	case 'rdm_adiabatic'
+		% applicable to site 1 for now only!
+		if type{2} ~= 1
+			error('rdm_adiabatic only available for site 1');
+		end
+		if para.nChains > 1
+			error('rdm_adiabatic only for single chains!');
+		end
+		assert( type{3} <= para.dk(1,1), 'Need valid number for state selection');
+		k = type{3};		% the (adiabatic) bond state to construct the (adiabatic) RDM from
+		
+		% SVD of mps{1} and delete unwanted bond states!
+		A = mps{1};
+		[D1, D2, d] = size(A);				% d is site dimension
+		A = permute(A, [3, 1, 2]);
+		A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
+		[B, S, U] = svd2(A);				% Could also use QR decomposition if nargin !=5
+		DB = size(S,1);
+		B = B* sparse(k,k,1,DB,DB) *U;
+		B = reshape(B, [d, D1, D2]);
+		mps{1} = permute(B, [2, 3, 1]);		% now only contains the desired bond state
+		
+		out = calRDM(mps,Vmat,para,type{2});
+		
+	case 'rdm_adiabatic2'
+		% applicable to site 1 for now only!
+		% A different way of selecting the bond-state, without SVD.
+		% Seems to be equivalent to 'rdm_adiabatic'
+		if type{2} ~= 1
+			error('rdm_adiabatic only available for site 1');
+		end
+		if para.nChains > 1
+			error('rdm_adiabatic only for single chains!');
+		end
+		assert( type{3} <= para.dk(1,1), 'Need valid number for state selection');
+		k = type{3};		% the (adiabatic) bond state to construct the (adiabatic) RDM from
+		
+		[~, D2, ~] = size(mps{1});				% d is site dimension
+		for ii = 1:D2
+			if ii ~= k
+				mps{1}(1,ii,:) = 0;				% delete 2 for k=1 or 1 for k=2
+			end
+		end
+		mps{1} = mps{1}./norm(reshape(mps{1},[],1));		% normalise the state!
+		
+		out = calRDM(mps,Vmat,para,type{2});
+		
     case 'participation'
         % applicable to all systems, only for first site.
         out = calParticipation(calRDM(mps,Vmat,para,1));
-
+		
     case 'tunnelenergy'
         % useful for MLSBM, applicable to all
         % needs type{2} = op
@@ -165,10 +212,11 @@ switch type{1}
 		% by default:
 		% {'bath1correlators'}            : projects onto diabatic states
 		% {'bath1correlators','adiabatic'}: projects onto adiabatic states
-
+		
+		NC = para.nChains;
+		out = zeros(para.L, para.dk(1,1), NC);
+			
 		if para.useStarMPS
-			NC = para.nChains;
-			out = zeros(para.L, para.dk(1,1), NC);
 			for mc = 1:NC
 				% extract MPS for each chain and calculate <anam> separately
 				cL = para.chain{mc}.L;
@@ -198,10 +246,24 @@ switch type{1}
 					end
 				end
 			end
-		else			% standard SBM -> dk = 2
-			out(para.L,2,para.nChains) = 0;
-			out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[1,0;0,0]);	% spin up
-			out(:,2,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[0,0;0,1]);	% spin down
+		else
+			if length(type) == 1 || strcmpi(type{2},'diabatic')
+				% diabatic projections (H0 eigenstates)
+				for kk = 1:para.dk(1,1)
+					stateProj = zeros(para.dk(1,1)); stateProj(kk,kk) = 1;
+					bondProj  = [];
+					out(1:para.L,kk,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj,bondProj);
+				end
+			elseif strcmpi(type{2},'adiabatic')
+				% adiabatic states
+				for kk = 1:para.dk(1,1)
+					stateProj = [];
+					bondProj  = zeros(para.dk(1,1)); bondProj(kk,kk) = 1;
+					out(1:para.L,kk,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj,bondProj);
+				end
+			end
+% 			out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[1,0;0,0]);	% spin up
+% 			out(:,2,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[0,0;0,1]);	% spin down
 		end
 
 	case 'starpolaron'
@@ -621,6 +683,7 @@ function An = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj,bondProj)
 %				[]: no selection, take entire bond
 %				n : select nth-state
 % supports Multi-Chain with Vmat and Vtens, Works with single chain!
+%  does NOT support StarMPS input!
 
 assert(para.foldedChain == 0, 'Please use single-chain code for folded Chains');
 
@@ -642,6 +705,22 @@ for j = 1:para.L
 			end
 		end
 	end
+end
+
+if isempty(stateProj) && ~isempty(bondProj)
+	% do SVD from site 1 to 2 in order to get projections onto the dominant system states!
+	%	otherwise have projection onto dominant Bath states (from previous sweep to left)
+	A = mps{1};
+	[D1, D2, d] = size(A);				% d is site dimension
+	A = permute(A, [3, 1, 2]);
+    A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
+    [B, S, U] = svd2(A);				% Could also use QR decomposition if nargin !=5
+	
+	DB = size(S, 1);					% new a2 dimension of B should == d
+	B = reshape(B, [d, D1, DB]);
+	mps{1} = permute(B, [2, 3, 1]);		% not used anymore!
+	% do not contract S into mps{2}, to avoid the displacement to be contaminated with the state amplitude!
+	mps{2} = contracttensors(U,2,2, mps{2},3,1);
 end
 
 %% compute all partial contractions

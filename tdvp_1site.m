@@ -278,7 +278,7 @@ for timeslice = para.tdvp.slices
 
 		%% Expand / Truncate dk if needed!
 		if para.tdvp.useDkExpand
-			[Vmat{sitej}, para, results, op] = truncateExpandDk(Vmat{sitej},para,results,op);
+			[Vmat{sitej}, para, results, op] = truncateExpandDk(Vmat{sitej},para,results,op,sitej);
 		end
 
         %% update right Hamiltonian operators
@@ -349,13 +349,13 @@ for timeslice = para.tdvp.slices
 			results.tdvp.Amat_vNE(n,:)= results.Amat_vNE;
 		end
 		if para.tdvp.expandOBB
-	        results.tdvp.d_opt(n,:)   = para.d_opt(end,:) - sum(results.tdvp.d_opt);	% sum in 1st Dim
+	        results.tdvp.d_opt(n,:)   = reshape(para.d_opt.',1,[]) - sum(results.tdvp.d_opt);	% sum in 1st Dim
 		end
 		if para.tdvp.truncateExpandBonds
-	        results.tdvp.D(n,:)       = para.D - sum(results.tdvp.D);
+	        results.tdvp.D(n,:)       = reshape(para.D.',1,[]) - sum(results.tdvp.D);
 		end
 		if para.tdvp.useDkExpand
-			results.tdvp.dk(n,:)      = para.dk - results.tdvp.dk(n-1,:);
+			results.tdvp.dk(n,:)      = reshape(para.dk.',1,[]) - sum(results.tdvp.dk);
 		end
 	end
 	if ~exist('tresults','var')
@@ -429,7 +429,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
         end
 	end
 
-	function [Vmat,para,results,op] = truncateExpandDk(Vmat,para,results,op)
+	function [Vmat,para,results,op] = truncateExpandDk(Vmat,para,results,op,s)
 		%% function [Vmat, para, op] = truncateExpandDk(Vmat,para,op)
 		%	truncates or expands the local dimension dk based on the OBB usage
 		%	the vectors in Vmat and their SV are the indicators
@@ -446,8 +446,8 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			[dk,dOBB]   = size(Vmat);
 			para.dk(s)  = dk+adddim;						% operators will be expanded in genh1h2term?
 			addmat  = zeros(adddim,dOBB);
-% 			Vmat{s} = cat(1,addmat,Vmat{s});			% N:1 ordering
-			Vmat{s} = cat(1,Vmat{s},addmat);			% 1:N ordering
+% 			Vmat = cat(1,addmat,Vmat);			% N:1 ordering
+			Vmat = cat(1,Vmat,addmat);			% 1:N ordering
 			para.hasexpanded = 1;
 			para.increasedk  = 0;							% reset this value
 % 			dispif('Increased dk',para.logging)
@@ -485,9 +485,10 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			results.tdvp.D					= sparse(n,L-1);
 			results.tdvp.D(1,:)				= para.D;
 		end
-% 		dk not expanded yet -> do not log!
-%		results.tdvp.dk 		  = sparse(n,para.L);
-%		results.tdvp.dk(1,:)      = para.dk;
+		if para.tdvp.useDkExpand
+			results.tdvp.dk					= sparse(n,L);
+			results.tdvp.dk(1,:)			= reshape(para.dk.',1,[]);
+		end
 		results.tdvp.expvTime     = [];
 % 		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, (para.L-1)*4*2+3);
 		results.tdvp.expError	  = zeros(length(para.tdvp.t)-1, 1);		% otherwise file gets too large

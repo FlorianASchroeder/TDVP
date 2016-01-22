@@ -458,6 +458,25 @@ l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left< \sigma
 % l=legend('$\left< \sigma_x \right>$','$\left< \sigma_y \right>$','$\left| D(t) \right|$');
 l.Interpreter = 'latex';
 
+%% TDVP (2.1) SBM: Plot spin for adiabatic RDM:
+figure(21); clf; hold all;
+
+n = size(tresults.rho,1);
+rho = squeeze(tresults.rho(:,:,:,3));		% 1: full rdm; 2: RDM of dominant state
+% s2 = arrayfun(@(x) trace(squeeze(tresults.rho(x,:,:,1))*rho(x,:,:)),1:n);   % SV^2 corresponding to the bond state
+s2 = diag(reshape(tresults.rho(:,:,:,1),n,[])*reshape(tresults.rho(:,:,:,2),n,[])');	% achieves the same
+rho = reshape(rho,n,[]);			% reshape into t x 4
+[sigmaX,sigmaY,sigmaZ] = spinop('Z');
+sigmaX = reshape(sigmaX.',[],1);
+sigmaY = reshape(sigmaY.',[],1);
+sigmaZ = reshape(sigmaZ.',[],1);
+
+plot(tresults.t,rho*sigmaX);
+plot(tresults.t,rho*sigmaY);
+plot(tresults.t,real(rho*sigmaZ));
+
+set(gca,'ylim',[-1,1]);
+
 %% TDVP (2) SBM: Plot Bloch length
 figure(2); hold all;
 plot(para.tdvp.t(1:length(tresults.spin.sz)), sqrt(tresults.spin.sz.^2+tresults.spin.sx.^2+tresults.spin.sy.^2));

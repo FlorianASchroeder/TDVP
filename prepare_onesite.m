@@ -19,7 +19,7 @@ function [B, U, para,results,sv,vNE] = prepare_onesite(A,para,sitej,results)
 % 		Use [Q, R] = qr(A,0) for vertical matrix to get only Q1 and R from (Q1 Q2) (R 0).
 
 [D1, D2, d] = size(A);					% d is site dimension
-method = 'qr';
+% method = 'qr';
 
 switch para.sweepto
     case 'r'

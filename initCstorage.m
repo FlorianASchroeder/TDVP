@@ -1,4 +1,3 @@
-
 function [Cstorage] = initCstorage(mpsB, mpoX, mpsA, N)
     Cstorage = cell(1, N + 1);
     Cstorage{1} = 1;
