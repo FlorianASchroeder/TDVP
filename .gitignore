@@ -1,0 +1,4 @@
+# ignore run directories, which start with the date
+20??????-????-??-*/
+# ignore common backup files with ~ at end
+*~
