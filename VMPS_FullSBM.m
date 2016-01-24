@@ -241,6 +241,9 @@ else
 end
 
 para.spinposition = [1];						% This indicates all positions ~= bosonic! important for Vmat! The y chain is on the left and the z chain is on the right. (could be array !)
+if strcmp(para.model,'UniformBosonTTM')
+	para.spinposition = [];						% all bosons!
+end
 para.complex=0;                                 % set to 1 if any complex parameters are used.
 para.resume=0;                                  % Read from saved results if available.
 para.logging = 1;                               % Switch on logging and
@@ -292,6 +295,7 @@ if strcmp(para.model, 'UniformBosonTTM')
 	para.spinposition = [];									% pure Boson chain
 	para.D(1,1) = para.dk(1,1);								% need same Dim for maximally entangled state
 	para.D(1,2) = 2*D;										% keep bond larger in case of rapid entanglement growth
+	para.d_opt(1,[1 2]) = para.dk(1,[1 2]);					% have eye() as Vmat
 end
 
 if strcmp(para.model, 'SpinBoson2CT')

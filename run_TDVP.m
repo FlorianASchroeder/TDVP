@@ -15,9 +15,8 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-% 	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,5);	% VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
-	fileName =  VMPS_FullSBM(0,0,s,alpha,L,dk,5,5);			% VMPS_FullSBM(s,alpha,CTshift,InitState,L,dk,d_opt,D)	for DPMES
-% 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);		% iSBM(s,alpha,delta,epsilon,L,rescaling)
+	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,10);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
+% 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
 	loadedFromFile = 1;
@@ -61,11 +60,11 @@ para.tdvp.deltaT = dt;					% size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 1;				% much faster I/O saving
+para.tdvp.serialize = 0;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.ses.';
+para.tdvp.Observables = '.n.';
 	% n: occupation, j: current, s: spin,
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1
@@ -89,16 +88,16 @@ para.tdvp.expvM   = 50;                 % dim of Krylov subspace in expv(); defa
     %   else        : use Expokit expv(t,A,v, expvTol, expvM)
     %   set maxExpMDim = 0 to only use expv()
 % Dk settings & overrides
-para.tdvp.useDkExpand = 1; para.useDkExpand = 1; para.dkEx2_minExp = 10; para.dkmax	= 1000;
+para.tdvp.useDkExpand = 0; para.useDkExpand = 1; para.dkEx2_minExp = 10; para.dkmax	= 1000;
 % OBB settings
 para.tdvp.expandOBB = min(1,OBB);
 % Bond-Dim settings
 para.tdvp.truncateExpandBonds = min(1,Bond);
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = [Bond,10];		%
+para.tdvp.maxBondDim = [10,Bond];		%
 % para.tdvp.maxBondDim = Bond;
-para.Dmin = 2;
+para.Dmin = 4;
 para.tdvp.maxOBBDim  = OBB;
 para.svmaxtol = 10^-4;					% keep 1 below this!
 para.svmintol = 10^-4.5;				% throw away all below

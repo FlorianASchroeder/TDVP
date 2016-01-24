@@ -488,10 +488,10 @@ ylabel('$\sqrt{<s_x>^2+<s_y>^2+<s_z>^2}$');
 legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
-mode = 0;		% 0: lin, 1: log
+mode = 1;		% 0: lin, 1: log
 f=figure(312); clf; f.Name = 'Chain Occupation';
 % x = res{9,1}; tresults = x.tresults; para = x.para;
-x = res(9); tresults = x.tresults; para = x.para;
+% x = res(9); tresults = x.tresults; para = x.para;
 mc = 1;							% choose chain for display!
 if str2double(para.tdvp.version(2:end)) < 50
 	tresults.n = tresults.nx;
@@ -5888,9 +5888,9 @@ set(gca,'ylim',[-1,1]);
 toc
 
 %% Plot Memory Kernel ( elements of T)
-fignum = 10; f = figure(fignum); clf; hold all; ax = gca;
+fignum = 11; f = figure(fignum); clf; hold all; ax = gca;
 % x = res{1,1}; tresults = x.tresults; para = x.para;
-t = (1:length(tresults.TTM.T)).*para.tdvp.deltaT;
+t = (1:size(tresults.TTM.T,3)).*para.tdvp.deltaT;
 leg = cell(0,0);
 fun = @real;
 plot(t(2:end),fun(squeeze(tresults.TTM.T(1,1,2:end)./(para.tdvp.deltaT.^2)))); leg = [leg,{'11 \rightarrow 11'}]; % 11->11 = - 11->22
@@ -5900,6 +5900,20 @@ plot(t(2:end),fun(squeeze(tresults.TTM.T(2,2,2:end)./(para.tdvp.deltaT.^2)))); l
 % plot(t(2:end),fun(squeeze(x.tresults.TTM.T(1,2,2:end)./(x.para.tdvp.deltaT.^2)))); leg = [leg,{'21 \rightarrow 11'}];% 12->21 basically 0
 legend(leg);
 
+% ax.YScale = 'log';
+
+%% Plot Memory Kernel (ALL elements of T)
+fignum = 10; f = figure(fignum); clf; hold all; ax = gca;
+f.Name = 'Memory Kernel - All';
+% x = res{1,1}; tresults = x.tresults; para = x.para;
+t = (1:size(tresults.TTM.T,3)).*para.tdvp.deltaT;
+fun = @imag;
+for i = 1:20
+	p=plot(t(2:end),fun(reshape(tresults.TTM.T(i,i,2:end),[],length(t(2:end)))./(para.tdvp.deltaT.^2)),'Displayname',sprintf('%d',i));
+end
+legend toggle
+xlabel('t');
+ylabel('Im(TT)');
 % ax.YScale = 'log';
 
 %% Convert tresults to single precision

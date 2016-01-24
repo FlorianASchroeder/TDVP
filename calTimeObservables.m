@@ -17,7 +17,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 		if mod(para.tdvp.tmax, para.tdvp.extractObsInterval) == 0 && (para.tdvp.extractObsInterval >= para.tdvp.deltaT)
 			totalN = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
 		else
-			error('Need to define extractObsInterval so that mod(tmax,interval)=0!');
+			error('VMPS:calTimeObservables:WrongExtractObsInterval','Need to define extractObsInterval so that mod(tmax,interval)=0!');
 		end
 	else
 		totalN = size(para.tdvp.t,2);
@@ -246,7 +246,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			tresults.Vmat(i,:) = out.Vmat;
 		end
 		
-		if strcmp(para.model, 'SpinBosonTTM')
+		if strContains(para.model, 'SpinBosonTTM', 'UniformBosonTTM')
 			%% extract transfer tensor
 			% only use for single-slice tMPS due to iterative procedure
 			if length(slices) > 1, return; end;
@@ -256,8 +256,13 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			ONOB = eye(d^2); ONOB = reshape(ONOB,[d,d,d^2]);
 			EAm = zeros(d,d,d^2);
 			for k = 1:d^2
-				EAm(:,:,k) = ncon({rdm, squeeze(ONOB(:,:,k))'},...
-								  {[-1,2,-2,1], [1,2]})*d;			% apply Op, contract / trace; perhaps *d
+				if d <= 4
+					% slow ncon
+					EAm(:,:,k) = ncon({rdm, squeeze(ONOB(:,:,k))'},...
+									  {[-1,2,-2,1], [1,2]})*d;			% apply Op, contract / trace; perhaps *d
+				else
+					EAm(:,:,k) = d*contracttensors(rdm, 4, [2 4], squeeze(ONOB(:,:,k))', 2, [2 1]);
+				end
 			end
 			Epsilon = reshape(EAm,[d^2,d^2]);
 			T = Epsilon;
