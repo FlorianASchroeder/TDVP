@@ -255,20 +255,28 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			d = para.dk(1,2);
 			ONOB = eye(d^2); ONOB = reshape(ONOB,[d,d,d^2]);
 			EAm = zeros(d,d,d^2);
-			for k = 1:d^2
-				if d <= 4
+			if d <= 4
+				for k = 1:d^2
 					% slow ncon
 					EAm(:,:,k) = ncon({rdm, squeeze(ONOB(:,:,k))'},...
 									  {[-1,2,-2,1], [1,2]})*d;			% apply Op, contract / trace; perhaps *d
-				else
-					EAm(:,:,k) = d*contracttensors(rdm, 4, [2 4], squeeze(ONOB(:,:,k))', 2, [2 1]);
+					% EAm_ijk  = d* rdm_imjn * ONOB*_mnk
 				end
+			else
+				EAm = d*contracttensors(rdm, 4, [2 4], conj(ONOB), 3, [1 2]);	% EAm_ijk  = d* rdm_imjn * ONOB*_mnk
 			end
 			Epsilon = reshape(EAm,[d^2,d^2]);
 			T = Epsilon;
-			for k = 3:i
-				T = T - tresults.TTM.T(:,:,i+1-k)*tresults.TTM.Epsilon(:,:,k-1);          % TODO: vectorize for loop?
+% 			for k = 3:i
+% 				T = T - tresults.TTM.T(:,:,i+1-k)*tresults.TTM.Epsilon(:,:,k-1);
+% 			end
+			for k = 2:i-1
+				T = T - tresults.TTM.T(:,:,i-k)*tresults.TTM.Epsilon(:,:,k);		% just did k -> k+1
 			end
+			% following vectorisation is slower than for-loop! due to inverse ordering??
+% 			if i >= 3
+% 				T = T - contracttensors(tresults.TTM.T(:,:,i-(2:i-1)),3,[2 3], tresults.TTM.Epsilon(:,:,2:(i-1)),3,[1 3]);
+% 			end
 			tresults.TTM.Epsilon(:,:,i) = Epsilon;
 			if i > 1
 				tresults.TTM.T(:,:,i-1) = T;

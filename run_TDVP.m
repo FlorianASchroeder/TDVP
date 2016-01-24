@@ -60,7 +60,7 @@ para.tdvp.deltaT = dt;					% size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 0;				% much faster I/O saving
+para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
@@ -187,6 +187,10 @@ if ~strcmp(computer,'PCWIN64')
 	copyfile(para.filename,[para.tdvp.scratchDir,tempFold]);
 	save(sprintf([para.tdvp.filename(1:end-4),'-incomplete-%s.mat'],para.tdvp.hostname),'para','results');
 	cd(para.tdvp.scratchDir);
+else
+	% optimise the exponential bounds
+	para.tdvp.maxExpMDim = 100;
+	para.tdvp.maxExpVDim = 400;
 end
 
 if exist(para.tdvp.filename,'file') && para.tdvp.resume && isempty(fromFile)
