@@ -21,7 +21,7 @@ function tdvp_1site(mps,Vmat,para,results,op,tresults)
 
 %% 0. Parameter settings:
 if ~isfield(para,'tdvp')
-    error('Please define all necessary tdvp variables in para!');
+    error('VMPS:tdvp_1site:missing_para_tdvp','Please define all necessary tdvp variables in para!');
 end
 
 % open file for writing results
@@ -222,6 +222,7 @@ for timeslice = para.tdvp.slices
         else % sitej = L
 			if para.tdvp.evolveEndTTM
 				% perform one time evolution with the TTM method.
+				[mps{sitej},Vmat{sitej},para] = tdvp_1site_evolveTTM(mps,Vmat,para,results,op,outFile);
 			else
 				%% Normalize with last SVD
 				[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);
@@ -367,7 +368,7 @@ for timeslice = para.tdvp.slices
 			tresults = calTimeObservables(outFile.tmps(1:outFile.currentSize,:),outFile.tVmat(1:outFile.currentSize,:),para);
 		else
 			% Should not happen!
-			error('How did you get here??');
+			error('TDVP:tdvp_1site:tresults_not_initialised','How did you get here??');
 			%tresults = calTimeObservables(mps,Vmat,para);
 		end
 	elseif isfield(tresults,'lastIdx') % && tresults.lastIdx == timeslice not applicable anymore for extractObsInterval

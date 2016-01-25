@@ -265,13 +265,30 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			else
 				EAm = d*contracttensors(rdm, 4, [2 4], conj(ONOB), 3, [1 2]);	% EAm_ijk  = d* rdm_imjn * ONOB*_mnk
 			end
-			Epsilon = reshape(EAm,[d^2,d^2]);
+			Epsilon = reshape(EAm,[d^2,d^2]);	% E_(n~',n~),(n',n)
 			T = Epsilon;
 % 			for k = 3:i
 % 				T = T - tresults.TTM.T(:,:,i+1-k)*tresults.TTM.Epsilon(:,:,k-1);
 % 			end
 			for k = 2:i-1
-				T = T - tresults.TTM.T(:,:,i-k)*tresults.TTM.Epsilon(:,:,k);		% just did k -> k+1
+				if ~para.tdvp.splitTTM
+					T = T - tresults.TTM.T(:,:,i-k)*tresults.TTM.Epsilon(:,:,k);			% just did k -> k+1
+				else
+% 					Test = T - tresults.TTM.T(:,:,i-k)*tresults.TTM.Epsilon(:,:,k);			% just did k -> k+1
+					% looks complicated, but should have better scaling O(d^5*r) than above O(d^6)! (for rank r approx.)
+% 					tempE = reshape(tresults.TTM.Epsilon(:,:,k),d,d,d^2);					% E_(n',n,j)
+% 					tempE = contracttensors(conj(tresults.TTM.TV{i-k}),3,2, tempE,3,2);		% E_(n~,r,n',j) = V*_(n~,n,r) * E_(n',n,j)
+% 					tempE = contracttensors(tresults.TTM.TD{i-k},2,2,tempE,4,2);			% E_(r',n~,n',j) = D_(r',r) * E_(n~,r,n',j)
+% 					tempE = contracttensors(tresults.TTM.TV{i-k}, 3, [2,3], tempE,4,[3,1]);	% E_(n~',n~,j) = V_(n~',n',r') * E_(r',n~,n',j)
+% 					T = T - reshape(tempE,[d^2,d^2]);
+% 					
+					% MUCH faster!! perhaps uses symmetries! As fast as without splitting
+					tempT = tresults.TTM.TV{i-k}*sparse(diag(tresults.TTM.TD{i-k}))*tresults.TTM.TV{i-k}';% T_(n~',n'),(n~,n)
+					tempT = reshape(tempT,d,d,d,d);
+					tempT = permute(tempT,[1,3,2,4]);
+					tempT = reshape(tempT,d^2,d^2);
+					T = T - tempT * tresults.TTM.Epsilon(:,:,k);
+				end
 			end
 			% following vectorisation is slower than for-loop! due to inverse ordering??
 % 			if i >= 3
@@ -279,8 +296,29 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 % 			end
 			tresults.TTM.Epsilon(:,:,i) = Epsilon;
 			if i > 1
-				tresults.TTM.T(:,:,i-1) = T;
-				tresults.TTM.Tnorm(i-1) = single(norm(T));
+				if ~para.tdvp.splitTTM
+					tresults.TTM.Tnorm(i-1) = single(norm(T));
+					tresults.TTM.T(:,:,i-1) = T;
+				else
+% 					tresults.TTM.T(:,:,i-1) = T;
+					% reshape T to allow low-rank approximation
+					T = reshape(T,[d,d,d,d]);		% T_(n~',n~,n',n)
+					T = permute(T,[1,3,2,4]);		% T_(n~',n',n~,n)
+					T = reshape(T,[d^2,d^2]);		% T_(n~',n'),(n~,n)
+					
+					[V,D] = eig(T);					% do eig to obtain proper self-adjointness
+					D = real(diag(D));				% T self-adjoint -> D is real!
+					plot(abs(D)); set(gca,'Yscale','log'); drawnow
+					keepdims = abs(D)>1e-14;		% safe threshold?
+					V = V(:,keepdims);
+					D = diag(D(keepdims));			% now: norm(T-V*D*V') < 1e-14
+					% obtain T now as V*D*V'; V_(n~',n'),i
+% 					tresults.TTM.TV{i-1} = reshape(V,d,d,sum(keepdims));
+					tresults.TTM.TV{i-1} = V;		% d^2 x r
+					tresults.TTM.TD{i-1} = diag(D);	% store as vector
+					% gives correct extraction now!
+					tresults.TTM.Tnorm(i-1) = norm(D);
+				end
 				fprintf('\n|TTM|/dt^2: %g\n',tresults.TTM.Tnorm(i-1)/para.tdvp.deltaT^2);
 			end
 		end

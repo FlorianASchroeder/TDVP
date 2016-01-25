@@ -73,7 +73,7 @@ para.tdvp.Observables = '.n.';
 	% sp: stateProjection to extract specific amplitudes
 	% ss: system state -> map from diabatic to adiabatic basis
 	% ses: System-environment state for site 1&2; includes ss
-para.tdvp.storeMPS = 0;					% save tmps or not!
+para.tdvp.storeMPS = 1;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution? Only in StarMPS!
 para.tdvp.HEffSplitIsometry = 1;		% split mps{1} into isometry + relevant part
 para.tdvp.evolveEndTTM = 1;				% Only 1-chain: evolve end of chain with TTM. Starts where dw and dt < 1e-6 ? -> needs code in SBM_genpara
@@ -102,6 +102,7 @@ para.Dmin = 4;
 para.tdvp.maxOBBDim  = OBB;
 para.svmaxtol = 10^-4;					% keep 1 below this!
 para.svmintol = 10^-4.5;				% throw away all below
+para.tdvp.splitTTM = 1;					% Only TTM: low-rank approximation
 % z-Averaging for log-Discretization
 para.tdvp.zAveraging = 0;
 if para.tdvp.zAveraging

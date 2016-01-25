@@ -5916,6 +5916,28 @@ xlabel('t');
 ylabel('Im(TT)');
 % ax.YScale = 'log';
 
+%% Plot Memory Kernel compressed! (ALL elements of T)
+fignum = 11; f = figure(fignum); clf; hold all; ax = gca;
+f.Name = 'Memory Kernel - All';
+% x = res{1,1}; tresults = x.tresults; para = x.para;
+t = (1:length(tresults.TTM.TV)).*para.tdvp.deltaT;
+d = sqrt(size(tresults.TTM.TV{1},1));
+fun = @imag;
+T = zeros(d^2,d^2,length(t));
+for i = 1:length(t)
+	T(:,:,i) = tresults.TTM.TV{i}*sparse(diag(tresults.TTM.TD{i}))*tresults.TTM.TV{i}';
+	T(:,:,i) = reshape(permute(reshape(...
+				T(:,:,i),...
+				[d,d,d,d]),[1,3,2,4]),[d^2,d^2]);
+end
+for i = 1:20
+	p=plot(t(2:end),fun(reshape(T(i,i,2:end),[],length(t(2:end)))./(para.tdvp.deltaT.^2)),'Displayname',sprintf('%d',i));
+end
+legend toggle
+xlabel('t');
+ylabel('Im(TT)');
+% ax.YScale = 'log';
+
 %% TTM: test decomposition and compression of T
 T = tresults.TTM.T(:,:,10);		% T_(n~',n~),(n',n)
 

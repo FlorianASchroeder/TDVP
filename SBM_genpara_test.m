@@ -108,7 +108,31 @@ end
 plot(10.^(1:4),errorBounds);
 set(gca,'xscale','log');set(gca,'yscale','log');
 
+%% Look at possible chain truncation for end-of-chain TTM
+para.chain{1}.mapping			= 'OrthogonalPolynomials';
+% J given though points
+para.chain{1}.spectralDensity	= 'Leggett_Hard'; para.chain{1}.w_cutoff = 1;
 
+% para.chain{1}.discrMethod		= 'Direct';
+para.chain{1}.discretization	= 'None';
+
+para.chain{1}.s		 = 0.2;                            % SBM spectral function power law behaviour
+para.chain{1}.alpha  = 0.5;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+para.chain{1}.Lambda = 1;
+para.chain{1}.z      = 1;
+para.chain{1}.L		 = 100000;
+
+para.chain{1} = SBM_genpara(para.chain{1});			% bigL = 10*L
+
+f = figure(2); clf; hold on; ax=gca;
+col = {'k','r','b','g'};
+for i = 1:length(para.chain)
+	plot(abs(para.chain{i}.epsilon-0.5),col{i},'Displayname','\Delta \omega_n');
+	plot(abs(para.chain{i}.t-0.25),col{i+1},'Displayname','\Delta t_n');
+end
+ax.YScale = 'log';
+ax.XScale = 'log';
+legend toggle;
 %% ncon test
 	tNCON = []; tUCR = [];
 for j = 50:50:1000
