@@ -74,8 +74,9 @@ para.tdvp.Observables = '.n.';
 	% ss: system state -> map from diabatic to adiabatic basis
 	% ses: System-environment state for site 1&2; includes ss
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution?
+para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution? Only in StarMPS!
 para.tdvp.HEffSplitIsometry = 1;		% split mps{1} into isometry + relevant part
+para.tdvp.evolveEndTTM = 1;				% Only 1-chain: evolve end of chain with TTM. Starts where dw and dt < 1e-6 ? -> needs code in SBM_genpara
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
@@ -113,6 +114,9 @@ para.logging = 1;
 para.tdvp.logError = 0;				% calculate and log the TDVP error for A and V evolution (not implemented yet)
 para.tdvp.logTruncError = 0;		% log the truncation error after A and V evolution
 tresults = [];						% empty variable initialization
+if para.tdvp.evolveEndTTM
+	para.tdvp.storeMPS = 1;			% Also needs storeMPS = 1; Need entire MPS history for duration of memory kernel
+end
 %% comment if no new coupling needed
 if loadedFromFile
 % 	para.chain{1}.alpha = alpha;

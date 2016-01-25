@@ -192,7 +192,7 @@ for timeslice = para.tdvp.slices
 			[mps{sitej}, Vmat{sitej}, para, results, op, Hn] = tdvp_1site_evolveHn(mps,Vmat,para,results,op,sitej);
 		else
 			para.tdvp.expvCustomNow = 1;                                     % necessary setting!
-			[mps{sitej}, Vmat{sitej}, para, results, op, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);
+			[mps{sitej}, Vmat{sitej}, para, results, op, Hn] = tdvp_1site_evolveHnMC(mps,Vmat,para,results,op,sitej);	% MC-Vtens code!
 		end
         % now: A and V are time-evolved, A is focused
         % OBBDim has increased by 50%. This must be truncated in the next
@@ -220,11 +220,14 @@ for timeslice = para.tdvp.slices
 			end
 
         else % sitej = L
-            %% Normalize with last SVD
-			[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);
-			% Cn = 1 approximately. can be thrown away -> mps normalized
-            % finish with focus on A after time evolution
-
+			if para.tdvp.evolveEndTTM
+				% perform one time evolution with the TTM method.
+			else
+				%% Normalize with last SVD
+				[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);
+				% Cn = 1 approximately. can be thrown away -> mps normalized
+				% finish with focus on A after time evolution
+			end
         end
     end
 % 		fprintf('\n');							%Debug!
@@ -239,7 +242,7 @@ for timeslice = para.tdvp.slices
     % results.Vmat_sv
 	%% Output matrix dimensions if changed:
 	if para.tdvp.truncateExpandBonds
-		fprintf('para.D:\n');
+		fprintf('\npara.D:\n');
 		out = strrep(mat2str(para.D),';','\n');
 		fprintf([out(2:end-1),'\n']);
 		out = mat2str(cellfun(@(x) x(find(x,1,'last')),results.Amat_sv),2);

@@ -20,8 +20,15 @@ else
 	svmintol = 10^-4.5;
 	svmaxtol = 10^1;
 end
-if para.tdvp.imagT
+if ~isempty(para) && isfield(para,'tdvp') && para.tdvp.imagT
+	% normalise for proper truncation
 	sv = sv./norm(sv);
+end
+isSvMatrix = 0;
+if ~isvector(sv)
+	% sv is matrix -> vectorize
+	sv = diag(sv);
+	isSvMatrix = 1;
 end
 err = 0;
 %% Truncate A dims
@@ -52,6 +59,10 @@ if length(keepdims) < length(sv)
 	err = sum(sv(truncdims).^2);				% all disregarded SV^2
 else
 	U = u; S = sv; V = v; newDim = length(sv);
+end
+
+if isSvMatrix
+	S = diag(S);		% turn into matrix to match input
 end
 
 function conjGradient()

@@ -5916,6 +5916,38 @@ xlabel('t');
 ylabel('Im(TT)');
 % ax.YScale = 'log';
 
+%% TTM: test decomposition and compression of T
+T = tresults.TTM.T(:,:,10);		% T_(n~',n~),(n',n)
+
+[u,s,v] = svd2(T);
+f = figure(1); f.Name = 'TTM Singular Values T';
+plot(diag(s));							% linearly decaying singular values!
+title('Singular Values of $T_{(\tilde n'',\tilde n),(n'',n)}$');
+
+T = reshape(T,[10,10,10,10]);	% T_(n~',n~,n',n)
+T = permute(T,[1,3,2,4]);		% T_(n~',n',n~,n)
+T = reshape(T,[100,100]);		% T_(n~',n'),(n~,n)
+
+[u,s,v] = svd2(T);				% here: u == v' since T=T'; Problem: errors from kernel of T giving different vectors -> truncate!
+f = figure(2); clf; f.Name = 'TTM Singular Values T reshape'; hold all;
+plot(diag(s),'Displayname','SV'); set(gca,'yscale','log');		% exponentially decaying singular values!
+title('Singular Values of $T_{(\tilde n'',n''),(\tilde n,n)}$');
+
+% Do truncation:
+x.svmintol = 1e-15;
+x.svmaxtol = 1e-13;
+[U,S,V,~,err] = truncateUSV(u,s,v,x,2);
+% plot(diag(S));
+
+% or approach with diagonalisation:
+[V,D] = eig(T);
+plot(diag(abs(real(D))),'Displayname','EV'); legend toggle;
+D = real(diag(D));
+keepdims = abs(D)>1e-14;
+V = V(:,keepdims);
+D = diag(D(keepdims));			% now: norm(T-V*D*V') < 1e-14
+
+
 %% Convert tresults to single precision
 % tresults.star.x = single(tresults.star.x);
 tresults.star.n = single(tresults.star.n);
