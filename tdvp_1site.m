@@ -222,7 +222,8 @@ for timeslice = para.tdvp.slices
         else % sitej = L
 			if para.tdvp.evolveEndTTM
 				% perform one time evolution with the TTM method.
-				[mps{sitej},Vmat{sitej},para] = tdvp_1site_evolveTTM(mps,Vmat,para,results,op,outFile);
+				% TTM contains: TTM.TV{}, TTM.TD{} created by sliceTTM
+				[mps{sitej},Vmat{sitej},para] = tdvp_1site_evolveTTM(mps,Vmat,para,results,op,TTM,outFile);
 			else
 				%% Normalize with last SVD
 				[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);

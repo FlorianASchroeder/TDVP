@@ -5863,7 +5863,7 @@ tic;
 n = round(finalT/para.tdvp.deltaT)+1;
 rhoT = zeros(length(tresults.TTM.T)*4,1);
 Esigma = zeros(n,3);
-T = reshape(tresults.TTM.T, 4,[]);			% creates [T(1) T(2) T(3) ...]
+T = reshape(tresults.TTM.T, 2^2,[]);			% creates [T(1) T(2) T(3) ...]
 for i = 1:n
 	if i == 1
 		rho = [1,0,0,0]';
@@ -5903,7 +5903,7 @@ legend(leg);
 % ax.YScale = 'log';
 
 %% Plot Memory Kernel (ALL elements of T)
-fignum = 10; f = figure(fignum); clf; hold all; ax = gca;
+fignum = 12; f = figure(fignum); clf; hold all; ax = gca;
 f.Name = 'Memory Kernel - All';
 % x = res{1,1}; tresults = x.tresults; para = x.para;
 t = (1:size(tresults.TTM.T,3)).*para.tdvp.deltaT;
