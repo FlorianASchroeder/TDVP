@@ -127,8 +127,8 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 				if ~isfield(tresults, 'star')
 					% initialise storage if first sweep
 					nElements = para.tdvp.tmax/para.tdvp.extractStarInterval +1;
-					if exist('occ','var'),     tresults.star.n = single(zeros(nElements,length(occ),para.nChains)); end
-					if exist('polaron','var'), tresults.star.x = single(zeros(nElements,length(polaron),2,para.nChains)); end
+					if exist('occ','var'),     tresults.star.n = single(zeros(nElements,size(occ,2),para.nChains)); end
+					if exist('polaron','var'), tresults.star.x = single(zeros(nElements,size(polaron,2),2,para.nChains)); end
 					tresults.star.omega = starOmega;
 					tresults.star.t     = single(zeros(1,nElements));
 				end
