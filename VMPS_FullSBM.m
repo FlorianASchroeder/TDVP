@@ -37,22 +37,22 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='DPMES5-7C';
+para.model='SpinBoson';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
 	%		  'DPMES3-4C', 'DPMES4-5C', 'DPMES5-7C'
 	%		  'UniformBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 7;
+para.nEnvironments  = 1;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 7;
+para.nChains		= 1;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
 para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
 
-para.useStarMPS = 1;
+para.useStarMPS = 0;
 
 %% System Definitions:
 % if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')

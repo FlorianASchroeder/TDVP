@@ -308,7 +308,7 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 					
 					[V,D] = eig(T);					% do eig to obtain proper self-adjointness
 					D = real(diag(D));				% T self-adjoint -> D is real!
-					plot(abs(D),'Displayname',num2str(i)); hold all; set(gca,'Yscale','log'); drawnow
+% 					plot(abs(D),'Displayname',num2str(i)); hold all; set(gca,'Yscale','log'); drawnow
 					keepdims = abs(D)>1e-14;		% safe threshold?
 					V = V(:,keepdims);
 					D = diag(D(keepdims));			% now: norm(T-V*D*V') < 1e-14

@@ -44,6 +44,9 @@ while (sv(keepdims(end))/norm(sv(keepdims)) > svmaxtol)
 	else
 		% expand Bond dims! Happens later?
 		U = u; S = sv; V = v; newDim = length(sv);
+		if isSvMatrix
+			S = diag(S);		% turn into matrix to match input
+		end
 		return;
 	end
 end

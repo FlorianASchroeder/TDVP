@@ -173,6 +173,11 @@ else
 	fprintf('.\n');
 end
 
+if para.tdvp.evolveEndTTM
+	TTM = [];
+	load(sprintf('TTM/T5dt%gdk%d.mat',para.tdvp.deltaT,para.dk(1,end)));	% load object TTM
+end
+
 %% 2. time sweep
 
 for timeslice = para.tdvp.slices
@@ -224,6 +229,16 @@ for timeslice = para.tdvp.slices
 				% perform one time evolution with the TTM method.
 				% TTM contains: TTM.TV{}, TTM.TD{} created by sliceTTM
 				[mps{sitej},Vmat{sitej},para] = tdvp_1site_evolveTTM(mps,Vmat,para,results,op,TTM,outFile);
+				% Vmat dimensions could have changed!
+				% thus invalidate Hn and recompute h1OBB, h2OBB
+				Hn = [];
+				op = H_Eff([]  , Vmat{sitej}, 'A' , op, para);
+				op.Hlrstorage{sitej + 1} = eye(size(mps{sitej},2));			% for correct H_Eff contraction
+				op.Hright = op.Hlrstorage{sitej + 1};
+				for m = 1:para.M
+					op.Opstorage{m,2,sitej+1} = zeros(size(mps{sitej},2));
+					op.Opright{m} = op.Opstorage{m,2,sitej+1};
+				end
 			else
 				%% Normalize with last SVD
 				[mps{sitej}, Cn] = prepare_onesite_truncate(mps{sitej}, para,sitej);
@@ -489,6 +504,10 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		if para.tdvp.truncateExpandBonds
 			results.tdvp.D					= sparse(n,L-1);
 			results.tdvp.D(1,:)				= para.D;
+			if para.tdvp.evolveEndTTM
+				results.tdvp.D				= sparse(n,L);			% add 1 Dim for environment
+				results.tdvp.D(1,:)			= [para.D, 0];				% add 0 here
+			end
 		end
 		if para.tdvp.useDkExpand
 			results.tdvp.dk					= sparse(n,L);

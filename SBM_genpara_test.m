@@ -116,11 +116,11 @@ para.chain{1}.spectralDensity	= 'Leggett_Hard'; para.chain{1}.w_cutoff = 1;
 % para.chain{1}.discrMethod		= 'Direct';
 para.chain{1}.discretization	= 'None';
 
-para.chain{1}.s		 = 0.2;                            % SBM spectral function power law behaviour
-para.chain{1}.alpha  = 0.5;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+para.chain{1}.s		 = 1;                            % SBM spectral function power law behaviour
+para.chain{1}.alpha  = 0.2;                       % SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
 para.chain{1}.Lambda = 1;
 para.chain{1}.z      = 1;
-para.chain{1}.L		 = 100000;
+para.chain{1}.L		 = 20;
 
 para.chain{1} = SBM_genpara(para.chain{1});			% bigL = 10*L
 

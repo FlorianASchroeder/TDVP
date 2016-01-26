@@ -716,7 +716,8 @@ switch para.model
             case 2                                                  % second chain pos = Boson to be analysed
                 [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
                 zm				  = sparse(size(bp,1),size(bp,1));	% zero matrix
-                op.h1term{s}	  = para.chain{1}.epsilon(1).*n;
+%                 op.h1term{s}	  = para.chain{1}.epsilon(1).*n;
+				op.h1term{s}	  = zm;								% empty since already contained in Original Hamiltonian which is to be TTM evolved
                 op.h2term{1,1,s}  = para.chain{1}.t(1).*bp; op.h2term{1,2,s} = zm;
                 op.h2term{2,1,s}  = para.chain{1}.t(1).*bm; op.h2term{2,2,s} = zm;
             case para.L                                             % last chain pos: only one coupling?

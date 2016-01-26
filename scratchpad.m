@@ -434,7 +434,7 @@ set(gca,'view',[-29,16]);
 rotate3d on
 
 %% TDVP (2) SBM: Plot <sz> / Visibility / Coherence
-figure(20); hold all;
+figure(21); hold all;
 % tresults = res{3}.tresults;	% for res-extraction
 % plotOpt = {'LineWidth',1.5};
 % plotOpt = {'black','LineWidth',1};
@@ -488,8 +488,8 @@ ylabel('$\sqrt{<s_x>^2+<s_y>^2+<s_z>^2}$');
 legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
-mode = 1;		% 0: lin, 1: log
-f=figure(312); clf; f.Name = 'Chain Occupation';
+mode = 0;		% 0: lin, 1: log
+f=figure(311); clf; f.Name = 'Chain Occupation';
 % x = res{9,1}; tresults = x.tresults; para = x.para;
 % x = res(9); tresults = x.tresults; para = x.para;
 mc = 1;							% choose chain for display!
@@ -5922,7 +5922,7 @@ f.Name = 'Memory Kernel - All';
 % x = res{1,1}; tresults = x.tresults; para = x.para;
 t = (1:length(tresults.TTM.TV)).*para.tdvp.deltaT;
 d = sqrt(size(tresults.TTM.TV{1},1));
-fun = @imag;
+fun = @real;
 T = zeros(d^2,d^2,length(t));
 for i = 1:length(t)
 	T(:,:,i) = tresults.TTM.TV{i}*sparse(diag(tresults.TTM.TD{i}))*tresults.TTM.TV{i}';
