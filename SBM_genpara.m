@@ -194,7 +194,7 @@ end
 			end
 		else
 			error('VMPS:SBM_genpara:chainParams_OrthogonalPolynomials','Only available for power-law spectral functions');
-        end
+		end
     end
 
     function [w, t, U] = chainParams_Lanczos(xi, Gamma)

@@ -545,8 +545,8 @@ switch para.model
 			zm      = zeros(3);
 			op.h1term{1,1}      = H0;
 			for i = 1:4
-				op.h2term{2*i-1, 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i-1, 2,1,1} = zm;
-				op.h2term{2*i  , 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i  , 2,1,1} = zm;
+				op.h2term{2*i-1, 1,1,1} = para.chain{i}.t(1).*H1{i}./sqrt(2); op.h2term{2*i-1, 2,1,1} = zm;
+				op.h2term{2*i  , 1,1,1} = para.chain{i}.t(1).*H1{i}./sqrt(2); op.h2term{2*i  , 2,1,1} = zm;
 			end
 % 				op.h2term{1 ,1,1,1} = para.chain{1}.t(1).*H1{1}; op.h2term{1 ,2,1,1} = zm;	% A1 chain 1
 % 				op.h2term{2 ,1,1,1} = para.chain{1}.t(1).*H1{1}; op.h2term{2 ,2,1,1} = zm;
@@ -593,8 +593,48 @@ switch para.model
 			zm      = zeros(size(H0,1));
 			op.h1term{1,1}      = H0;
 			for i = 1:length(H1)
-				op.h2term{2*i-1, 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i-1, 2,1,1} = zm;
-				op.h2term{2*i  , 1,1,1} = para.chain{i}.t(1).*H1{i}; op.h2term{2*i  , 2,1,1} = zm;
+				op.h2term{2*i-1, 1,1,1} = para.chain{i}.t(1).*H1{i}./sqrt(2); op.h2term{2*i-1, 2,1,1} = zm;
+				op.h2term{2*i  , 1,1,1} = para.chain{i}.t(1).*H1{i}./sqrt(2); op.h2term{2*i  , 2,1,1} = zm;
+			end
+		case para.L
+			if para.parity ~= 'n'
+				error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			for i = 1:para.nChains			% slow, but easy to modify!
+				[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+				zm = sparse(size(bp,1),size(bp,1));
+				op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+				op.h2term{2*i-1,1,s,i} = zm; op.h2term{2*i-1,2,s,i} = bm;
+				op.h2term{2*i  ,1,s,i} = zm; op.h2term{2*i  ,2,s,i} = bp;
+			end
+		otherwise
+			if para.parity ~= 'n'
+				error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			for i = 1:para.nChains
+				[bp,bm,n] = bosonop(para.dk(i,s),para.shift(i,s),para.parity);
+				op.h1term{i,s}		   = para.chain{i}.epsilon(s-1).*n;
+				op.h2term{2*i-1,1,s,i} = para.chain{i}.t(s).*bp; op.h2term{2*i-1,2,s,i} = bm;
+				op.h2term{2*i  ,1,s,i} = para.chain{i}.t(s).*bm; op.h2term{2*i  ,2,s,i} = bp;
+			end
+	end
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	case 'DPMES5-7C'
+	%%%%%%%%%%%%%%%%%%% DP-MES Model - 5-Chain %%%%%%%%%%%%%%%%%%%%%%
+	% Not linear, but in multi-chain configuration!
+	% Spin is always in chain 1 for backward compatibility
+	%
+	% working
+	% Created 29/01/16 by F.S.
+	switch s
+		case 1		% is the pentacene system!
+			[H0,H1] = DPMES_Operators('5-7C',para);
+			zm      = zeros(size(H0,1));
+			op.h1term{1,1}      = H0;
+			for i = 1:length(H1)
+				op.h2term{2*i-1, 1,1,1} = para.chain{i}.t(1).*H1{i}./sqrt(2); op.h2term{2*i-1, 2,1,1} = zm;
+				op.h2term{2*i  , 1,1,1} = para.chain{i}.t(1).*H1{i}./sqrt(2); op.h2term{2*i  , 2,1,1} = zm;
 			end
 		case para.L
 			if para.parity ~= 'n'
@@ -692,6 +732,9 @@ switch para.model
                 op.h2term{2,1,s}  = para.chain{1}.t(1).*bm; op.h2term{2,2,s} = bp;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+	otherwise
+		error('VMPS:genh1h2term_onesite:ModelNotFound','Could not find specified para.model')
 end
 end
 
@@ -734,7 +777,7 @@ switch nModel
 		% chain order: 1-2: A1(1,2); 3: B1, 4: A2
 		H0 = diag(states([1,2,4],2));
 		n = size(H0,1);
-		H1 = cell(n,1);
+		H1 = cell(4,1);
 		H1{1} = eye(n);   H1{1}(1,1) = 0;
 		H1{2} = eye(n);   H1{2}(1,1) = 2;
 		H1{3} = zeros(n); H1{3}(2,3) = 1; H1{3}(3,2) = 1;
@@ -744,13 +787,42 @@ switch nModel
 		% chain order: 1-2: A1(1,2); 3: B1, 4: A2, 5:B2
 		H0 = diag(states([1,2,4,5],2));
 		n = size(H0,1);
-		H1 = cell(n,1);
+		H1 = cell(5,1);
 		H1{1} = eye(n);   H1{1}(1,1) = 0;
 		H1{2} = eye(n);   H1{2}(1,1) = 2;
 		H1{3} = zeros(n); H1{3}(2,3) = 1;          H1{3}(3,2) = 1;	        % B1, W24
 						  H1{3}(1,4) = -sqrt(3)/2; H1{3}(4,1) = -sqrt(3)/2;	%	, W15
 		H1{4} = zeros(n); H1{4}(1,3) = 1;          H1{4}(3,1) = 1;			% A2, W14
 		H1{5} = zeros(n); H1{5}(3,4) = 1;          H1{5}(4,3) = 1;			% B2, W45
+% 		para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
+% 		para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-10-x1.dat'));
+% 		para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151123/W24-B1-highv2.dat'));
+% 		para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151123/W14-A2-highv2.dat'));
+% 		para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151123/W45-B2-all.dat'));
+	case '5-7C'
+		% TT, LE+, LE-, CT+, CT- with 4 chains
+		% chain order: 1-2: A1(1,2); 3: A2, 4: B1, 5-7: B2
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		H1{1} = eye(n);   H1{1}(1,1) = 0;									% A1: TT/rest = 0
+		H1{2} = eye(n);   H1{2}(1,1) = 2;									% A1: TT/rest = 2
+		H1{3} = zeros(n); H1{3}(1,4) = 1;          H1{4}(4,1) = 1;			% A2, W14
+		H1{4} = zeros(n); H1{4}(2,4) = 1;          H1{4}(4,2) = 1;	        % B1, W24
+						  H1{4}(1,5) = -sqrt(3)/2; H1{4}(5,1) = -sqrt(3)/2;	%	, W15
+						  H1{4}(3,5) = -1;         H1{4}(5,3) = -1;			%   , W35
+		H1{5} = zeros(n); H1{5}(2,3) = 1;          H1{5}(3,2) = 1;			% B2, W23
+		H1{6} = zeros(n); H1{6}(4,5) = 1;          H1{6}(5,4) = 1;			% B2, W45
+						  H1{6}(2,3) = 1.3;        H1{6}(3,2) = 1.3;		%   , W23
+		H1{7} = zeros(n); H1{7}(4,5) = 1;          H1{7}(5,4) = 1;			% B2, W45
+						  H1{7}(2,3) = -1.5;       H1{7}(3,2) = -1.5;		%   , W23
+% 		para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-7-01.dat'));
+% 		para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-10-x1.dat'));
+% 		para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20160129/W14-A2-10-highv2.dat'));
+% 		para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20160129/W24-B1-17-highv2.dat'));
+% 		para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20160129/W23-B2-8-10.dat'));
+% 		para.chain{6}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1x.dat'));
+% 		para.chain{7}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1-x.dat'));
 end
 
 end

@@ -15,7 +15,7 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,10);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
+	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,5);     % VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);     % iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
@@ -64,7 +64,7 @@ para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.dm2.';
+para.tdvp.Observables = '.n.sn.';
 	% n: occupation, j: current, s: spin,
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1
@@ -92,7 +92,7 @@ para.tdvp.expandOBB = min(1,OBB);
 para.tdvp.truncateExpandBonds = min(1,Bond);
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = [10,Bond];		%
+para.tdvp.maxBondDim = [7,Bond];		%
 % para.tdvp.maxBondDim = Bond;
 para.Dmin = 4;
 para.tdvp.maxOBBDim  = OBB;
@@ -119,7 +119,7 @@ if loadedFromFile
 end
 
 %% Format Filename
-para.tdvp.version = 'v66';
+para.tdvp.version = 'v72';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!
