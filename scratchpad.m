@@ -489,14 +489,14 @@ legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 0;		% 0: lin, 1: log
-f=figure(311); clf; f.Name = 'Chain Occupation';
+f=figure(315); clf; f.Name = 'Chain Occupation';
 % x = res{9,1}; tresults = x.tresults; para = x.para;
 % x = res(9); tresults = x.tresults; para = x.para;
 mc = 1;							% choose chain for display!
 if str2double(para.tdvp.version(2:end)) < 50
 	tresults.n = tresults.nx;
 end
-n = tresults.n(:,:,mc);
+% n = tresults.n(:,:,mc);
 l = find(tresults.n(:,3),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
@@ -5922,7 +5922,7 @@ f.Name = 'Memory Kernel - All';
 % x = res{1,1}; tresults = x.tresults; para = x.para;
 t = (1:length(tresults.TTM.TV)).*para.tdvp.deltaT;
 d = sqrt(size(tresults.TTM.TV{1},1));
-fun = @real;
+% fun = @real;
 T = zeros(d^2,d^2,length(t));
 for i = 1:length(t)
 	T(:,:,i) = tresults.TTM.TV{i}*sparse(diag(tresults.TTM.TD{i}))*tresults.TTM.TV{i}';
@@ -5930,8 +5930,17 @@ for i = 1:length(t)
 				T(:,:,i),...
 				[d,d,d,d]),[1,3,2,4]),[d^2,d^2]);
 end
+subplot(2,1,1); hold all;
 for i = 1:20
-	p=plot(t(2:end),fun(reshape(T(i,i,2:end),[],length(t(2:end)))./(para.tdvp.deltaT.^2)),'Displayname',sprintf('%d',i));
+	p=plot(t(2:end),real(reshape(T(i,i,2:end),[],length(t(2:end)))./(para.tdvp.deltaT.^2)),'Displayname',sprintf('%d',i));
+end
+legend toggle
+xlabel('t');
+ylabel('Re(TT)');
+
+subplot(2,1,2); hold all;
+for i = 1:20
+	p=plot(t(2:end),imag(reshape(T(i,i,2:end),[],length(t(2:end)))./(para.tdvp.deltaT.^2)),'Displayname',sprintf('%d',i));
 end
 legend toggle
 xlabel('t');
