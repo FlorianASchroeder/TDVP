@@ -192,6 +192,7 @@ for timeslice = para.tdvp.slices
 	%% run a HOSVD to focus each chain
 	for mc = 1:para.nChains
 	%% Now normal sweep through chains. Redefine op to bring onto single-chain form!
+		fprintf('\nChain %d:\n',mc);
 		para.currentChain = mc; para.sitej = 1;
 		% SVD to get A_C(mc)
 		[mps{1}, Cn] = prepare_Tens(mps{1}, para);		% mps{1} can be seen as Vtens core
@@ -536,7 +537,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 
 	function results = initresultsTDVP(para, results)
 		% save Dimension Log only as difference! reconstruct with cumsum(A)
-		fprintf('Initialize results.tdvp\n');
+% 		fprintf('Initialize results.tdvp\n');
 		n = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
 		NC = para.nChains; L = para.L;
 		if para.tdvp.logSV
@@ -720,8 +721,8 @@ else
 		[Iso, A] = qr(Atens,0);			% Iso is isometry with all unused chains
 
 		% TODO: comment if not testing!!
-		[Iso2,A2]= rrQR(Atens, floor(0.6*prod(dOut(end-1:end))),0);		% low rank QR approximation
-		fprintf('evolve: rank(A) = %d, dim(A,2) = %d, rrQR error = %g\n', rank(Atens), prod(dOut(end-1:end)),norm(Atens - Iso2*A2));
+% 		[Iso2,A2]= rrQR(Atens, floor(0.6*prod(dOut(end-1:end))),0);		% low rank QR approximation
+% 		fprintf('evolve: rank(A) = %d, dim(A,2) = %d, rrQR error = %g\n', rank(Atens), prod(dOut(end-1:end)),norm(Atens - Iso2*A2));
 
 
 		% evolve simplified mps matrix

@@ -1598,7 +1598,8 @@ f=figure(702);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('rhoii'); xlabel('$t$');
 pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
-leg = legend('TT','LE+','CT+','CT-');
+% leg = legend('TT','LE+','CT+','CT-');
+leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$\rho_{ii}$');
 grid on
 axis tight
@@ -4579,6 +4580,238 @@ figure(3);clf;hold all; arrayfun(@(x) x.plot('calctime'), res,'UniformOutput',fa
 figure(4);clf;hold all; arrayfun(@(x) x.plot('calctime-d'), res,'UniformOutput',false);xlabel('Time $\omega_c t$'); ylabel('CPU time per sweep in h'); legend toggle;
 % export_fig(['img/20151218 - DPMES TDVP Benchmark - t per sweep'],'-transparent','-png','-m2',gca)
 
+%% DPMES4-5C v66-v72  StarMPS H correction - TDVPData								% LabBook 29/01/2016
+% test v72 against v66 and effect of H_int correction
+clear
+defPlot(1,:) = {'20160129-DPMES4-5C-v66-v72-D10-4thParams-highv2-H',		[ 2: 3], {'xlim',[0,1e2],'yscale','lin'}};
+
+i=0; cols = 5;
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+res = TDVPData();
+
+% 1: Params v4-high-v2 non-disorder, wrong Hamiltonian factor
+foldPattern = '20151123-1201-DPMES4-5C-Star-v66TCMde9-dk20D10dopt5L7';
+filePattern = 'results-Till1500Step0.1v66-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('H bad v66'));
+	res(i) = res(i).setComment('wrong H factor');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 2: Params v4-high-v2 non-disorder, correct Hamiltonian factor
+foldPattern = '20160129-1321-DPMES4-5C-Star-v66TCMde9-dk20D10dopt5L7';
+filePattern = 'results-Till1500Step0.1v66-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('H good v66'));
+	res(i) = res(i).setComment('H corrected v66');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 3: Params v4-high-v2 v72 correct H factor
+foldPattern = '20160129-1332-11-DPMES4-5C-Star-v72TCMde9-dk20D10dopt5L7';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('H good v72'));
+	res(i) = res(i).setComment('H corrected v72');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+% 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
+% 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
+	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','CT+','CT-')
+% 	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx)*0.658, abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
+% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
+% 	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
+% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
+	axis tight;
+	phArr = cellfun(@(x) x(1),ph,'UniformOutput',false);
+% 	leg = legend([phArr{:}],res(pick).LegLabel,'location','Northwest');
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$t/fs$');
+% 	xlabel('$t$');
+	ylabel('$\rho_{ii} (t)$');
+	fs = 22;
+	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+end
+
+%% DPMES4-5C v72  StarMPS CT shift - TDVPData										% LabBook ????
+% See effect of CT shift on dynamics
+clear
+defPlot(1,:) = {'20160129-DPMES4-5C-v72-D10-4thParams-highv2-CTshift',		[ 2: 5], {'xlim',[0,1e2],'yscale','lin'}};
+
+i=0; cols = 5;
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+res = TDVPData();
+
+% 1: Params v4-high-v2 v72 correct H factor
+foldPattern = '20160129-1332-11-DPMES4-5C-Star-v72TCMde9-dk20D10dopt5L7';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('CT unshifted'));
+	res(i) = res(i).setComment('H corrected v72');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 2-5: Params v4-high-v2 v72 shifted CT
+foldPattern = '20160129-1356-57-DPMES4-5C-Star-v72TCMde9-dk20D10dopt5L7Delta0..';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('CT +%s',res(i).para.folder(end-2:end)));
+	res(i) = res(i).setComment('CT shifted');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+% 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
+% 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
+	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','CT+','CT-')
+% 	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx)*0.658, abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
+% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
+% 	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
+% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
+	axis tight;
+	phArr = cellfun(@(x) x(1),ph,'UniformOutput',false);
+% 	leg = legend([phArr{:}],res(pick).LegLabel,'location','Northwest');
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$t/fs$');
+% 	xlabel('$t$');
+	ylabel('$\rho_{ii} (t)$');
+	fs = 22;
+	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+end
+
+%% DPMES5-7C v72  StarMPS LE- added - TDVPData										% LabBook ????
+% See effect of CT shift on dynamics
+clear
+defPlot(1,:) = {'20160129-DPMES5-7C-v72-D5-10-5param',				[ 2: 4], {'xlim',[0,1e2],'yscale','lin'}};
+
+i=0; cols = 5;
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+res = TDVPData();
+
+% 1: Params v4 v72, 4-5C
+foldPattern = '20160129-1332-11-DPMES4-5C-Star-v72TCMde9-dk20D10dopt5L7';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('4-5C'));
+	res(i) = res(i).setComment('H corrected v72');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 2-4: Params v5 v72 5-7C
+foldPattern = '20160129-1417-29-DPMES5-7C-Star-v72TCMde9-dk20D5dopt5L7Delta0';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Ds.*-Dmax10-expvCustom700-1core-small';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('D_s %g',res(i).para.tdvp.maxBondDim(1)));
+	res(i) = res(i).setComment('5-7C');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+% 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
+% 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
+	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
+% 	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx)*0.658, abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
+% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
+% 	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
+% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
+	axis tight;
+	phArr = cellfun(@(x) x(1),ph,'UniformOutput',false);
+% 	leg = legend([phArr{:}],res(pick).LegLabel,'location','Northwest');
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	xlabel('$t/fs$');
+% 	xlabel('$t$');
+	ylabel('$\rho_{ii} (t)$');
+	fs = 22;
+	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+end
 
 %%	find correlation between TT trace and "parameter distance"
 chainPara = [];

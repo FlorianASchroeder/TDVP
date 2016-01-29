@@ -80,25 +80,27 @@ end
 para.L = L;
 
 if ~isempty(strfind(para.model,'DPMES'))
-	%% chain 1 for DPMES:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
-	para.systemStates				= load('DPMESdata_20151123/states.dat');		% [#state, E(eV)]
-	para.chain{1}.mapping			= 'LanczosTriDiag';
-	para.chain{1}.spectralDensity	= 'CoupDiscr';
-	para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
-	
-	para.chain{1}.L					= min(length(para.chain{1}.dataPoints)+1,L);
-	
-	%% chain 2 & more:
-	para.chain{2}					= para.chain{1};		% simple copy
-	para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-10-x1.dat'));
-	para.chain{3}					= para.chain{2};
-	para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151123/W24-B1-highv2.dat'));
-	para.chain{4}					= para.chain{2};
-	para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151123/W14-A2-highv2.dat'));
-	para.chain{5}					= para.chain{2};
-	para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151123/W45-B2-all.dat'));
-	% override for new model:
-	if strcmp(para.model,'DPMES5-7C')
+	if strcmp(para.model,'DPMES4-5C')
+		%% chain 1 for DPMES:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
+		para.systemStates				= load('DPMESdata_20151123/states.dat');		% [#state, E(eV)]
+		para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+delta);			% use delta as percentual shift of CT states!
+		para.chain{1}.mapping			= 'LanczosTriDiag';
+		para.chain{1}.spectralDensity	= 'CoupDiscr';
+		para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
+
+		para.chain{1}.L					= min(length(para.chain{1}.dataPoints)+1,L);
+
+		%% chain 2 & more:
+		para.chain{2}					= para.chain{1};		% simple copy
+		para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-10-x1.dat'));
+		para.chain{3}					= para.chain{2};
+		para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151123/W24-B1-highv2.dat'));
+		para.chain{4}					= para.chain{2};
+		para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151123/W14-A2-highv2.dat'));
+		para.chain{5}					= para.chain{2};
+		para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151123/W45-B2-all.dat'));
+	elseif strcmp(para.model,'DPMES5-7C')
+		% Change in DPMESdata_20160129: split B2 into more chains, 2 slow weak modes more in B1
 		para.systemStates				= load('DPMESdata_20160129/states.dat');		% [#state, E(eV)]
 		para.chain{1}.mapping			= 'LanczosTriDiag';
 		para.chain{1}.spectralDensity	= 'CoupDiscr';
@@ -513,8 +515,8 @@ end
 para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
     para.model,Descr,alpha,delta,epsilon,dk,D,d_opt,para.L);
 if ~isempty(strfind(para.model,'DPMES'))
-	para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-dk%.10gD%.10gdopt%gL%d'],...
-		para.model,Descr,dk,D,d_opt,para.L);
+	para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-dk%.10gD%.10gdopt%gL%dDelta%g'],...
+		para.model,Descr,dk,D,d_opt,para.L,delta);
 end
 if ~isempty(strfind(para.model,'SpinBoson')) && strcmp(para.SpinBoson.GroundStateMode,'artificial')
 	para.folder = sprintf('%s-art-%s',para.folder,para.SpinBoson.InitialState);

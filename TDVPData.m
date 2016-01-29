@@ -751,7 +751,8 @@ classdef TDVPData
     methods(Static = true)
 		function foldLib = getTDVPLib()
 			filePattern = '20*\results-Till*.mat';
-			foldLib = [rdir(['..\TDVP\',filePattern]);rdir(['..\cacheComputations\',filePattern]);rdir(['.\Data\',filePattern])];
+			foldLib = [rdir(['..\TDVP\',filePattern]);rdir(['..\TDVP\Data\',filePattern]);rdir(['..\cacheComputations\',filePattern]);...
+				       rdir(['..\TDVP-Git\',filePattern]);rdir(['..\TDVP-Git\Data\',filePattern])];
 			% remove 'incomplete' files
 			foldLib = foldLib(arrayfun(@(x) isempty(strfind(x.name,'incomplete')),foldLib));
 		end
