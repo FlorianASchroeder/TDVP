@@ -176,6 +176,10 @@ end
 if para.tdvp.evolveEndTTM
 	TTM = [];
 	load(sprintf('TTM/T50dt%gdk%d.mat',para.tdvp.deltaT,para.dk(1,end)));	% load object TTM
+	TTM.EndMPS{1,1} = mps{1,end};
+	TTM.EndMPS{1,2} = Vmat{1,end};
+	TTM.LastMPS = mps;
+	TTM.LastVmat = Vmat;
 end
 
 %% 2. time sweep
@@ -228,7 +232,7 @@ for timeslice = para.tdvp.slices
 			if para.tdvp.evolveEndTTM
 				% perform one time evolution with the TTM method.
 				% TTM contains: TTM.TV{}, TTM.TD{} created by sliceTTM
-				[mps{sitej},Vmat{sitej},para] = tdvp_1site_evolveTTM(mps,Vmat,para,results,op,TTM,outFile);
+				[mps{sitej},Vmat{sitej},para,op] = tdvp_1site_evolveTTM(mps,Vmat,para,results,op,TTM);
 				% Vmat dimensions could have changed!
 				% thus invalidate Hn and recompute h1OBB, h2OBB
 				Hn = [];
@@ -354,6 +358,12 @@ for timeslice = para.tdvp.slices
 		outFile.tmps(timeslice+1,:)  = mps;					% writes to File
 		outFile.tVmat(timeslice+1,:) = Vmat;				% writes to File
 		outFile.currentSize = timeslice+1;
+	end
+	if para.tdvp.evolveEndTTM
+		TTM.EndMPS{timeslice+1,1} = mps{1,end};
+		TTM.EndMPS{timeslice+1,2} = Vmat{1,end};
+		TTM.LastMPS = mps;
+		TTM.LastVmat = Vmat;
 	end
 	if para.logging && mod(timeslice, round(para.tdvp.extractObsInterval/para.tdvp.deltaT))==0			% at extractObsInterval
 		n = 1+tresults.lastIdx;
