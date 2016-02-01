@@ -13,18 +13,18 @@ end
 tmps = TT.LastMPS;
 tVmat = TT.LastVmat;
 	
-% Calculate BondProjector for t-1 -> t
+% Calculate (temporary half-sweep) BondProjector for t-1 -> t
 op.BondProjector{para.timeslice} = bondProject(1);
 
 % estimate starting point of TTM
 currentN = max(1,para.timeslice-length(TT.TV)+2);	% at max, as long as TTM
 rho = 0;
 for i = currentN:para.timeslice
-	% time-evolve past MPS with TTM
-	if i ~= para.timeslice
-		op.BondProjector{i} = op.BondProjector{para.timeslice}*op.BondProjector{i};		% project from t-1 -> t
+	% apply previous full-sweep BondProjector calculated in tdvp_1site, to bring projectors t-2 -> t-1
+	if i < para.timeslice-1
+		op.BondProjector{i} = op.BondProjector{para.timeslice-1}*op.BondProjector{i};
 	end
-	
+	% time-evolve past MPS with TTM
 	rho = rho + contractRhoTTM(i);						% i is index in op & timeslice
 end
 % time-evolve current MPS with TTM!
@@ -78,7 +78,11 @@ mps = reshape(U*S,dr);
 		else
 			A  = TT.EndMPS{t,1};
 			Vm = TT.EndMPS{t,2};
-			Cl = op.BondProjector{t};
+			if t < N
+				Cl = op.BondProjector{N}*op.BondProjector{t};		% project from t-1 -> t (half sweep)
+			else
+				Cl = op.BondProjector{t};							% this is already the current Projector
+			end
 		end
 		
 		% 1. contract Vmat into TV

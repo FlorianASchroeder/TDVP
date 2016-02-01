@@ -489,7 +489,7 @@ legend('Bloch length','Visibility');
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 0;		% 0: lin, 1: log
-f=figure(315); clf; f.Name = 'Chain Occupation';
+f=figure(316); clf; f.Name = 'Chain Occupation';
 % x = res{9,1}; tresults = x.tresults; para = x.para;
 % x = res(9); tresults = x.tresults; para = x.para;
 mc = 1;							% choose chain for display!

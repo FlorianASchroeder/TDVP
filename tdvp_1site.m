@@ -362,6 +362,13 @@ for timeslice = para.tdvp.slices
 	if para.tdvp.evolveEndTTM
 		TTM.EndMPS{timeslice+1,1} = mps{1,end};
 		TTM.EndMPS{timeslice+1,2} = Vmat{1,end};
+		% Calculate projector from t-1 -> t
+		Cl = [];
+		for kk = 1:para.L-1
+			Cl = updateCleft(Cl,mps{kk},Vmat{kk},[],TTM.LastMPS{kk},TTM.LastVmat{kk});
+		end
+		op.BondProjector{para.timeslice} = Cl;				% this also overwrites the temporary projector needed for evolveTTM
+		% save this mps for next sweep, for BondProjection
 		TTM.LastMPS = mps;
 		TTM.LastVmat = Vmat;
 	end
