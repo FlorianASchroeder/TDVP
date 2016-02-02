@@ -4743,7 +4743,8 @@ end
 %% DPMES5-7C v72  StarMPS LE- added - TDVPData										% LabBook ????
 % See effect of CT shift on dynamics
 clear
-defPlot(1,:) = {'20160129-DPMES5-7C-v72-D5-10-5param',				[ 2: 4], {'xlim',[0,1e2],'yscale','lin'}};
+defPlot(1,:) = {'20160129-DPMES5-7C-v72-D5-10-5param',				[ 2: 4], {'xlim',[0,1e3],'yscale','lin'}};
+defPlot(2,:) = {'20160129-DPMES5-7C-v72-D5-10-5param-CTshift',		[3,5:7], {'xlim',[0,4e2],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -4780,6 +4781,21 @@ for file = {matches.name}
 	res(i) = TDVPData(file);			% comment first!
 	res(i) = res(i).setLegLabel(sprintf('D_s %g',res(i).para.tdvp.maxBondDim(1)));
 	res(i) = res(i).setComment('5-7C');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 5-7: Params v5 v72 5-7C, CTshift
+foldPattern = '20160201-1613-27-DPMES5-7C-Star-v72TCMde9-dk20D5dopt5L7Delta0.*';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Ds.*-Dmax10-expvCustom700-1core-small';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	res(i) = res(i).setLegLabel(sprintf('CT +%s',res(i).para.folder(end-2:end)));
+	res(i) = res(i).setComment('CT shifted');
 end
 [y,I] = sort([res((offset+1):end).dt]);
 res((offset+1):end,1) = res(offset+I,1);
