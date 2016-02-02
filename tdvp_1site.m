@@ -360,16 +360,17 @@ for timeslice = para.tdvp.slices
 		outFile.currentSize = timeslice+1;
 	end
 	if para.tdvp.evolveEndTTM
-		TTM.EndMPS{timeslice+1,1} = mps{1,end};
-		TTM.EndMPS{timeslice+1,2} = Vmat{1,end};
+		outMPS = moveFocus(mps,1,para.L);					% Move focus to last site in temporary copy
+		TTM.EndMPS{timeslice+1,1} = outMPS{1,end};
+		TTM.EndMPS{timeslice+1,2} = Vmat{1,end};			% Vmat does not need further modification
 		% Calculate projector from t-1 -> t
 		Cl = [];
 		for kk = 1:para.L-1
-			Cl = updateCleft(Cl,mps{kk},Vmat{kk},[],TTM.LastMPS{kk},TTM.LastVmat{kk});
+			Cl = updateCleft(Cl,outMPS{kk},Vmat{kk},[],TTM.LastMPS{kk},TTM.LastVmat{kk});
 		end
 		op.BondProjector{para.timeslice} = Cl;				% this also overwrites the temporary projector needed for evolveTTM
 		% save this mps for next sweep, for BondProjection
-		TTM.LastMPS = mps;
+		TTM.LastMPS = outMPS;
 		TTM.LastVmat = Vmat;
 	end
 	if para.logging && mod(timeslice, round(para.tdvp.extractObsInterval/para.tdvp.deltaT))==0			% at extractObsInterval
@@ -536,4 +537,22 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		results.tdvp.EvaluesLog	  = zeros(length(para.tdvp.t)-1, 1);
 	end
 
+	function [outMPS] = moveFocus(mps,i,j)
+		% Moves the focus from site i to site j
+		% i needs to indicate the current state
+		if i > j
+			error('VMPS:tdvp_1site:NotYetImplemented','Moving Focus from right to left still needs to be implemented'),
+		end
+		outMPS = mps;
+		for k = i:j-1
+			d = size(outMPS{k});
+			A = permute(outMPS{k}, [3, 1, 2]);
+            A = reshape(A, d(3)*d(1), []);		% reshapes to (a1 d),a2
+            [A, S, U] = svd2(A);
+			A = reshape(A, d(3), d(1), []);
+            outMPS{k} = permute(A, [2, 3, 1]);
+            U = S * U;
+			outMPS{k+1} = contracttensors(U,2,2, outMPS{k+1},3,1);
+		end
+	end
 end

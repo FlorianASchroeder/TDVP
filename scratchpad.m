@@ -496,7 +496,7 @@ mc = 1;							% choose chain for display!
 if str2double(para.tdvp.version(2:end)) < 50
 	tresults.n = tresults.nx;
 end
-% n = tresults.n(:,:,mc);
+n = tresults.n(:,:,mc);
 l = find(tresults.n(:,3),1,'last');
 if isfield(tresults,'t')
 	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
