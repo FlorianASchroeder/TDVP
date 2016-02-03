@@ -25,6 +25,7 @@ classdef TDVPData
 		xS;			% star displacement
 		jC;			% chain current
 		rho;		% rduced density matrix
+		stateProj;	% state projection amplitude
 		LegLabel;	%
 		Comment;	% 
 	end
@@ -133,6 +134,10 @@ classdef TDVPData
 				end
 			end
 			
+			if isfield(obj.tresults,'stateProjection')
+				obj.stateProj = obj.tresults.stateProjection;
+			end
+			
 			if ~isempty(strfind(obj.para.model,'DPMES'))
 				% any particular vars for DPMES?
 			end
@@ -153,6 +158,7 @@ classdef TDVPData
 		
 		function out = gettRhoiiSystem(obj)
 			% returns the diagonal of the system reduced density matrix
+			out = 0;
 			if isfield(obj.tresults,'PPCWavefunction')
 				out = obj.tresults.PPCWavefunction;
 			elseif isfield(obj.tresults,'rho')
@@ -236,6 +242,8 @@ classdef TDVPData
 					pl = plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)), plotOpt{:},'Displayname',obj.LegLabel);
 				case 'hshi'
 					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
+				case 'stateproj'
+					pl = plot(obj.t(1:obj.lastIdx)*ts, [abs(obj.stateProj(1:obj.lastIdx)),real(obj.stateProj(1:obj.lastIdx)),imag(obj.stateProj(1:obj.lastIdx))]);
 			end
 			
 			if unicolor

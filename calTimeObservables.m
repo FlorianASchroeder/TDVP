@@ -214,6 +214,15 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			end
 
 		end
+		
+		if strContains(para.tdvp.Observables,'.sp.')					% sp for state projection
+			if ~isfield(tresults,'stateProjection')
+				tresults.stateProjection = single(zeros(totalN,1));
+			elseif missingN > 0
+				tresults.stateProjection(totalN,1) = 0;			% does preallocation
+			end
+			tresults.stateProjection(i,1) = single(getObservable({'stateproject',2,1},tmps(j,:),tVmat(j,:),para));		% project onto |LE+>|0>
+		end
 
 		if strcmp(para.model, 'SpinBosonTTM')
 			%% extract transfer tensor

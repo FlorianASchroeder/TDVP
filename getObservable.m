@@ -18,6 +18,7 @@ function out = getObservable(type,mps,Vmat,para)
 %           getObservable({'staroccupation',AnAm}	,mps,Vmat,para)
 %           getObservable({'energy',op}				,mps,Vmat,para)
 %           getObservable({'hshi',op}				,mps,Vmat,para)		% op is optional
+%			getObservable({'stateproject',i,j}      ,mps,Vmat,para)		% i,j optional
 %
 % In 'current' and 'staroccupation': AnAm optional!
 %
@@ -36,6 +37,7 @@ function out = getObservable(type,mps,Vmat,para)
 %		'energy'			scalar
 %		'hshi'				scalar
 %		'coherence'			not implemented yet
+%		'stateproject'		scalar
 %
 %   Created 03/06/2014 by Florian Schroeder @ University of Cambridge
 %   TODO:   - Implement Boson Site Shift to export the routine from optimizesite.m. Only get a single shift value.
@@ -239,7 +241,7 @@ switch type{1}
 					end
 				elseif strcmpi(type{2},'adiabatic')
 					% adiabatic states
-					for kk = 1:paraC.dk(1,1)
+					for kk = 1:para.D(mc,1)
 						stateProj = [];
 						bondProj  = zeros(para.D(mc,1)); bondProj(kk,kk) = 1;
 						out(1:paraC.L,kk,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,stateProj,bondProj);
@@ -326,6 +328,28 @@ switch type{1}
 			end
 			out = calHsHi(mps,Vmat,para,op);
 		end
+		
+	case 'stateproject'
+		% Calculates the amplitude of the projection <P|Psi> of the MPS
+		% Here |P> is a simple state like |1>|0000000> (System-Bath)
+		%
+		% by default:
+		% {'stateproject'}          : projects onto |2>|0000000>
+		% {'stateproject',i}        : projects onto |i>|0000000>
+		% {'stateproject',i,j}      : projects onto |i>|jjjjjjj>
+		
+		% default settings
+		systemState =  2;		% take by default state 2
+		envState    = 1;		% the state on each boson to project on
+		if length(type) >= 2
+			systemState = type{2};
+		end
+		if length(type) == 3
+			envState = type{3};
+		end
+		
+		out = calStateProject(mps,Vmat,para,systemState,envState);
+		
 end
 
 end
@@ -1187,5 +1211,49 @@ for mc = 1:NC
 	n(allnz) = expectation_general(n_op(allnz,:,mc),mpsChain,VmatChain,para);
 end
 
+
+end
+
+function A = calStateProject(mps,Vmat,para,systemState,envState)
+% Calculates the amplitude of the projection <P|Psi> of the MPS
+% Here |P> is a simple state like |1>|0000000> (System-Bath)
+
+Pmps = zeros(para.dk(1,1),1);		% projector for system state with all D=1
+Pmps(systemState,1) = 1;
+if para.useStarMPS
+	A = contracttensors(mps{1},para.nChains+2,para.nChains+2,Pmps,2,1);	% A_(1,D1,D2,...,Dnc,1) = A_(1,D1,D2,...,Dnc,d) * P_(d,1)
+	A = squeeze(A);					% A_(D1,D2,...,Dnc)
+elseif para.useVtens
+	% needs implementation
+	error('VMPS:getObservable:stateproject:NotImplemented','Not yet implemented')
+else
+	A = contracttensors(mps{1},3,3,Pmps,2,1);							% A_(1,D,1) = A_(1,D1,d) * P_(d,1)
+end
+
+% Do following reverse for less code
+for mc = para.nChains:-1:1
+	Cright = [];
+	% define Chain Projector as MPS/Vmat
+	L = para.chain{mc}.L-1;					% allows different chain lengths, exclude system!
+	dk = para.dk(mc,2:end);
+	Pmps  = 1;					% 1x1x1 tensor
+	for kk = L:-1:1
+		PVmat = zeros(dk(kk),1);	% dk x dOBB
+		PVmat(envState,1) = 1;
+		if para.useStarMPS
+			Cright = updateCright(Cright,Pmps,PVmat,[],mps{kk+1}{mc},Vmat{kk+1}{mc});		% 1 x D(kk)
+		elseif para.useVtens
+			% needs implementation
+			error('VMPS:getObservable:stateproject:NotImplemented','Not yet implemented');
+		else
+			Cright = updateCright(Cright,Pmps,PVmat,[],mps{kk+1},Vmat{kk+1});
+		end
+	end
+	if mc > 1
+		A = squeeze(contracttensors(A,mc,mc,Cright,2,2));
+	else
+		A = reshape(A,1,[])*reshape(Cright,[],1);			% upper expression fails for mc = 1, since ndims(vec) = 2 in matlab! -> special treatment
+	end
+end
 
 end

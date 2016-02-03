@@ -1594,7 +1594,7 @@ leg = legend('TT','LE+','CT+','CT-');
 xlabel('t');
 grid on
 	%% TDVPData
-f=figure(702);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
+f=figure(703);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('rhoii'); xlabel('$t$');
 pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
@@ -1603,6 +1603,7 @@ leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$\rho_{ii}$');
 grid on
 axis tight
+formatPlot(f,'twocolumn-single')
 %% TDVP (7.2) MLSBM RHO 1D
 f=figure(702);  f.Name = 'MLSBM DM-Occupation'; hold all; ax = gca;
 % x = res{31,1}; tresults = x.tresults; para = x.para;
@@ -1614,7 +1615,7 @@ else
 	t=para.tdvp.t;		% for the old files
 end
 for ii = [1:2]%:size(n,2)
-	plot(t(1:idx)*0.658,n(1:idx,ii,ii+1))
+	plot(t(1:idx)*0.658,n(1:idx,ii,ii))
 % 	plot(t(1:idx),n(1:idx,ii,ii+1))
 end
 plot(t(1:idx)*0.658,n(1:idx,1,3))
@@ -1622,18 +1623,31 @@ plot(t(1:idx)*0.658,n(1:idx,1,4))
 leg = legend('TT/LE+','LE+/CT+','TT/CT+');
 xlabel('t in fs')
 grid on
-set(gca,'yscale','log')
+% set(gca,'yscale','log')
 
 %% TDVP (7.3) MLSBM HsHi
-f=figure(731);  f.Name = 'DPMES HsHi'; clf; hold all; ax = gca;
+f=figure(732);  f.Name = 'DPMES HsHi'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('hshi');xlabel('$t$')
 pl = x.plot('hshi','-fsev');xlabel('$t/fs$')
-leg = legend('$H_S$','$H_I(1)$','$H_I(2)$','$H_I(3)$','$H_I(4)$','$H_I(5)$','$H_S+\sum H_I$');
+% leg = legend('$H_S$','$H_I(1)$','$H_I(2)$','$H_I(3)$','$H_I(4)$','$H_I(5)$','$H_I(6)$','$H_I(7)$','$H_S+\sum H_I$');
+leg = legend('$H_S$','$H_I(A_{1,0})$','$H_I(A_{1,2})$','$H_I(A_2)$','$H_I(B_1)$','$H_I(B_{1,0})$','$H_I(B_{1,x})$','$H_I(B_{1,-x})$','$H_S+\sum H_I$');
 ylabel('$\left<H\right>/eV$');
 grid on
 axis tight
 % set(gca,'yscale','log')
+formatPlot(f,'twocolumn-single')
+
+%% TDVP (7.4) StateProjection - TDVPData
+f=figure(741);  f.Name = 'State Projection Amplitude'; clf; hold all; ax = gca;
+% x = res(6);
+% pl = x.plot('stateproj'); xlabel('$t$');
+pl = x.plot('stateproj','-fsev'); xlabel('$t/fs$');
+leg = legend('abs','real','imag');
+ylabel('$\langle LE^+|\left< 0|\Psi\right>$');
+grid on
+axis tight
+formatPlot(f,'twocolumn-single')
 
 %% TDVP z-averaging in one file
 % naming scheme to find files:
@@ -4583,7 +4597,7 @@ figure(4);clf;hold all; arrayfun(@(x) x.plot('calctime-d'), res,'UniformOutput',
 %% DPMES4-5C v66-v72  StarMPS H correction - TDVPData								% LabBook 29/01/2016
 % test v72 against v66 and effect of H_int correction
 clear
-defPlot(1,:) = {'20160129-DPMES4-5C-v66-v72-D10-4thParams-highv2-H',		[ 2: 3], {'xlim',[0,1e2],'yscale','lin'}};
+defPlot(1,:) = {'20160129-DPMES4-5C-v66-v72-D10-4thParams-highv2-H',		[ 2: 3], {'xlim',[0,1e3],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -4670,7 +4684,7 @@ end
 %% DPMES4-5C v72  StarMPS CT shift - TDVPData										% LabBook ????
 % See effect of CT shift on dynamics
 clear
-defPlot(1,:) = {'20160129-DPMES4-5C-v72-D10-4thParams-highv2-CTshift',		[ 2: 5], {'xlim',[0,1e2],'yscale','lin'}};
+defPlot(1,:) = {'20160129-DPMES4-5C-v72-D10-4thParams-highv2-CTshift',		[ 2: 5], {'xlim',[0,1e3],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -4744,7 +4758,8 @@ end
 % See effect of CT shift on dynamics
 clear
 defPlot(1,:) = {'20160129-DPMES5-7C-v72-D5-10-5param',				[ 2: 4], {'xlim',[0,1e3],'yscale','lin'}};
-defPlot(2,:) = {'20160129-DPMES5-7C-v72-D5-10-5param-CTshift',		[3,5:7], {'xlim',[0,4e2],'yscale','lin'}};
+defPlot(2,:) = {'20160129-DPMES5-7C-v72-D5-10-5param-CTshift',		[5:7], {'xlim',[0,1e3],'yscale','lin'}};
+defPlot(3,:) = {'20160203-DPMES5-7C-v72-D5-10-5param-TT-CTshift',	[8:10], {'xlim',[0,1e2],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -4794,7 +4809,24 @@ for file = {matches.name}
 	file = file{1};
 	i = i+1;
 	res(i) = TDVPData(file);			% comment first!
-	res(i) = res(i).setLegLabel(sprintf('CT +%s',res(i).para.folder(end-2:end)));
+	temp = regexp(res(i).para.folder,'Delta(\w*.\w*)','tokens');	% contains strings extracted from folder name
+	res(i) = res(i).setLegLabel(sprintf('CT +%s',temp{1}{1}));
+	res(i) = res(i).setComment('CT shifted');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 8-10: Params v5 v72 5-7C, StateProj, TT init, CT shift
+foldPattern = '20160203-1659-19-DPMES5-7C-Star-v72TCMde9-dk20D5dopt5L7Delta0.*State.';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	temp = regexp(res(i).para.folder,'Delta([0-9.]*).*State(\d)','tokens');	% contains strings extracted from folder name
+	res(i) = res(i).setLegLabel(sprintf('CT +%s, State %s',temp{1}{:}));
 	res(i) = res(i).setComment('CT shifted');
 end
 [y,I] = sort([res((offset+1):end).dt]);
@@ -4826,7 +4858,7 @@ for fignum = 1:size(defPlot,1)
 	formatPlot(fignum,'twocolumn-single');
 	set(gca,'color','none');
 	grid on
-	res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+	res(3).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
 end
 
 %%	find correlation between TT trace and "parameter distance"

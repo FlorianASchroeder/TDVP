@@ -19,12 +19,12 @@ function [Cright] = updateCright(Cright, B, BUb, X, A, AUb)
 % Modified
 %	- 21/12/14 FS: replaced OBB contraction by faster matrix product
 	skipX = 0;
-	if isempty(X) && isempty(BUb)
+	if isempty(X) && isempty(BUb) && isempty(AUb)
 		skipX = 1;
-	elseif isempty(X)
+	elseif isempty(X) && ~isempty(BUb)
 		X = speye(size(BUb, 1));					% newX = eye = X, as Vmat unitary
 	end
-% 	if isempty(Cright), Cright = eye (size(B,2)); end
+	
 	if isempty(BUb) && isempty(AUb)					% if no Vmat
 		newX=X;
 	else

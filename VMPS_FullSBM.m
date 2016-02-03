@@ -84,6 +84,7 @@ if ~isempty(strfind(para.model,'DPMES'))
 		%% chain 1 for DPMES:		ideally should have been struct array: para.chain(1).mapping ... this saves more memory and allows more operations
 		para.systemStates				= load('DPMESdata_20151123/states.dat');		% [#state, E(eV)]
 		para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+delta);			% use delta as percentual shift of CT states!
+		para.InitialState				= 2;											% 1: TT, 2: LE+, 3: LE-, 4: CT+, 5: CT-
 		para.chain{1}.mapping			= 'LanczosTriDiag';
 		para.chain{1}.spectralDensity	= 'CoupDiscr';
 		para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
@@ -102,6 +103,8 @@ if ~isempty(strfind(para.model,'DPMES'))
 	elseif strcmp(para.model,'DPMES5-7C')
 		% Change in DPMESdata_20160129: split B2 into more chains, 2 slow weak modes more in B1
 		para.systemStates				= load('DPMESdata_20160129/states.dat');		% [#state, E(eV)]
+		para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+delta);			% use delta as percentual shift of CT states!
+		para.InitialState				= floor(epsilon);								% 1: TT, 2: LE+, 3: LE-, 4: CT+, 5: CT-; only allow integer values>0!
 		para.chain{1}.mapping			= 'LanczosTriDiag';
 		para.chain{1}.spectralDensity	= 'CoupDiscr';
 		para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-7-01.dat'));
@@ -515,8 +518,8 @@ end
 para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-alpha%.10gdelta%.10gepsilon%.10gdk%.10gD%.10gdopt%gL%d'],...
     para.model,Descr,alpha,delta,epsilon,dk,D,d_opt,para.L);
 if ~isempty(strfind(para.model,'DPMES'))
-	para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-dk%.10gD%.10gdopt%gL%dDelta%g'],...
-		para.model,Descr,dk,D,d_opt,para.L,delta);
+	para.folder=sprintf([datestr(now,'yyyymmdd-HHMM-SS'),'-%s-%s-dk%.10gD%.10gdopt%gL%dDelta%gState%d'],...
+		para.model,Descr,dk,D,d_opt,para.L,delta,para.InitialState);
 end
 if ~isempty(strfind(para.model,'SpinBoson')) && strcmp(para.SpinBoson.GroundStateMode,'artificial')
 	para.folder = sprintf('%s-art-%s',para.folder,para.SpinBoson.InitialState);
@@ -630,7 +633,7 @@ fileName = para.filename;
 		elseif isfield(para, 'useStarMPS') && para.useStarMPS == 1
 			mps{1} = zeros([1,para.D(:,1).',para.dk(1,1)]);
 			if ~isempty(strfind(para.model,'DPMES'))
-				idx = num2cell([ones(1,NC+1),2]);			% start in second excited state!
+				idx = num2cell([ones(1,NC+1),para.InitialState]);			% start in second excited state!
 				mps{1}(idx{:}) = 1;
 			elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
 				if strcmp(para.SpinBoson.InitialState, 'sz')

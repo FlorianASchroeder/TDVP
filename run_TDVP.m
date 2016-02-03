@@ -16,7 +16,7 @@ end
 loadedFromFile = 0;
 if isempty(fromFile)
 % 	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,5);	% VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
-	fileName =  VMPS_FullSBM(0,0,s,0,L,dk,5,5);			% VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)	for DPMES
+	fileName =  VMPS_FullSBM(0,0,s,alpha,L,dk,5,5);			% VMPS_FullSBM(s,alpha,CTshift,InitState,L,dk,d_opt,D)	for DPMES
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);		% iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
@@ -65,12 +65,13 @@ para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.dm.x.';
+para.tdvp.Observables = '.n.dm.x2.sp.';
 	% n: occupation, j: current, s: spin,
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1
 	% dm2: adiabatic rdms of site 1
 	% x, x2, sx, sx2: displacements, diabatic, adiabatic
+	% sp: stateProjection to extract specific amplitudes
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution?
 para.tdvp.HEffSplitIsometry = 1;		% split mps{1} into isometry + relevant part
