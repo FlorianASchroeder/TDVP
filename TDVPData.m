@@ -38,25 +38,32 @@ classdef TDVPData
 			%
 			% Load TDVP dataset into a TDVPData object
 			if nargin > 1
-				fprintf('please program me\n');
+				if isstruct(fname) && isstruct(varargin{1})
+					temp.para = fname;
+					temp.tresults = varargin{1};
+				else
+					fprintf('please program me\n');
+				end
 			end
 			if nargin == 0
 				return;		% empty initialization
 			end
-			try
-				temp = load(fname,'para','tresults');
-				% Deserialize if needed
-				Vars = fields(temp);
-				for ii = 1:size(Vars)
-					x = temp.(Vars{ii});
-					if isa(x,'uint8')
-						temp.(Vars{ii}) = hlp_deserialize(x);
-% 						eval(sprintf('%s = hlp_deserialize(%s);',Vars(ii).name,Vars(ii).name));
+			if nargin == 1 && ischar(fname)
+				try
+					temp = load(fname,'para','tresults');
+					% Deserialize if needed
+					Vars = fields(temp);
+					for ii = 1:size(Vars)
+						x = temp.(Vars{ii});
+						if isa(x,'uint8')
+							temp.(Vars{ii}) = hlp_deserialize(x);
+	% 						eval(sprintf('%s = hlp_deserialize(%s);',Vars(ii).name,Vars(ii).name));
+						end
 					end
+				catch err
+					fprintf('load failed for: %s\n',fname);
+					return;
 				end
-			catch
-				fprintf('load failed for: %s\n',fname);
-				return;
 			end
 			
 			% assign parameters
@@ -194,16 +201,31 @@ classdef TDVPData
 		
 		function pl  = plot(obj,type,varargin)
 			% initialise modifiers
+			% plot(...,ax_handle)	Plots into the axes given by handle
 			ts = 1;						% scale time axis
+			eScale = 0;					% energy units used for DFT: 0 = none, 1 = eV, 2 = cm (wavenumber)
 			unicolor = 0;
 			resetColorOrder = 0;		% start from index 1
 			plotOpt = {};				% additional plotOptions from varargin
+			DFTplot = 0;				% plotting DFT data
+			DFTshift = 0;				% shift the fft results
 			
 			for m = 1:nargin-2
 				switch lower(varargin{m})
 					case '-fsev'
-						% fs timescale for H in eV
+						% fs timescale for H in eV and eV scale in DFT plots
 						ts = 0.658;
+						eScale = 1;
+					case '-cmev'
+						% cm scale in DFT plots
+						ts = 0.658;
+						eScale = 2;
+					case '-nmev'
+						% nm scale in DFT plots
+						ts = 0.658;
+						eScale = 3;
+					case '-fftshift'
+						DFTshift = 1;
 					case '-unicol'
 						% same colors on all lines
 						unicolor = 1;
@@ -211,7 +233,11 @@ classdef TDVPData
 						resetColorOrder = 1;
 					otherwise
 						% pass through as direct plot options!
-						plotOpt = [plotOpt, varargin(m)];
+						if isa(varargin{m},'matlab.graphics.axis.Axes')
+							axes(varargin{m});
+						else
+							plotOpt = [plotOpt, varargin(m)];
+						end
 				end
 			end
 			
@@ -230,7 +256,6 @@ classdef TDVPData
 					pl = plot(obj.t(1:obj.lastIdx)*ts, obj.tresults.spin.sz(1:obj.lastIdx));
 				case 'calctime'
 					pl = plot(obj.t(2:obj.lastIdx)*ts,obj.para.tdvp.calcTime(1:obj.lastIdx-1),'Displayname',obj.LegLabel);
-% 					pl = plot(obj.t(2:end)*ts,obj.para.tdvp.calcTime);
 				case 'calctime-d'
 					% 1st derivative, in hours
 					pl = plot(obj.t(2:obj.lastIdx-1)*ts,diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1)),'Displayname',obj.LegLabel);
@@ -244,12 +269,55 @@ classdef TDVPData
 					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
 				case 'stateproj'
 					pl = plot(obj.t(1:obj.lastIdx)*ts, [abs(obj.stateProj(1:obj.lastIdx)),real(obj.stateProj(1:obj.lastIdx)),imag(obj.stateProj(1:obj.lastIdx))]);
+				case 'linabs'
+					% linear absorption as DFT of stateProj autocorrelation function
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+% 					maxN = m*10;%15000;
+					maxN = pow2(nextpow2(m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					linAbs = fft(conj(obj.stateProj(1:m)),maxN);	% do conj to get positive real part!
+					if DFTshift
+						linAbs = fftshift(linAbs);
+						f = f-f(end)/2;
+					end
+					pl = plot(f, [real(linAbs),imag(linAbs)]);
+				case 'rhoii-ft'
+					% applies DFT to the population probability of rho
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+% 					maxN = m*2;
+					maxN = pow2(nextpow2(m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					rhoii = gettRhoiiSystem(obj);		% t x nStates
+					ft = fft(real(rhoii(1:m,:)),maxN,1);
+					if DFTshift
+						ft = fftshift(ft,1);
+						f = f-f(end)/2;
+					end
+					pl = plot(f, abs(ft));
+			end
+			
+			if DFTplot == 1
+				if ts ~= 1
+					f = f/0.658;
+				end
+				if eScale == 1
+					f = f*4.135; % in eV
+				elseif eScale == 2
+					f = f*4.135*8065.73; % in cm
+				elseif eScale == 3
+					f = 1239.84193./(f*4.135);		% in nm: hc/(E in eV);
+				end
+				for k = 1:length(pl)
+					pl(k).XData = f(1:length(pl(k).XData));
+				end
 			end
 			
 			if unicolor
 				arrayfun(@(x) set(x,'Color',pl(1).Color), pl);
 				ax.ColorOrderIndex = idx + 1;
-			end				
+			end
 		end
 		
 		function h   = plotSld1D(obj, type, varargin)
@@ -484,6 +552,19 @@ classdef TDVPData
 				case 'chain-x'
 					h.zdata = real(obj.xC(1:obj.lastIdx,:,:,:));		% t x L x state x chain
 					h.zlbl = '$\left< x_k \right>$';
+					h.sldlbl = {'State','Chain'};
+					h.tlbl = 'Chain Displacement';
+				case 'chain-x-ft'
+					h.maxN = pow2(nextpow2(obj.lastIdx));				% FT window length
+					h.ydata = (0:h.maxN/2)/h.ydata(end);					% fs * k/N = k/T where k=0... N/2
+					h.ylbl = '$f$ in $1/fs$';
+					if h.evTocm && h.ts ~=1
+						h.ydata = h.ydata*4.135*8065.73;
+						h.ylbl = '$f/cm^{-1}$';
+					end
+					h.zdata = fft(real(obj.xC(1:obj.lastIdx,:,:,:)),h.maxN,1);		% f x L x state x chain
+					h.zdata = 2*abs(h.zdata(1:h.maxN/2+1,:,:,:));
+					h.zlbl = '$FT(\left< x_k \right>)$';
 					h.sldlbl = {'State','Chain'};
 					h.tlbl = 'Chain Displacement';
 				case 'star-n'

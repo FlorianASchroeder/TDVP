@@ -833,6 +833,16 @@ coneFunct = fnval(pf,1:L);
 plot(coneFunct,1:L,'w','linewidth',4)
 plot(coneFunct,1:L,'k','linewidth',2)
 
+%% TDVP (3.8.1): Plot <x> CHAIN - TDVPData
+% x = res(35);
+h = x.plotSld2D('chain-x','-fsev');
+
+%% TDVP (3.8.1): Plot FT(<x>) CHAIN - TDVPData
+% x = res(35);
+% h = x.plotSld2D('chain-x-ft','-fsev'); h.ax.YLim = [0,0.6];
+h = x.plotSld2D('chain-x-ft','-fsev','-cm'); h.ax.YLim = [0,3e3];
+% 
+
 %% TDVP (3.8): Plot polaron STAR
 f=figure(9); clf; f.Name = 'Star Polaron';
 % x = res{31,1};
@@ -1604,6 +1614,18 @@ ylabel('$\rho_{ii}$');
 grid on
 axis tight
 formatPlot(f,'twocolumn-single')
+	%% TDVPData: DFT
+f=figure(704);  f.Name = 'MLSBM Wave-Occupation DFT'; clf; hold all; ax = gca;
+% x = res(6);
+% pl = x.plot('rhoii'); xlabel('$t$');
+pl = x.plot('rhoii-ft','-cmev'); xlabel('$E/cm^{-1}$');
+% leg = legend('TT','LE+','CT+','CT-');
+leg = legend('TT','LE+','LE-','CT+','CT-');
+ylabel('$|FT(\rho_{ii})|^2$');
+grid on
+axis tight
+ax.XLim = [0,2000];ax.YLim = [0,1000];
+formatPlot(f,'twocolumn-single')
 %% TDVP (7.2) MLSBM RHO 1D
 f=figure(702);  f.Name = 'MLSBM DM-Occupation'; hold all; ax = gca;
 % x = res{31,1}; tresults = x.tresults; para = x.para;
@@ -1647,6 +1669,16 @@ leg = legend('abs','real','imag');
 ylabel('$\langle LE^+|\left< 0|\Psi\right>$');
 grid on
 axis tight
+formatPlot(f,'twocolumn-single')
+
+%% TDVP (7.5) Linear Absorption - TDVPData
+f=figure(752);  f.Name = 'Linear Absorption of LE+'; clf; hold all; ax = gca;
+% x = res(6);
+% pl = x.plot('linabs','-fsev'); xlabel('$E/eV$'); %ax.XLim = [1.5,3.5];
+pl = x.plot('linabs','-nmev'); xlabel('$\lambda/nm$'); ax.XLim = [300,750];
+ylabel('$FT(\langle LE^+|\left< 0|\Psi\right>)$');
+grid on
+% ax.XLim = [1000,100000];
 formatPlot(f,'twocolumn-single')
 
 %% TDVP z-averaging in one file
@@ -4681,7 +4713,7 @@ for fignum = 1:size(defPlot,1)
 	res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
 end
 
-%% DPMES4-5C v72  StarMPS CT shift - TDVPData										% LabBook ????
+%% DPMES4-5C v72  StarMPS CT shift - TDVPData										% LabBook 29/01/2016
 % See effect of CT shift on dynamics
 clear
 defPlot(1,:) = {'20160129-DPMES4-5C-v72-D10-4thParams-highv2-CTshift',		[ 2: 5], {'xlim',[0,1e3],'yscale','lin'}};
@@ -4754,12 +4786,12 @@ for fignum = 1:size(defPlot,1)
 	res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
 end
 
-%% DPMES5-7C v72  StarMPS LE- added - TDVPData										% LabBook ????
+%% DPMES5-7C v72  StarMPS LE- added - TDVPData										% LabBook 29/01/2016
 % See effect of CT shift on dynamics
 clear
 defPlot(1,:) = {'20160129-DPMES5-7C-v72-D5-10-5param',				[ 2: 4], {'xlim',[0,1e3],'yscale','lin'}};
-defPlot(2,:) = {'20160129-DPMES5-7C-v72-D5-10-5param-CTshift',		[5:7], {'xlim',[0,1e3],'yscale','lin'}};
-defPlot(3,:) = {'20160203-DPMES5-7C-v72-D5-10-5param-TT-CTshift',	[8:10], {'xlim',[0,1e2],'yscale','lin'}};
+defPlot(2,:) = {'20160129-DPMES5-7C-v72-D5-10-5param-CTshift',		[ 5: 7], {'xlim',[0,1e3],'yscale','lin'}};
+defPlot(3,:) = {'20160203-DPMES5-7C-v72-D5-10-5param-TT-CTshift',	[8:10], {'xlim',[0,1e3],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -4858,7 +4890,11 @@ for fignum = 1:size(defPlot,1)
 	formatPlot(fignum,'twocolumn-single');
 	set(gca,'color','none');
 	grid on
-	res(3).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+	if fignum == 1
+		res(1).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+	else
+		res(3).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
+	end
 end
 
 %%	find correlation between TT trace and "parameter distance"
