@@ -26,6 +26,7 @@ classdef TDVPData
 		jC;			% chain current
 		rho;		% rduced density matrix
 		stateProj;	% state projection amplitude
+		sysState;	% state of system
 		LegLabel;	%
 		Comment;	% 
 	end
@@ -101,6 +102,12 @@ classdef TDVPData
 				obj.rho = obj.tresults.rho;
 			else
 				obj.rho = [];
+			end
+			
+			if isfield(obj.tresults,'system') && isfield(obj.tresults.system,'state')
+				obj.sysState = obj.tresults.system.state;
+			else
+				obj.sysState = [];
 			end
 			
 			obj.lastIdx = obj.tresults.lastIdx;
@@ -273,8 +280,8 @@ classdef TDVPData
 					% linear absorption as DFT of stateProj autocorrelation function
 					DFTplot = 1;
 					m = obj.lastIdx;					% last datapoint to include
-% 					maxN = m*10;%15000;
-					maxN = pow2(nextpow2(m));			% if > lastIdx -> zero padding
+					maxN = m;
+% 					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
 					f = (0:maxN-1)/obj.t(2)/maxN;
 					linAbs = fft(conj(obj.stateProj(1:m)),maxN);	% do conj to get positive real part!
 					if DFTshift
@@ -286,11 +293,13 @@ classdef TDVPData
 					% applies DFT to the population probability of rho
 					DFTplot = 1;
 					m = obj.lastIdx;					% last datapoint to include
-% 					maxN = m*2;
-					maxN = pow2(nextpow2(m));			% if > lastIdx -> zero padding
+					window = hann(m,'periodic');
+% 					maxN = m;
+					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
 					f = (0:maxN-1)/obj.t(2)/maxN;
 					rhoii = gettRhoiiSystem(obj);		% t x nStates
-					ft = fft(real(rhoii(1:m,:)),maxN,1);
+					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
+% 					ft = fft(real(rhoii(1:m,:)),maxN,1);
 					if DFTshift
 						ft = fftshift(ft,1);
 						f = f-f(end)/2;
@@ -318,6 +327,7 @@ classdef TDVPData
 				arrayfun(@(x) set(x,'Color',pl(1).Color), pl);
 				ax.ColorOrderIndex = idx + 1;
 			end
+% 			figure; plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)).*(window*ones(1,size(rhoii,2))));		% auxiliary plot for hann-windowed rhoii-ft
 		end
 		
 		function h   = plotSld1D(obj, type, varargin)
@@ -426,6 +436,14 @@ classdef TDVPData
 					end
 					h.sldlbl = {'w =','Chain'};
 					h.tlbl = 'Star Displacement';
+				case 'state-adiab'
+					hold all;
+					h.ydata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
+					h.ydata(:,end+1,:) = sum(h.ydata,2);
+					h.ylbl = '$|\Psi_k|^2$';
+					h.noSldDims = 2;
+					h.tlbl = 'Adiabatic State evolution';
+					h.sldlbl = {'Bond #'};
 			end
 			
 			h.f.Name = h.tlbl;
@@ -490,6 +508,186 @@ classdef TDVPData
 			
 		end
 		
+		function h   = plotSld1DFT(obj, type, varargin)
+			%% Plot with Slider to change DFT range and window / padding
+			% No slider in dataset here. Only in DFT parameters
+			% default: Plot versus freq
+			h = struct();				% struct containing all infos & handles
+			h.freqScale = 1;			% scale freq axis
+			h.fInvert = 0;				% need 1/f for nm scale?
+			h.logY = 0;					% linear y-axis by default
+			h.evTocm = 0;				% convert all eV to cm^-1
+			h.xdata = obj.t(1:obj.lastIdx).';	% the time axis
+			h.ydata = [];				% T x L x NC x ...  if not, needs to be reshaped!
+			h.noSldDims = 1;			% default: only plot 1 dim
+			h.xSize = length(h.xdata)*ones(1,obj.nChains);
+			
+			
+			h.xlbl = '$f$';
+			h.ylbl = '';
+			h.tlbl = '';
+			
+			% FFT settings
+			h.data = [];								% FFT done in 1st dimension
+			h.dataRange = obj.lastIdx;					% last (real) datapoint to include
+			h.zeroPadFactor = 0;						% multiples of dataset to pad
+			h.power2 = 0;								% FFT in power of 2?
+			h.useWindowFcn = 1;							% whether to use the Hann window function
+			h.FFTshift = 0;
+			
+			for m = 1:nargin-2
+				switch lower(varargin{m})
+					case '-ev'
+						% ev scale for H in eV
+						h.freqScale = h.freqScale/0.658*4.135;
+						h.xlbl = '$E/eV$';
+					case '-cmev'
+						% use cm^-1 as Units
+						h.freqScale = h.freqScale/0.658*4.135*8065.73;
+						h.xlbl = '$E/cm^{-1}$';
+					case 'nmev'
+						% nm scale, H in ev
+						h.freqScale = h.freqScale/0.658*4.135/1239.84193;
+						h.fInvert = 1;
+						h.xlbl = '$\lambda/nm$';
+					case '-log'
+						% Logarithmic scale in z
+						h.logY = 1;
+					case '-fftshift'
+						h.FFTshift = 1;
+					
+				end
+			end
+			
+			% Create figure handles and panels
+			h.f = figure();
+			h.ax = gca;
+			% fix axes size and add space to the right
+			h.ax.Units = 'pixels';
+			h.f.Position(3) = h.f.Position(3)+100;
+			h.controlPanel = uipanel('Tag','Panel','Units','pixels','Position',[h.f.Position(3)-100,1,100,h.f.Position(4)]);
+			
+			% set normalised units to enable scaling with window size
+			h.ax.Units = 'norm';
+			h.controlPanel.Units = 'norm';
+			
+			% define dataset for FFT
+			switch lower(type)
+				case 'linabs'
+					% linear absorption as DFT of stateProj autocorrelation function
+					h.data = conj(obj.stateProj(1:obj.lastIdx));
+				case 'rhoii-ft'
+					% applies DFT to the population probability of rho
+					rhoii = gettRhoiiSystem(obj);		% t x nStates
+					h.data = real(rhoii(1:obj.lastIdx,:));
+					h.noSldDims = 2;					% plot 2nd dim simultaneously
+			end
+			
+			calcFFT();
+			
+			h.f.Name = h.tlbl;
+			
+			if h.logY
+				h.ydata = sign(h.ydata) .* log10(abs(h.ydata));
+				h.ylbl = ['$\log_{10}',h.ylbl(2:end)];
+			end
+			
+			if ~isvector(h.ydata)
+				h.nSld = 2+ndims(h.ydata)-h.noSldDims;				% number of sliders needed; +1 for DFT
+			else
+				h.nSld = 2;
+			end
+			h.ysize = size(h.data);
+			h.sldlbl = {'tMax','nPad'};
+			h.sldLimits = [1,h.ysize(1); 0, 100];					% [min1, max1; min2, max2; ...]
+			h.SldIdx = num2cell(ones(1,h.nSld),1);					% indices for each slider dimension, indicating currently displayed slice
+			
+			h.pl = plot(h.xdata, plotSpec());		% plotspec returns the actual data from h.ydata type-specific
+			
+			axis tight
+			grid on
+			xlabel(h.xlbl);
+			ylabel(h.ylbl);
+			
+			% Create Slider(s) inside h.controlPanel
+			h.sld_w = 70; h.sld_h = 20;
+			h.cP_padIn = 5;		% controlPanel padding inside
+			for ii = 1:h.nSld
+				h.sldText{ii} = uicontrol('Parent',h.controlPanel,'Style','text','String',sprintf('%s %d',h.sldlbl{ii},1),...
+										  'HorizontalAlignment','left','FontSize',10,'FontName',h.ax.FontName);
+				h.sld{ii} = javax.swing.JScrollBar(0,1,1,h.sldLimits(ii,1),h.sldLimits(ii,2)+1);									%JScrollBar(int orientation, int value, int extent, int min, int max)
+				[~,h.sldContainer{ii}] = javacomponent(h.sld{ii}, [5, 5,h.sld_w,h.sld_h], h.controlPanel);	% position defined in posDisplay()
+				h.sld{ii}.setUnitIncrement(1); h.sld{ii}.setBlockIncrement(3);
+				h.hsld{ii} = handle(h.sld{ii},'CallbackProperties');
+				set(h.hsld{ii},'AdjustmentValueChangedCallback',@(source,callbackdata) callback_1D_Sld(source, callbackdata,ii));%(source,callbackdata)  set(h.ax,'UserData',round(source.Value)));
+			end
+			posDisplay();
+			set(h.f, 'ResizeFcn',@posDisplay);
+			
+			function callback_1D_Sld(source, callbackdata, n)
+				% Callback for 1D Slider plots
+				% needs to be sub-function due to shared handle h.
+				%  n: number of dimension in z being changed
+				h.SldIdx{n} = round(source.Value);
+				h.sldText{n}.String = sprintf('%s %d', h.sldlbl{n},round(source.Value));
+				h.dataRange = h.SldIdx{1};
+				h.zeroPadFactor = h.SldIdx{2};
+				calcFFT();
+				out = plotSpec();
+				for kk = 1:length(h.pl)
+					if length(h.pl) == 1
+						set(h.pl(1) ,'xdata',h.xdata,'ydata', out);
+					else
+						set(h.pl(kk),'xdata',h.xdata,'ydata', out(:,kk));
+					end
+				end
+			end
+			
+			function calcFFT()
+				% performs the FFT. Will be called after each slider adjustment
+				maxN = h.dataRange*(1+h.zeroPadFactor);
+				if h.power2
+					maxN = pow2(nextpow2(maxN));
+				end
+				h.xdata = (0:maxN-1)/obj.t(2)/maxN;			% get frequency	
+				if h.useWindowFcn
+					window = hann(h.dataRange,'periodic');
+					h.ydata = fft(h.data(1:h.dataRange,:).*(window*ones(1,size(h.data,2))),maxN,1);				% do FFT in 1st dimension
+				else
+					h.ydata = fft(h.data,maxN,1);			% do FFT in 1st dimension
+				end
+				if h.FFTshift
+					h.ydata = fftshift(h.ydata,1);			% shift to have -f/2 : f/2
+					h.xdata = h.xdata - h.xdata(end)/2;
+				end
+				h.xdata = h.xdata * h.freqScale;
+				if h.fInvert
+					h.xdata = 1/h.xdata;					% necessary for wavelength plots
+				end
+				h.xSize = length(h.xdata);
+			end
+			
+			function out = plotSpec()
+				% define, which components of the DFT will be plotted, real imag or abs
+				switch lower(type)
+					case 'linabs'
+						% linear absorption as DFT of stateProj autocorrelation function
+						out = [real(h.ydata),imag(h.ydata)];
+					case 'rhoii-ft'
+						% applies DFT to the population probability of rho
+						out = abs(h.ydata);
+				end
+			end
+			
+			function posDisplay(varargin)
+				for kk = 1:h.nSld
+					h.sldText{kk}.Position      = [h.cP_padIn, h.f.Position(4)-(h.cP_padIn*kk+2*(kk-0.5)*h.sld_h) ,h.sld_w,h.sld_h];
+					h.sldContainer{kk}.Position = [h.cP_padIn, h.sldText{kk}.Position(2)-h.sld_h,h.sld_w,h.sld_h];
+				end
+			end
+			
+		end
+		
 		function h   = plotSld2D(obj, type, varargin)
 			%% Plot with Slider to flip through different 2D plots
 			h = struct();				% struct containing all infos & handles
@@ -499,7 +697,7 @@ classdef TDVPData
 			h.xdata = (1:obj.para.L).';
 			h.ydata = obj.t(1:obj.lastIdx)*h.ts;
 			h.zdata = [];					% T x L x NC x ...  if not, needs to be reshaped!
-			h.xSize = obj.para.L*ones(1,obj.nChains);
+			h.xSize = obj.para.L*ones(1,obj.nChains);	% size for each slider value
 			
 			h.xlbl = 'Site $k$';
 			h.ylbl = '$t$';
@@ -591,6 +789,15 @@ classdef TDVPData
 					end
 					h.sldlbl = {'State','Chain'};
 					h.tlbl = 'Star Displacement';
+				case 'state-adiab'
+					h.zdata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
+					h.zlbl = '$|\Psi_k|^2$';
+					h.xlbl = 'Diabatic States';
+					h.xdata = (1:size(obj.sysState,2)).';
+					h.xSize = size(obj.sysState,2)*ones(1,obj.nChains);
+					h.tlbl = 'Adiabatic State evolution';
+					h.sldlbl = {'Bond State'};
+					
 			end
 			h.f.Name = h.tlbl;
 			
@@ -609,6 +816,7 @@ classdef TDVPData
 			rotate3d on
 			axis tight
 			h.ax.View = [0 90];
+			h.ax.TickDir = 'out';
 			xlabel(h.xlbl);
 			ylabel(h.ylbl);
 			zlabel(h.zlbl);

@@ -221,9 +221,18 @@ function tresults = calTimeObservables(tmps,tVmat,para,varargin)
 			elseif missingN > 0
 				tresults.stateProjection(totalN,1) = 0;			% does preallocation
 			end
-			tresults.stateProjection(i,1) = single(getObservable({'stateproject',2,1},tmps(j,:),tVmat(j,:),para));		% project onto |LE+>|0>
+			tresults.stateProjection(i,1) = single(getObservable({'stateproject',para.InitialState,1},tmps(j,:),tVmat(j,:),para));	% project onto |IS>|0>, IS = initial state
 		end
-
+		
+		if strContains(para.tdvp.Observables,'.ss.')					% ssad for system state
+			if ~isfield(tresults,'system') || ~isfield(tresults.system,'state')
+				tresults.system.state = single(zeros(totalN,para.dk(1),para.dk(1)));		% t x dk x D (adiabatic)
+			elseif missingN > 0
+				tresults.system.state(totalN,para.dk(1),para.dk(1)) = 0;			% does preallocation
+			end
+			tresults.system.state(i,:,:) = single(getObservable({'state',1},tmps(j,:),tVmat(j,:),para));		% project onto |LE+>|0>
+		end
+		
 		if strcmp(para.model, 'SpinBosonTTM')
 			%% extract transfer tensor
 			% only use for single-slice tMPS due to iterative procedure

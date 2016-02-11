@@ -1615,7 +1615,7 @@ grid on
 axis tight
 formatPlot(f,'twocolumn-single')
 	%% TDVPData: DFT
-f=figure(704);  f.Name = 'MLSBM Wave-Occupation DFT'; clf; hold all; ax = gca;
+f=figure(706);  f.Name = 'MLSBM Wave-Occupation DFT'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('rhoii'); xlabel('$t$');
 pl = x.plot('rhoii-ft','-cmev'); xlabel('$E/cm^{-1}$');
@@ -1624,7 +1624,8 @@ leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
 axis tight
-ax.XLim = [0,2000];ax.YLim = [0,1000];
+ax.XLim = [0,9000];ax.YLim = [0,1000];
+% ax.XLim = [0,2000];ax.YLim = [0,1000];
 formatPlot(f,'twocolumn-single')
 %% TDVP (7.2) MLSBM RHO 1D
 f=figure(702);  f.Name = 'MLSBM DM-Occupation'; hold all; ax = gca;
@@ -1672,14 +1673,87 @@ axis tight
 formatPlot(f,'twocolumn-single')
 
 %% TDVP (7.5) Linear Absorption - TDVPData
-f=figure(752);  f.Name = 'Linear Absorption of LE+'; clf; hold all; ax = gca;
+f=figure(753);  f.Name = 'Linear Absorption of LE+'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('linabs','-fsev'); xlabel('$E/eV$'); %ax.XLim = [1.5,3.5];
-pl = x.plot('linabs','-nmev'); xlabel('$\lambda/nm$'); ax.XLim = [300,750];
+pl = x.plot('linabs','-nmev'); xlabel('$\lambda/nm$'); ax.XLim = [300, 750];
 ylabel('$FT(\langle LE^+|\left< 0|\Psi\right>)$');
 grid on
 % ax.XLim = [1000,100000];
 formatPlot(f,'twocolumn-single')
+
+%% TDVP (7.6) Adiabatic States - 2D TDVPData
+% x = res(6);
+h = x.plotSld2D('state-adiab');
+% h.ax.ZLim = [0,1]; h.ax.CLim = [0,1];
+set(h.ax,'TickLabelInterpreter', 'latex');
+h.ax.XTick = 1:5;
+h.ax.XTickLabel = {'$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$'};
+
+%% TDVP (7.6.1) Adiabatic States rearranged - 2D TDVPData
+% especially done for: 20160208-1904-27-DPMES5-7C-Star-v72-dk20D5dopt5L8Delta0State2
+% could work in others as well!
+% x = res(6);
+x1 = x;
+r = [0,37.5,894.5,x.lastIdx-1]+1; from = [3,2,1];								% adiab state 1
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,1) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,894.5,2773.5,x.lastIdx-1]+1; from = [1,2,3];								% adiab state 2
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,2) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,122.5,294.5,327.5,356.5,2773.5,x.lastIdx-1]+1; from = [5,4,3,4,3,2];		% adiab state 3
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,3) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,37.5,294.5,327.5,356.5,807.5,1046.5,4661.5,x.lastIdx-1]+1; from = [2,3,4,3,4,5,4,5];		% adiab state 4
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,4) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,122.5,807.5,1046.5,4661.5,x.lastIdx-1]+1; from = [4,5,4,5,4];		% adiab state 4
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,5) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+
+h = x1.plotSld2D('state-adiab','-log');
+% h.ax.ZLim = [0,1]; h.ax.CLim = [0,1];
+h.ax.ZLim = [-5,0]; h.ax.CLim = h.ax.ZLim;
+set(h.ax,'TickLabelInterpreter', 'latex');
+h.ax.XTick = 1:5;
+h.ax.XTickLabel = {'$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$'};
+
+%% TDVP (7.6.2) Adiabatic States rearranged - 1D TDVPData
+% especially done for: 20160208-1904-27-DPMES5-7C-Star-v72-dk20D5dopt5L8Delta0State2
+% could work in others as well!
+% x = res(6);
+x1 = x;
+r = [0,37.5,894.5,x.lastIdx-1]+1; from = [3,2,1];								% adiab state 1
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,1) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,894.5,2773.5,x.lastIdx-1]+1; from = [1,2,3];								% adiab state 2
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,2) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,122.5,294.5,327.5,356.5,2773.5,x.lastIdx-1]+1; from = [5,4,3,4,3,2];		% adiab state 3
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,3) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,37.5,294.5,327.5,356.5,807.5,1046.5,4661.5,x.lastIdx-1]+1; from = [2,3,4,3,4,5,4,5];		% adiab state 4
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,4) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+r = [0,122.5,807.5,1046.5,4661.5,x.lastIdx-1]+1; from = [4,5,4,5,4];		% adiab state 4
+for ii = 1:length(from)
+	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,5) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
+end
+
+h = x1.plotSld1D('state-adiab');
+leg = legend('TT','LE+','LE-','CT+','CT-');
+grid on
+axis tight
+formatPlot(gcf,'twocolumn-single')
 
 %% TDVP z-averaging in one file
 % naming scheme to find files:

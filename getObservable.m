@@ -38,6 +38,7 @@ function out = getObservable(type,mps,Vmat,para)
 %		'hshi'				scalar
 %		'coherence'			not implemented yet
 %		'stateproject'		scalar
+%		'state'				matrix  (dk x dk)
 %
 %   Created 03/06/2014 by Florian Schroeder @ University of Cambridge
 %   TODO:   - Implement Boson Site Shift to export the routine from optimizesite.m. Only get a single shift value.
@@ -129,6 +130,34 @@ switch type{1}
 		mps{1} = mps{1}./norm(reshape(mps{1},[],1));		% normalise the state!
 		
 		out = calRDM(mps,Vmat,para,type{2});
+		
+	case 'state'
+		% applicable to site 1 for now only!
+		% saves the MPS of the site with diabatic & adiabatic information!
+		% closely related to 'rdm_adiabatic'
+		% {'state',sitej}
+		if type{2} ~= 1
+			error('rdm_adiabatic only available for site 1');
+		end
+		if para.nChains > 1
+			if para.useStarMPS
+				d = size(mps{1});
+				A = reshape(mps{1},[],d(end));		% ... x dk
+				[U,S,~] = svd2(A.');				% transpose to benefit from speedup in svd2
+			else
+				error('VMPS:getObservable:NotImplemented','Needs to be implemented!')
+			end
+		else
+			d = size(mps{1});
+			A = reshape(mps{1},[],d(end));		% ... x dk
+			[U,S,~] = svd2(A.');				% transpose to benefit from speedup in svd2
+			if size(S,1) < d(end)
+				% add zeros
+				U(d(end),d(end)) = 0;
+				S(d(end),d(end)) = 0;
+			end
+		end
+		out = U*S;								% should be dk x D(1:dk) for D > dk
 		
     case 'participation'
         % applicable to all systems, only for first site.
