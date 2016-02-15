@@ -84,7 +84,7 @@ classdef TDVPData
 				obj.xC = obj.tresults.x;
 			end
 			
-			if obj.version >= 42
+			if obj.version > 42
 				obj.t = obj.tresults.t;
 			else
 				obj.t = obj.para.tdvp.t;
@@ -116,6 +116,9 @@ classdef TDVPData
 			if isfield(obj.tresults,'star')
 				if isfield(obj.tresults.star,'n')
 					obj.occS  = obj.tresults.star.n;
+					if obj.version <= 42 && size(obj.occS,1) == length(obj.tresults.star.omega)
+						obj.occS = obj.occS.';
+					end
 				else
 					obj.occS = 0;
 				end
@@ -209,6 +212,16 @@ classdef TDVPData
 		function pl  = plot(obj,type,varargin)
 			% initialise modifiers
 			% plot(...,ax_handle)	Plots into the axes given by handle
+			if length(obj) > 1
+				% deal with object array
+				pl(length(obj),1) = 0;
+				for ii = 1:length(obj)
+					pl(ii,:) = obj(ii).plot(type,varargin{:});
+				end
+				return;
+			end
+			h.xlbl = 't';
+			h.ylbl = [];
 			ts = 1;						% scale time axis
 			eScale = 0;					% energy units used for DFT: 0 = none, 1 = eV, 2 = cm (wavenumber)
 			unicolor = 0;
@@ -223,14 +236,17 @@ classdef TDVPData
 						% fs timescale for H in eV and eV scale in DFT plots
 						ts = 0.658;
 						eScale = 1;
+						h.xlbl = '$t/fs$';
 					case '-cmev'
 						% cm scale in DFT plots
 						ts = 0.658;
 						eScale = 2;
+						h.xlbl = '$E/cm^{-1}$';
 					case '-nmev'
 						% nm scale in DFT plots
 						ts = 0.658;
 						eScale = 3;
+						h.xlbl = '$\lambda/nm$';
 					case '-fftshift'
 						DFTshift = 1;
 					case '-unicol'
@@ -261,34 +277,44 @@ classdef TDVPData
 			switch lower(type)
 				case 'sz'
 					pl = plot(obj.t(1:obj.lastIdx)*ts, obj.tresults.spin.sz(1:obj.lastIdx));
+					h.ylbl = '$\left<\sigma_z\right>$';
 				case 'calctime'
 					pl = plot(obj.t(2:obj.lastIdx)*ts,obj.para.tdvp.calcTime(1:obj.lastIdx-1),'Displayname',obj.LegLabel);
+					h.ylbl = 'CPU time/h';
 				case 'calctime-d'
 					% 1st derivative, in hours
 					pl = plot(obj.t(2:obj.lastIdx-1)*ts,diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1)),'Displayname',obj.LegLabel);
+					h.ylbl = 'CPU time/sweep/h';
 				case 'calctime-d-sec'
 					% 1st derivative, in seconds
 					pl = plot(obj.t(2:obj.lastIdx-1)*ts,3600*diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1)),'Displayname',obj.LegLabel);
+					h.ylbl = 'CPU time/sweep/s';
 				case 'rhoii'
 					rhoii = gettRhoiiSystem(obj);
 					pl = plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)), plotOpt{:},'Displayname',obj.LegLabel);
+					h.ylbl = '$\rho_{ii}$';
 				case 'hshi'
 					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
+					h.ylbl = '$\left< H_i \right>$';
 				case 'stateproj'
 					pl = plot(obj.t(1:obj.lastIdx)*ts, [abs(obj.stateProj(1:obj.lastIdx)),real(obj.stateProj(1:obj.lastIdx)),imag(obj.stateProj(1:obj.lastIdx))]);
+					h.ylbl = 'Autocorrelation';
 				case 'linabs'
 					% linear absorption as DFT of stateProj autocorrelation function
 					DFTplot = 1;
 					m = obj.lastIdx;					% last datapoint to include
+% 					m = 5000;
 					maxN = m;
-% 					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
+% 					maxN = pow2(nextpow2(1*m));			% if > lastIdx -> zero padding
 					f = (0:maxN-1)/obj.t(2)/maxN;
 					linAbs = fft(conj(obj.stateProj(1:m)),maxN);	% do conj to get positive real part!
 					if DFTshift
 						linAbs = fftshift(linAbs);
 						f = f-f(end)/2;
 					end
-					pl = plot(f, [real(linAbs),imag(linAbs)]);
+% 					pl = plot(f, [real(linAbs),imag(linAbs),abs(linAbs)]);
+					pl = plot(f, real(linAbs));
+					h.ylbl = 'Linear Absorption';
 				case 'rhoii-ft'
 					% applies DFT to the population probability of rho
 					DFTplot = 1;
@@ -305,6 +331,7 @@ classdef TDVPData
 						f = f-f(end)/2;
 					end
 					pl = plot(f, abs(ft));
+					h.ylbl = '$FT(\rho_{ii})$';
 			end
 			
 			if DFTplot == 1
@@ -313,6 +340,7 @@ classdef TDVPData
 				end
 				if eScale == 1
 					f = f*4.135; % in eV
+					h.xlbl = '$E/eV$';
 				elseif eScale == 2
 					f = f*4.135*8065.73; % in cm
 				elseif eScale == 3
@@ -322,6 +350,8 @@ classdef TDVPData
 					pl(k).XData = f(1:length(pl(k).XData));
 				end
 			end
+			xlabel(h.xlbl);
+			ylabel(h.ylbl);
 			
 			if unicolor
 				arrayfun(@(x) set(x,'Color',pl(1).Color), pl);
@@ -545,7 +575,7 @@ classdef TDVPData
 						% use cm^-1 as Units
 						h.freqScale = h.freqScale/0.658*4.135*8065.73;
 						h.xlbl = '$E/cm^{-1}$';
-					case 'nmev'
+					case '-nmev'
 						% nm scale, H in ev
 						h.freqScale = h.freqScale/0.658*4.135/1239.84193;
 						h.fInvert = 1;
@@ -576,6 +606,7 @@ classdef TDVPData
 				case 'linabs'
 					% linear absorption as DFT of stateProj autocorrelation function
 					h.data = conj(obj.stateProj(1:obj.lastIdx));
+					h.useWindowFcn = 0;								% needs to be switched off!!
 				case 'rhoii-ft'
 					% applies DFT to the population probability of rho
 					rhoii = gettRhoiiSystem(obj);		% t x nStates
@@ -662,7 +693,7 @@ classdef TDVPData
 				end
 				h.xdata = h.xdata * h.freqScale;
 				if h.fInvert
-					h.xdata = 1/h.xdata;					% necessary for wavelength plots
+					h.xdata = 1./h.xdata;					% necessary for wavelength plots
 				end
 				h.xSize = length(h.xdata);
 			end
@@ -734,11 +765,13 @@ classdef TDVPData
 			
 			if ~isempty(strfind(lower(type),'star'))
 				% need to find lengths of chains in star picture -> length of x-axis
-				if strcmp(obj.para.chain{1}.mapping, 'LanczosTriDiag')		% take a representative
-					h.xSize = cellfun(@(x) length(x.xi), obj.para.chain);
-				else
+% 				if strcmp(obj.para.chain{1}.mapping, 'LanczosTriDiag')		% take a representative
+% 					h.xSize = cellfun(@(x) length(x.xi), obj.para.chain);
+% 				else
 					h.xSize = size(obj.omega,1)*ones(1,obj.nChains);
-				end
+					h.ydata = obj.tS;
+					h.ySize = length(h.ydata);
+% 				end
 			end
 			
 			switch lower(type)
@@ -766,7 +799,7 @@ classdef TDVPData
 					h.sldlbl = {'State','Chain'};
 					h.tlbl = 'Chain Displacement';
 				case 'star-n'
-					h.zdata = real(obj.occS(1:obj.lastIdx,:,:));		%
+					h.zdata = real(obj.occS(1:h.ySize,:,:));			% t x w x nChains
 					h.zlbl = '$\left< n(\omega) \right>$';
 					if ~h.evTocm
 						h.xdata = obj.omega;							% w x nChain
@@ -1038,6 +1071,51 @@ classdef TDVPData
 				out(ii).epsilon = obj.para.chain{ii}.epsilon;
 				out(ii).t = obj.para.chain{ii}.t;
 			end
+		end
+		
+		function exportCSV(obj,type,loc,varargin)
+			% function used for exporting dataset of 'type' in obj-array to location loc: cell array
+			%
+			if length(obj) > 1
+				for ii = 1:length(obj)
+					obj(ii).exportCSV(type,loc{ii});
+				end
+				return;
+			end
+			
+			% from now: loc is a string, obj is single object
+			
+			switch lower(type)
+				case 'sz'
+					x = reshape(obj.t(1:obj.lastIdx),[],1);
+					y = reshape(obj.tresults.spin.sz(1:obj.lastIdx),[],1);
+					out = [x,y];
+				case 'chain-n'
+					x = reshape(1:obj.para.L,[],1);
+					y = reshape(obj.t(1:obj.lastIdx),[],1);
+					z = obj.occC(1:obj.lastIdx,:,1);
+					out = [0,x';y,z];
+				case 'star-n'
+					x = reshape(obj.omega,[],1);
+					y = reshape(obj.tS,[],1);
+					z = obj.occS(:,:,1);								% t x w x nChains
+					% only pick first chain for now.
+					out = [0,x';y,z];
+				case 'star-x'
+					x = reshape(obj.omega,[],1);
+					y = reshape(obj.tS,[],1);
+					z = real(obj.xS(:,:,1));								% t x w x nChains
+					% only pick first chain for now.
+					out = [0,x';y,z];
+				otherwise
+					error('Dataset type not supported yet!');
+			end
+			dir = fileparts(loc);
+			if ~exist(dir,'dir')
+				mkdir(dir);
+			end
+			csvwrite(loc,out);
+			
 		end
 	end
 	
