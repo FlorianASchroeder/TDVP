@@ -1018,7 +1018,7 @@ ax.Units = 'norm';
 %% TDVP (3.10): Animate STAR <n> <x> kinetics side-by-side
 fignum = 5; figure(fignum); clf;
 % x = res{9,1}; tresults = x.tresults; para = x.para;
-nc = 4;		% Choose chain!
+nc = 1;		% Choose chain!
 guideSH = 0;
 width = 0.8; height = 0.375; posx = 0.1; posy = 0.13;
 ax = axes(	'Position',[posx,posy,width,height],...
@@ -1618,14 +1618,15 @@ formatPlot(f,'twocolumn-single')
 f=figure(706);  f.Name = 'MLSBM Wave-Occupation DFT'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('rhoii'); xlabel('$t$');
-pl = x.plot('rhoii-ft','-cmev'); xlabel('$E/cm^{-1}$');
+% pl = x.plot('rhoii-ft','-cmev'); xlabel('$E/cm^{-1}$');
+x.plotSld1DFT('rhoii-ft','-cmev'); ax = gca; f = gcf;
 % leg = legend('TT','LE+','CT+','CT-');
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
 axis tight
-ax.XLim = [0,9000];ax.YLim = [0,1000];
-% ax.XLim = [0,2000];ax.YLim = [0,1000];
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
 %% TDVP (7.2) MLSBM RHO 1D
 f=figure(702);  f.Name = 'MLSBM DM-Occupation'; hold all; ax = gca;
@@ -1673,11 +1674,11 @@ axis tight
 formatPlot(f,'twocolumn-single')
 
 %% TDVP (7.5) Linear Absorption - TDVPData
-f=figure(753);  f.Name = 'Linear Absorption of LE+'; clf; hold all; ax = gca;
+f=figure(753);  f.Name = 'Linear Absorption of LE+';hold all; ax = gca;
 % x = res(6);
-% pl = x.plot('linabs','-fsev'); xlabel('$E/eV$'); %ax.XLim = [1.5,3.5];
-pl = x.plot('linabs','-nmev'); xlabel('$\lambda/nm$'); ax.XLim = [300, 750];
-ylabel('$FT(\langle LE^+|\left< 0|\Psi\right>)$');
+pl = x.plot('linabs','-fsev'); xlabel('$E/eV$'); ax.XLim = [1.5,2.5];
+% pl = x.plot('linabs','-nmev'); xlabel('$\lambda/nm$'); ax.XLim = [400, 1000];
+ylabel('$FT(\langle TT|\left< 0|\Psi_{TT}\right>)$');
 grid on
 % ax.XLim = [1000,100000];
 formatPlot(f,'twocolumn-single')
@@ -4866,6 +4867,7 @@ clear
 defPlot(1,:) = {'20160129-DPMES5-7C-v72-D5-10-5param',				[ 2: 4], {'xlim',[0,1e3],'yscale','lin'}};
 defPlot(2,:) = {'20160129-DPMES5-7C-v72-D5-10-5param-CTshift',		[ 5: 7], {'xlim',[0,1e3],'yscale','lin'}};
 defPlot(3,:) = {'20160203-DPMES5-7C-v72-D5-10-5param-TT-CTshift',	[8:10], {'xlim',[0,1e3],'yscale','lin'}};
+defPlot(4,:) = {'20160211-DPMES5-7C-v72-D5-10-5param-TT-CTshift',	[11:13], {'xlim',[0,1e3],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -4938,21 +4940,33 @@ end
 [y,I] = sort([res((offset+1):end).dt]);
 res((offset+1):end,1) = res(offset+I,1);
 
-%
+%11-13: Params v5 v72 5-7C, StateProj, TT init, CT shift - BETTER
+foldPattern = '20160211-1819-38-DPMES5-7C-Star-v72TCMde9-dk20D5dopt5L8Delta0.*State1';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	temp = regexp(res(i).para.folder,'Delta([0-9.]*).*State(\d)','tokens');	% contains strings extracted from folder name
+	res(i) = res(i).setLegLabel(sprintf('CT +%s, State %s',temp{1}{:}));
+	res(i) = res(i).setComment('CT shifted');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+%%
 for fignum = 1:size(defPlot,1)
 	f = figure(fignum); clf; hold all; ax = gca;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
 % 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
-	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
-% 	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx)*0.658, abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
-% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
-% 	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
-% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
+% 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
+	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
 	axis tight;
-	phArr = cellfun(@(x) x(1),ph,'UniformOutput',false);
-% 	leg = legend([phArr{:}],res(pick).LegLabel,'location','Northwest');
+% 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
 % 	legend boxoff
 % 	fs = 22;
 % 	leg.FontSize = fs;
@@ -4971,6 +4985,88 @@ for fignum = 1:size(defPlot,1)
 	end
 end
 
+%% DPMES5-7C v72  StarMPS LinAbs - TDVPData											% LabBook 12/01/2016
+% See effect of CT shift on dynamics
+clear
+%
+defPlot(1,:) = {'20160212-DPMES5-7C-v72-D5-10-5param-LE-CTshift-linAbs',	[ 1:4], {'xlim',[400,800],'yscale','lin'}};
+defPlot(2,:) = {'20160212-DPMES5-7C-v72-D5-10-5param-TT-CTshift-linAbs',	[ 5:7], {'xlim',[500,1e3],'yscale','lin'}};
+%
+i=0; cols = 5;
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+res = TDVPData();
+
+% 1: Params v5 v72 5-7C, LE
+foldPattern = '20160203-1659-19-DPMES5-7C-Star-v72TCMde9-dk20D5dopt5L7Delta0State2';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	temp = regexp(res(i).para.folder,'Delta([0-9.]*).*State(\d)','tokens');	% contains strings extracted from folder name
+	res(i) = res(i).setLegLabel(sprintf('CT +%s, State %s',temp{1}{:}));
+	res(i) = res(i).setComment('CT shifted');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 2-4: Params v5 v72 5-7C, LE, CT shift
+foldPattern = '20160210-0109-3.-DPMES5-7C-Star-v72TCMde9-dk20D5dopt5L8Delta[-.0-9]*State2';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	temp = regexp(res(i).para.folder,'Delta([0-9.-]*).*State(\d)','tokens');	% contains strings extracted from folder name
+	res(i) = res(i).setLegLabel(sprintf('CT +%s, State %s',temp{1}{:}));
+	res(i) = res(i).setComment('CT shifted');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+% 5-7: Params v5 v72 5-7C, TT, CT shift - BETTER
+foldPattern = '20160211-1819-38-DPMES5-7C-Star-v72TCMde9-dk20D5dopt5L8Delta0.*State1';
+filePattern = 'results-Till1500Step0.1v72-OBBmax60-Dmax10-expvCustom700-1core-small.mat';
+matches     = TDVPfolds(arrayfun(@(x) ~isempty(regexp(x.name,[foldPattern,'\\',filePattern],'once')),TDVPfolds));
+res(i+size(matches,1),1) = TDVPData(); offset = i;
+for file = {matches.name}
+	file = file{1};
+	i = i+1;
+	res(i) = TDVPData(file);			% comment first!
+	temp = regexp(res(i).para.folder,'Delta([0-9.]*).*State(\d)','tokens');	% contains strings extracted from folder name
+	res(i) = res(i).setLegLabel(sprintf('CT +%s, State %s',temp{1}{:}));
+	res(i) = res(i).setComment('CT shifted');
+end
+[y,I] = sort([res((offset+1):end).dt]);
+res((offset+1):end,1) = res(offset+I,1);
+
+%%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	ph = res(pick).plot('linabs','-nmev');
+	axis tight;
+	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
+ 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	fs = 22;
+	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+end
+	
 %%	find correlation between TT trace and "parameter distance"
 chainPara = [];
 for ii = 1:length(res)
