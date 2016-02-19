@@ -1620,10 +1620,10 @@ leg = legend('TT','LE+','CT+','CT-');
 xlabel('t');
 grid on
 	%% TDVPData
-f=figure(703);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
+f=figure(704);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
 % x = res(6);
-pl = x.plot('rhoii'); xlabel('$t$');
-% pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
+% pl = x.plot('rhoii'); xlabel('$t$');
+pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
 % leg = legend('TT','LE+','CT+','CT-');
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$\rho_{ii}$');
@@ -1645,8 +1645,11 @@ axis tight
 ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
 	%% TDVPData: DFT residuals
+f=figure(707);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
 % 	a = x.getData('rhoii-osc-res');
-x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
+% x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
+x.plot('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
+leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
 axis tight
@@ -1743,9 +1746,9 @@ for ii = 1:length(from)
 	x1.sysState(ceil(r(ii)):floor(r(ii+1)),:,5) = x.sysState(ceil(r(ii)):floor(r(ii+1)),:,from(ii));
 end
 
-h = x1.plotSld2D('state-adiab','-log');
+h = x1.plotSld2D('state-adiab');
 % h.ax.ZLim = [0,1]; h.ax.CLim = [0,1];
-h.ax.ZLim = [-5,0]; h.ax.CLim = h.ax.ZLim;
+% h.ax.ZLim = [-5,0]; h.ax.CLim = h.ax.ZLim;
 set(h.ax,'TickLabelInterpreter', 'latex');
 h.ax.XTick = 1:5;
 h.ax.XTickLabel = {'$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$'};

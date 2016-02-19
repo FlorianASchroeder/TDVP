@@ -27,6 +27,8 @@ classdef TDVPData
 		rho;		% rduced density matrix
 		stateProj;	% state projection amplitude
 		sysState;	% state of system
+        mps;        % MPS and Vmat of sites 1&2
+        Vmat;
 		LegLabel;	%
 		Comment;	% 
 	end
@@ -149,12 +151,19 @@ classdef TDVPData
 					obj.alpha = cellfun(@(x) x.alpha, obj.para.chain);
 					obj.s     = cellfun(@(x) x.s    , obj.para.chain);
 				end
-			end
+            end
 			
-			if isfield(obj.tresults,'stateProjection')
+            if isfield(obj.tresults,'stateProjection')
 				obj.stateProj = obj.tresults.stateProjection;
-			end
-			
+            end
+            
+            if isfield(obj.tresults,'mps')
+                obj.mps = obj.tresults.mps;
+                obj.tresults.mps = [];
+                obj.Vmat = obj.tresults.Vmat;
+                obj.tresults.Vmat = [];
+            end
+                
 			if ~isempty(strfind(obj.para.model,'DPMES'))
 				% any particular vars for DPMES?
 			end
@@ -204,13 +213,40 @@ classdef TDVPData
 					idxOffset = 2;
 				case 'rhoii-osc-res'
 					% oscillating residuals
+					plotFit = 1;						% 1: plot the fitted functions into separate figure to evaluate fitness.
 					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
+					rhoii = rhoii(1:obj.lastIdx,:);
+					out = zeros(size(rhoii));
 					% fit and remove exponential components to obtain the residuals
-					fun = @(x,xdata) x(1)+x(2).*exp(x(3).*xdata);		% exponential model with shift
-					a0 = [0,1,-100];								% initial guesses
-					x = lsqcurvefit(fun,a0,double(obj.t.'), double(rhoii(:,2)));
-					plot(obj.t,fun(x,obj.t));
-					out = double(rhoii(:,2)) - fun(x,obj.t.');
+					if plotFit
+						f = gcf;
+						figure; hold all; ax = gca;
+						plot(obj.t(1:obj.lastIdx),rhoii);
+						ax.ColorOrderIndex = 1;					% reset to have fit in same color as original data
+					end
+					for m = 1:size(rhoii,2)
+						fun{1} = @(x,xdata) x(1)+x(2).*exp(x(3).*xdata);					% exponential model with shift
+						fun{2} = @(x,xdata) x(1)+x(2).*exp(x(3).*xdata)+x(4).*exp(x(5).*xdata);					% exponential model with shift
+						a0{1} = double([rhoii(end,m),rhoii(1,m)-rhoii(end,m),-0.01]);								% initial guesses
+						if rhoii(1,m) == 0
+							a0{1}(3) = mean(diff(rhoii(100:200,m)))/obj.t(2);			% rise if starting from 0
+						end
+						a0{2} = double([rhoii(end,m),rhoii(1,m)-rhoii(end,m),-0.01,rhoii(1,m)-rhoii(end,m),+0.01]);								% initial guesses
+						for k = 1:length(fun)
+							[x{k},r(k),res{k}] = lsqcurvefit(fun{k},a0{k},double(obj.t(1:obj.lastIdx).'), double(rhoii(:,m)));
+						end
+						[~,ind] = min(r);		% pick function with minimal residual norm;
+						if plotFit, plot(obj.t(1:obj.lastIdx),fun{ind}(x{ind},obj.t(1:obj.lastIdx))); end
+						out(:,m) = res{ind};		% save the residual
+					end
+					if plotFit,	figure(f); end
+					full = 1;
+                case 'sys-env-x'
+					out = obj.getSysEnvObs('x');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
+					full = 1;
+                case 'sys-env-n'
+					out = obj.getSysEnvObs('n');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
+                    full = 1;
 			end
 			
 			if ~full
@@ -340,6 +376,23 @@ classdef TDVPData
 					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
 					f = (0:maxN-1)/obj.t(2)/maxN;
 					rhoii = gettRhoiiSystem(obj);		% t x nStates
+					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
+% 					ft = fft(real(rhoii(1:m,:)),maxN,1);
+					if DFTshift
+						ft = fftshift(ft,1);
+						f = f-f(end)/2;
+					end
+					pl = plot(f, abs(ft));
+					h.ylbl = '$FT(\rho_{ii})$';
+				case 'rhoii-osc-res'
+					% applies DFT to the population probability of rho
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+					window = hann(m,'periodic');
+% 					maxN = m;
+					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					rhoii = obj.getData('rhoii-osc-res');		% t x nStates
 					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
 % 					ft = fft(real(rhoii(1:m,:)),maxN,1);
 					if DFTshift
@@ -639,10 +692,11 @@ classdef TDVPData
 				case 'rhoii-osc-res'
 					rhoii = obj.getData('rhoii-osc-res');
 					h.data = rhoii;
-					h.noSldDims = 1;
+					h.noSldDims = 2;
+% 					h.useWindowFcn = 0;
 			end
 			
-			calcFFT();
+			calcFFT();				% fills h.ydata with FFT
 			
 			h.f.Name = h.tlbl;
 			
@@ -1152,7 +1206,37 @@ classdef TDVPData
 			end
 			csvwrite(loc,out);
 			
-		end
+        end
+        
+        function out = getSysEnvObs(obj,type,varargin)
+			%% function out = getSysEnvObs(obj,type,varargin)
+			%	Contract the environment states with an operator specified by
+			%	type:
+			%	 'n' : occupation
+			%    'x' : displacement
+			%
+			%	Only for bosons on the 2nd site for now.
+			%	
+			%	out: NC x 1 cell
+			%		with Op_(r',r) right observable containing the contracted operator
+			NC = obj.para.nChains;
+			out = cell(obj.lastIdx, NC);		% t x NC
+			for mc = 1:NC
+				% compute for all times simultaneously
+				dk = cellfun(@(x) size(x{mc},1), obj.Vmat(1:obj.lastIdx,2));	% dk(t)
+				bp = arrayfun(@(x) bosonop(x,0,'n'),dk,'UniformOutput',false);
+				switch lower(type)
+					% select the appropriate operator
+					case 'n'
+						op = cellfun(@(x) x*x', bp,'UniformOutput',false);
+					case 'x'
+						op = cellfun(@(x) (x+x')./2, bp,'UniformOutput',false);
+				end
+				out(:,mc) = arrayfun(@(t) updateCright([],obj.mps{t,2}{mc}, obj.Vmat{t,2}{mc},op{t},obj.mps{t,2}{mc}, obj.Vmat{t,2}{mc}),...
+					(1:obj.lastIdx)','UniformOutput',false);
+				
+			end
+        end
 	end
 	
 	% Static methods are functions that do not require 'obj' but are

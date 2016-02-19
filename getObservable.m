@@ -159,6 +159,34 @@ switch type{1}
 		end
 		out = U*S;								% should be dk x D(1:dk) for D > dk
 		
+	case 'sys-env-state'
+		% saves the MPS of site 1 & 2 containing all diabatic & adiabatic information!
+		% decompose also 1st site to have adiabatic information available
+		% returns out: struct
+		% {'sys-env-state'}
+		if para.nChains > 1
+			if para.useStarMPS
+				d = size(mps{1});
+				A = reshape(mps{1},[],d(end));		% ... x dk
+				[U,S,~] = svd2(A.');				% transpose to benefit from speedup in svd2
+			else
+				error('VMPS:getObservable:NotImplemented','Needs to be implemented!')
+			end
+		else
+			d = size(mps{1});
+			A = reshape(mps{1},[],d(end));		% ... x dk
+			[U,S,~] = svd2(A.');				% transpose to benefit from speedup in svd2
+			if size(S,1) < d(end)
+				% add zeros
+				U(d(end),d(end)) = 0;
+				S(d(end),d(end)) = 0;
+			end
+		end
+		Vmat{1} = U*S;							% should be dk x D(1:dk) for D > dk; sets focus on Vmat!! This is simpler for StarMPS
+		% save the system and reaction coord state
+		out.mps = mps([1,2]);					
+		out.Vmat = Vmat([1,2]);
+		
     case 'participation'
         % applicable to all systems, only for first site.
         out = calParticipation(calRDM(mps,Vmat,para,1));

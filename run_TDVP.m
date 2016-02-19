@@ -65,13 +65,15 @@ para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.dm.x2.sp.ss.';
+para.tdvp.Observables = '.n.ses.';
 	% n: occupation, j: current, s: spin,
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1
 	% dm2: adiabatic rdms of site 1
 	% x, x2, sx, sx2: displacements, diabatic, adiabatic
 	% sp: stateProjection to extract specific amplitudes
+	% ss: system state -> map from diabatic to adiabatic basis
+	% ses: System-environment state for site 1&2; includes ss
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution?
 para.tdvp.HEffSplitIsometry = 1;		% split mps{1} into isometry + relevant part
