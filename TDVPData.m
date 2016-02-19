@@ -202,6 +202,15 @@ classdef TDVPData
 				case 'calctime-d'
 					out = diff(obj.para.tdvp.calcTime);
 					idxOffset = 2;
+				case 'rhoii-osc-res'
+					% oscillating residuals
+					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
+					% fit and remove exponential components to obtain the residuals
+					fun = @(x,xdata) x(1)+x(2).*exp(x(3).*xdata);		% exponential model with shift
+					a0 = [0,1,-100];								% initial guesses
+					x = lsqcurvefit(fun,a0,double(obj.t.'), double(rhoii(:,2)));
+					plot(obj.t,fun(x,obj.t));
+					out = double(rhoii(:,2)) - fun(x,obj.t.');
 			end
 			
 			if ~full
@@ -299,6 +308,13 @@ classdef TDVPData
 				case 'stateproj'
 					pl = plot(obj.t(1:obj.lastIdx)*ts, [abs(obj.stateProj(1:obj.lastIdx)),real(obj.stateProj(1:obj.lastIdx)),imag(obj.stateProj(1:obj.lastIdx))]);
 					h.ylbl = 'Autocorrelation';
+				case 'chain-x-t-avg'
+					hold all;
+					h.ydata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x  nChain
+					h.ydata = permute(h.ydata,[1 3 2]);				% t x state x L x chain
+					pl = plot(obj.t(1:obj.lastIdx)*ts,h.ydata(:,:,2));
+					h.ylbl = '$\left< x_k \right>$';
+					
 				case 'linabs'
 					% linear absorption as DFT of stateProj autocorrelation function
 					DFTplot = 1;
@@ -437,6 +453,14 @@ classdef TDVPData
 					h.noSldDims = 2;
 					h.ylbl = '$\left< x_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement';
+				case 'chain-x-t-avg'
+					hold all;
+					h.ydata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x  nChain
+					h.ydata = permute(h.ydata,[1 3 2]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Site k ='};
 					h.tlbl = 'Chain Displacement';
 				case 'star-n-t'
 					h.ydata = real(obj.occS(1:obj.lastIdx,:,:));		% t x w x nChain
@@ -612,6 +636,10 @@ classdef TDVPData
 					rhoii = gettRhoiiSystem(obj);		% t x nStates
 					h.data = real(rhoii(1:obj.lastIdx,:));
 					h.noSldDims = 2;					% plot 2nd dim simultaneously
+				case 'rhoii-osc-res'
+					rhoii = obj.getData('rhoii-osc-res');
+					h.data = rhoii;
+					h.noSldDims = 1;
 			end
 			
 			calcFFT();
@@ -707,6 +735,9 @@ classdef TDVPData
 					case 'rhoii-ft'
 						% applies DFT to the population probability of rho
 						out = abs(h.ydata);
+					case 'rhoii-osc-res'
+						% applies DFT to the residual of the populations of rho
+						out = abs(h.ydata);
 				end
 			end
 			
@@ -785,6 +816,11 @@ classdef TDVPData
 					h.zlbl = '$\left< x_k \right>$';
 					h.sldlbl = {'State','Chain'};
 					h.tlbl = 'Chain Displacement';
+				case 'chain-x-avg'
+					h.zdata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x state x chain
+					h.zlbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Chain'};
+					h.tlbl = 'Average Chain Displacement';
 				case 'chain-x-ft'
 					h.maxN = pow2(nextpow2(obj.lastIdx));				% FT window length
 					h.ydata = (0:h.maxN/2)/h.ydata(end);					% fs * k/N = k/T where k=0... N/2

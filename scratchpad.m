@@ -833,9 +833,25 @@ coneFunct = fnval(pf,1:L);
 plot(coneFunct,1:L,'w','linewidth',4)
 plot(coneFunct,1:L,'k','linewidth',2)
 
-%% TDVP (3.8.1): Plot <x> CHAIN - TDVPData
+%% TDVP (3.8.1): 2D Plot <x> CHAIN - TDVPData
 % x = res(35);
 h = x.plotSld2D('chain-x','-fsev');
+formatPlot(gcf,'twocolumn-single')
+
+%% TDVP (3.8.2): 2D Plot <x> CHAIN - State avg - TDVPData
+% x = res(35);
+h = x.plotSld2D('chain-x-avg','-fsev');
+formatPlot(gcf,'twocolumn-single')
+
+%% TDVP (3.8.3): 1D Plot <x> CHAIN - TDVPData
+% x = res(35);
+h = x.plotSld1D('chain-x-t','-fsev');
+formatPlot(gcf,'twocolumn-single')
+
+%% TDVP (3.8.3): 1D Plot <x> CHAIN - State avg - TDVPData
+% x = res(35);
+h = x.plotSld1D('chain-x-t-avg','-fsev');
+formatPlot(gcf,'twocolumn-single')
 
 %% TDVP (3.8.1): Plot FT(<x>) CHAIN - TDVPData
 % x = res(35);
@@ -1606,8 +1622,8 @@ grid on
 	%% TDVPData
 f=figure(703);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
 % x = res(6);
-% pl = x.plot('rhoii'); xlabel('$t$');
-pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
+pl = x.plot('rhoii'); xlabel('$t$');
+% pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
 % leg = legend('TT','LE+','CT+','CT-');
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$\rho_{ii}$');
@@ -1622,6 +1638,15 @@ f=figure(706);  f.Name = 'MLSBM Wave-Occupation DFT'; clf; hold all; ax = gca;
 x.plotSld1DFT('rhoii-ft','-cmev'); ax = gca; f = gcf;
 % leg = legend('TT','LE+','CT+','CT-');
 leg = legend('TT','LE+','LE-','CT+','CT-');
+ylabel('$|FT(\rho_{ii})|^2$');
+grid on
+axis tight
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+ax.XLim = [0,2000];ax.YLim = [0,200];
+formatPlot(f,'twocolumn-single')
+	%% TDVPData: DFT residuals
+% 	a = x.getData('rhoii-osc-res');
+x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
 axis tight
@@ -1676,8 +1701,9 @@ formatPlot(f,'twocolumn-single')
 %% TDVP (7.5) Linear Absorption - TDVPData
 f=figure(753);  f.Name = 'Linear Absorption of LE+';hold all; ax = gca;
 % x = res(6);
-pl = x.plot('linabs','-fsev'); xlabel('$E/eV$'); ax.XLim = [1.5,2.5];
+% pl = x.plot('linabs','-fsev'); xlabel('$E/eV$'); ax.XLim = [1.5,2.5];
 % pl = x.plot('linabs','-nmev'); xlabel('$\lambda/nm$'); ax.XLim = [400, 1000];
+pl = x.plotSld1DFT('linabs','-nmev'); xlabel('$E/eV$'); ax = gca; f = gcf; ax.XLim = [400,1000];
 ylabel('$FT(\langle TT|\left< 0|\Psi_{TT}\right>)$');
 grid on
 % ax.XLim = [1000,100000];
