@@ -24,11 +24,11 @@ starttime = tic;
 if isdeployed           % take care of command line arguments
 % 	if ischar(hx), hx = str2num(hx); end
 % 	if ischar(hz), hz = str2num(hz); end
-	if ischar(s), s = str2num(s); end
-	if ischar(alpha), alpha = str2num(alpha); end
-	if ischar(delta), delta = str2num(delta); end
-	if ischar(epsilon), epsilon = str2num(epsilon); end
-	if ischar(L), L = str2num(L); end
+	if ischar(s), s = str2double(s); end
+	if ischar(alpha), alpha = str2double(alpha); end
+	if ischar(delta), delta = str2double(delta); end
+	if ischar(epsilon), epsilon = str2double(epsilon); end
+	if ischar(L), L = str2double(L); end
 	if ischar(dk), dk = str2double(dk); end
 	if ischar(d_opt), d_opt = str2double(d_opt); end
 	if ischar(D), D = str2double(D); end
@@ -55,7 +55,8 @@ para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models
 para.useStarMPS = 1;
 
 %% System Definitions:
-if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
+% if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
+if ~any(strcmp(para.model,{'MLSpinBoson','2SpinPhononModel'}))
 	% setting para for single-spin models
 	% H0 = -para.hx./2.*sigmaX -para.hz./2.*sigmaZ
     para.hx = -delta;                       % Splitting with sigma_X
@@ -152,7 +153,8 @@ for k = 1:para.nEnvironments
 % 	para.chain{k}.dataPoints = arrayfun(@(x) (randn*0.1+1)*x, para.chain{k}.dataPoints);		% 10% static disorder (SDV)
 
 	if strcmp(para.chain{k}.mapping,'OrthogonalPolynomials')
-		%% now only for SBM, to be extended for any J(w)
+		%% now only for Leggett power law spectral densities.
+		% For arbitrary J(w) use 'Stieltjes'
 		% no need to define:
 		% z, Lambda
 		% since site energies converge to w_c/2 = 0.5, Optimum chain length can
@@ -163,14 +165,9 @@ for k = 1:para.nEnvironments
 			para.chain{k}.L = 200;				% default chain length if input L=0
 		end
 		para.rescaling = 0;						% only for LogZ discretization applicable, rescaling might be broken now!
-	% 	para.Lambda = 2;						% Bath log Discretization parameters in case rescaling = 1
-	%   para.z	    = 1;
-	% 	if para.Lambda == 1
-	% 		assert(para.rescaling == 0, 'Please switch off rescaling when using Lambda = 1');
-	% 		assert(~strcmp(para.chain.discretization,'LogZ'), 'Lambda = 1 not possible with LogZ discretization!');
-	% 	end
-
-	elseif strcmp(para.chain{k}.mapping,'LanczosTriDiag') || strcmp(para.chain{k}.mapping, 'Stieltjes')
+		para.chain{k}.discretization = 'None';	% Only for continuous mapping
+		
+	elseif any(strcmp(para.chain{k}.mapping,{'LanczosTriDiag','Stieltjes'}))
 		% 	if Lambda > 1 -> LogZ
 		% 	if Lambda = 1 -> Linear discretization, rescaling = 0
 		para.chain{k}.discrMethod = 'None';
@@ -189,19 +186,23 @@ for k = 1:para.nEnvironments
 % 		if L > 0								% chain length override
 % 			para.chain{k}.L = L;
 % 		end
-		para.rescaling = 0;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
-
+		
 	% Consistency checks
 		if strcmp(para.chain{k}.discrMethod,'Analytic')
 			assert(strcmp(para.chain{k}.spectralDensity,'Leggett_Hard'),'Analytic discretization only for Leggett with hard cutoff!');
 		end
 		if para.chain{k}.Lambda == 1
 			para.chain{k}.discretization = 'Linear';
+			para.rescaling = 0;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term
 		elseif para.chain{k}.Lambda > 1
 			para.chain{k}.discretization = 'LogZ';
+			para.rescaling = 1;                     % rescale h1term, h2term for bosonchain with \lambda^{j-2}*h1term, yields faster convergence for ground state optimization. Do not use for TDVP!
 		else
 			error('VMPS:ModelDefinition','Lambda >= 1!')
 		end
+	elseif strcmp(para.chain{k}.mapping,'')
+		para.rescaling = 0;
+		fprintf('\nChain %d: No mapping defined -> no call of SBM_genpara',k);
 	else
 		error('VMPS:ModelDefinition','You need to define para.chain.mapping!');
 	end
@@ -247,12 +248,14 @@ para.precision = 5e-15;                         % was 5e-15; Determines chain le
 %% %%%%%%% Calculate Wilson Chain parameters %%%%%%%%%%%%%%%%%%
 % needed here: para.model, [para.MLSB_mode]
 for k = 1:para.nEnvironments
-	[para.chain{k}]=SBM_genpara(para.chain{k});               % only need alpha, s, Lambda. Returns epsilon and t of Wilson chain. Auto choose L if L == 0
-	if (L == 0)
-		L = para.chain{k}.L;                         % Take best L if not specially defined
-		para.L = para.chain{k}.L;					 % not the best solution.
+	if ~strcmp(para.chain{k}.mapping,'')
+		[para.chain{k}]=SBM_genpara(para.chain{k});               % only need alpha, s, Lambda. Returns epsilon and t of Wilson chain. Auto choose L if L == 0
+		if (L == 0)
+			L = para.chain{k}.L;                         % Take best L if not specially defined
+			para.L = para.chain{k}.L;					 % not the best solution.
+		end
+		para.L = min(para.L, para.chain{k}.L);
 	end
-	para.L = min(para.L, para.chain{k}.L);
 end
 L = para.L;
 
@@ -551,7 +554,7 @@ if ~isempty(strfind(para.model,'SpinBoson')) && ~strcmp(para.SpinBoson.GroundSta
 		% restore coupling to chain
         para.t(1) = para.SpinBoson.t1;
 	end
-	if (strcmp(para.SpinBoson.InitialState, 'sx') || strcmp(para.SpinBoson.InitialState, 'sz')) && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+	if any(strcmp(para.SpinBoson.InitialState,{'sx','sz'})) && ~strcmp(para.SpinBoson.GroundStateMode, 'artificial')
         para.hx = para.SpinBoson.hx;
         para.hz = para.SpinBoson.hz;
 	end
@@ -658,7 +661,7 @@ fileName = para.filename;
 			Vmat{1} = eye(para.dk(1,1));
 			nextSite = 2;
 		else
-			error('VMPS:prepareArtState:Parameter setting invalid: No system state prepared');
+			error('VMPS:prepareArtState:ParameterSettingInvalid', 'No system state prepared');
 		end
 
 

@@ -151,19 +151,19 @@ classdef TDVPData
 					obj.alpha = cellfun(@(x) x.alpha, obj.para.chain);
 					obj.s     = cellfun(@(x) x.s    , obj.para.chain);
 				end
-            end
+			end
 			
-            if isfield(obj.tresults,'stateProjection')
+			if isfield(obj.tresults,'stateProjection')
 				obj.stateProj = obj.tresults.stateProjection;
-            end
-            
-            if isfield(obj.tresults,'mps')
+			end
+			
+			if isfield(obj.tresults,'mps')
                 obj.mps = obj.tresults.mps;
                 obj.tresults.mps = [];
                 obj.Vmat = obj.tresults.Vmat;
                 obj.tresults.Vmat = [];
-            end
-                
+			end
+			
 			if ~isempty(strfind(obj.para.model,'DPMES'))
 				% any particular vars for DPMES?
 			end

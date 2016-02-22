@@ -94,7 +94,7 @@ elseif strcmp(chainpara.discrMethod,'None') && strcmp(chainpara.spectralDensity,
     % if directly tridiagonalizing given couplings!
     % define values via the init_CoupDiscr function.
 	bigL = length(xi);
-elseif strcmp(chainpara.discrMethod,'Direct') || strcmp(chainpara.discrMethod,'Numeric')
+elseif any(strcmp(chainpara.discrMethod,{'Direct','Numeric'}))
 	%% from here: either discretize J(w) for Lanczos or h^2(x) for Stieltjes
 	% Uses numerical evaluation of Integrals. Works for any spectral function!
 	% numerical LogZ uses not the Zitko scheme, which is more difficult!!
@@ -113,7 +113,8 @@ elseif strcmp(chainpara.discrMethod,'Direct') || strcmp(chainpara.discrMethod,'N
         case 'CoupBroad'
             J = @(w,i) interp1(w_i, j_i, w,'pchip')./(w.^i).*ceil(heaviside(w_cutoff-w));
 		otherwise
-			error('cannot not find J_%s(w,i); Please define para.spectralDensity properly!',chainpara.spectralDensity);
+			error('VMPS:SBM_genpara:UnknownSpectralDensity',...
+				  'cannot not find J_%s(w,i); Please define para.spectralDensity properly!',chainpara.spectralDensity);
 	end
 	wmax = w_cutoff;
 
@@ -146,10 +147,10 @@ elseif strcmp(chainpara.discrMethod,'Direct') || strcmp(chainpara.discrMethod,'N
 		Gamma = sqrt(J(xi,0).*difXi./pi);						% need to calc sqrt(area)
         figure(1);plot(xi,Gamma);
 	else
-		error('Please choose discrMethod = [Direct | Numeric]');
+		error('VMPS:SBM_genpara:WrongDiscrMethod','Please choose discrMethod = [Direct | Numeric]');
 	end
 else
-	error('Unsupported combination of discrMethod & spectralDensity');
+	error('VMPS:SBM_genpara','Unsupported combination of discrMethod & spectralDensity');
 end
 
 xi(isnan(xi))=0;                                    % if numbers < e-161 they become NaN. This is fix for it.
@@ -191,9 +192,11 @@ end
 				w = wc.*(2.*n+1+s);																		% w(1) = w(n=0)
 				t = wc.*sqrt((n+1).*(n+s+1));															% t(1) = t(n=0) != coupling to system
 				t = [ wc*sqrt(2*pi*chainpara.alpha*gamma(s+1))/(sqrt(pi)); t];				% t(1) = sqrt(eta_0/pi)/2, 1/2 from sigma_z; t(2) = t(n=0)
+			else
+				error('VMPS:SBM_genpara:chainParams_OrthogonalPolynomials','Choose spectralDensity = [Leggett_Soft|Leggett_Hard]');
 			end
 		else
-			error('VMPS:SBM_genpara:chainParams_OrthogonalPolynomials','Only available for power-law spectral functions');
+			error('VMPS:SBM_genpara:chainParams_OrthogonalPolynomials','Only available for power-law spectral functions and discretization = ''None''.');
 		end
     end
 
@@ -316,7 +319,7 @@ end
             xi = chainpara.dataPoints(:,1);
             Gamma = chainpara.dataPoints(:,2);
 		else
-			error('Please give dataPoints with CoupDiscr');
+			error('VMPS:SBM_genpara:init_CoupDiscr','Please give dataPoints with CoupDiscr');
 		end
 		chainpara.discrMethod = 'None';			% nothing else possible!
 	end

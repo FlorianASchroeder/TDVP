@@ -386,7 +386,7 @@ for timeslice = para.tdvp.slices
 		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv(end,:)))),2);
 		fprintf([out(2:end-1),'\n']);
 	end
-
+	fprintf('\n')
 	%% Additional saving
 	if mod(timeslice,para.tdvp.saveInterval) == 0 || timeslice ==  para.tdvp.slices(end)
 		%% backup results, op and para less often than tmps and tVmat

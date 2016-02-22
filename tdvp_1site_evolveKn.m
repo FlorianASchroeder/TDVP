@@ -11,6 +11,9 @@ t = para.tdvp.deltaT./2;
 if para.tdvp.imagT
 	t = -1i*t;
 end
+if isempty(Hn)
+	para.tdvp.expvCustomNow = 1;		% in case, previous Hamiltonian became invalid (due to dimension changes)
+end
 
 switch para.sweepto
     case'r'
