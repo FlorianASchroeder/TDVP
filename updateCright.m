@@ -18,34 +18,29 @@ function [Cright] = updateCright(Cright, B, BUb, X, A, AUb)
 %
 % Modified
 %	- 21/12/14 FS: replaced OBB contraction by faster matrix product
-	skipX = 0;
-	if isempty(X) && isempty(BUb) && isempty(AUb)
-		skipX = 1;
-	elseif isempty(X) && ~isempty(BUb)
-		X = speye(size(BUb, 1));					% newX = eye = X, as Vmat unitary
-	end
-	
-	if isempty(BUb) && isempty(AUb)					% if no Vmat
-		newX=X;
-	else
-		% do (Vmat^†) . X . Vmat.
-		% express X in OBB by applying Vmat
-		newX = (BUb' * X) * AUb;
-	end
 
-    % if Cright = eye: contract X (in OBB)  with A matrices to transform into effective basis representation.
-	% do contraction:  C_fa = B*_fde  A_abc  Xnew_ec  C_db 	where 3rd indices are running over n_k
-	if ~skipX
-		A      = contracttensors(A, 3, 3, newX.', 2, 1);			% Anew_abe = A_abc  Xnew_ec
-	end
-	if ~isempty(Cright)
-		A = contracttensors(A, 3, 2, Cright.', 2, 1);				% Anew_aed = A_abe C_db
-		Cright = contracttensors(conj(B), 3, [2, 3], A, 3, [3, 2]);	% Contracts 2-3 and 3-2
-	else
-		%have Anew_ade since C_db = 1_db -> neglected
-		Cright = contracttensors(conj(B), 3, [2, 3], A, 3, [2, 3]);	% Contracts 2-2 and 3-3
-	end
+skipX = 0;
+if isempty(X) && isempty(BUb)
+	skipX = 1;
+elseif ~isempty(X) && isempty(BUb)							% if no Vmat given or X is in OBB already: XOBB
+	newX = X;
+elseif isempty(X)
+	newX = BUb' * AUb;
+else
+	% transform X into OBB using Vmat, do (Vmat^†) . X . Vmat.
+	newX = (BUb' * X) * AUb;
+end
 
-
-
-
+% if Cright = eye: contract X (in OBB)  with A matrices to transform into effective basis representation.
+% do contraction:  C_fa = B*_fde  A_abc  Xnew_ec  C_db 	where 3rd indices are running over n_k
+if ~skipX
+	A      = contracttensors(A, 3, 3, newX.', 2, 1);			% Anew_abe = A_abc  Xnew_ec
+end
+if ~isempty(Cright)
+	A = contracttensors(A, 3, 2, Cright.', 2, 1);				% Anew_aed = A_abe C_db
+	Cright = contracttensors(conj(B), 3, [2, 3], A, 3, [3, 2]);	% Contracts 2-3 and 3-2
+else
+	%have Anew_ade since C_db = 1_db -> neglected
+	Cright = contracttensors(conj(B), 3, [2, 3], A, 3, [2, 3]);	% Contracts 2-2 and 3-3
+end
+end
