@@ -5012,6 +5012,7 @@ for fignum = 1:size(defPlot,1)
 	else
 		res(3).plot('rhoii','-fsev','-unicol','k.');	% overlay of old v3-high simulation
 	end
+	drawnow
 end
 
 %% DPMES5-7C v72  StarMPS LinAbs - TDVPData											% LabBook 12/01/2016

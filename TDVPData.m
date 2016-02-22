@@ -259,9 +259,13 @@ classdef TDVPData
 			% plot(...,ax_handle)	Plots into the axes given by handle
 			if length(obj) > 1
 				% deal with object array
-				pl(length(obj),1) = 0;
+				pl = gobjects(length(obj),1);
 				for ii = 1:length(obj)
-					pl(ii,:) = obj(ii).plot(type,varargin{:});
+					temp = reshape(obj(ii).plot(type,varargin{:}),1,[]);
+					if size(pl,2) ~= size(temp,2)
+						pl(end,size(temp,2)) = gobjects(1,1);
+					end
+					pl(ii,:) = temp;
 				end
 				return;
 			end
