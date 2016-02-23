@@ -1,4 +1,6 @@
 function op = genh1h2term_onesite(para,op,s)
+%% function op = genh1h2term_onesite(para,op,s)
+%
 %Define the hamiltonian
 % op.h2term{i,j,k,l}:
 %	l is chain number (only used in SpinBosonMC)
@@ -14,6 +16,10 @@ function op = genh1h2term_onesite(para,op,s)
 % If Model changed, modify also:
 %   VMPS_SBM1.m:    para.dk(1) gives dimension of first site;
 %   calspin.m:      sx,sy,sz defines spin measure operator. Change if dim(site1) changes!
+
+if isfield(para,'useTreeMPS') && para.useTreeMPS
+	op = genh1h2term_onesite_tree(para,op,s);			% put into separate sub-function
+else
 switch para.model
     case 'SpinBoson'
         %%%%%%%%%%%%%%%%%%%Spin-boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -735,6 +741,132 @@ switch para.model
 		
 	otherwise
 		error('VMPS:genh1h2term_onesite:ModelNotFound','Could not find specified para.model')
+end
+end
+end
+
+function op = genh1h2term_onesite_tree(para,treeIdx,s)
+%% function op = genh1h2term_onesite_tree(para,treeIdx,s)
+%
+%	Generates Hamiltonian terms for a treeMPS
+%
+%	treeIdx: 1 x N_levels array with tree-Index of node/leaf
+%	s:       # site in leaf
+%
+% returns for treeIdx = node of tree
+%	op.h1term: 1 x 1 cell
+%	op.h2term: M x 2 x N_edges cell
+%			op.h2term(#term,#position in term,#edge to couple to)
+% returns for treeIdx = leaf of tree = chain, only single-site terms
+%	op.h1term: 1 x 1 cell
+%	op.h2term: M x 2 cell
+%			op.h2term(#term,#position in term)
+%
+% #position in term:
+%		1	couples to the right
+%		2	couples to the left
+%
+% created 22/02/2016 by F.S.
+%
+switch para.model
+	case 'SpinBoson'
+		%%%%%%%%%%%%%%%%%%% Spin-boson Model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+        switch s
+            case 1                                                  % first chain pos = all spin sites!
+                [sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+                zm_spin			  = zeros(2);
+                op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+                op.h2term{1,1}	  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+                op.h2term{2,1}    = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2} = zm_spin;
+            case para.L                                             % last chain pos: only one coupling?
+                [bp,bm,n]		  = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
+                zm				  = sparse(size(bp,1),size(bp,1));
+                op.h1term{1}	  = para.chain{1}.epsilon(para.L-1).*n;
+                op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+                op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+            otherwise
+                [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+                op.h1term{1}	  = para.chain{1}.epsilon(s-1).*n;									% e(1) == w(0)
+                op.h2term{1,1}    = para.chain{1}.t(s).*bp; op.h2term{1,2} = bm;					% t(2) == t(n=0)
+                op.h2term{2,1}    = para.chain{1}.t(s).*bm; op.h2term{2,2} = bp;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+	case 'SpinBoson2C'
+		%%%%%%%%%%%%%%%%%%% Spin-boson Model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		if treeIdx == 0
+			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+			zm_spin			  = zeros(2);
+			op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+			op.h2term{1,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+			op.h2term{2,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
+			op.h2term{1,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+			op.h2term{2,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
+			
+		else
+			mc  = treeIdx;					% number of edge == chain number
+			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			switch s
+				case para.L(mc)											% last chain pos: only coupling to left
+					[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+					zm				  = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+				otherwise
+					[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+	case 'DPMES5-7C'
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain %%%%%%%%%%%%%%%%%%%%%%
+		%
+		% working?
+		% Created 22/02/16 by F.S.
+		%
+		if treeIdx == 0
+			% is the pentacene system!
+			[H0,H1]               = DPMES_Operators('5-7C',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+
+		else
+			mc  = treeIdx;					% number of edge == chain number
+			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			switch s						% this is 1:L on chain
+				case para.L(idx)
+					if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+					end
+					[bp,bm,n] = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+					end
+					[bp,bm,n] = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 end
 end
 

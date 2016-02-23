@@ -658,6 +658,9 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		structChainMPS = struct();		% smallest subunit
 		structChainMPS.mps = chainMPS;
 		structChainMPS.Vmat = chainVmat;
+		structChainMPS.height = 0;						% this struct is a leaf
+		structChainMPS.degree = 0;						% leaf
+		structChainMPS.children = [];
 		structChainMPS.L = Lchains;
 		structChainMPS.D = [ones(1,Lchains)*D,1];		% first is Dl of chain, last is Dr of chain, here horizontal!
 		structChainMPS.d_opt = ones(1,Lchains)*d_opt;
@@ -674,8 +677,11 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		structStarMPS = struct();
 		structStarMPS.mps = {randn(D,D,D,d_opt)};		% Dl, Dc1, Dc2, dOBB
 		structStarMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
-		structStarMPS.children = {structChainMPS,structChainMPS};
-		structStarMPS.L = [{1},cellfun(@(x) x.L,structStarMPS.children,'UniformOutput',false)];
+		structStarMPS.children = [structChainMPS;structChainMPS];
+		structStarMPS.height = max([structStarMPS.children.height])+1;
+		structStarMPS.degree = 2;
+		structStarMPS.L = zeros(structStarMPS.degree+1,1);
+		structStarMPS.L = [1;[structStarMPS.children.L]'];
 		structStarMPS.d_opt = d_opt;
 		structStarMPS.dk = dk;
 		structStarMPS.D = ones(3,1)*D;					% [Dl;Dc1;Dc2]  here vertical!
@@ -688,8 +694,10 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		treeMPS = struct();
 		treeMPS.mps = {randn(1,D,D,D,d_opt)};
 		treeMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
-		treeMPS.children = {structChainMPS, structChainMPS, structStarMPS};
-		treeMPS.L = [{1},cellfun(@(x) x.L,treeMPS.children,'UniformOutput',false)];
+		treeMPS.children = [structChainMPS; structChainMPS; structStarMPS];
+		treeMPS.height = max([treeMPS.children.height])+1;
+		treeMPS.degree = 3;
+		treeMPS.L = [{1};{treeMPS.children.L}'];
 		treeMPS.d_opt = d_opt;
 		treeMPS.dk = dk;
 		treeMPS.D = [1;ones(3,1)*D];					% [Dl;Dc1;Dc2;Dc3]  here vertical! Leading singleton -> root of tree!
@@ -698,9 +706,16 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		treeMPS.useStarMPS = 0;					% star is subset of tree!
 		treeMPS.useTreeMPS = 1;
 		treeMPS.isRoot = 1;
+		treeMPS.treeIdx = 0;
+		treeMPS.children(1).treeIdx = 1;
+		treeMPS.children(2).treeIdx = 2;
+		treeMPS.children(3).treeIdx = 3;
+		treeMPS.children(3).children(1).treeIdx = [3,1];
+		treeMPS.children(3).children(2).treeIdx = [3,2];
 		
 		para.logging = 1;
 		para.L = 6;								% tree nodes count all into site 1
+		para.useTreeMPS = 1;
 		
 		para.tdvp.filename = 'test.mat';
 		para.tdvp.filenameSmall = 'test-small.mat';
