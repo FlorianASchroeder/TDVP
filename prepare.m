@@ -17,6 +17,8 @@ N = length(mps);
 if para.useStarMPS == 1
 	[mps,Vmat,para] = prepare_Star_MPS(mps,Vmat,para);
 	return;
+elseif para.useTreeMPS == 1
+	[mps,Vmat,para] = prepare_Tree_MPS(mps,Vmat,para);
 end
 
 para.sweepto = 'r';
@@ -103,5 +105,23 @@ end
 	fprintf('MPS norm: %g',U);
 end
 
+function [treeMPS,Vmat,para] = prepare_Tree_MPS(treeMPS,Vmat,para)
+%% function [treeMPS,Vmat,para] = prepare_Tree_MPS(treeMPS,Vmat,para)
+%
+%	recursively prepare the treeMPS
 
+p = para;					% create working copy of para, to temporarily modify the .use* parameters
+pIdx = num2cell(treeMPS.treeIdx+1);
+
+if treeMPS.height == 0
+	% this is leaf -> call prepare(mps,Vmat,para)
+	p.D = treeMPS.D(2:end-1);
+	[treeMPS.mps,treeMPS.Vmat,p] = prepare(treeMPS.mps,treeMPS.Vmat,p);
+	para.D{pIdx{:}} = structStarMPS.D;
+	para.d_opt{pIdx{:}} = structStarMPS.d_opt;
+		
+else
+	
+end
+end
 

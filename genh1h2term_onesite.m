@@ -770,7 +770,7 @@ function op = genh1h2term_onesite_tree(para,treeIdx,s)
 %
 switch para.model
 	case 'SpinBoson'
-		%%%%%%%%%%%%%%%%%%% Spin-boson Model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%%%%%%%%%%%%%%%%%%% Spin-boson Model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		op.h1term = {};
 		op.h2term = cell(para.M,2);
         switch s
@@ -795,17 +795,17 @@ switch para.model
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		
 	case 'SpinBoson2C'
-		%%%%%%%%%%%%%%%%%%% Spin-boson Model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%%%%%%%%%%%%%%%%%%% Spin-boson Model 2-chains %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		op.h1term = {};
 		op.h2term = cell(para.M,2);
 		if treeIdx == 0
 			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
 			zm_spin			  = zeros(2);
 			op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
-			op.h2term{1,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+			op.h2term{1,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)
 			op.h2term{2,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
-			op.h2term{1,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
-			op.h2term{2,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
+			op.h2term{1,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{1,2,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{2,2,2} = zm_spin;
 			
 		else
 			mc  = treeIdx;					% number of edge == chain number
@@ -827,7 +827,7 @@ switch para.model
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		
 	case 'DPMES5-7C'
-		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain %%%%%%%%%%%%%%%%%%%%%%
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		%
 		% working?
 		% Created 22/02/16 by F.S.
@@ -867,6 +867,64 @@ switch para.model
 		end
 		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+	case 'testTree'
+		%%%%%%%%%%%%%%%%%%% testTree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%	This is a test tree with uniform boson chains.
+		%
+		%	Equivalent to 2 coupled spins, each coupled to 2 chains
+		%
+		%	Structure:
+		%
+		%							treeIdx
+		%	spin					0
+		%	  |- chain 1			1
+		%	  |- chain 2			2
+		%	  \- spin				3
+		%		|- chain 3			[3,1]
+		%		\- chain 4			[3,2]
+		%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		if treeIdx == 0
+			% spin 1
+			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+			zm_spin			  = zeros(2);
+			op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+			op.h2term{1,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
+			op.h2term{1,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{1,2,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{2,2,2} = zm_spin;
+			op.h2term{1,1,3}  = para.alpha.*sigmaZ; op.h2term{1,2,3} = zm_spin;
+			op.h2term{2,1,3}  = para.alpha.*sigmaX; op.h2term{2,2,3} = zm_spin;
+		elseif nonzeros(treeIdx) == 3
+			% spin 2
+			%	op.h2term{:,2,1} couples to root node!
+			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+			zm_spin			  = zeros(2);
+			op.h1term{1}	  = -para.hx./2.*sigmaZ-para.hz./2.*sigmaX;
+			op.h2term{1,1,1}  = para.chain{3}.t(1).*sigmaZ./2; op.h2term{1,2,1} = sigmaZ;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,1}  = para.chain{3}.t(1).*sigmaZ./2; op.h2term{2,2,1} = sigmaX;
+			op.h2term{1,1,2}  = para.chain{4}.t(1).*sigmaZ./2; op.h2term{1,2,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,2}  = para.chain{4}.t(1).*sigmaZ./2; op.h2term{2,2,2} = zm_spin;
+		else
+			idx = num2cell(treeIdx+1);														% index in para.*
+			mc  = para.treeMPS.chainIdx{idx{:}};						% chain number from linear index in para
+			switch s
+				case para.chain{mc}.L											% last chain pos: only coupling to left
+					[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+					zm				  = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+				otherwise
+					[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
 end
 end
 

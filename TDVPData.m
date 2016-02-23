@@ -707,7 +707,7 @@ classdef TDVPData
 			h.ax.Units = 'pixels';
 			h.f.Position(3) = h.f.Position(3)+100;
 			h.controlPanel = uipanel('Tag','Panel','Units','pixels','Position',[h.f.Position(3)-100,1,100,h.f.Position(4)]);
-			
+				
 			% set normalised units to enable scaling with window size
 			h.ax.Units = 'norm';
 			h.controlPanel.Units = 'norm';

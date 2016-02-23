@@ -643,61 +643,131 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		D = 10;			% one BondDim for all edges
 		d_opt = 10;
 		dk = 20;
-		% Define ChainMPS
-		chainMPS = cell(1,Lchains);
-		chainVmat = cell(1,Lchains);
-		for ii = 1:Lchains
-			if ii == Lchains
-				chainMPS{ii} = randn(D,1,d_opt);			% end-of-chain -> Dr = 1
-			else
-				chainMPS{ii} = randn(D,D,d_opt);
-			end
-			chainVmat{ii} = sparse(1:d_opt,1:d_opt,1,dk,d_opt);
+		
+		% Define tree structure in para:
+		para.logging = 1;
+		para.L = 6;								% tree nodes count all into site 1
+		para.useTreeMPS = 1;
+		para.useVmat = 1;
+		para.trustsite = para.L;
+		para.model = 'testTree';
+		para.nChains = 4;						% = external nodes = leaves
+		para.nNodes = 2;						% = internal nodes = nodes
+		para.alpha = 0.1;
+		para.hx = 0.1;
+		para.hz = 0;
+		para.M = 2;
+		para.spinbase = 'Z';
+		para.parity = 'n';
+		para.treeMPS.height = 2;
+		para.treeMPS.maxDegree = [3,2]; % size(treeMPS.L);		% for each level
+		para.treeMPS.leafIdx = num2cell(ones(para.nChains,para.treeMPS.height));				% indices of leaves in para; take -1 to get treeIdx
+		para.treeMPS.leafIdx{1,1} = 1+1;														% map from chain number to leaf index in para
+		para.treeMPS.leafIdx{2,1} = 2+1;
+		para.treeMPS.leafIdx(3,1:2) = num2cell([3,1]+1);
+		para.treeMPS.leafIdx(4,1:2) = num2cell([3,2]+1);
+		para.treeMPS.nodeIdx = num2cell(ones(para.nNodes,para.treeMPS.height));					% mpas node number -> nodeIdx
+		para.treeMPS.nodeIdx{1,1} = 0+1;
+		para.treeMPS.nodeIdx{2,1} = 3+1;
+		para.treeMPS.chainIdx = {};																% maps from leafIdx -> chain number
+		for ii = 1:size(para.treeMPS.leafIdx,1)
+			para.treeMPS.chainIdx{para.treeMPS.leafIdx{ii,:}} = ii;
 		end
-		% Build Struct Chain MPS
-		structChainMPS = struct();		% smallest subunit
-		structChainMPS.mps = chainMPS;
-		structChainMPS.Vmat = chainVmat;
-		structChainMPS.height = 0;						% this struct is a leaf
-		structChainMPS.degree = 0;						% leaf
-		structChainMPS.children = [];
-		structChainMPS.L = Lchains;
-		structChainMPS.D = [ones(1,Lchains)*D,1];		% first is Dl of chain, last is Dr of chain, here horizontal!
-		structChainMPS.d_opt = ones(1,Lchains)*d_opt;
-		structChainMPS.dk = ones(1,Lchains)*D;
-		structChainMPS.useVmat = 1;
-		structChainMPS.useVtens = 0;
-		structChainMPS.useStarMPS = 0;
-		structChainMPS.useTreeMPS = 0;
-		structChainMPS.isRoot = 0;
-		% generate Hamiltonian terms
+		para.chain{1}.alpha   = 0.1;
+		para.chain{1}.L       = Lchains;
+		para.chain{1}.s       = 1;
+		para.chain{1}.epsilon = ones(Lchains,1)*0.5;
+		para.chain{1}.t       = ones(Lchains,1)*0.25;
+		for ii = 1:para.nChains
+			para.chain{ii} = para.chain{1};
+		end
 		
+		% Define each struct of chainMPS and initialise random MPS
+		structChainMPS(para.nChains) = struct();		% smallest subunit
+		for ii = 1:para.nChains
+			Lc = para.chain{ii}.L;
+			chainMPS = cell(1,Lc);
+			chainVmat = cell(1,Lc);
+			for jj = 1:Lc
+				if jj == Lc
+					chainMPS{jj} = randn(D,1,d_opt);			% end-of-chain -> Dr = 1
+				else
+					chainMPS{jj} = randn(D,D,d_opt);
+				end
+				chainVmat{jj} = sparse(1:d_opt,1:d_opt,1,dk,d_opt);
+			end
+			% Build Struct Chain MPS
+			structChainMPS(ii).mps = chainMPS;
+			structChainMPS(ii).Vmat = chainVmat;
+			structChainMPS(ii).height = 0;						% this struct is a leaf
+			structChainMPS(ii).degree = 0;						% leaf
+			structChainMPS(ii).children = [];
+			structChainMPS(ii).L = getTreeLength(structChainMPS(ii));		% StarMPS can have array L
+			structChainMPS(ii).D = [ones(1,Lc)*D,1];		% first is Dl of chain, last is Dr of chain, here horizontal!
+			structChainMPS(ii).d_opt = ones(1,Lc)*d_opt;
+			structChainMPS(ii).dk = ones(1,Lc)*D;
+			structChainMPS(ii).shift = zeros(1,Lc);
+			structChainMPS(ii).useVmat = 1;
+			structChainMPS(ii).useVtens = 0;
+			structChainMPS(ii).useStarMPS = 0;
+			structChainMPS(ii).useTreeMPS = 0;
+			structChainMPS(ii).isRoot = 0;
+			structChainMPS(ii).treeIdx = [para.treeMPS.leafIdx{ii,:}]-1;
+			pIdx = para.treeMPS.leafIdx(ii,:);
+			para.dk{pIdx{:}} = structChainMPS(ii).dk;
+			para.D{pIdx{:}} = structChainMPS(ii).D;
+			para.d_opt{pIdx{:}} = structChainMPS(ii).d_opt;
+			para.shift{pIdx{:}} = structChainMPS(ii).shift;
+			para.treeMPS.L(pIdx{:}) = structChainMPS(ii).L;
+			
+			% generate Hamiltonian terms:
+			structChainMPS(ii).op.h1term = cell(1,Lc);
+			structChainMPS(ii).op.h2term = cell(para.M,2,Lc);
+			for jj = 1:Lc
+				temp = genh1h2term_onesite(para,structChainMPS(ii).treeIdx,jj);
+				structChainMPS(ii).op.h1term(jj)     = temp.h1term;
+				structChainMPS(ii).op.h2term(:,:,jj) = temp.h2term;
+			end
+		end
 		
-		
+		% Construct tree node 2
+		ii = 2;
+		pIdx = para.treeMPS.nodeIdx(ii,:);
 		structStarMPS = struct();
+		structStarMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
+% 		[para.treeMPS.nodeIdx{ii,structStarMPS.treeIdx ~= 0}]
 		structStarMPS.mps = {randn(D,D,D,d_opt)};		% Dl, Dc1, Dc2, dOBB
 		structStarMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
-		structStarMPS.children = [structChainMPS;structChainMPS];
+		structStarMPS.children = [structChainMPS(3);structChainMPS(4)];
 		structStarMPS.height = max([structStarMPS.children.height])+1;
 		structStarMPS.degree = 2;
-		structStarMPS.L = zeros(structStarMPS.degree+1,1);
-		structStarMPS.L = [1;[structStarMPS.children.L]'];
+		structStarMPS.L = getTreeLength(structStarMPS);		% StarMPS can have array L
 		structStarMPS.d_opt = d_opt;
 		structStarMPS.dk = dk;
 		structStarMPS.D = ones(3,1)*D;					% [Dl;Dc1;Dc2]  here vertical!
+		structStarMPS.shift = 0;
 		structStarMPS.useVmat = 1;
 		structStarMPS.useVtens = 0;
 		structStarMPS.useStarMPS = 1;					% star is subset of tree!
 		structStarMPS.useTreeMPS = 1;
 		structStarMPS.isRoot = 0;
-		
+		para.dk{pIdx{:}} = structStarMPS.dk;
+		para.D{pIdx{:}} = structStarMPS.D;
+		para.d_opt{pIdx{:}} = structStarMPS.d_opt;
+		para.shift{pIdx{:}} = structStarMPS.shift;
+		para.treeMPS.L(pIdx{:}) = 1;
+		% generate Hamiltonian terms:
+		structStarMPS.op = genh1h2term_onesite(para,structStarMPS.treeIdx,1);
+
+		ii = 1;
+		pIdx = para.treeMPS.nodeIdx(ii,:);
 		treeMPS = struct();
 		treeMPS.mps = {randn(1,D,D,D,d_opt)};
 		treeMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
-		treeMPS.children = [structChainMPS; structChainMPS; structStarMPS];
+		treeMPS.children = [structChainMPS(1); structChainMPS(2); structStarMPS];
 		treeMPS.height = max([treeMPS.children.height])+1;
 		treeMPS.degree = 3;
-		treeMPS.L = [{1};{treeMPS.children.L}'];
+		treeMPS.L = getTreeLength(treeMPS);				% TreeMPS needs cell L for now..
 		treeMPS.d_opt = d_opt;
 		treeMPS.dk = dk;
 		treeMPS.D = [1;ones(3,1)*D];					% [Dl;Dc1;Dc2;Dc3]  here vertical! Leading singleton -> root of tree!
@@ -706,16 +776,16 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		treeMPS.useStarMPS = 0;					% star is subset of tree!
 		treeMPS.useTreeMPS = 1;
 		treeMPS.isRoot = 1;
-		treeMPS.treeIdx = 0;
+		treeMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
 		treeMPS.children(1).treeIdx = 1;
 		treeMPS.children(2).treeIdx = 2;
 		treeMPS.children(3).treeIdx = 3;
 		treeMPS.children(3).children(1).treeIdx = [3,1];
 		treeMPS.children(3).children(2).treeIdx = [3,2];
+		treeMPS.op = genh1h2term_onesite(para,treeMPS.treeIdx,1);
+		para.treeMPS.L(pIdx{:}) = 1;
 		
-		para.logging = 1;
-		para.L = 6;								% tree nodes count all into site 1
-		para.useTreeMPS = 1;
+% 		para.treeMPS.L = treeMPS.L;		% not necessary anymore!
 		
 		para.tdvp.filename = 'test.mat';
 		para.tdvp.filenameSmall = 'test-small.mat';
@@ -724,6 +794,13 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.tdvp.tmax = 3;
 		para.tdvp.deltaT = 1;
 		para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
+		para.tdvp.serialize = 0;
+		
+		tresults = [];
+		results = [];
+		
+		%% Do one prepare sweep to bring MPS onto right-canonical form
+		
 		
 	end
 end
@@ -848,3 +925,51 @@ end
 
 	
 end
+
+function L = getTreeLength(treeMPS)
+%% function L = getTreeLength(treeMPS)
+%	extracts the length of the treeMPS, based on the length of its children
+%
+if isfield(treeMPS,'L') && ~isempty(treeMPS.L)
+	L = treeMPS.L;
+	return
+elseif treeMPS.height == 0
+	if isfield(treeMPS,'mps')
+		L = length(treeMPS.mps);
+	else
+		L = 0;					% is leaf without MPS
+	end
+	return
+end
+
+% first determine size(L)
+h = treeMPS.height;			% ndims of L > 0
+d = zeros(1,h);				% this will be size(L)
+d(1) = treeMPS.degree+1;
+
+if h == 1					% this is StarMPS with leaves only
+	Lchild = arrayfun(@getTreeLength, treeMPS.children);
+	L = [1;reshape(Lchild,d(1)-1,1)];
+	return
+end
+% else height >= 2
+
+if h == 2
+	d(3) = 1;		% need singleton to allow comparisons later
+end
+Lchild = arrayfun(@getTreeLength, treeMPS.children,'UniformOutput',false);
+% find out maximum dimensions per level to zero-pad Lchild
+idx = find([treeMPS.children.height] == h-1);		% only pick the ones with maximum height
+for ii = idx
+	d(2:end) = max(d(2:end),size(Lchild{ii}));
+end
+% now d contains the maximum dimensions of L -> initialise
+L = zeros(d);
+L(1) = 1;					% length of nodes = 1 always for now!
+for ii = 1:treeMPS.degree
+	idx = arrayfun(@(x) 1:x,size(Lchild{ii}),'UniformOutput',false);		% create cell array containing index ranges of Lchild{ii}
+	L(ii+1,idx{:}) = Lchild{ii};
+end
+
+end
+
