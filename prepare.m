@@ -18,7 +18,9 @@ if para.useStarMPS == 1
 	[mps,Vmat,para] = prepare_Star_MPS(mps,Vmat,para);
 	return;
 elseif para.useTreeMPS == 1
-	[mps,Vmat,para] = prepare_Tree_MPS(mps,Vmat,para);
+	[mps,para] = prepare_Tree_MPS(mps,para);	% recursive prepare sweeps
+	Vmat = [];
+	return;
 end
 
 para.sweepto = 'r';
@@ -105,23 +107,78 @@ end
 	fprintf('MPS norm: %g',U);
 end
 
-function [treeMPS,Vmat,para] = prepare_Tree_MPS(treeMPS,Vmat,para)
+function [treeMPS,para] = prepare_Tree_MPS(treeMPS,para)
 %% function [treeMPS,Vmat,para] = prepare_Tree_MPS(treeMPS,Vmat,para)
 %
-%	recursively prepare the treeMPS
+%	recursively normalizes the treeMPS
 
 p = para;					% create working copy of para, to temporarily modify the .use* parameters
+p.sweepto = 'l';
 pIdx = num2cell(treeMPS.treeIdx+1);
 
 if treeMPS.height == 0
 	% this is leaf -> call prepare(mps,Vmat,para)
-	p.D = treeMPS.D(2:end-1);
-	[treeMPS.mps,treeMPS.Vmat,p] = prepare(treeMPS.mps,treeMPS.Vmat,p);
-	para.D{pIdx{:}} = structStarMPS.D;
-	para.d_opt{pIdx{:}} = structStarMPS.d_opt;
-		
+	%	or normalise here in place!
+	prepareChain();			% mutating subfunction
 else
-	
-end
+	for k = 1:treeMPS.degree
+		% recursive calls
+		[treeMPS.child(k),para] = prepare_Tree_MPS(treeMPS.child(k),para);
+	end
+	prepareNode();
 end
 
+para.D{pIdx{:}} = treeMPS.D;
+para.d_opt{pIdx{:}} = treeMPS.d_opt;
+	
+
+	function prepareChain()
+		%% function prepareChain()
+		%	subfunction to perform a single chain orthonormalisation sweep
+		%
+		%	Modify treeMPS only
+		L = treeMPS.L;
+		for ii = L:-1:1
+			[treeMPS.Vmat{ii}, V] = prepare_onesiteVmat(treeMPS.Vmat{ii},p);		% normalize V
+			treeMPS.mps{ii} = contracttensors(treeMPS.mps{ii},3,3, V.',2,1);		% focus onto MPS
+
+			[treeMPS.mps{ii}, U] = prepare_onesite(treeMPS.mps{ii},p);
+			
+			if ii > 1
+				treeMPS.mps{ii-1} = contracttensors(treeMPS.mps{ii-1}, 3, 2, U, 2, 1);
+				treeMPS.mps{ii-1} = permute(treeMPS.mps{ii-1}, [1, 3, 2]);
+			else
+				% U is to be contracted with parent node mps
+				treeMPS.BondCenter = U;
+			end
+		end
+		treeMPS.D(1:L) = cellfun(@(x) size(x,1),treeMPS.mps);
+		treeMPS.d_opt  = cellfun(@(x) size(x,2),treeMPS.Vmat);
+		
+	end
+
+	function prepareNode()
+		%% function prepareNode()
+		%	subfunction to perform an orthonormalisation of Higher order tensor
+		%
+		%	Modify treeMPS only
+		[treeMPS.Vmat{1}, V] = prepare_onesiteVmat(treeMPS.Vmat{1},p);		% normalize V
+		
+		nd = ndims(treeMPS.mps{1}); 
+		% contract V and all Children's Bond Centers into MPS
+		% order such that in the end MPS is in the original shape and order: A_(Dl,D1,D2,D3,...,dk)
+		for ii = 1:treeMPS.degree
+			treeMPS.mps{1} = contracttensors(treeMPS.mps{1},nd,2, treeMPS.child(ii).BondCenter,2,1);
+		end
+		treeMPS.mps{1} = contracttensors(treeMPS.mps{1},nd,2, V.',2,1);
+		
+		d = size(treeMPS.mps{1});
+		
+		[treeMPS.mps{1}, U] = prepare_onesite(reshape(treeMPS.mps{1},[d(1),prod(d(2:end-1)),d(end)]),p,1);		% reshape into Dl x Dr x dk
+		treeMPS.mps{1} = reshape(treeMPS.mps{1},d);
+		treeMPS.BondCenter = U;
+		
+		treeMPS.D     = d(1:end-1)';
+		treeMPS.d_opt = d(end);
+	end
+end

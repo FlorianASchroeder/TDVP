@@ -10,8 +10,13 @@ function [op] = initstorage(mps, Vmat,op,para)
 %                    to remove redundancy
 %                  - moved separate treatment of L into for-loop
 
-L 			  = length(mps);
-M			  = size(op.h2term,1); 		% number of terms in sum per site
+if para.useTreeMPS == 1
+	op = initstorage_Tree_MPS(mps,para);		% recursive sub-function call
+	return;
+end
+
+L             = length(mps);
+M             = size(op.h2term,1); 		% number of terms in sum per site
 op.Hlrstorage = cell(1, L + 1);
 op.Opstorage  = cell(M, 2, L+1);
 
@@ -42,4 +47,70 @@ for j = L:-1:2
     op = updateop(op,mps,Vmat,j,para);
 	op.h1jOBB = []; op.h2jOBB = [];
 	op.h1j = []; op.h2j = [];
+end
+
+end
+
+function treeMPS = initstorage_Tree_MPS(treeMPS,para)
+%% function treeMPS = initstorage_Tree_MPS(treeMPS,para)
+%
+%	recursively computes the effective Hamiltonian terms
+
+p = para;					% create working copy of para, to temporarily modify the .use* parameters
+p.sweepto = 'l';
+pIdx = num2cell(treeMPS.treeIdx+1);
+
+if treeMPS.height == 0
+	% this is leaf -> call prepare(mps,Vmat,para)
+	%	or normalise here in place!
+	initstorageChain();			% mutating subfunction
+else
+	for k = 1:treeMPS.degree
+		% recursive calls
+		treeMPS.child(k) = initstorage_Tree_MPS(treeMPS.child(k),para);
+	end
+% 	initstorageNode();
+end
+	
+
+	function initstorageChain()
+		%% function initstorageChain()
+		%	subfunction to create effective Hamiltonians of single chainMPS
+		%
+		%	Modify treeMPS only
+		
+		% necessary fields in para:
+		% p.L = treeMPS.L;
+		% p.nChains = 1;
+		% p.useStarMPS = 0;
+		% p.useTreeMPS = 0;
+		treeMPS.sweepto = 'l';
+		
+		% use treeMPS instead of as para to make different chain topologies possible. e.g. mixed Vtens - Vmat
+		treeMPS.op = initstorage(treeMPS.mps,treeMPS.Vmat,treeMPS.op,treeMPS);
+		treeMPS.sitej = 1;
+		treeMPS.op = updateop(treeMPS.op,treeMPS.mps,treeMPS.Vmat,1,treeMPS);		% treat Hright from site 1 to parent node separately
+	end
+
+	function initstorageNode()
+		%% function initstorageNode()
+		%	subfunction to calculate the effective right Hamiltonian for the parent node
+		%
+		%	Modify treeMPS only
+		
+		treeMPS.sweepto = 'l';
+		treeMPS.sitej = 1;
+		
+		L = treeMPS.L(1);								% should be 1
+		M = treeMPS.M;									% number of terms in sum per site
+		
+		% following will only store Hright for the parent node or Hleft of/from the parent node
+		% Hright of the children for this node and Hleft of this node for the children will be stored in
+		%	treeMPS.child(ii).op.Hlrstorage
+		% No need for op.chain{}.*storage variables (replaced op.chain{} by treeMPS.child(ii).op)
+		treeMPS.op.Hlrstorage = cell(1, L);			% No +1 since right part is inside children.
+		treeMPS.op.Opstorage  = cell(M, 2, L);
+		
+		treeMPS.op =
+	end
 end

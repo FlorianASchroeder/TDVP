@@ -20,6 +20,14 @@ function [B, U, para,results,sv,vNE] = prepare_onesite(A,para,sitej,results)
 
 [D1, D2, d] = size(A);					% d is site dimension
 % method = 'qr';
+saveNewD = 0;
+if nargin > 2 && ~isempty(sitej)
+	saveNewD = 1;
+end
+saveResults = 0;
+if nargin > 3
+	saveResults = 1;
+end
 
 switch para.sweepto
     case 'r'
@@ -35,7 +43,9 @@ switch para.sweepto
 %           else
 %               end
             DB = size(S, 1);				% new a2 dimension of B
-            para.D(sitej)=DB;
+			if saveNewD
+	            para.D(sitej)=DB;
+			end
             B = reshape(B, [d, D1, DB]);
             B = permute(B, [2, 3, 1]);
             U = S * U;                      % only for SVD
@@ -98,14 +108,16 @@ switch para.sweepto
             % decompose: A_(l,r*n) = U_(l,a')*S_(a',a)*B_(a,r*n)
             [U, S, B] = svd2(A);            % since m<n: B = new A
             DB = size(S, 1);
-			if sitej ~= 1
+			if saveNewD && sitej ~= 1
 	            para.D(sitej-1) = DB;
 			end
 % 			B = reshape(B, [DB, D2, d]);								% Do not use!
 			B = reshape(B, [DB, d, D2]); B = permute(B, [1, 3, 2]);
             % create focused center: C(n)_(l,a) = U_(l,a')*S_(a',a)
             U = U * S;
-            sitej = sitej - 1;				% needed for saving into the right position of results.Amat_sv
+			if saveResults
+	            sitej = sitej - 1;				% needed for saving into the right position of results.Amat_sv
+			end
         else
             %% special parity
             A=permute(A,[2,3,1]);
@@ -154,7 +166,7 @@ end
 sv  = diag(S);
 vNE = vonNeumannEntropy(S);
 
-if nargin == 4 && sitej >= 1
+if saveResults && sitej >= 1
     results.Amat_vNE(sitej) =vNE;
     if length(sv)==para.D(sitej) || (length(sv)==para.D(sitej)/2 && (para.parity~='n'))
         results.Amat_sv{sitej}=sv;

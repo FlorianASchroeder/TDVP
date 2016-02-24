@@ -43,7 +43,11 @@ switch para.sweepto
 				[op] = H_Eff([]  , Vmat{sitej}, 'MC-A'  , op, para);
 			end
 		end
-		op.Hlrstorage{sitej}		  = updateHright(op.Hlrstorage{sitej + 1}, op.h1jOBB, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2jOBB(:,1), mps{sitej},Vmat{sitej}, M, para);
+		if para.useTreeMPS
+			op.Hlrstorage{sitej} = [];		% TODO!!
+		else
+			op.Hlrstorage{sitej} = updateHright(op.Hlrstorage{sitej + 1}, op.h1jOBB, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2jOBB(:,1), mps{sitej},Vmat{sitej}, M, para);
+		end
 		for m = 1:M
 			% 2nd term of interaction term into ef. basis of r_j-1; (1st is already in site basis.)
 			if ~isempty(op.h2jOBB{m,2})

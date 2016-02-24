@@ -20,7 +20,7 @@ end
 op.h2j = op.h2term(:,:,sitej,:);
 
 % apply Rescaling to bosonic chain
-if sitej>=3 && para.rescaling==1
+if sitej >= 3 && isfield(para,'rescaling') && para.rescaling
 % 	assert(para.nChains == 1, 'rescaling not implemented in gen_sitej_h1h2.m yet');
 	for mc = 1:NC
 	    Lambda = para.chain{mc}.Lambda;

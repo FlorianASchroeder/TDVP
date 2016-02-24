@@ -648,6 +648,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.logging = 1;
 		para.L = 6;								% tree nodes count all into site 1
 		para.useTreeMPS = 1;
+		para.useStarMPS = 0;
 		para.useVmat = 1;
 		para.trustsite = para.L;
 		para.model = 'testTree';
@@ -659,6 +660,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.M = 2;
 		para.spinbase = 'Z';
 		para.parity = 'n';
+% 		para.rescaling = 0;
 		para.treeMPS.height = 2;
 		para.treeMPS.maxDegree = [3,2]; % size(treeMPS.L);		% for each level
 		para.treeMPS.leafIdx = num2cell(ones(para.nChains,para.treeMPS.height));				% indices of leaves in para; take -1 to get treeIdx
@@ -701,18 +703,23 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			structChainMPS(ii).Vmat = chainVmat;
 			structChainMPS(ii).height = 0;						% this struct is a leaf
 			structChainMPS(ii).degree = 0;						% leaf
-			structChainMPS(ii).children = [];
+			structChainMPS(ii).child = [];						% contains all children nodes
 			structChainMPS(ii).L = getTreeLength(structChainMPS(ii));		% StarMPS can have array L
 			structChainMPS(ii).D = [ones(1,Lc)*D,1];		% first is Dl of chain, last is Dr of chain, here horizontal!
 			structChainMPS(ii).d_opt = ones(1,Lc)*d_opt;
-			structChainMPS(ii).dk = ones(1,Lc)*D;
+			structChainMPS(ii).dk = ones(1,Lc)*dk;
+			structChainMPS(ii).M = para.M;
 			structChainMPS(ii).shift = zeros(1,Lc);
 			structChainMPS(ii).useVmat = 1;
 			structChainMPS(ii).useVtens = 0;
 			structChainMPS(ii).useStarMPS = 0;
 			structChainMPS(ii).useTreeMPS = 0;
+			structChainMPS(ii).nChains = 1;
+			structChainMPS(ii).sweepto = 'l';					% 'l' for initial preparation
+			structChainMPS(ii).sitej = 1;						% currently focused site
 			structChainMPS(ii).isRoot = 0;
 			structChainMPS(ii).treeIdx = [para.treeMPS.leafIdx{ii,:}]-1;
+			structChainMPS(ii).BondCenter = [];
 			pIdx = para.treeMPS.leafIdx(ii,:);
 			para.dk{pIdx{:}} = structChainMPS(ii).dk;
 			para.D{pIdx{:}} = structChainMPS(ii).D;
@@ -733,24 +740,23 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		% Construct tree node 2
 		ii = 2;
 		pIdx = para.treeMPS.nodeIdx(ii,:);
-		structStarMPS = struct();
+		structStarMPS = structChainMPS(1);					% make a copy to inherit fields. Only modify difference
 		structStarMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
 % 		[para.treeMPS.nodeIdx{ii,structStarMPS.treeIdx ~= 0}]
 		structStarMPS.mps = {randn(D,D,D,d_opt)};		% Dl, Dc1, Dc2, dOBB
 		structStarMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
-		structStarMPS.children = [structChainMPS(3);structChainMPS(4)];
-		structStarMPS.height = max([structStarMPS.children.height])+1;
+		structStarMPS.child = [structChainMPS(3);structChainMPS(4)];
+		structStarMPS.height = max([structStarMPS.child.height])+1;
 		structStarMPS.degree = 2;
+		structStarMPS.nChains = 2;						% equals degree for nodes
+		structStarMPS.L = [];
 		structStarMPS.L = getTreeLength(structStarMPS);		% StarMPS can have array L
 		structStarMPS.d_opt = d_opt;
 		structStarMPS.dk = dk;
 		structStarMPS.D = ones(3,1)*D;					% [Dl;Dc1;Dc2]  here vertical!
 		structStarMPS.shift = 0;
-		structStarMPS.useVmat = 1;
-		structStarMPS.useVtens = 0;
 		structStarMPS.useStarMPS = 1;					% star is subset of tree!
 		structStarMPS.useTreeMPS = 1;
-		structStarMPS.isRoot = 0;
 		para.dk{pIdx{:}} = structStarMPS.dk;
 		para.D{pIdx{:}} = structStarMPS.D;
 		para.d_opt{pIdx{:}} = structStarMPS.d_opt;
@@ -761,27 +767,22 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 
 		ii = 1;
 		pIdx = para.treeMPS.nodeIdx(ii,:);
-		treeMPS = struct();
+		treeMPS = structStarMPS;							% make a copy to inherit fields. Only modify difference
 		treeMPS.mps = {randn(1,D,D,D,d_opt)};
 		treeMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
-		treeMPS.children = [structChainMPS(1); structChainMPS(2); structStarMPS];
-		treeMPS.height = max([treeMPS.children.height])+1;
+		treeMPS.child = [structChainMPS(1); structChainMPS(2); structStarMPS];
+		treeMPS.height = max([treeMPS.child.height])+1;
 		treeMPS.degree = 3;
+		treeMPS.nChains = 2;						% equals degree for nodes
+		treeMPS.L = [];
 		treeMPS.L = getTreeLength(treeMPS);				% TreeMPS needs cell L for now..
 		treeMPS.d_opt = d_opt;
 		treeMPS.dk = dk;
 		treeMPS.D = [1;ones(3,1)*D];					% [Dl;Dc1;Dc2;Dc3]  here vertical! Leading singleton -> root of tree!
-		treeMPS.useVmat = 1;
-		treeMPS.useVtens = 0;
 		treeMPS.useStarMPS = 0;					% star is subset of tree!
 		treeMPS.useTreeMPS = 1;
 		treeMPS.isRoot = 1;
 		treeMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
-		treeMPS.children(1).treeIdx = 1;
-		treeMPS.children(2).treeIdx = 2;
-		treeMPS.children(3).treeIdx = 3;
-		treeMPS.children(3).children(1).treeIdx = [3,1];
-		treeMPS.children(3).children(2).treeIdx = [3,2];
 		treeMPS.op = genh1h2term_onesite(para,treeMPS.treeIdx,1);
 		para.treeMPS.L(pIdx{:}) = 1;
 		
@@ -800,7 +801,10 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		results = [];
 		
 		%% Do one prepare sweep to bring MPS onto right-canonical form
+		[treeMPS,~,para] = prepare(treeMPS,[],para);
 		
+		%% Calculate effective Hamiltonians
+		treeMPS = initstorage(treeMPS,[],[],para);		% new call pattern for treeMPS
 		
 	end
 end
@@ -948,7 +952,7 @@ d = zeros(1,h);				% this will be size(L)
 d(1) = treeMPS.degree+1;
 
 if h == 1					% this is StarMPS with leaves only
-	Lchild = arrayfun(@getTreeLength, treeMPS.children);
+	Lchild = arrayfun(@getTreeLength, treeMPS.child);
 	L = [1;reshape(Lchild,d(1)-1,1)];
 	return
 end
@@ -957,9 +961,9 @@ end
 if h == 2
 	d(3) = 1;		% need singleton to allow comparisons later
 end
-Lchild = arrayfun(@getTreeLength, treeMPS.children,'UniformOutput',false);
+Lchild = arrayfun(@getTreeLength, treeMPS.child,'UniformOutput',false);
 % find out maximum dimensions per level to zero-pad Lchild
-idx = find([treeMPS.children.height] == h-1);		% only pick the ones with maximum height
+idx = find([treeMPS.child.height] == h-1);		% only pick the ones with maximum height
 for ii = idx
 	d(2:end) = max(d(2:end),size(Lchild{ii}));
 end
