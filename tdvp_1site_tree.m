@@ -160,18 +160,25 @@ end
 %% 2. time sweep
 
 for timeslice = para.tdvp.slices
-    para.sweepto = 'r';
+    para.sweepto = 'r'; treeMPS.sweepto = 'r';
 	para.timeslice = timeslice;
 % 	para.tdvp.deltaT = para.tdvp.t(timeslice+1)-para.tdvp.t(timeslice);
     fprintf('t = %g\n', para.tdvp.t(timeslice+1));
     % sweep l->r and time evolve each site
 	
 	%% check whether treeMPS is Tree, Star or Chain
-	if treeMPS.useTreeMPS
-		% treeMPS is Tree or Star
+	%	Pro-Recursive: No need for call stack, automatic assignment after calculation
+	%	Con-Recursive: Function call overhead. copy on write
+	%	Pro-Iterative: No Function call overhead
+	%	Con-Iterative: Call Stack needed. Saving to parent problematic, as not doable by reference. 
+	
+	% Do recursion now!
+	if treeMPS.height > 0
+		% treeMPS is Tree (or Star)
+		treeMPS = tdvp_1site_evolveTree(treeMPS,para);
 	else
-		% treeMPS is a Chain
-		
+		% treeMPS is a Leaf/Chain
+		treeMPS = tdvp_1site_evolveChain(treeMPS,para);
 	end
 	
 	%% Perform Site 1 TDVP
@@ -209,139 +216,8 @@ for timeslice = para.tdvp.slices
 		% start the standard chain-sweep!
 
 		%%
-		for sitej = 1:paraChain.L
-			fprintf('%g', sitej); paraChain.sitej = sitej;
-			%% Update on-site Operators
-			opChain = gen_sitej_op(opChain,paraChain,sitej,resultsChain.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
-
-			%% Do the time-evolution of A and V with H(n)
-			% this is symmetric for l->r and l<-r
-			if ~paraChain.useVtens
-				[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
-			else
-				paraChain.tdvp.expvCustomNow = 1;                                     % necessary setting!
-				[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHnMC(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
-			end
-			% now: A and V are time-evolved, A is focused
-			% OBBDim has increased by 50%. This must be truncated in the next
-			% step again!
-			% if sitej = L, then start lr sweep with decomposition of mps
-
-			%% Take focus to next site, evolve with K(n)
-			if sitej ~= paraChain.L
-				fprintf('-');
-				%% Left-normalize A and get Center matrix C(n,t+dt)_(rl,r)
-				% expand/truncate BondDimensions here?
-				[mpsChain{sitej}, Cn, paraChain,resultsChain] = prepare_onesite_truncate(mpsChain{sitej}, paraChain,sitej,resultsChain);
-
-				%% Do the time-evolution of C
-				% evolve non-site center between sitej and sitej+1
-				% and focus A(n+1)
-				[mpsChain, VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
-				clear('Hn','Cn');
-
-				%% update Left Hamiltonian operators
-				opChain = updateop(opChain,mpsChain,VmatChain,sitej,paraChain);
-
-				if paraChain.useVmat
-% 					truncateOBB(sitej);			% speedup by truncating within SVD from V to A ?
-				end
-
-			else % sitej = L
-				%% Normalize with last SVD
-				[mpsChain{sitej}, Cn] = prepare_onesite_truncate(mpsChain{sitej}, paraChain,sitej);
-				% Cn = 1 approximately. can be thrown away -> mps normalized
-				% finish with focus on A after time evolution
-
-			end
-		end
-	% 		fprintf('\n');							%Debug!
-	% 		fprintf('%2g-',para.d_optnew);
-	% 		fprintf('\n');
-
-		%% Log vNE etc ?
-		% from prepare_onesite() and prepare_onesiteVmat():
-		% results.Amat_vNE  array
-		% results.Amat_sv   cell
-		% results.Vmat_vNE
-		% results.Vmat_sv
-		%% Output matrix dimensions if changed:
-		fprintf('\n');
-		if paraChain.tdvp.truncateExpandBonds
-			fprintf('para.D:\t');
-			out = strrep(mat2str(paraChain.D),';','\n');
-			fprintf([out(2:end-1),'\n']);
-			out = mat2str(cellfun(@(x) x(find(x,1,'last')),resultsChain.Amat_sv),2);
-			fprintf([out(2:end-1),'\n']);
-		end
-		if paraChain.tdvp.expandOBB
-			fprintf('para.d_opt:\t');
-			out = strrep(mat2str(paraChain.d_opt),';','\n');
-			fprintf([out(2:end-1),'\n']);
-			out = mat2str(cellfun(@(x) x(end),resultsChain.Vmat_sv(end,~cellfun('isempty',resultsChain.Vmat_sv(end,:)))),2);
-			fprintf([out(2:end-1),'\n']);
-		end
-
-		%% SWEEP l <- r:
-		paraChain.sweepto = 'l';
-		% now Hn = H(L)_(l'*r'*n',l*r*n)
-		for sitej = paraChain.L-1:-1:0
-			fprintf('-'); paraChain.sitej = sitej;
-
-			%% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
-			% normalisation needed for updateop()!
-			% Applies to bond n -> use sitej for result storage
-			if paraChain.tdvp.truncateExpandBonds
-				[mpsChain{sitej+1}, Cn, paraChain, resultsChain, sv, vNE] = prepare_onesite_truncate(mpsChain{sitej+1},paraChain,sitej+1, resultsChain);
-			else
-				[mpsChain{sitej+1}, Cn, paraChain, resultsChain, sv, vNE] = prepare_onesite(mpsChain{sitej+1},paraChain,sitej+1, resultsChain);
-			end
-
-			%% Do the time-evolution of C
-			% evolve non-site center between sitej and sitej+1
-			% and focus A(n)
-			if sitej == 0
-				[    Cn  , VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
-				% contract Cn with mps{1} after for loop
-			else
-				[mpsChain, VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
-			end
-			clear('Hn');
-
-			fprintf('%g', sitej);
-
-			%% Expand / Truncate dk if needed!
-			if para.tdvp.useDkExpand && sitej+1 >= 1
-				% para is needed to call genh1h2term_onesite correctly
-				[VmatChain{sitej+1}, para, paraChain, resultsChain, op, opChain] = truncateExpandDk(VmatChain{sitej+1},para, paraChain,resultsChain,op,opChain, sitej+1);
-			end
-
-			%% update right Hamiltonian operators
-			% prepare operators in (sitej+1) for time-evolution on sitej
-			paraChain.sitej = paraChain.sitej+1;					% needed for multi-chain reshape
-			opChain         = updateop(opChain,mpsChain,VmatChain,sitej+1,paraChain);
-			paraChain.sitej = paraChain.sitej-1;
-
-			if paraChain.useVmat
-% 				truncateOBB(sitej+1);
-			end
-			if sitej == 0
-				continue;
-			end
-			%% Get on-site Operators and dimensions
-			opChain = gen_sitej_op(opChain,paraChain,sitej,resultsChain.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
-
-	% 		shift = getObservable({'1siteshift'}, mps{sitej}, Vmat{sitej}, para); % calculate applicable shift
-	% 		fprintf('\n Shift: %s', mat2str(shift));
-	%
-			%% Do the time-evolution of A and V
-			% this is symmetric for l->r and l<-r
-			if ~paraChain.useVtens
-				[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
-			else
-				[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHnMC(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
-			end
-		end
+		
+	
 		% save first special Bond info by Hand
 		results.Amat_sv{mc,1}  = sv;
 		results.Amat_vNE(mc,1) = vNE;		% from last prepare_onesite_truncate
@@ -704,6 +580,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			structChainMPS(ii).height = 0;						% this struct is a leaf
 			structChainMPS(ii).degree = 0;						% leaf
 			structChainMPS(ii).child = [];						% contains all children nodes
+			structChainMPS(ii).currentChild = [];				% leaf: [], node: currentChain;
 			structChainMPS(ii).L = getTreeLength(structChainMPS(ii));		% StarMPS can have array L
 			structChainMPS(ii).D = [ones(1,Lc)*D,1];		% first is Dl of chain, last is Dr of chain, here horizontal!
 			structChainMPS(ii).d_opt = ones(1,Lc)*d_opt;
@@ -740,12 +617,14 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		% Construct tree node 2
 		ii = 2;
 		pIdx = para.treeMPS.nodeIdx(ii,:);
+		dk = 2; d_opt = 2;
 		structStarMPS = structChainMPS(1);					% make a copy to inherit fields. Only modify difference
 		structStarMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
 % 		[para.treeMPS.nodeIdx{ii,structStarMPS.treeIdx ~= 0}]
 		structStarMPS.mps = {randn(D,D,D,d_opt)};		% Dl, Dc1, Dc2, dOBB
 		structStarMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
 		structStarMPS.child = [structChainMPS(3);structChainMPS(4)];
+		structStarMPS.currentChild = 1;
 		structStarMPS.height = max([structStarMPS.child.height])+1;
 		structStarMPS.degree = 2;
 		structStarMPS.nChains = 2;						% equals degree for nodes
@@ -767,10 +646,12 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 
 		ii = 1;
 		pIdx = para.treeMPS.nodeIdx(ii,:);
+		dk = 2; d_opt = 2;
 		treeMPS = structStarMPS;							% make a copy to inherit fields. Only modify difference
 		treeMPS.mps = {randn(1,D,D,D,d_opt)};
 		treeMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
 		treeMPS.child = [structChainMPS(1); structChainMPS(2); structStarMPS];
+		treeMPS.currentChild = 1;
 		treeMPS.height = max([treeMPS.child.height])+1;
 		treeMPS.degree = 3;
 		treeMPS.nChains = 2;						% equals degree for nodes
@@ -796,6 +677,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.tdvp.deltaT = 1;
 		para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 		para.tdvp.serialize = 0;
+		para.tdvp.HEffSplitIsometry = 0;
 		
 		tresults = [];
 		results = [];
@@ -848,64 +730,91 @@ function [Atens, CA] = prepare_Tens(Atens, para)
 
 end
 
-function mps = tdvp_1site_evolveSystem(mps,Vmat,para,op,results)
-%% function mps = tdvp_1site_evolveSystem(mps,Vmat,para,op,results)
-%	evolves the system = site 1 of a Star-MPS
+
+
+function treeMPS = tdvp_1site_evolveTree(treeMPS,para)
+%% function treeMPS = tdvp_1site_evolveTree(treeMPS,para)
 %
-% Created 01/10/2015 by FS
-%
-t = para.tdvp.deltaT./2;
+%	evolves node and calls evolution of children recursively
+%	treeMPS is not shared with workspace of tdvp_1site_tree. Only shared with tdvp_1site_evolveNode()
+%	Created by FS 23/02/2016
 
-if para.tdvp.imagT
-	t = -1i*t;
-end
+%% Perform TDVP on Node
+% only use expvCustom due to complicated contractions!
+fprintf('1');
+para.sitej = 1; treeMPS.sitej = 1;
+mps = tdvp_1site_evolveNode(mps,Vmat,para,op,results);			% nested function for now!
+fprintf('-');
 
-d = size(mps{1});
 
-% create site 1 OBB terms h1j/h2jOBB
-[op] = H_Eff([]    ,Vmat{1}, 'A'    , op, para);
-%% Take matrix exponential
-% A (t+dt) = exp(-i ?? dt) * A(t)
-if para.tdvp.evolveSysTrotter == 0
-	% old scheme, evolves system in one single step interacting with all chains at once
-	[mps{1}, err] = expvCustom(- 1i*t,'STAR-Hn1',...
-		reshape(mps{1},[numel(mps{1}),1]), para, op);
 
-	mps{1} = reshape(mps{1},d);
-else
-	% newer scheme, trotterise in system-chain interactions to decrease complexity
-	Atens = mps{1};
-	dIn = d;
-	for mc = 1:para.nChains
-		%% create isometry into chain direction
-		% rotate chain bonds
-		para.currentChain = mc;
-		if mc == 1
-			[Atens,dOut] = tensShape(Atens, 'foldrotunfoldiso', 2, dIn);	% rot by 2 since leading singleton!
-		else
-			[Atens,dOut] = tensShape(Atens, 'foldrotunfoldiso', 1, dIn);	% rotates such that A: prod(D(1:NC without mc)) x (D(mc,1) * dk)
+	function tdvp_1site_evolveNode()
+	%% function tdvp_1site_evolveNode()
+	%	evolves the Node = site 1 of a Tree-MPS
+	%
+	% Created 23/02/2016 by FS
+	%
+	t = para.tdvp.deltaT./2;
+	
+	if para.tdvp.imagT
+		t = -1i*t;
+	end
+	
+	d = size(treeMPS.mps{1});
+	
+	% skip time-evolution of Vmat for now, since only small dk!
+	% add TDVP for Vmat if placing boson on node
+	
+	% update site 1 OBB terms h1j/h2jOBB
+	if isempty(treeMPS.op.h1jOBB) || isempty(treeMPS.op.h1j)
+		treeMPS.op = H_Eff(treeMPS, [], 'TR-A' , [], para);		% bring into OBB
+	end
+	
+	%% Take matrix exponential
+	% A (t+dt) = exp(-i ?? dt) * A(t)
+	if para.tdvp.evolveSysTrotter == 0
+		% old scheme, evolves system in one single step interacting with all chains at once
+		[treeMPS.mps{1}, ~] = expvCustom(- 1i*t,'TREE-Hn1',...
+								reshape(treeMPS.mps{1},[numel(treeMPS.mps{1}),1]), para, treeMPS.op);
+
+		treeMPS.mps{1} = reshape(treeMPS.mps{1},d);
+	else
+		% newer scheme, trotterise in system-chain interactions to decrease complexity
+		Atens = treeMPS.mps{1};
+		dIn = d;
+		for mc = 1:para.nChains
+			%% create isometry into chain direction
+			% rotate chain bonds
+			para.currentChain = mc;
+			if mc == 1
+				[Atens,dOut] = tensShape(Atens, 'foldrotunfoldiso', 2, dIn);	% rot by 2 since leading singleton!
+			else
+				[Atens,dOut] = tensShape(Atens, 'foldrotunfoldiso', 1, dIn);	% rotates such that A: prod(D(1:NC without mc)) x (D(mc,1) * dk)
+			end
+
+			[Iso, A] = qr(Atens,0);			% Iso is isometry with all unused chains
+
+			% TODO: comment if not testing!!
+	% 		[Iso2,A2]= rrQR(Atens, floor(0.6*prod(dOut(end-1:end))),0);		% low rank QR approximation
+	% 		fprintf('evolve: rank(A) = %d, dim(A,2) = %d, rrQR error = %g\n', rank(Atens), prod(dOut(end-1:end)),norm(Atens - Iso2*A2));
+			
+			treeMPS.tdvp.expvTol = para.tdvp.expvTol;
+			treeMPS.tdvp.expvM   = para.tdvp.expvM;
+			% evolve simplified mps matrix
+			[A, err] = expvCustom(- 1i*t,'TREE-Hn1Trotter',...
+				reshape(A,[numel(A),1]), para, op);
+			A = reshape(A, prod(dOut(end-1:end)),[]);			% D*dk x D*dk
+			% contract back together
+			Atens = Iso * A;
+
+			dIn = dOut;			% reset the new dimensions after rotation
+
 		end
 
-		[Iso, A] = qr(Atens,0);			% Iso is isometry with all unused chains
-
-		% TODO: comment if not testing!!
-% 		[Iso2,A2]= rrQR(Atens, floor(0.6*prod(dOut(end-1:end))),0);		% low rank QR approximation
-% 		fprintf('evolve: rank(A) = %d, dim(A,2) = %d, rrQR error = %g\n', rank(Atens), prod(dOut(end-1:end)),norm(Atens - Iso2*A2));
-
-
-		% evolve simplified mps matrix
-		[A, err] = expvCustom(- 1i*t,'STAR-Hn1Trotter',...
-			reshape(A,[numel(A),1]), para, op);
-		A = reshape(A, prod(dOut(end-1:end)),[]);			% D*dk x D*dk
-		% contract back together
-		Atens = Iso * A;
-
-		dIn = dOut;			% reset the new dimensions after rotation
-
+		mps{1} = reshape(Atens, d);
 	end
-
-	mps{1} = reshape(Atens, d);
-end
+	
+	end
 
 % function [A, Iso] = prepare_IsometryDkChain(Atens, para)
 % 	%% Input: focused AS = mps{1} of star-MPS
@@ -927,8 +836,152 @@ end
 %
 % end
 
-	
+
 end
+
+function treeMPS = tdvp_1site_evolveChain(treeMPS,para)
+%% function treeMPS = tdvp_1site_evolveChain(treeMPS,para)
+%
+%	evolves a single chain
+
+%% Sweep r -> l:
+for sitej = 1:paraChain.L
+	fprintf('%g', sitej); paraChain.sitej = sitej;
+	%% Update on-site Operators
+	opChain = gen_sitej_op(opChain,paraChain,sitej,resultsChain.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
+
+	%% Do the time-evolution of A and V with H(n)
+	% this is symmetric for l->r and l<-r
+	if ~paraChain.useVtens
+		[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
+	else
+		paraChain.tdvp.expvCustomNow = 1;                                     % necessary setting!
+		[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHnMC(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
+	end
+	% now: A and V are time-evolved, A is focused
+	% OBBDim has increased by 50%. This must be truncated in the next
+	% step again!
+	% if sitej = L, then start lr sweep with decomposition of mps
+
+	%% Take focus to next site, evolve with K(n)
+	if sitej ~= paraChain.L
+		fprintf('-');
+		%% Left-normalize A and get Center matrix C(n,t+dt)_(rl,r)
+		% expand/truncate BondDimensions here?
+		[mpsChain{sitej}, Cn, paraChain,resultsChain] = prepare_onesite_truncate(mpsChain{sitej}, paraChain,sitej,resultsChain);
+
+		%% Do the time-evolution of C
+		% evolve non-site center between sitej and sitej+1
+		% and focus A(n+1)
+		[mpsChain, VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
+		clear('Hn','Cn');
+
+		%% update Left Hamiltonian operators
+		opChain = updateop(opChain,mpsChain,VmatChain,sitej,paraChain);
+
+		if paraChain.useVmat
+% 					truncateOBB(sitej);			% speedup by truncating within SVD from V to A ?
+		end
+
+	else % sitej = L
+		%% Normalize with last SVD
+		[mpsChain{sitej}, Cn] = prepare_onesite_truncate(mpsChain{sitej}, paraChain,sitej);
+		% Cn = 1 approximately. can be thrown away -> mps normalized
+		% finish with focus on A after time evolution
+
+	end
+end
+
+% 		fprintf('\n');							%Debug!
+% 		fprintf('%2g-',para.d_optnew);
+% 		fprintf('\n');
+
+%% Log vNE etc ?
+% from prepare_onesite() and prepare_onesiteVmat():
+% results.Amat_vNE  array
+% results.Amat_sv   cell
+% results.Vmat_vNE
+% results.Vmat_sv
+%% Output matrix dimensions if changed:
+fprintf('\n');
+if paraChain.tdvp.truncateExpandBonds
+	fprintf('para.D:\t');
+	out = strrep(mat2str(paraChain.D),';','\n');
+	fprintf([out(2:end-1),'\n']);
+	out = mat2str(cellfun(@(x) x(find(x,1,'last')),resultsChain.Amat_sv),2);
+	fprintf([out(2:end-1),'\n']);
+end
+if paraChain.tdvp.expandOBB
+	fprintf('para.d_opt:\t');
+	out = strrep(mat2str(paraChain.d_opt),';','\n');
+	fprintf([out(2:end-1),'\n']);
+	out = mat2str(cellfun(@(x) x(end),resultsChain.Vmat_sv(end,~cellfun('isempty',resultsChain.Vmat_sv(end,:)))),2);
+	fprintf([out(2:end-1),'\n']);
+end
+
+%% SWEEP l <- r:
+paraChain.sweepto = 'l';
+% now Hn = H(L)_(l'*r'*n',l*r*n)
+for sitej = paraChain.L-1:-1:0
+	fprintf('-'); paraChain.sitej = sitej;
+
+	%% Right-normalize A(n+1) and get Center matrix C(n,t+dt)_(l,lr)
+	% normalisation needed for updateop()!
+	% Applies to bond n -> use sitej for result storage
+	if paraChain.tdvp.truncateExpandBonds
+		[mpsChain{sitej+1}, Cn, paraChain, resultsChain, sv, vNE] = prepare_onesite_truncate(mpsChain{sitej+1},paraChain,sitej+1, resultsChain);
+	else
+		[mpsChain{sitej+1}, Cn, paraChain, resultsChain, sv, vNE] = prepare_onesite(mpsChain{sitej+1},paraChain,sitej+1, resultsChain);
+	end
+
+	%% Do the time-evolution of C
+	% evolve non-site center between sitej and sitej+1
+	% and focus A(n)
+	if sitej == 0
+		[    Cn  , VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
+		% contract Cn with mps{1} after for loop
+	else
+		[mpsChain, VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
+	end
+	clear('Hn');
+
+	fprintf('%g', sitej);
+
+	%% Expand / Truncate dk if needed!
+	if para.tdvp.useDkExpand && sitej+1 >= 1
+		% para is needed to call genh1h2term_onesite correctly
+		[VmatChain{sitej+1}, para, paraChain, resultsChain, op, opChain] = truncateExpandDk(VmatChain{sitej+1},para, paraChain,resultsChain,op,opChain, sitej+1);
+	end
+
+	%% update right Hamiltonian operators
+	% prepare operators in (sitej+1) for time-evolution on sitej
+	paraChain.sitej = paraChain.sitej+1;					% needed for multi-chain reshape
+	opChain         = updateop(opChain,mpsChain,VmatChain,sitej+1,paraChain);
+	paraChain.sitej = paraChain.sitej-1;
+
+	if paraChain.useVmat
+% 				truncateOBB(sitej+1);
+	end
+	if sitej == 0
+		continue;
+	end
+	%% Get on-site Operators and dimensions
+	opChain = gen_sitej_op(opChain,paraChain,sitej,resultsChain.leftge);                     % take Site h1 & h2 Operators apply rescaling to Hleft, Hright, Opleft ...???
+
+% 		shift = getObservable({'1siteshift'}, mps{sitej}, Vmat{sitej}, para); % calculate applicable shift
+% 		fprintf('\n Shift: %s', mat2str(shift));
+%
+	%% Do the time-evolution of A and V
+	% this is symmetric for l->r and l<-r
+	if ~paraChain.useVtens
+		[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
+	else
+		[mpsChain{sitej}, VmatChain{sitej}, paraChain, resultsChain, opChain, Hn] = tdvp_1site_evolveHnMC(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej);
+	end
+end
+
+end
+
 
 function L = getTreeLength(treeMPS)
 %% function L = getTreeLength(treeMPS)

@@ -69,7 +69,7 @@ else
 		% recursive calls
 		treeMPS.child(k) = initstorage_Tree_MPS(treeMPS.child(k),para);
 	end
-% 	initstorageNode();
+	initstorageNode();
 end
 	
 
@@ -86,9 +86,10 @@ end
 		% p.useTreeMPS = 0;
 		treeMPS.sweepto = 'l';
 		
-		% use treeMPS instead of as para to make different chain topologies possible. e.g. mixed Vtens - Vmat
-		treeMPS.op = initstorage(treeMPS.mps,treeMPS.Vmat,treeMPS.op,treeMPS);
+		% use treeMPS instead of para to make different chain topologies possible. e.g. mixed Vtens - Vmat
+		treeMPS.op = initstorage(treeMPS.mps,treeMPS.Vmat,treeMPS.op,treeMPS);		% site 2:L
 		treeMPS.sitej = 1;
+		% call syntax for chain
 		treeMPS.op = updateop(treeMPS.op,treeMPS.mps,treeMPS.Vmat,1,treeMPS);		% treat Hright from site 1 to parent node separately
 	end
 
@@ -110,7 +111,18 @@ end
 		% No need for op.chain{}.*storage variables (replaced op.chain{} by treeMPS.child(ii).op)
 		treeMPS.op.Hlrstorage = cell(1, L);			% No +1 since right part is inside children.
 		treeMPS.op.Opstorage  = cell(M, 2, L);
+		treeMPS.op.h1j    = []; treeMPS.op.h2j    = [];
+		treeMPS.op.h1jOBB = []; treeMPS.op.h2jOBB = [];
+
+		% call syntax for node
+		treeMPS.op = updateop([],treeMPS,[],[],para);
 		
-		treeMPS.op =
+		if treeMPS.isRoot
+			treeMPS.op.Hlrstorage{1} = 0;
+			for m = 1:M
+				treeMPS.op.Opstorage{m,1,1} = 0;
+				% treeMPS.op.Opstorage{m,2,1} = 0; stays empty since multiple children to the right!
+			end
+		end
 	end
 end

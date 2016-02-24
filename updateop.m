@@ -1,5 +1,13 @@
-function op=updateop(op,mps,Vmat,sitej,para)
-%Update op when finished calculating at site sitej
+function op = updateop(op,mps,Vmat,sitej,para)
+%% function op  updateop(op,mps,Vmat,sitej,para)
+% Update op when finished calculating at site sitej
+%
+% For TreeMPS node:
+%	op = updateop([],treeMPS,[],[],para);
+%		if sweepto = 'r'	= step down the tree
+%			returns op of child
+%		if sweepto = 'l'	= step up the tree
+%			returns op of current node
 %
 % Changed:
 %   FS 20/10/2014: - using switch instead of if-statement
@@ -8,6 +16,11 @@ function op=updateop(op,mps,Vmat,sitej,para)
 %                    then.
 %	FS 16/07/2015: - added multi-chain support at OBB level!
 %	FS 05/08/2015: - using h1jOBB, h2jOBB -> reverse previous changes!
+
+if para.useTreeMPS
+	op = updateop_TreeMPS(mps,para);
+	return;
+end
 
 M = para.M;
 switch para.sweepto
@@ -43,11 +56,7 @@ switch para.sweepto
 				[op] = H_Eff([]  , Vmat{sitej}, 'MC-A'  , op, para);
 			end
 		end
-		if para.useTreeMPS
-			op.Hlrstorage{sitej} = [];		% TODO!!
-		else
-			op.Hlrstorage{sitej} = updateHright(op.Hlrstorage{sitej + 1}, op.h1jOBB, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2jOBB(:,1), mps{sitej},Vmat{sitej}, M, para);
-		end
+		op.Hlrstorage{sitej} = updateHright(op.Hlrstorage{sitej + 1}, op.h1jOBB, op.Opstorage(:,2,sitej+1),mps{sitej},Vmat{sitej}, op.h2jOBB(:,1), mps{sitej},Vmat{sitej}, M, para);
 		for m = 1:M
 			% 2nd term of interaction term into ef. basis of r_j-1; (1st is already in site basis.)
 			if ~isempty(op.h2jOBB{m,2})
@@ -57,5 +66,37 @@ switch para.sweepto
 			end
 		end
 end
+
+end
+
+function op = updateop_TreeMPS(treeMPS,para)
+%% function op = updateop_TreeMPS(treeMPS,para)
+%
+% creates left/right effective H terms for parent or child nodes
+% 
+if isempty(treeMPS.op.h1jOBB) || isempty(treeMPS.op.h1j)
+	treeMPS.op = H_Eff(treeMPS, [], 'TR-A' , [], para);		% bring into OBB
+end
+
+switch treeMPS.sweepto
+	case 'r'
+		op = H_Eff(treeMPS, [], 'TR-CA', [], para);
+			% this saves new left eff. H into Hleft and old Hlr/Opstorage{1} into Hright
+			% to be accessed by tdvp_1site_evolveKn
+		op.Hlrstorage{1} = op.Hleft;
+		op.Opstorage(:,1,1) = op.Opleft;
+	case 'l'
+		if treeMPS.isRoot
+			op = treeMPS.op;
+			return;
+		end
+		op = H_Eff(treeMPS, [], 'TR-CP', [], para);
+			% this saves new right eff. H into H/Opright and old Hlr/Opstorage{1} into Hleft
+			% to be accessed by tdvp_1site_evolveKn
+		op.Hlrstorage{1} = op.Hright;
+		op.Opstorage(:,2,1) = op.Opright;
+end
+
+
 
 end

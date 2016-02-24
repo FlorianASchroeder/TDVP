@@ -48,7 +48,7 @@ switch para.sweepto
 				if ~isfield(op,'chain')
 					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
 				else
-					op.HleftAV = op.chain(para.currentChain).Hleft;		% star-MPS
+					op.HleftAV = op.chain(para.currentChain).Hleft;		% from star-MPS into chain
 					op.h2jAV   = op.chain(para.currentChain).Opleft;
 					% make sure H/Opright is correct
 				end

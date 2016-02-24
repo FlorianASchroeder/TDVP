@@ -34,6 +34,8 @@ switch A
 		AFUN = @STARmultA;
 	case 'STAR-Hn1Trotter'
 		AFUN = @STARmultATrotter;
+	case 'TREE-Hn1'
+		AFUN = @TREEmultA;
 end
 
 M = para.M;
@@ -401,6 +403,44 @@ hump = hump / normv;
 			w = w + contracttensors(OpTemp, 3, 3, op.h2jOBB{systemM,1}.',2,1);
 		end
 
+		w = reshape(w, [numel(w),1]);
+	end
+
+	function w = TREEmultA(A)
+		%% w = TREEmultA(A)
+		% called by 'TREE-Hn1'
+		d = [1,para.D(:,1).',para.dk(1,1)];					% dim(A)
+		NC = para.nChains;
+		nTerms = para.M;
+
+		A = reshape(A,d);
+
+		% 1. on-site H1
+		w =	contracttensors(A, NC+2, NC+2, op.h1jOBB.', 2,1);
+
+		for mc = 1:NC
+			% Order for permute after contraction
+% 			ord = [1:mc,NC+2,mc+1:NC+1];
+			Atemp = tensShape(A, 'unfold', mc+1, d);		% chain index to front
+			% 2. non-interacting Hlrstorage (Hright)
+			OpTemp = op.chain(mc).Hlrstorage{1} * Atemp;
+			w = w + tensShape(OpTemp,'fold',mc+1, d);
+
+			% 3. all interacting parts
+			for mm = 1:nTerms
+				systemM = nTerms*(mc-1) + mm;				% position in op.h2j
+
+				OpTemp = op.chain(mc).Opstorage{mm,2,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+				OpTemp = tensShape(OpTemp,'fold',mc+1, d);
+				w = w+ contracttensors(OpTemp, NC+2, NC+2, op.h2jOBB{systemM,1}.',2,1);
+% 				w = w + OpTemp;
+
+% 				OpTemp = contracttensors(A, NC+2, NC+2, op.h2jOBB{systemM,1}.',2,1);
+% 				OpTemp = contracttensors(OpTemp, NC+2, mc+1, op.chain(mc).Opstorage{mm,2,1}.',2,1);
+% 				OpTemp = permute(OpTemp,ord);
+
+			end
+		end
 		w = reshape(w, [numel(w),1]);
 	end
 end

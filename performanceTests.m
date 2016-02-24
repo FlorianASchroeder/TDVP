@@ -21,6 +21,8 @@ switch lower(variant)
 		out = testRandomizedQRsweep();
 	case 'cellstructmps'
 		out = testCellStructMPS();
+	case 'copyonwrite'
+		out = testCopyOnWrite();
 end
 
 end
@@ -592,6 +594,52 @@ out = [tCell,tStruct];
 
 plot(out);
 legend('Cell','Struct')
+end
+
+function out = testCopyOnWrite()
+%% function out = testCopyOnWrite()
+%	tests whether an assignment followed by read only impairs speed
+
+% define test case
+% do star(center + 2 chains + star(center + 2 chains))
+NC = 3;
+D = 200;			% one BondDim for all edges
+Nruns = 30;
+tDirect = zeros(Nruns,1);
+tRead = zeros(Nruns,1);
+tWrite = zeros(Nruns,1);
+
+MPS = randn(ones(1,NC)*D);
+op = randn(D,D);
+
+%% Get Timings for contraction calls
+for ii = 1:Nruns
+	% Direct access
+	tic
+	B = contracttensors(op,2,2, MPS,NC,1);
+	timing = toc;
+	tDirect(ii,1) = timing;
+	
+	% Read only access
+	tic
+	Amat = MPS;				% pass on handle
+	B = contracttensors(op,2,2, MPS,NC,1);
+	timing = toc;
+	tRead(ii,1) = timing;
+	
+	% write inbetween
+	tic
+	Amat = MPS;				% pass on handle
+	Amat(1) = 2;			% arbitrary write access
+	B = contracttensors(op,2,2, Amat,NC,1);
+	timing = toc;
+	tWrite(ii,1) = timing;
+end
+
+out = [tDirect,tRead,tWrite];
+
+plot(out);
+legend('Direct','Read','Write')
 end
 
 function out = calcCright(MPS)
