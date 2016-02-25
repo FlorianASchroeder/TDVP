@@ -172,7 +172,7 @@ for timeslice = para.tdvp.slices
 	%	Pro-Iterative: No Function call overhead
 	%	Con-Iterative: Call Stack needed. Saving to parent problematic, as not doable by reference. 
 	
-	% Do recursion now!
+	%% Start recursive TDVP
 	if treeMPS.height > 0
 		% treeMPS is Tree (or Star)
 		treeMPS = tdvp_1site_evolveTree(treeMPS,para);
@@ -180,7 +180,8 @@ for timeslice = para.tdvp.slices
 		% treeMPS is a Leaf/Chain
 		treeMPS = tdvp_1site_evolveChain(treeMPS,para);
 	end
-
+	
+	%% Sweep finished. Logging output:
 	% report time estimates
 %	results.tdvp.EvaluesLog(timeslice) = getObservable({'energy',op},mps,Vmat,para);
 	completePercent = round(timeslice./(length(para.tdvp.t)-1)*1000)./10;
@@ -444,7 +445,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.tdvp.useDkExpand = 0;		% does not yet work!
 		para.tdvp.expandOBB = 1;
 		para.tdvp.maxOBBDim = 10;
-		para.tdvp.maxBondDim = [10];		%
+		para.tdvp.maxBondDim = [20];		%
 		para.tdvp.truncateExpandBonds = 1;
 		para.tdvp.evolveSysTrotter = 1;
 		para.tdvp.expvTol = 1e-15;
@@ -580,6 +581,7 @@ function treeMPS = tdvp_1site_evolveTree(treeMPS,para)
 %	treeMPS is not shared with workspace of tdvp_1site_tree. Only shared with tdvp_1site_evolveNode()
 %	Created by FS 23/02/2016
 
+fprintf('\nNode %s:\n',mat2str(treeMPS.treeIdx));
 %% Perform TDVP on Node
 % only use expvCustom due to complicated contractions!
 fprintf('1');
@@ -589,7 +591,6 @@ fprintf('-');
 
 for ii = 1:treeMPS.degree
 	% Iterate through children, go down each branch
-	fprintf('\nChain %d:\n',ii);
 	treeMPS.currentChild = ii; treeMPS.currentChain = ii; para.currentChain = ii;
 	para.sweepto = 'r'; treeMPS.child(ii).sweepto = 'r';
 	
@@ -613,8 +614,10 @@ for ii = 1:treeMPS.degree
 	end
 	% Now need to contract BondCenter of child into treeMPS.mps{1}
 	nd = ndims(treeMPS.mps{1});
-	treeMPS.mps{1} = contracttensors(treeMPS.child(ii).BondCenter.', 2, 2, treeMPS.mps{1}, nd, ii+1);
-	treeMPS.mps{1} = permute(treeMPS.mps{1},[2:ii+1, 1, ii+2:nd]);				% order back
+	treeMPS.mps{1}  = contracttensors(treeMPS.child(ii).BondCenter.', 2, 2, treeMPS.mps{1}, nd, ii+1);
+	treeMPS.mps{1}  = permute(treeMPS.mps{1},[2:ii+1, 1, ii+2:nd]);				% order back
+	treeMPS.D(ii+1) = size(treeMPS.child(ii).BondCenter,2);								% this is new Bond dimension in the child's edge
+	
 end
 
 treeMPS.sweepto = 'l'; para.sweepto = 'l';
@@ -737,6 +740,8 @@ copyPara();
 results = initresults(para);		% TODO: change later!
 results = initresultsTDVP(para, results);
 
+idx = num2cell(treeMPS.treeIdx + 1);		% get idx in para to print chain number
+fprintf('\nChain %d:\n',para.treeMPS.chainIdx{idx{:}});
 %% Sweep l -> r:
 for sitej = 1:para.L
 	fprintf('%g', sitej); para.sitej = sitej;
@@ -849,6 +854,7 @@ for sitej = para.L-1:-1:0
 	para.sitej = para.sitej-1;
 	
 	if sitej == 0
+		fprintf('\n');
 		continue;
 	end
 	%% Get on-site Operators and dimensions
@@ -870,6 +876,12 @@ end
 treeMPS.BondCenter = tdvp_1site_evolveKn(treeMPS.mps,[],para,[],treeMPS.op,0,Cn,[]);
 % [    Cn  , treeMPS.Vmat, para, results] = tdvp_1site_evolveKn(treeMPS.mps,treeMPS.Vmat,para,results,opChain,sitej,Cn,Hn);
 treeMPS.BondCenter = Cn;
+
+% Copy Dimension Information
+treeMPS.D(2:end-1) = para.D;
+treeMPS.D(1)       = size(treeMPS.mps{1},1);
+treeMPS.dk         = para.dk;
+treeMPS.d_opt      = para.d_opt;
 
 % can be omitted:
 results.Amat_sv{1,1}  = sv;
