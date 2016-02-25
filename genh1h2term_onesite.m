@@ -17,7 +17,7 @@ function op = genh1h2term_onesite(para,op,s)
 %   VMPS_SBM1.m:    para.dk(1) gives dimension of first site;
 %   calspin.m:      sx,sy,sz defines spin measure operator. Change if dim(site1) changes!
 
-if isfield(para,'useTreeMPS') && para.useTreeMPS
+if (isfield(para,'useTreeMPS') && para.useTreeMPS) || ~isa(op,'struct')
 	op = genh1h2term_onesite_tree(para,op,s);			% put into separate sub-function
 else
 switch para.model

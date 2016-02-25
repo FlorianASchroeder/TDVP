@@ -80,12 +80,14 @@ end
 
 switch treeMPS.sweepto
 	case 'r'
+		% returns op of child
 		op = H_Eff(treeMPS, [], 'TR-CA', [], para);
 			% this saves new left eff. H into Hleft and old Hlr/Opstorage{1} into Hright
 			% to be accessed by tdvp_1site_evolveKn
 		op.Hlrstorage{1} = op.Hleft;
 		op.Opstorage(:,1,1) = op.Opleft;
 	case 'l'
+		% returns op of current node
 		if treeMPS.isRoot
 			op = treeMPS.op;
 			return;

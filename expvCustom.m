@@ -36,6 +36,9 @@ switch A
 		AFUN = @STARmultATrotter;
 	case 'TREE-Hn1'
 		AFUN = @TREEmultA;
+	case 'TREE-Hn1Trotter'
+		AFUN = @TREEmultATrotter;
+	
 end
 
 M = para.M;
@@ -409,36 +412,83 @@ hump = hump / normv;
 	function w = TREEmultA(A)
 		%% w = TREEmultA(A)
 		% called by 'TREE-Hn1'
+		% para == treeMPS
 		d = [1,para.D(:,1).',para.dk(1,1)];					% dim(A)
 		NC = para.nChains;
-		nTerms = para.M;
-
+		
 		A = reshape(A,d);
-
+		
 		% 1. on-site H1
 		w =	contracttensors(A, NC+2, NC+2, op.h1jOBB.', 2,1);
-
+		
 		for mc = 1:NC
 			% Order for permute after contraction
 % 			ord = [1:mc,NC+2,mc+1:NC+1];
 			Atemp = tensShape(A, 'unfold', mc+1, d);		% chain index to front
 			% 2. non-interacting Hlrstorage (Hright)
-			OpTemp = op.chain(mc).Hlrstorage{1} * Atemp;
+			OpTemp = para.child(mc).op.Hlrstorage{1} * Atemp;
 			w = w + tensShape(OpTemp,'fold',mc+1, d);
+			
+			% 3. all interacting parts
+			for mm = 1:para.M
+				OpTemp = para.child(mc).op.Opstorage{mm,2,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+				OpTemp = tensShape(OpTemp,'fold',mc+1, d);
+				w = w+ contracttensors(OpTemp, NC+2, NC+2, op.h2jOBB{mm,1,mc}.',2,1);
+			end
+		end
+		if ~para.isRoot
+			% also contract with parent operators
+			% 1. Contract to non-interacting parts
+			w = w + contracttensors(op.Hlrstorage{1},2,2, A, NC+2, 1);								% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
+			
+			% 2. Contract the other chain-system interacting parts
+			for mm = 1:para.M
+				OpTemp = contracttensors(A, NC+2, NC+2, op.h2jOBB{mm,2,1}.',2,1);					% parent is 1st, node is 2nd position in H_int !!
+				w      = w + contracttensors(op.Opstorage{mm,1,1},2,2, OpTemp, NC+2, 1);			% (m,1,1) should be the operator of parent in the effective left basis for node site 1
+			end
+		end
+		w = reshape(w, [numel(w),1]);
+	end
+
+	function w = TREEmultATrotter(A)
+		%% w = TREEmultATrotter(A)
+		% Trotter splitting in chains
+		% called by 'TREE-Hn1Trotter'
+		mc = para.currentChain;								% chain to be evolved; 0: parent
+		d = [para.D(:,1).',para.dk(1,1)];					% original dim(A)
+		dA = [d(mc+1)*d(end), d(mc+1), d(end)];				% current shape of A
+		NC = para.nChains;
+		if ~para.isRoot
+			NC = NC+1;		% divide by 1 more due to additional evolution step
+		end
+		
+		A = reshape(A,dA);
+		
+		% 1. on-site H1
+		w =	contracttensors(A, 3, 3, (op.h1jOBB.')./NC, 2,1);		% Symmetrically divide h1jOBB onto each chain
+		Atemp = tensShape(A, 'unfold', 2, dA);		% chain index to front
+		
+		if mc ~= 0
+			% 2. non-interacting Hlrstorage (Hright)
+			OpTemp = para.child(mc).op.Hlrstorage{1} * Atemp;
+			w = w + tensShape(OpTemp,'fold',2, dA);
 
 			% 3. all interacting parts
-			for mm = 1:nTerms
-				systemM = nTerms*(mc-1) + mm;				% position in op.h2j
+			for mm = 1:para.M
+				OpTemp = para.child(mc).op.Opstorage{mm,2,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+				OpTemp = tensShape(OpTemp,'fold',2, dA);
+				w = w + contracttensors(OpTemp, 3, 3, op.h2jOBB{mm,1,mc}.',2,1);
+			end
+		elseif mc == 0 && ~para.isRoot
+			% 2. non-interacting Hlrstorage (Hleft)
+			OpTemp = op.Hlrstorage{1} * Atemp;
+			w = w + tensShape(OpTemp,'fold',2, dA);
 
-				OpTemp = op.chain(mc).Opstorage{mm,2,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
-				OpTemp = tensShape(OpTemp,'fold',mc+1, d);
-				w = w+ contracttensors(OpTemp, NC+2, NC+2, op.h2jOBB{systemM,1}.',2,1);
-% 				w = w + OpTemp;
-
-% 				OpTemp = contracttensors(A, NC+2, NC+2, op.h2jOBB{systemM,1}.',2,1);
-% 				OpTemp = contracttensors(OpTemp, NC+2, mc+1, op.chain(mc).Opstorage{mm,2,1}.',2,1);
-% 				OpTemp = permute(OpTemp,ord);
-
+			% 3. all interacting parts
+			for mm = 1:para.M
+				OpTemp = op.Opstorage{mm,1,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+				OpTemp = tensShape(OpTemp,'fold',2, dA);
+				w = w + contracttensors(OpTemp, 3, 3, op.h2jOBB{mm,2,1}.',2,1);
 			end
 		end
 		w = reshape(w, [numel(w),1]);

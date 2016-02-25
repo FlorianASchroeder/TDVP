@@ -406,7 +406,7 @@ function op = H_Eff_TR_CA(treeMPS,para)
 %
 %	created by FS 23/02/2016
 
-nc = treeMPS.currentChild;		% = currentChain
+nc = treeMPS.currentChain;		% = currentChild
 NC = treeMPS.degree;			% = nChains for node
 M  = treeMPS.M;
 d  = size(treeMPS.mps{1});		% numel(d) = NC+2
@@ -501,7 +501,7 @@ op.Hleft = op.Hleft + contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
 
 % 4. Contract h2jOBB which will interact with chain nc
 for m = 1:M
-	OpTemp = contracttensors(mps, NC+2, NC+2, op.h2jOBB{m,1,nc}.', 2, 1);
+	OpTemp = contracttensors(mps, NC+2, NC+2, treeMPS.op.h2jOBB{m,1,nc}.', 2, 1);
 	op.Opleft{m} = contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
 end
 

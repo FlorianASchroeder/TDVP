@@ -14,6 +14,17 @@ end
 if isempty(Hn)
 	para.tdvp.expvCustomNow = 1;		% in case, previous Hamiltonian became invalid (due to dimension changes)
 end
+writeResults = 0;
+if nargout == 4 && ~isempty(results)
+	writeResults = 1;
+end
+evolveTreeCn = 0;
+if sitej == 0 && para.useTreeMPS
+	% this is Cn between different tree levels. Either Node <-> Node or Node <-> leaf
+	evolveTreeCn = 1;
+	% Only use Hleft/Hright from op
+	% return mps = Cn;
+end
 
 switch para.sweepto
     case'r'
@@ -45,8 +56,11 @@ switch para.sweepto
 			err = 0;
 		else
 			if para.tdvp.expvCustomNow
-				if ~isfield(op,'chain')
-					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
+				if evolveTreeCn
+					op.HleftAV = op.Hleft;								% as calculated in H_Eff('TR-CA')
+					op.h2jAV   = op.Opleft;
+				elseif ~isfield(op,'chain')
+					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);		% standard chain H_Eff
 				else
 					op.HleftAV = op.chain(para.currentChain).Hleft;		% from star-MPS into chain
 					op.h2jAV   = op.chain(para.currentChain).Opleft;
@@ -68,16 +82,23 @@ switch para.sweepto
 				end
 			end
 		end
-% 		results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
-		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
-
+		if writeResults
+% 			results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+			results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
+		end
+		
         Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
         clear('Kn', 'Hn');
 
         %% Multiply Ac(n+1) = C(n) * Ar(n+1)
         % set focus on next site A
         % A_(rl,r,n) = C(n)_(rl,l) * A_(l,r,n)
-        mps{sitej+1} = contracttensors(Cn,2,2, mps{sitej+1},3,1);
+		if evolveTreeCn
+			nd = ndims(mps{sitej+1});		% sitej == 0
+			mps{sitej+1} = contracttensors(Cn,2,2, mps{sitej+1},nd,1);		% possibility for node or leaf -> nd >= 3
+		else
+	        mps{sitej+1} = contracttensors(Cn,2,2, mps{sitej+1},3,1);
+		end
         clear('Cn');
     case 'l'
         %% Get Dimensions
@@ -109,11 +130,9 @@ switch para.sweepto
 				err = 0;
 			else
 				if para.tdvp.expvCustomTestAccuracy								% debug
-					para.sitej = para.sitej+1;								% needed for multi-chain reshape
 					[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
 					Cn1 = expvCustom(1i*t, 'Kn',...
 						reshape(Cn,[numel(Cn),1]), para,op);
-					para.sitej = para.sitej-1;
 				end
 				[Cn,err] = expv(1i*t, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
@@ -123,19 +142,24 @@ switch para.sweepto
 				end
 			end
 		else
-			para.sitej = para.sitej+1;								% needed for multi-chain reshape
-			[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
+			if evolveTreeCn
+				op.HrightAV = op.Hright;								% as calculated in H_Eff('TR-CA')
+				op.h2jAV    = op.Opright;
+			else
+				[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);	% could be replaced if updateop called before
+			end
 			[Cn,err] = expvCustom(1i*t, 'Kn',...
 				reshape(Cn,[numel(Cn),1]), para,op);
-			para.sitej = para.sitej-1;
 		end
-% 		results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
-		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
-
+		if writeResults
+% 			results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
+			results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
+		end
+		
         Cn = reshape(Cn, [BondDimCLeft, BondDimCRight]);
         clear('Kn', 'Hn');
 
-		if sitej == 0
+		if sitej == 0 || evolveTreeCn
 			mps = Cn;		% shortcut for StarMPS
 			return;
 		end
