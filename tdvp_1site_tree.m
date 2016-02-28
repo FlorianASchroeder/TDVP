@@ -292,14 +292,14 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.svmintol = 10^-4.5;				% throw away all below
 
 % 		para.rescaling = 0;
-		para.treeMPS.height = 2;
+		para.treeMPS.height = 2;								% maximum height of tree
 		para.treeMPS.maxDegree = [3,2]; % size(treeMPS.L);		% for each level
 		para.treeMPS.leafIdx = num2cell(ones(para.nChains,para.treeMPS.height));				% indices of leaves in para; take -1 to get treeIdx
 		para.treeMPS.leafIdx{1,1} = 1+1;														% map from chain number to leaf index in para
 		para.treeMPS.leafIdx{2,1} = 2+1;
 		para.treeMPS.leafIdx(3,1:2) = num2cell([3,1]+1);
 		para.treeMPS.leafIdx(4,1:2) = num2cell([3,2]+1);
-		para.treeMPS.nodeIdx = num2cell(ones(para.nNodes,para.treeMPS.height));					% mpas node number -> nodeIdx
+		para.treeMPS.nodeIdx = num2cell(ones(para.nNodes,para.treeMPS.height));					% maps node number -> nodeIdx
 		para.treeMPS.nodeIdx{1,1} = 0+1;
 		para.treeMPS.nodeIdx{2,1} = 3+1;
 		para.treeMPS.chainIdx = {};																% maps from leafIdx -> chain number
