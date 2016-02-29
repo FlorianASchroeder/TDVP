@@ -46,6 +46,7 @@ function out = getObservable(type,mps,Vmat,para)
 % Modified:
 %	- 21/12/14 FS: replaced OBB contractions with faster matrix products.
 %	- 21/08/15 FS: added Multi-Chain Vmat / Vtens capability
+%	- 28/02/16 FS: added TreeMPS support
 switch type{1}
     case 'spin'
         % applicable for spin-boson model and for folded SBM2
@@ -53,7 +54,10 @@ switch type{1}
 
     case 'occupation'
         % applicable to all single stranded chains. Extensible to 2-chains
-		if para.foldedChain == 0
+		if para.useTreeMPS == 1
+			out = calBosonOcc_Tree(mps,para);			% (L x NC)
+			return;
+		elseif para.foldedChain == 0
 			if para.nChains == 1
 				out = calBosonOcc(mps,Vmat,para);
 			else										% Multi-chain with Vmat / V-tensor-network
@@ -64,7 +68,7 @@ switch type{1}
 			out(2,:) = calBosonOcc(mps,Vmat,para,2);
 		end
 		if size(out,1) > 1
-			out = out.';			% (L x NC) for compatibility with tresults
+			out = out.';								% (L x NC) for compatibility with tresults
 		end
 
     case 'shift'
@@ -616,6 +620,33 @@ end
 % else
 	n = real(expectation_allsites_MC(McOp,mps,Vtens,para));  % (NC x L)
 % end
+
+end
+
+function n = calBosonOcc_Tree(treeMPS,para)
+%% calculate the boson occupation for treeMPS
+% Zero operator for spin site
+% calculate for all chains simultaneously
+%
+% Created by FS 28/02/2016
+%
+
+L = para.L; NC = para.nChains;
+
+% create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
+McOp = cell(L, NC, NC);
+for mc = 1:NC
+	for j = 1:para.chain{mc}.L
+		if j ~= para.spinposition                     % works with array
+			[~,~,McOp{j,mc,mc}] = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
+		else
+			McOp{j,mc,mc} = zeros(para.dk(1,j));      % don't measure spin.
+		end
+	end
+end
+
+n = real(expectation_allsites_Tree(McOp,mps,Vtens,para));  % (NC x L)
+n = n.'; % L x NC
 
 end
 

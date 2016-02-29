@@ -273,7 +273,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		
 		% Define tree structure in para:
 		para.logging = 0;
-		para.L = 6;								% tree nodes count all into site 1
+		para.L = 7;								% total max height of tree, including length of leaves
 		para.useTreeMPS = 1;
 		para.useStarMPS = 0;
 		para.useVmat = 1;
@@ -332,13 +332,16 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			% Build Struct Chain MPS
 			structChainMPS(ii).mps = chainMPS;
 			structChainMPS(ii).Vmat = chainVmat;
-			structChainMPS(ii).height = 0;						% this struct is a leaf
-			structChainMPS(ii).degree = 0;						% leaf
-			structChainMPS(ii).child = [];						% contains all children nodes
-			structChainMPS(ii).currentChild = [];				% leaf: [], node: currentChain;
-			structChainMPS(ii).currentChain = [];				% leaf: [], node: currentChain;
+			structChainMPS(ii).treeIdx = [para.treeMPS.leafIdx{ii,:}]-1;
+			structChainMPS(ii).chainIdx = ii;
+			structChainMPS(ii).height = 0;									% this struct is a leaf
+			structChainMPS(ii).degree = 0;									% leaf
+			structChainMPS(ii).level = nnz(structChainMPS(ii).treeIdx)+1;	% = site number of first chain site if counted from the root node
+			structChainMPS(ii).child = [];									% contains all children nodes
+			structChainMPS(ii).currentChild = [];							% leaf: [], node: currentChain;
+			structChainMPS(ii).currentChain = [];							% leaf: [], node: currentChain;
 			structChainMPS(ii).L = getTreeLength(structChainMPS(ii));		% StarMPS can have array L
-			structChainMPS(ii).D = [ones(1,Lc)*D,1];		% first is Dl of chain, last is Dr of chain, here horizontal!
+			structChainMPS(ii).D = [ones(1,Lc)*D,1];						% first is Dl of chain, last is Dr of chain, here horizontal!
 			structChainMPS(ii).d_opt = ones(1,Lc)*d_opt;
 			structChainMPS(ii).dk = ones(1,Lc)*dk;
 			structChainMPS(ii).M = para.M;
@@ -352,7 +355,6 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 			structChainMPS(ii).spinposition = [];				% pure Boson Chain
 			structChainMPS(ii).sitej = 1;						% currently focused site
 			structChainMPS(ii).isRoot = 0;
-			structChainMPS(ii).treeIdx = [para.treeMPS.leafIdx{ii,:}]-1;
 			structChainMPS(ii).BondCenter = [];
 			structChainMPS(ii).tdvp = [];
 			pIdx = para.treeMPS.leafIdx(ii,:);
@@ -376,26 +378,27 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		ii = 2;
 		pIdx = para.treeMPS.nodeIdx(ii,:);
 		dk = 2; d_opt = 2;
-		structStarMPS = structChainMPS(1);					% make a copy to inherit fields. Only modify difference
+		structStarMPS = structChainMPS(1);							% make a copy to inherit fields. Only modify difference
 		structStarMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
-% 		[para.treeMPS.nodeIdx{ii,structStarMPS.treeIdx ~= 0}]
-		structStarMPS.mps = {randn(D,D,D,d_opt)};		% Dl, Dc1, Dc2, dOBB
+		structStarMPS.level = nnz(structStarMPS.treeIdx)+1;			% = site number of first chain site if counted from the root node
+		structStarMPS.mps = {randn(D,D,D,d_opt)};					% Dl, Dc1, Dc2, dOBB
 		structStarMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
 		structStarMPS.child = [structChainMPS(3);structChainMPS(4)];
 		structStarMPS.currentChild = 1;
 		structStarMPS.currentChain = 1;
+		structStarMPS.chainIdx = min([structStarMPS.child.chainIdx]);
 		structStarMPS.height = max([structStarMPS.child.height])+1;
 		structStarMPS.degree = 2;
-		structStarMPS.nChains = 2;						% equals degree for nodes
+		structStarMPS.nChains = 2;									% equals degree for nodes
 		structStarMPS.L = [];
-		structStarMPS.L = getTreeLength(structStarMPS);		% StarMPS can have array L
+		structStarMPS.L = getTreeLength(structStarMPS);				% StarMPS can have array L
 		structStarMPS.d_opt = d_opt;
 		structStarMPS.dk = dk;
-		structStarMPS.D = ones(3,1)*D;					% [Dl;Dc1;Dc2]  here vertical!
+		structStarMPS.D = ones(3,1)*D;								% [Dl;Dc1;Dc2]  here vertical!
 		structStarMPS.shift = 0;
-		structStarMPS.useStarMPS = 1;					% star is subset of tree!
+		structStarMPS.useStarMPS = 1;								% star is subset of tree!
 		structStarMPS.useTreeMPS = 1;
-		structStarMPS.spinposition = [1];				% Spin Node
+		structStarMPS.spinposition = [1];							% Spin Node
 		structStarMPS.tdvp = [];
 		para.dk{pIdx{:}} = structStarMPS.dk;
 		para.D{pIdx{:}} = structStarMPS.D;
@@ -412,6 +415,9 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		treeMPS.mps = {randn(1,D,D,D,d_opt)};
 		treeMPS.Vmat = {sparse(1:d_opt,1:d_opt,1,dk,d_opt)};
 		treeMPS.child = [structChainMPS(1); structChainMPS(2); structStarMPS];
+		treeMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
+		treeMPS.chainIdx = min([treeMPS.child.chainIdx]);
+		treeMPS.level = 1;									% root node always level 1
 		treeMPS.currentChild = 1;
 		treeMPS.height = max([treeMPS.child.height])+1;
 		treeMPS.degree = 3;
@@ -425,11 +431,8 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		treeMPS.useTreeMPS = 1;
 		treeMPS.spinposition = [1];				% Spin Node
 		treeMPS.isRoot = 1;
-		treeMPS.treeIdx = [para.treeMPS.nodeIdx{ii,:}]-1;
 		treeMPS.op = genh1h2term_onesite(para,treeMPS.treeIdx,1);
 		para.treeMPS.L(pIdx{:}) = 1;
-		
-% 		para.treeMPS.L = treeMPS.L;		% not necessary anymore!
 		
 		para.tdvp.filename = 'test.mat';
 		para.tdvp.filenameSmall = 'test-small.mat';

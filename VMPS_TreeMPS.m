@@ -177,6 +177,8 @@ para.adjust			= 0;						% (minimizeE) Initialize as 0, no need the edit. To adju
 para.dimlock		= 0;						% (minimizeE) set to 0 will change D and d_dop adaptively
 para.minDimChange	= 0.01;						% (minimizeE) sets dimlock = 1 if relative dimension change < minDimChange. (larger makes less loops)
 para.version		= 'v73';
+para.timeslice      = 0;
+para.sitej          = 0;
 
 %%%% dk Expansion related %%%%
 % only works together with OBB! (para.useVmat = 1)

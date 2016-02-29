@@ -7,11 +7,19 @@ function tresults = calTimeObservables(tmps,tVmat,para,tresults)
 %			e.g.: tresults ranges in t = [0:3]; tmps has slices t=[4:6]
 %				  then returned tresults will have t = [0:6]
 %
+%	tresults = calTimeObservables(treeMPS,[],para,tresults)
+%		Does same as above for the treeMPS, see subfunction.
+%		Only for single time step for simplicity!
+%
 % Modified:
 %	FS 23/07/15: - changed nx to n for Multi-Chain compatibility!
 %	FS 24/07/15: - added switch to allow observable selection (especially current)
 %   FS 18/08/15: - changed to single precision for smaller tresults file!
 %	FS 03/03/16: - removed loop over slices -> perform that in outer function
+
+if para.useTreeMPS
+	tresults = calTimeObservables_Tree(tmps,para,tresults);
+end
 
 % switches
 isNew    = 0;			% initialise variables?
@@ -408,6 +416,145 @@ function out = strContains(str, varargin)
 out = false;
 for ii = 1:length(varargin)
 	out = out || ~isempty(strfind(str,varargin{ii}));
+end
+
+end
+
+function tresults = calTimeObservables_Tree(treeMPS,para,tresults)
+%% function tresults = calTimeObservables_Tree(treeMPS,para,tresults)
+%
+%	calculates the Observables specified in para.tdvp.Observables for each time step
+%	Only able to handle single time step in treeMPS for now!
+%
+%	para.tdvp.Observables:
+%		.n.		bosonic occupation
+%		.x.		bosonic displacement
+%		.xd.	bosonic displacement, diabatic projection
+%		.xa.	bosonic displacement, adiabatic projection
+%		.sn.	bosonic star-displacement
+%		.sx.	bosonic star-displacement
+%		.sxd.	bosonic star-displacement, diabatic projection
+%		.sxa.	bosonic star-displacement, adiabatic projection
+%		.j.		bosonic current
+%		.dm.	reduced density matrix of site ? (diabatic)
+%		.dma.	reduced density matrix of site ? (adiabatic)
+%		.ac.	autocorrelation
+%		.ses.	system-environment state
+%		.ss.	system state
+%
+%
+%	Created by FS 26/02/2016
+
+%% Initialisation
+% switches
+isNew    = 0;					% if constructed new tresults
+skipObs  = 0;
+skipStar = 0;
+
+% Parameters
+O        = para.tdvp.Observables;		% Observables list
+NC       = para.nChains;
+NE       = para.nEnvironments;
+L        = para.L;						% total max height of tree + 1 (edges+1 = #sites)
+
+if isempty(tresults)
+	% intialise tresults.
+	tresults = struct;
+	isNew = 1;				% switch for initialisation of each field
+	missingN = 0;
+	tresults.lastIdx = 0;
+	tresults.star.lastIdx = 0;
+	fprintf('Calculate Observables:\n');
+end
+
+if isfield(para.tdvp,'extractObsInterval')
+	% only works with equidistant steps and single tmps slices
+	if mod(para.tdvp.tmax, para.tdvp.extractObsInterval) == 0 && (para.tdvp.extractObsInterval >= para.tdvp.deltaT)
+		totalN = round(para.tdvp.tmax/para.tdvp.extractObsInterval) +1;
+	else
+		error('VMPS:calTimeObservables:InvalidParameter','Need to define extractObsInterval so that mod(tmax,interval)=0!');
+	end
+	if mod(para.tdvp.t(1,para.timeslice+1),para.tdvp.extractObsInterval) ~= 0
+		skipObs = 1;
+	end
+else
+	totalN = size(para.tdvp.t,2);
+end
+
+if isfield(para.tdvp,'extractStarInterval')
+	% only works with equidistant steps and single tmps slices
+	if mod(para.tdvp.tmax, para.tdvp.extractStarInterval) == 0 && (para.tdvp.extractStarInterval >= para.tdvp.deltaT)
+		totalStarN = round(para.tdvp.tmax/para.tdvp.extractStarInterval) +1;
+	else
+		error('VMPS:calTimeObservables:InvalidParameter','Need to define extractStarInterval so that mod(tmax,interval)=0!');
+	end
+	if mod(para.tdvp.t(1,para.timeslice+1),para.tdvp.extractStarInterval) ~= 0
+		skipStar = 1;
+	end
+else
+	totalStarN = size(para.tdvp.t,2);
+end
+
+if isNew
+	tresults.t  = single(zeros(1,totalN));
+	tresults.star.t  = single(zeros(1,totalStarN));
+end
+
+i = tresults.lastIdx + 1;
+j = tresults.star.lastIdx + 1;
+
+%% System Observables
+
+
+%% Chain Observables
+
+% 1. Chain Occupation
+if strContains(O,'.n.') && ~skipObs
+	if isNew
+		tresults.n  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+	end
+	tresults.n(i,:,:) = single(getObservable({'occupation'},treeMPS,[],para));		% (L x nChain)
+end
+
+% 2. Chain Displacement
+if strContains(O,'.x.') && ~skipObs
+	if isNew
+		tresults.x  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+	end
+	tresults.x(i,:,:) = single(getObservable({'???'},treeMPS,[],para));				% (L x nChain)
+end
+
+% 2.1 Chain Displacement, diabatic
+if strContains(O,'.xd.') && ~skipObs
+	if isNew
+		tresults.xd  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+	end
+	tresults.xd(i,:,:) = single(getObservable({'bath1correlators'},treeMPS,[],para));				% (L x nStates x nChain)
+end
+
+% 2.2 Chain Displacement, adiabatic
+if strContains(O,'.xa.') && ~skipObs
+	if isNew
+		tresults.xa  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+	end
+	tresults.xa(i,:,:) = single(getObservable({'bath1correlators','adiabatic'},treeMPS,[],para));	% (L x nStates x nChain)
+end
+		
+%% Star Observables
+
+%% Special Observables
+
+%% TTM Extraction
+
+
+
+%% End
+if ~skipObs
+	tresults.lastIdx = tresults.lastIdx + 1;
+end
+
+if ~skipStar
+	tresults.star.lastIdx = tresults.star.lastIdx + 1;
 end
 
 end
