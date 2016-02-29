@@ -130,6 +130,10 @@ end
 
 para.D{pIdx{:}} = treeMPS.D;
 para.d_opt{pIdx{:}} = treeMPS.d_opt;
+if treeMPS.isRoot
+	fprintf('Norm before normalisation was: %g\n',treeMPS.BondCenter);
+	treeMPS.BondCenter = 1;				% set = 1 to achieve normalisation for getObservable
+end
 	
 
 	function prepareChain()

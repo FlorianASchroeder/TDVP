@@ -631,22 +631,43 @@ function n = calBosonOcc_Tree(treeMPS,para)
 % Created by FS 28/02/2016
 %
 
-L = para.L; NC = para.nChains;
+L = para.L; NC = para.nChains;				% total number of site and chains
 
-% create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
-McOp = cell(L, NC, NC);
-for mc = 1:NC
-	for j = 1:para.chain{mc}.L
-		if j ~= para.spinposition                     % works with array
-			[~,~,McOp{j,mc,mc}] = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
+% Implement recursively for now!
+if treeMPS.height == 0
+	% this is leaf / chain
+	% create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
+	Lc = treeMPS.L;							% length of chain
+	Op = cell(1,Lc);
+	for j = 1:Lc
+		if isempty(treeMPS.spinposition) || j ~= treeMPS.spinposition					% works with array
+			[~,~,Op{1,j}] = bosonop(treeMPS.dk(1,j),treeMPS.shift(1,j),para.parity);
 		else
-			McOp{j,mc,mc} = zeros(para.dk(1,j));      % don't measure spin.
+			Op{1,j} = zeros(treeMPS.dk(1,j));		% don't measure spin.
 		end
 	end
-end
 
-n = real(expectation_allsites_Tree(McOp,mps,Vtens,para));  % (NC x L)
-n = n.'; % L x NC
+	n = real(expectation_allsites(Op,treeMPS.mps,treeMPS.Vmat,treeMPS.BondCenter));		% (NC x L)
+	n = reshape(n,[],1);					% L x 1
+else
+	% this is node -> more recursive calls
+	% save n into temp cell array, since total number of chains at this node is unknown
+	nc    = treeMPS.degree;										% number of subchains at node
+	nTemp = cell(1,nc);
+	Atemp = contracttensors(treeMPS.BondCenter,2,2,treeMPS.mps{1},nc+2,1);
+	for ii = 1:nc
+		treeMPS.child(ii).BondCenter = contracttensors(conj(treeMPS.mps{1}),nc+2,[1:ii,ii+2:nc+2],Atemp,nc+2,[1:ii,ii+2:nc+2]);	% contract all except D_(ii+1)
+		nTemp{ii}                    = calBosonOcc_Tree(treeMPS.child(ii),para);		% L x nc(child)
+	end
+	lengths = cellfun(@(x) size(x,1),nTemp);
+	nChains = cellfun(@(x) size(x,2),nTemp);
+	n  = zeros(max(lengths)+1,sum(nChains));											% L x nc_max
+	mc = 0;
+	for ii = 1:nc
+		n(1+(1:lengths(ii)),mc+(1:nChains(ii))) = nTemp{ii};							% copy all together
+		mc = mc + nChains(ii);
+	end
+end
 
 end
 

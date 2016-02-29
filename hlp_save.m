@@ -1,14 +1,16 @@
-function hlp_save(fname,para,op,results,tresults,mps,Vmat)
+function hlp_save(fname,para,op,results,tresults,mps,Vmat,treeMPS)
 % saves above variables serialized into a file.
 
 para     = hlp_serialize(para);
 save(fname,'para','-v7.3');
 fprintf('.');
 
-op       = hlp_serialize(op);
-save(fname,'op','-append');
-clear('op');
-fprintf('.');
+if ~isempty(op)
+	op       = hlp_serialize(op);
+	save(fname,'op','-append');
+	clear('op');
+	fprintf('.');
+end
 
 results  = hlp_serialize(results);
 save(fname,'results','-append');
@@ -20,13 +22,24 @@ save(fname,'tresults','-append');
 clear('tresults');
 fprintf('.');
 
-mps      = hlp_serialize(mps);
-save(fname,'mps','-append');
-clear('mps');
-fprintf('.');
+if ~isempty(mps)
+	mps      = hlp_serialize(mps);
+	save(fname,'mps','-append');
+	clear('mps');
+	fprintf('.');
+end
 
-Vmat     = hlp_serialize(Vmat);
-save(fname,'Vmat','-append');
-clear('Vmat');
-fprintf('.\n');
+if ~isempty(Vmat)
+	Vmat     = hlp_serialize(Vmat);
+	save(fname,'Vmat','-append');
+	clear('Vmat');
+	fprintf('.\n');
+end
+
+if ~isempty(treeMPS)
+	treeMPS  = hlp_serialize(treeMPS);
+	save(fname,'treeMPS','-append');
+	clear('treeMPS');
+	fprintf('.');
+end
 end

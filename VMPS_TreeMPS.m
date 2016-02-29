@@ -32,13 +32,14 @@ p.addParameter('L'				,10	,@isnumeric);
 p.addParameter('alpha'			,0	,@isnumeric);
 p.addParameter('delta'			,0	,@isnumeric);
 p.addParameter('epsilon'		,0	,@isnumeric);
-p.addParameter('dk'				,20	,@isnumeric);
-p.addParameter('D'				,5	,@isnumeric);
-p.addParameter('d_opt'			,5	,@isnumeric);
+p.addParameter('dk_start'		,20	,@isnumeric);
+p.addParameter('D_start'		,5	,@isnumeric);
+p.addParameter('d_opt_start'	,5	,@isnumeric);
+p.addParameter('M'				,2	,@isnumeric);
 p.addParameter('CTshift'		,0	,@isnumeric);
 p.addParameter('useDkExpand'	,1	,@isnumeric);
 p.addParameter('dkmax'			,1e3,@isnumeric);
-p.addParameter('Dmin'			,2	,@isnumeric);
+p.addParameter('Dmin'			,4	,@isnumeric);
 p.addParameter('svmaxtol'	,1e-4	,@isnumeric);
 p.addParameter('svmintol'	,10^-4.5,@isnumeric);
 p.addParameter('logging'		,0	,@isnumeric);
@@ -58,6 +59,8 @@ p.addParameter('useTreeMPS'		,1	,@isnumeric);
 p.addParameter('useStarMPS'		,0	,@isnumeric);
 p.addParameter('useVmat'		,1	,@isnumeric);
 p.addParameter('useVtens'		,0	,@isnumeric);
+p.addParameter('initChainState'	,'vac',@(x) any(validatestring(x,...
+								{'rand','vac'})));		% possible initial chain states
 
 % para.tdvp input parser
 % pt.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
@@ -71,6 +74,8 @@ pt.addParameter('saveInterval'		,10	,@isnumeric);
 pt.addParameter('serialize'			,1	,@isnumeric);
 pt.addParameter('logSV'				,0	,@isnumeric);
 pt.addParameter('Observables'		,'' ,@isstr);
+pt.addParameter('extractObsInterval',1	,@isnumeric);
+pt.addParameter('extractStarInterval',1	,@isnumeric);
 pt.addParameter('storeMPS'			,0	,@isnumeric);
 pt.addParameter('evolveSysTrotter'	,1	,@isnumeric);
 pt.addParameter('HEffSplitIsometry'	,1	,@isnumeric);
@@ -126,17 +131,20 @@ if strfind(para.model,'SpinBoson')
 		para.chain{mc}.discretization	= 'None';
 		% para.chain{1}.discrMethod		= 'Numeric';
 
-		para.chain{mc}.s				= para.s(mc);			% SBM spectral function power law behaviour
-		para.chain{mc}.alpha			= para.alpha(mc);		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
-		para.chain{mc}.L				= para.L(mc);
+		para.chain{mc}.s				= para.s(min(mc,length(para.s)));			% SBM spectral function power law behaviour
+		para.chain{mc}.alpha			= para.alpha(min(mc,length(para.alpha)));		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+		para.chain{mc}.L				= para.L(min(mc,length(para.L)));
 		para.chain{mc}.w_cutoff         = 1;
+		para.chain{mc}.initState		= para.initChainState;						% choose: 'rand', 'vac', 
 	end
 	
 %% Setting TreeMPS for SBM
 	para.treeMPS.height    = 1;										% star structure, since only tree node + leaves
+	para.treeMPS.nNodes    = 1;
 	para.treeMPS.maxDegree = para.nChains;
 	para.treeMPS.leafIdx   = num2cell((1:para.nChains)'+1);			% maps from chain number to leaf index in para
 	para.treeMPS.nodeIdx   = {0+1};									% maps from node number to nodeIdx
+	
 %% Set-up parameters for specific ground state preparation!
 %     para.SpinBoson.GroundStateMode = 'artificial';				% input arg
         % choose: 'decoupled', 'coupled', 'artificial', 'artTTM'
@@ -167,8 +175,6 @@ if strfind(para.model,'SpinBoson')
 		assert(length(para.spinposition) == 1, 'Only one spin is allowed in SBM');
 	end
 end
-
-
 
 %% Defaults to para
 para.loopmax		= 50;						% (minimizeE)
@@ -204,20 +210,264 @@ para.FloShift3loops = 5;                                % FloShift3 needs loggin
 para.useChengShift=0;                                   % shifts sites < trustsite
 para.useEveryShift=0;                                   % shift in every loop
 
-para.shift=zeros(para.nChains,para.L);					% separate shift for each chain!
+% para.shift = zeros(para.nChains,para.L);					% separate shift for each chain!
+para.shift = {};								% separate shift for each chain!
 para.relativeshift=zeros(para.nChains,para.L);
 para.relativeshiftprecision=0.01;				% When the relative shift is below this value then stop shifting
 % para = maxshift(para);						% TODO!
 
-%% Defaults to para.tdvp
-para.tdvp.expvCustomTestAccuracy = 0;		% do expvCustom alongside expv for testing.
-para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
-para.tdvp.expvTol = 1e-15;					% error tolerance of expv(); default: 1e-7
-para.tdvp.expvM   = 50;						% dim of Krylov subspace in expv(); default: 30
-para.tdvp.version = 'v73';
-
+if isstruct(para.tdvp)
+	%% Defaults to para for tdvp
+	para.trustsite = para.L+1;	% add system manually here
+	
+	%% Defaults to para.tdvp
+	para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
+	para.tdvp.expvCustomTestAccuracy = 0;		% do expvCustom alongside expv for testing.
+	para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
+	para.tdvp.expvTol = 1e-15;					% error tolerance of expv(); default: 1e-7
+	para.tdvp.expvM   = 50;						% dim of Krylov subspace in expv(); default: 30
+	para.tdvp.version = 'v73';
+	para.tdvp.filename = 'test.mat';
+	para.tdvp.filenameSmall = 'test-small.mat';
+end		
+for k = 1:para.nChains
+	if ~strcmp(para.chain{k}.mapping,'')
+		[para.chain{k}]=SBM_genpara(para.chain{k});               % only need alpha, s, Lambda. Returns epsilon and t of Wilson chain. Auto choose L if L == 0
+	end
 end
 
-function prepareArtState()
+[treeMPS, para] = initState(para);
+results = initresults(para);
+%% Do one prepare sweep to bring MPS onto right-canonical form
+[treeMPS,~,para] = prepare(treeMPS,[],para);
+		
+%% Calculate effective Hamiltonians
+treeMPS = initstorage(treeMPS,[],[],para);		% new call pattern for treeMPS
+		
+tdvp_1site_tree(treeMPS,para,results,[]);
+end
 
+function [treeMPS, para] = initState(para)
+%% function treeMPS = initState(treeMPS)
+%
+%	initialisation of the treeMPS.
+%
+%	Created by FS 29/02/2016
+temp = allocateTreeStruct();
+chains = repmat(temp,para.nChains,1);			% will contain all chains
+nodes = repmat(temp,para.treeMPS.nNodes,1);		% will contain all nodes
+
+dk    = para.dk_start;
+d_opt = para.d_opt_start;
+D     = para.D_start;
+%%
+for mc = 1:para.nChains
+	%% initialise each chain
+	L = para.chain{mc}.L;
+	
+	chains(mc).mps      = cell(1,L);
+	chains(mc).Vmat     = cell(1,L);
+	chains(mc).L        = L;
+	chains(mc).treeIdx  = [para.treeMPS.leafIdx{mc,:}]-1;
+	chains(mc).chainIdx = mc;
+	chains(mc).level    = nnz(chains(mc).treeIdx)+1;
+	chains(mc).D        = [ones(1,L)*D,1];
+	chains(mc).d_opt    = ones(1,L)*d_opt;
+	chains(mc).dk       = ones(1,L)*dk;
+	chains(mc).shift    = zeros(1,L);
+	
+	%% Fill the MPS of each chain
+	% default: vacuum in the chains
+	for ii = 1:L
+		switch para.chain{mc}.initState
+			case 'rand'
+				chains(mc).mps{ii}        = randn([chains(mc).D(ii:ii+1),d_opt]);			% end-of-chain -> Dr = 1
+			case 'vac'
+				chains(mc).mps{ii}        = zeros([chains(mc).D(ii:ii+1),d_opt]);			% end-of-chain -> Dr = 1
+				chains(mc).mps{ii}(1,1,1) = 1;
+		end
+		chains(mc).Vmat{ii} = sparse(1:d_opt,1:d_opt,1,dk,d_opt);
+	end
+	
+	%% Set in para
+	pIdx = para.treeMPS.leafIdx(mc,:);
+	para.dk{pIdx{:}}        = chains(mc).dk;
+	para.D{pIdx{:}}         = chains(mc).D;
+	para.d_opt{pIdx{:}}     = chains(mc).d_opt;
+	para.shift{pIdx{:}}     = chains(mc).shift;
+	para.treeMPS.L(pIdx{:}) = chains(mc).L;
+	
+	para.treeMPS.chainIdx{para.treeMPS.leafIdx{mc,:}} = mc;
+	%% generate Hamiltonian terms:
+	chains(mc).op.h1term = cell(1,L);
+	chains(mc).op.h2term = cell(para.M,2,L);
+	for ii = 1:L
+		temp = genh1h2term_onesite(para,chains(mc).treeIdx,ii);
+		chains(mc).op.h1term(ii)     = temp.h1term;
+		chains(mc).op.h2term(:,:,ii) = temp.h2term;
+	end
+
+end
+leafIndices = cell2mat(para.treeMPS.leafIdx)-1;						% nLeaves x nLevels
+nodeIndices = cell2mat(para.treeMPS.nodeIdx)-1;						% nNodes x nLevels
+
+para.L = max([chains.level]+[chains.L]-1);
+%%
+for mc = para.treeMPS.nNodes:-1:1
+	L = 1;								% for now: only single nodes
+	pIdx = para.treeMPS.nodeIdx(mc,:);
+	nodes(mc).mps      = cell(1,L);
+	nodes(mc).Vmat     = cell(1,L);
+	nodes(mc).L        = L;
+	nodes(mc).treeIdx  = [para.treeMPS.nodeIdx{mc,:}]-1;
+	nodes(mc).chainIdx = mc;
+	nodes(mc).level    = nnz(nodes(mc).treeIdx)+1;
+% 	nodes(mc).D        = [ones(1,L)*D,1];					% assign after children
+% 	nodes(mc).d_opt    = ones(1,L)*d_opt;					% assign after genh1h2term_onesite, derive from H
+% 	nodes(mc).dk       = ones(1,L)*dk;
+	nodes(mc).shift    = zeros(1,L);
+	if nodes(mc).level == 1
+		nodes(mc).isRoot = 1;
+	end
+	nodes(mc).useStarMPS = 0;
+	nodes(mc).useTreeMPS = 1;
+	nodes(mc).spinposition = 1;
+	
+	
+	%% Attach children
+	currentChild = 0;
+	hasChild = 1;
+	while hasChild
+		currentChild = currentChild + 1;								% each node has at least 1 child
+		% construct index of child to look for
+		idx                  = nodes(mc).treeIdx;
+		idx(nodes(mc).level) = currentChild;			% look for [ 4 3 3 i 0 0 0] if at current node is at level 4 of 8
+		leafPos              = find(all(bsxfun(@eq,leafIndices,idx),2));
+		nodePos              = find(all(bsxfun(@eq,nodeIndices,idx),2));
+		if ~isempty(leafPos) && leafPos
+			if isempty(nodes(mc).child)
+				nodes(mc).child                 = chains(leafPos);
+			else
+				nodes(mc).child(currentChild,1) = chains(leafPos);
+			end
+		elseif ~isempty(nodePos) && nodePos
+			if isempty(nodes(mc).child)
+				nodes(mc).child                 = nodes(nodePos);
+			else
+				nodes(mc).child(currentChild,1) = nodes(nodePos);
+			end
+		else
+			hasChild = 0;
+		end
+	end
+	
+	%% Set parameters
+	nodes(mc).op       = genh1h2term_onesite(para,nodes(mc).treeIdx,1);
+	nodes(mc).degree   = currentChild-1;
+	nodes(mc).nChains  = nodes(mc).degree;
+	nodes(mc).height   = max([nodes(mc).child.height])+1;
+	nodes(mc).chainIdx = min([nodes(mc).child.chainIdx]);
+	nodes(mc).L        = getTreeLength(nodes(mc));
+	nodes(mc).D        = ones(nodes(mc).degree+1,1)*D;
+	if nodes(mc).isRoot
+		nodes(mc).D(1) = 1;
+	end
+	nodes(mc).dk    = size(nodes(mc).op.h1term{1},1);
+	nodes(mc).d_opt = nodes(mc).dk;										% assume non-boson
+	
+	para.treeMPS.L(pIdx{:}) = 1;
+	para.shift{pIdx{:}}     = 0;
+	%% Fill the MPS
+	dk    = nodes(mc).dk;
+	d_opt = nodes(mc).d_opt;
+	nodes(mc).mps{1}        = zeros([nodes(mc).D',d_opt]);
+	nodes(mc).mps{1}(1,1,1) = 1;
+	nodes(mc).Vmat{1}       = sparse(1:d_opt,1:d_opt,1,dk,d_opt);
+	
+end
+
+treeMPS = nodes(1);
+
+	function treeMPS = allocateTreeStruct()
+	%% function treeMPS = allocateTreeStruct()
+	%
+	%	initialises an empty struct template and defines all used fields
+	%	Already fill in defaults for leaves
+		treeMPS = struct;
+		treeMPS.mps = {};
+		treeMPS.Vmat = {};
+		treeMPS.treeIdx = [];
+		treeMPS.chainIdx = 0;
+		treeMPS.height = 0;									% this struct is a leaf
+		treeMPS.degree = 0;									% leaf
+		treeMPS.level = 1;									% = site number of first chain site if counted from the root node
+		treeMPS.child = [];									% contains all children nodes
+		treeMPS.currentChild = [];							% leaf: [], node: currentChain;
+		treeMPS.currentChain = [];							% leaf: [], node: currentChain;
+		treeMPS.L = [];										% StarMPS can have array L
+		treeMPS.D = 0;										% first is Dl of chain, last is Dr of chain, here horizontal!
+		treeMPS.d_opt = 0;
+		treeMPS.dk = 0;
+		treeMPS.M = para.M;
+		treeMPS.shift = 0;
+		treeMPS.useVmat = para.useVmat;
+		treeMPS.useVtens = 0;
+		treeMPS.useStarMPS = 0;
+		treeMPS.useTreeMPS = 0;
+		treeMPS.nChains = 1;
+		treeMPS.sweepto = 'l';					% 'l' for initial preparation
+		treeMPS.spinposition = [];				% pure Boson Chain
+		treeMPS.sitej = 1;						% currently focused site
+		treeMPS.isRoot = 0;
+		treeMPS.BondCenter = [];
+		treeMPS.tdvp = [];
+		treeMPS.op.h1term = {};
+		treeMPS.op.h2term = {};
+	end
+
+	function L = getTreeLength(treeMPS)
+	%% function L = getTreeLength(treeMPS)
+	%	extracts the length of the treeMPS, based on the length of its children
+	%
+		if isfield(treeMPS,'L') && ~isempty(treeMPS.L)
+			L = treeMPS.L;
+			return
+		elseif treeMPS.height == 0
+			if isfield(treeMPS,'mps')
+				L = length(treeMPS.mps);
+			else
+				L = 0;					% is leaf without MPS
+			end
+			return
+		end
+
+		% first determine size(L)
+		h = treeMPS.height;			% ndims of L > 0
+		d = zeros(1,h);				% this will be size(L)
+		d(1) = treeMPS.degree+1;
+
+		if h == 1					% this is StarMPS with leaves only
+			Lchild = arrayfun(@getTreeLength, treeMPS.child);
+			L = [1;reshape(Lchild,d(1)-1,1)];
+			return
+		end
+		% else height >= 2
+
+		if h == 2
+			d(3) = 1;				% need singleton to allow comparisons later
+		end
+		Lchild = arrayfun(@getTreeLength, treeMPS.child,'UniformOutput',false);
+		% find out maximum dimensions per level to zero-pad Lchild
+		Idx = find([treeMPS.child.height] == h-1);		% only pick the ones with maximum height
+		for jj = Idx
+			d(2:end) = max(d(2:end),size(Lchild{jj}));
+		end
+		% now d contains the maximum dimensions of L -> initialise
+		L = zeros(d);
+		L(1) = 1;					% length of nodes = 1 always for now!
+		for jj = 1:treeMPS.degree
+			Idx = arrayfun(@(x) 1:x,size(Lchild{jj}),'UniformOutput',false);		% create cell array containing index ranges of Lchild{ii}
+			L(jj+1,Idx{:}) = Lchild{jj};
+		end
+	end
 end

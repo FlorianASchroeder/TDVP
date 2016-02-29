@@ -36,7 +36,7 @@ if strcmp(chainpara.mapping,'OrthogonalPolynomials')
 	assert(isfield(chainpara,'L') && chainpara.L>1,'Please state required finite chain length!');
     assert(isfield(chainpara,'alpha'),'Please state para.alpha, the strength of coupling!');
 
-	[chainpara.epsilon, chainpara.t] = chainParams_OrthogonalPolynomials();
+	[chainpara.epsilon, chainpara.t] = chainParams_OrthogonalPolynomials();			% returns length L parameters to allow pure boson chains
 	return;
 end
 
@@ -182,7 +182,7 @@ end
         % No need for tridiagonalization since analytical result.
         % t(1) == sqrt(eta_0/pi)/2
 % 		wc = 1;     % cutoff is set to 1 always!
-        n = (0:chainpara.L-2)';
+        n = (0:chainpara.L-1)';
 		if ~isempty(strfind(chainpara.spectralDensity,'Leggett')) && strcmp(chainpara.discretization, 'None')
 			if ~isempty(strfind(chainpara.spectralDensity,'Hard'))
 				w = w_cutoff/2.*(1+ (s^2./((s+2.*n).*(2+s+2.*n))));                                     % w(1) = w(n=0)

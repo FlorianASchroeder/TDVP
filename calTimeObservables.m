@@ -454,7 +454,7 @@ skipStar = 0;
 % Parameters
 O        = para.tdvp.Observables;		% Observables list
 NC       = para.nChains;
-NE       = para.nEnvironments;
+% NE       = para.nEnvironments;
 L        = para.L;						% total max height of tree + 1 (edges+1 = #sites)
 
 if isempty(tresults)
@@ -465,6 +465,8 @@ if isempty(tresults)
 	tresults.lastIdx = 0;
 	tresults.star.lastIdx = 0;
 	fprintf('Calculate Observables:\n');
+elseif iscell(tresults)
+	tresults = tresults{1};
 end
 
 if isfield(para.tdvp,'extractObsInterval')
@@ -511,7 +513,8 @@ j = tresults.star.lastIdx + 1;
 % 1. Chain Occupation
 if strContains(O,'.n.') && ~skipObs
 	if isNew
-		tresults.n  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+% 		tresults.n  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+		tresults.n  = zeros(totalN,L,NC,'single');							% t x L x NC
 	end
 	tresults.n(i,:,:) = single(getObservable({'occupation'},treeMPS,[],para));		% (L x nChain)
 end

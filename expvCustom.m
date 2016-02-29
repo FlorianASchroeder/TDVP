@@ -413,7 +413,7 @@ hump = hump / normv;
 		%% w = TREEmultA(A)
 		% called by 'TREE-Hn1'
 		% para == treeMPS
-		d = [1,para.D(:,1).',para.dk(1,1)];					% dim(A)
+		d = [para.D(:,1).',para.dk(1,1)];					% dim(A)
 		NC = para.nChains;
 		
 		A = reshape(A,d);

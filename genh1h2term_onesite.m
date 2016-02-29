@@ -811,14 +811,22 @@ switch para.model
 			mc  = treeIdx;					% number of edge == chain number
 			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
 			switch s
-				case para.L(mc)											% last chain pos: only coupling to left
-					[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+				case para.chain{mc}.L											% last chain pos: only coupling to left
+					if iscell(para.dk) && iscell(para.shift)
+						[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+					else
+						[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+					end
 					zm				  = sparse(size(bp,1),size(bp,1));
 					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
 					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
 					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
 				otherwise
-					[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+					if iscell(para.dk) && iscell(para.shift)
+						[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+					else
+						[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+					end
 					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
 					op.h2term{1,1}    = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;
 					op.h2term{2,1}    = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;

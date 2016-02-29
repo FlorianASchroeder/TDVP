@@ -19,6 +19,7 @@ function tdvp_1site_tree(treeMPS,para,results,tresults)
 %	Modified 22/02/2016
 %		- Restructured Variables to support TreeMPS
 %
+para.tdvp.starttime = tic;
 
 if nargin == 0
 	createTestRun();
@@ -93,7 +94,7 @@ if resumeTDVP == 0
 % 		outFile.tVmat(1,:) = Vmat;
 	end
 	% calc tresults now to initialize tresults
-% 	tresults = calTimeObservables(treeMPS,para);				% TODO: this needs overloading..
+	tresults = calTimeObservables(treeMPS,[],para);				% TODO: this needs overloading..
 	if para.logging
 % 		results = initresultsTDVP(para, results);				% TODO: this needs Work
 	end
@@ -150,7 +151,7 @@ end
 fprintf('Saving.');
 save(para.tdvp.filenameSmall,'para','tresults','-v7.3');
 if para.tdvp.serialize
-	hlp_save(para.tdvp.filename,para,results,tresults,treeMPS)
+	hlp_save(para.tdvp.filename,para,[],results,tresults,[],[],treeMPS);
 else
 	save(para.tdvp.filename,'para','results','tresults','treeMPS','-v7.3');
 	fprintf('.\n');
@@ -239,7 +240,7 @@ for timeslice = para.tdvp.slices
 		end
 	elseif isfield(tresults,'lastIdx') % && tresults.lastIdx == timeslice not applicable anymore for extractObsInterval
 		% only calculate the current slice
-% 		tresults = calTimeObservables(mps,Vmat,para,tresults);
+		tresults = calTimeObservables(treeMPS,[],para,tresults);
 	end
 
 
@@ -251,7 +252,7 @@ for timeslice = para.tdvp.slices
 		copyfile(para.tdvp.filename,[para.tdvp.filename(1:end-4),'.bak']);			% in case saving gets interrupted
 		save(para.tdvp.filenameSmall,'para','tresults','-v7.3');
 		if para.tdvp.serialize
-			hlp_save(para.tdvp.filename,para,op,results,tresults,mps,Vmat)
+			hlp_save(para.tdvp.filename,para,[],results,tresults,[],[],treeMPS);
 		else
 			save(para.tdvp.filename,'para','results','tresults','treeMPS','-v7.3');
 			fprintf('.\n');
@@ -281,7 +282,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.trustsite = para.L;
 		para.model = 'testTree';
 		para.nChains = 4;						% = external nodes = leaves
-		para.nNodes = 2;						% = internal nodes = nodes
+% 		para.nEnvironments = para.nChains;		% perhaps needed for calTimeObservables
 		para.alpha = 0.1;
 		para.hx = 0.1;
 		para.hz = 0;
@@ -290,8 +291,10 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.parity = 'n';
 		para.svmaxtol = 10^-4;					% keep 1 below this!
 		para.svmintol = 10^-4.5;				% throw away all below
+		para.timeslice = 0;
 
 % 		para.rescaling = 0;
+		para.treeMPS.nNodes = 2;								% = internal nodes = nodes
 		para.treeMPS.height = 2;								% maximum height of tree
 		para.treeMPS.maxDegree = [3,2]; % size(treeMPS.L);		% for each level
 		para.treeMPS.leafIdx = num2cell(ones(para.nChains,para.treeMPS.height));				% indices of leaves in para; take -1 to get treeIdx
@@ -299,7 +302,7 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.treeMPS.leafIdx{2,1} = 2+1;
 		para.treeMPS.leafIdx(3,1:2) = num2cell([3,1]+1);
 		para.treeMPS.leafIdx(4,1:2) = num2cell([3,2]+1);
-		para.treeMPS.nodeIdx = num2cell(ones(para.nNodes,para.treeMPS.height));					% maps node number -> nodeIdx
+		para.treeMPS.nodeIdx = num2cell(ones(para.treeMPS.nNodes,para.treeMPS.height));			% maps node number -> nodeIdx
 		para.treeMPS.nodeIdx{1,1} = 0+1;
 		para.treeMPS.nodeIdx{2,1} = 3+1;
 		para.treeMPS.chainIdx = {};																% maps from leafIdx -> chain number
@@ -421,9 +424,9 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		treeMPS.currentChild = 1;
 		treeMPS.height = max([treeMPS.child.height])+1;
 		treeMPS.degree = 3;
-		treeMPS.nChains = 3;						% equals degree for nodes
+		treeMPS.nChains = 3;							% equals degree for nodes
 		treeMPS.L = [];
-		treeMPS.L = getTreeLength(treeMPS);				% TreeMPS needs cell L for now..
+		treeMPS.L = getTreeLength(treeMPS);				% L as array
 		treeMPS.d_opt = d_opt;
 		treeMPS.dk = dk;
 		treeMPS.D = [1;ones(3,1)*D];					% [Dl;Dc1;Dc2;Dc3]  here vertical! Leading singleton -> root of tree!
@@ -438,10 +441,11 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 		para.tdvp.filenameSmall = 'test-small.mat';
 		para.tdvp.StoreMPS = 0;
 		para.tdvp.resume = 0;
-		para.tdvp.tmax = 10;
+		para.tdvp.tmax = 100;
 		para.tdvp.deltaT = 1;
 		para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 		para.tdvp.extractObsInterval = para.tdvp.deltaT;
+		para.tdvp.Observables = '.n.';
 		para.tdvp.serialize = 0;
 		para.tdvp.HEffSplitIsometry = 0;
 		para.tdvp.imagT = 0;
@@ -571,7 +575,13 @@ function [Atens, CA] = prepare_Tens(Atens, para)
 
 	[AS]     = tensShape(Atens, 'unfold', mc+1, d);		% D(mc) x rest
 
-	[AS, CA] = prepare_onesiteVmat(AS.', para);			% need for transpose since m x n, m > n input needed
+	if diff(size(AS)) >= 0
+		[AS, CA] = prepare_onesiteVmat(AS.', para);			% need for transpose since m x n, m > n input needed
+	else
+		[CA, AS] = prepare_onesiteVmat(AS, para);
+		CA = CA.';
+		AS = AS.';
+	end
 
 	Atens	 = tensShape(AS.', 'fold', mc+1, d);
 
@@ -667,7 +677,7 @@ end
 	% A (t+dt) = exp(-i ?? dt) * A(t)
 	treeMPS.tdvp.expvTol = para.tdvp.expvTol;		% replace para by treeMPS in expvCustom call for access to children operators
 	treeMPS.tdvp.expvM   = para.tdvp.expvM;
-	if para.tdvp.evolveSysTrotter == 0
+	if para.tdvp.evolveSysTrotter == 0 
 		% old scheme, evolves system in one single step interacting with all chains at once
 		[treeMPS.mps{1}, ~] = expvCustom(- 1i*t,'TREE-Hn1',...
 								reshape(treeMPS.mps{1},[numel(treeMPS.mps{1}),1]), treeMPS, treeMPS.op);
@@ -690,11 +700,14 @@ end
 			end
 
 			[Iso, A] = qr(Atens,0);			% Iso is isometry with all unused chains
-
+			
 			% TODO: comment if not testing!!
 	% 		[Iso2,A2]= rrQR(Atens, floor(0.6*prod(dOut(end-1:end))),0);		% low rank QR approximation
 	% 		fprintf('evolve: rank(A) = %d, dim(A,2) = %d, rrQR error = %g\n', rank(Atens), prod(dOut(end-1:end)),norm(Atens - Iso2*A2));
 			
+			if size(A,2) ~= size(A,1)
+				warning('VMPS:tdvp_1site_tree:tdvp_1site_evolveNode:BadDimensions','Matrix has wrong shape for trotter splitting. If error occurs please use para.tdvp.evolveSysTrotter = 1.');
+			end
 			% evolve simplified mps matrix
 			[A, err] = expvCustom(- 1i*t,'TREE-Hn1Trotter',...
 				reshape(A,[numel(A),1]), treeMPS, treeMPS.op);
