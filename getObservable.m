@@ -83,7 +83,11 @@ switch type{1}
     case 'rdm'
         % applicable to all systems.
 		if type{2} <= para.L
-            out = calRDM(mps,Vmat,para,type{2});
+			if para.useTreeMPS
+				out = calRDM(mps.mps,mps.Vmat,para,1);	% only for site 1 for now.
+			else
+	            out = calRDM(mps,Vmat,para,type{2});
+			end
 		else
             out = [];
 		end
@@ -512,6 +516,11 @@ if para.useVtens || para.useStarMPS               % only Quick Fix for Vtens cod
 	spin.sz = spinVal(3);
 	return;
 end
+if para.useTreeMPS
+	McOp = cell(1,1,3);        % L x NC x N
+	[McOp{1}, McOp{2}, McOp{3}] = spinop(para.spinbase);
+	error('VMPS:getObservable:NotImplementedYet','Please implement this feature!')
+end
 N=para.L;
 assert(N==length(mps) && N==length(Vmat));
 assert(~strcmp(para.model,'MLSpinBoson'),'not possible for MLSBM');
@@ -631,7 +640,7 @@ function n = calBosonOcc_Tree(treeMPS,para)
 % Created by FS 28/02/2016
 %
 
-L = para.L; NC = para.nChains;				% total number of site and chains
+% L = para.L; NC = para.nChains;				% total number of site and chains
 
 % Implement recursively for now!
 if treeMPS.height == 0

@@ -18,7 +18,8 @@ classdef TDVPData
 		% for SBM:
 		alpha;		% if Spin-Boson
 		s;			% if Spin-Boson
-		lastIdx     % last Observable Idx
+		lastIdx;    % last Observable Idx
+		spin;		% Spin Observable
 		occC;		% chain occupation
 		occCd;		% chain occupation, diabatic projection
 		occCa;		% chain occupation, adiabatic projection
@@ -83,6 +84,13 @@ classdef TDVPData
 				obj.tresults = temp.tresults;
 			end
 			obj.version = str2double(obj.para.tdvp.version(2:end));
+			
+			if isfield(obj.tresults,'spin')
+				obj.spin = zeros(obj.lastIdx,3,'single');				% t x 3
+				obj.spin(:,1) = obj.tresults.spin.sx(1:obj.lastIdx);
+				obj.spin(:,2) = obj.tresults.spin.sy(1:obj.lastIdx);
+				obj.spin(:,3) = obj.tresults.spin.sz(1:obj.lastIdx);
+			end
 			
 			if obj.version >= 50 && isfield(obj.tresults,'n')
 				obj.occC = obj.tresults.n;
@@ -351,6 +359,8 @@ classdef TDVPData
                 case 'sys-env-n'
 					out = obj.getSysEnvObs('n');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
                     full = 1;
+				case 'spin'
+					
 			end
 			
 			if ~full
@@ -435,6 +445,17 @@ classdef TDVPData
 				case 'sz'
 					pl = plot(obj.t(1:obj.lastIdx)*ts, obj.tresults.spin.sz(1:obj.lastIdx));
 					h.ylbl = '$\left<\sigma_z\right>$';
+				case 'spin'
+					if isempty(obj.spin)
+						disp('please calculate spin first');
+						return;
+					else
+						pl = plot(obj.t(1:obj.lastIdx)*ts, obj.spin);
+						pl(1).DisplayName = '$\left<\sigma_x\right>$';
+						pl(2).DisplayName = '$\left<\sigma_y\right>$';
+						pl(3).DisplayName = '$\left<\sigma_z\right>$';
+					end
+					h.ylbl = '$\left<\sigma\right>$';
 				case 'calctime'
 					pl = plot(obj.t(2:obj.lastIdx)*ts,obj.para.tdvp.calcTime(1:obj.lastIdx-1),'Displayname',obj.LegLabel);
 					h.ylbl = 'CPU time/h';
@@ -1316,7 +1337,7 @@ classdef TDVPData
 				h.sv = zeros(h.d(1),h.Nstates-1);
 				h.tlbl = 'Adiabatic Spin evolution';
 			else
-				h.NStates = 1;
+				h.Nstates = 1;
 				h.rho = reshape(obj.rho,h.d(1),[]);
 				h.sv = [];			% not used since no sv existing
 				h.tlbl = 'Spin Evolution';
@@ -1536,7 +1557,38 @@ classdef TDVPData
 					(1:obj.lastIdx)','UniformOutput',false);
 				
 			end
-        end
+		end
+		
+		function obj = getSpin(obj)
+			h = struct();
+			% Observables to compute
+			[sigmaX,sigmaY,sigmaZ] = spinop('Z');
+			h.sigmaX = reshape(sigmaX.',[],1);
+			h.sigmaY = reshape(sigmaY.',[],1);
+			h.sigmaZ = reshape(sigmaZ.',[],1);
+			
+			% reshape rho into convenient shape
+			h.d = size(obj.rho);		% t x i x j x k (states)
+			if length(h.d) == 4
+				h.Nstates = h.d(4);
+				h.rho = reshape(obj.rho,h.d(1),[],h.d(4));
+				h.sv = zeros(h.d(1),h.Nstates-1);
+				h.tlbl = 'Adiabatic Spin evolution';
+			else
+				h.Nstates = 1;
+				h.rho = reshape(obj.rho,h.d(1),[]);
+				h.sv = [];			% not used since no sv existing
+				h.tlbl = 'Spin Evolution';
+			end
+			
+			obj.spin = zeros(obj.lastIdx,3,h.Nstates,'single');
+			for ii = 1:h.Nstates
+				% compute <sigma> of all rho
+				obj.spin(:,1,ii) = real(squeeze(h.rho(:,:,ii))*h.sigmaX);
+				obj.spin(:,2,ii) = real(squeeze(h.rho(:,:,ii))*h.sigmaY);
+				obj.spin(:,3,ii) = real(squeeze(h.rho(:,:,ii))*h.sigmaZ);
+			end
+		end
 	end
 	
 	% Static methods are functions that do not require 'obj' but are

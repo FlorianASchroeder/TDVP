@@ -500,6 +500,7 @@ end
 if isNew
 	tresults.t  = single(zeros(1,totalN));
 	tresults.star.t  = single(zeros(1,totalStarN));
+	tresults.star.omega = [];
 end
 
 i = tresults.lastIdx + 1;
@@ -547,16 +548,31 @@ end
 
 %% Special Observables
 
+% 1. Density matrix
+if strContains(O,'.dm.','.dm2.') && ~skipObs
+	if isNew
+		tresults.rho = zeros(totalN,treeMPS.dk(1,1),treeMPS.dk(1,1),'single');
+	end
+	tresults.rho(i,:,:,1) = single(getObservable({'rdm',1},treeMPS,[],para));
+	if strContains(para.tdvp.Observables,'.dm2.')
+		% only for 2-lvl system for now; only calculates largest bond state.
+		tresults.rho(i,:,:,2) = single(getObservable({'rdm_adiabatic',1,1},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
+		tresults.rho(i,:,:,3) = single(getObservable({'rdm_adiabatic',1,2},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
+	end
+end
+
 %% TTM Extraction
 
 
 
 %% End
 if ~skipObs
+	tresults.t(i) = single(para.tdvp.t(1,para.timeslice+1));
 	tresults.lastIdx = tresults.lastIdx + 1;
 end
 
 if ~skipStar
+	tresults.t(j) = single(para.tdvp.t(1,para.timeslice+1));
 	tresults.star.lastIdx = tresults.star.lastIdx + 1;
 end
 

@@ -30,8 +30,8 @@ p.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
 p.addParameter('s'				,0	,@isnumeric);
 p.addParameter('L'				,10	,@isnumeric);
 p.addParameter('alpha'			,0	,@isnumeric);
-p.addParameter('delta'			,0	,@isnumeric);
-p.addParameter('epsilon'		,0	,@isnumeric);
+p.addParameter('delta'			,0	,@isnumeric);		% in sx
+p.addParameter('epsilon'		,0	,@isnumeric);		% in sz
 p.addParameter('dk_start'		,20	,@isnumeric);
 p.addParameter('D_start'		,5	,@isnumeric);
 p.addParameter('d_opt_start'	,5	,@isnumeric);
@@ -95,7 +95,7 @@ pt.addParameter('rescaling'			,0	,@isnumeric);
 
 pSBM.addParameter('GroundStateMode'	,'artificial',@(x) any(validatestring(x,...
 									{'decoupled','coupled', 'artificial','artTTM'})));			% GroundState preparations
-pSBM.addParameter('InitialState'	,'sz',@(x) any(validatestring(x,...
+pSBM.addParameter('InitialState'	,'sx',@(x) any(validatestring(x,...
 									{'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'})));			% Initial States
 
 %%
@@ -380,8 +380,34 @@ for mc = para.treeMPS.nNodes:-1:1
 	%% Fill the MPS
 	dk    = nodes(mc).dk;
 	d_opt = nodes(mc).d_opt;
+	
+	NC = nodes(mc).degree;
 	nodes(mc).mps{1}        = zeros([nodes(mc).D',d_opt]);
-	nodes(mc).mps{1}(1,1,1) = 1;
+	if ~nodes(mc).isRoot
+		nodes(mc).mps{1}(1,1,1) = 1;
+	elseif any(strfind(para.model,'DPMES'))
+		idx = num2cell([ones(1,NC+1),para.InitialState]);			% start in second excited state!
+		nodes(mc).mps{1}(idx{:}) = 1;
+	elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+		if strcmp(para.SpinBoson.InitialState, 'sz')
+			%% prepare +Sz eigenstate
+			idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states
+			nodes(mc).mps{1}(idx{:},1) = 1;
+		elseif strcmp(para.SpinBoson.InitialState, '-sz')
+			idx = num2cell(ones(1,NC+1));
+			nodes(mc).mps{1}(idx{:},2) = 1;
+		elseif strcmp(para.SpinBoson.InitialState, 'sx')
+			idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states
+			nodes(mc).mps{1}(idx{:},1) = 1/sqrt(2);
+			nodes(mc).mps{1}(idx{:},2) = 1/sqrt(2);
+		elseif strcmp(para.SpinBoson.InitialState, '-sx')
+			idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states
+			nodes(mc).mps{1}(idx{:},1) = -1/sqrt(2);
+			nodes(mc).mps{1}(idx{:},2) = 1/sqrt(2);
+		end
+	else
+		error('VMPS:VMPS_TreeMPS:WrongParameters','');
+	end
 	nodes(mc).Vmat{1}       = sparse(1:d_opt,1:d_opt,1,dk,d_opt);
 	
 end
