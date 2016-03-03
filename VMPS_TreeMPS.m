@@ -27,19 +27,20 @@ pSBM.FunctionName = 'VMPS_TreeMPS';
 % para input parser
 p.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
 								{'SpinBoson','SpinBoson2C', 'DPMES5-7C','testTree'})));		% possible model inputs
-p.addParameter('s'				,0	,@isnumeric);
-p.addParameter('L'				,10	,@isnumeric);
-p.addParameter('alpha'			,0	,@isnumeric);
+p.addParameter('s'				,1	,@isnumeric);
+p.addParameter('L'				,50	,@isnumeric);
+p.addParameter('alpha'			,0.1,@isnumeric);
 p.addParameter('delta'			,0	,@isnumeric);		% in sx
-p.addParameter('epsilon'		,0	,@isnumeric);		% in sz
+p.addParameter('epsilon'		,0.1,@isnumeric);		% in sz
+p.addParameter('wc'				,1	,@isnumeric);
 p.addParameter('dk_start'		,20	,@isnumeric);
 p.addParameter('D_start'		,5	,@isnumeric);
 p.addParameter('d_opt_start'	,5	,@isnumeric);
 p.addParameter('M'				,2	,@isnumeric);
 p.addParameter('CTshift'		,0	,@isnumeric);
-p.addParameter('useDkExpand'	,1	,@isnumeric);
+p.addParameter('useDkExpand'	,0	,@isnumeric);
 p.addParameter('dkmax'			,1e3,@isnumeric);
-p.addParameter('Dmin'			,4	,@isnumeric);
+p.addParameter('Dmin'			,2	,@isnumeric);
 p.addParameter('svmaxtol'	,1e-4	,@isnumeric);
 p.addParameter('svmintol'	,10^-4.5,@isnumeric);
 p.addParameter('logging'		,0	,@isnumeric);
@@ -52,7 +53,7 @@ p.addParameter('precision'	,5e-15	,@isnumeric);
 p.addParameter('parity'			,'n',@isstr);
 p.addParameter('eigs_tol'	,1e-8	,@isnumeric);
 p.addParameter('foldedChain'	,0	,@isnumeric);
-p.addParameter('d_opt_min'		,0	,@isnumeric);
+p.addParameter('d_opt_min'		,2	,@isnumeric);
 p.addParameter('spinbase'		,'Z',@isstr);
 p.addParameter('useshift'		,0	,@isnumeric);
 p.addParameter('useTreeMPS'		,1	,@isnumeric);
@@ -67,13 +68,13 @@ p.addParameter('initChainState'	,'vac',@(x) any(validatestring(x,...
 % 								{'SpinBoson','SpinBoson2C', 'DPMES5-7C','testTree'})));		% possible model inputs
 
 pt.addParameter('imagT'				,0	,@isnumeric);
-pt.addParameter('tmax'				,10	,@isnumeric);
+pt.addParameter('tmax'				,20	,@isnumeric);
 pt.addParameter('deltaT'			,1	,@isnumeric);
 pt.addParameter('resume'			,0	,@isnumeric);
 pt.addParameter('saveInterval'		,10	,@isnumeric);
 pt.addParameter('serialize'			,1	,@isnumeric);
 pt.addParameter('logSV'				,0	,@isnumeric);
-pt.addParameter('Observables'		,'' ,@isstr);
+pt.addParameter('Observables'		,'.dm.n.' ,@isstr);
 pt.addParameter('extractObsInterval',1	,@isnumeric);
 pt.addParameter('extractStarInterval',1	,@isnumeric);
 pt.addParameter('storeMPS'			,0	,@isnumeric);
@@ -82,11 +83,11 @@ pt.addParameter('HEffSplitIsometry'	,1	,@isnumeric);
 pt.addParameter('maxExpMDim'		,300,@isnumeric);
 pt.addParameter('maxExpVDim'		,700,@isnumeric);
 pt.addParameter('expvCustom'		,1	,@isnumeric);
-pt.addParameter('useDkExpand'		,1	,@isnumeric);
+pt.addParameter('useDkExpand'		,0	,@isnumeric);
 pt.addParameter('expandOBB'			,1	,@isnumeric);
 pt.addParameter('truncateExpandBonds',1	,@isnumeric);
-pt.addParameter('maxOBBDim'			,60	,@isnumeric);
-pt.addParameter('maxBondDim'		,10	,@isnumeric);
+pt.addParameter('maxOBBDim'			,20	,@isnumeric);
+pt.addParameter('maxBondDim'		,5	,@isnumeric);
 pt.addParameter('zAveraging'		,0	,@isnumeric);
 pt.addParameter('logError'			,0	,@isnumeric);
 pt.addParameter('logTruncError'		,0	,@isnumeric);
@@ -124,7 +125,7 @@ if strfind(para.model,'SpinBoson')
 		out = regexp(para.model,'SpinBoson(?<nChains>\d)C','names');
 		para.nChains = str2double(out.nChains);
 	end
-
+	para.wc = [1,5];		% only for testing purposes
 	for mc = 1:para.nChains
 		para.chain{mc}.mapping			= 'OrthogonalPolynomials';
 		para.chain{mc}.spectralDensity	= 'Leggett_Hard';
@@ -134,7 +135,7 @@ if strfind(para.model,'SpinBoson')
 		para.chain{mc}.s				= para.s(min(mc,length(para.s)));			% SBM spectral function power law behaviour
 		para.chain{mc}.alpha			= para.alpha(min(mc,length(para.alpha)));		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
 		para.chain{mc}.L				= para.L(min(mc,length(para.L)));
-		para.chain{mc}.w_cutoff         = 1;
+		para.chain{mc}.w_cutoff         = para.wc(min(mc,length(para.wc)));
 		para.chain{mc}.initState		= para.initChainState;						% choose: 'rand', 'vac', 
 	end
 	

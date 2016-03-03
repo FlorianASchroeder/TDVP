@@ -431,7 +431,7 @@ classdef TDVPData
 				end
 			end
 			
-			ax = gca;
+			hold all; ax = gca;
 			
 			if resetColorOrder
 				ax.ColorOrderIndex = 1;
@@ -451,9 +451,11 @@ classdef TDVPData
 						return;
 					else
 						pl = plot(obj.t(1:obj.lastIdx)*ts, obj.spin);
+						pl(4) = plot(obj.t(1:obj.lastIdx)*ts, sqrt(obj.spin(:,1).^2+obj.spin(:,2).^2));
 						pl(1).DisplayName = '$\left<\sigma_x\right>$';
 						pl(2).DisplayName = '$\left<\sigma_y\right>$';
 						pl(3).DisplayName = '$\left<\sigma_z\right>$';
+						pl(4).DisplayName = '$\sqrt{\left<\sigma_x\right>^2+\left<\sigma_y\right>^2}$';
 					end
 					h.ylbl = '$\left<\sigma\right>$';
 				case 'calctime'

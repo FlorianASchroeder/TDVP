@@ -6017,7 +6017,7 @@ p1 = plot(t,summ);
 plot(tresults.t, tresults.spin.sz);
 
 %% Plot iSBM multi-Chain Analytic
-t = 0:0.1:30;%para.tdvp.tmax;
+t = 0:0.2:20;%para.tdvp.tmax;
 exponent = 0;
 w_cutoff = [1,5];
 for ii = 1:para.nChains

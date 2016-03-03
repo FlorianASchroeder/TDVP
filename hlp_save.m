@@ -36,7 +36,7 @@ if ~isempty(Vmat)
 	fprintf('.\n');
 end
 
-if ~isempty(treeMPS)
+if nargin > 7 && ~isempty(treeMPS)
 	treeMPS  = hlp_serialize(treeMPS);
 	save(fname,'treeMPS','-append');
 	clear('treeMPS');

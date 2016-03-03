@@ -53,6 +53,7 @@ para.nChains		= 7;
 para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
 
 para.useStarMPS = 1;
+para.useTreeMPS = 0;
 
 %% System Definitions:
 % if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
@@ -140,6 +141,8 @@ elseif ~isempty(strfind(para.model,'SpinBoson'))
 	if alpha == 0 && para.chain{1}.L == 0                  
 		para.chain{1}.L = 10;						% otherwise encounter error
 	end
+%	para.chain{2} = para.chain{1};
+%	para.chain{2}.w_cutoff = 5;
 elseif ~isempty(strfind(para.model,'UniformBosonTTM'))
 	% put in parameters by hand!
 	para.chain{1}.epsilon = 0.5;

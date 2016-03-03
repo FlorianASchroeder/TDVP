@@ -572,7 +572,7 @@ if ~skipObs
 end
 
 if ~skipStar
-	tresults.t(j) = single(para.tdvp.t(1,para.timeslice+1));
+	tresults.star.t(j) = single(para.tdvp.t(1,para.timeslice+1));
 	tresults.star.lastIdx = tresults.star.lastIdx + 1;
 end
 
