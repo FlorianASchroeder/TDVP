@@ -60,12 +60,12 @@ para.tdvp.deltaT = dt;					% size of timeslice in units:
     %   -> real tmax = T * 6.58211928(15)×10^-16
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
-para.tdvp.saveInterval = 10;			% save '-small.mat' every n-th step
+para.tdvp.saveInterval = 30;			% save '-small.mat' every n-th step
 para.tdvp.serialize = 1;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
-para.tdvp.extractStarInterval = para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
-para.tdvp.extractObsInterval  = para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.ses.';
+para.tdvp.extractStarInterval = 10*para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
+para.tdvp.extractObsInterval  = 10*para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
+para.tdvp.Observables = '.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
 	% n: occupation, j: current, s: spin,
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1

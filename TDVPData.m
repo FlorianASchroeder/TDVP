@@ -20,8 +20,15 @@ classdef TDVPData
 		s;			% if Spin-Boson
 		lastIdx     % last Observable Idx
 		occC;		% chain occupation
+		occCd;		% chain occupation, diabatic projection
+		occCa;		% chain occupation, adiabatic projection
 		occS;		% star occupation
 		xC;			% chain displacement
+		xCd;		% chain displacement, diabatic projection
+		xCa;		% chain displacement, adiabatic projection
+		xC2;		% chain <x^2>
+		xC2d;		% chain <x^2>, diabatic projection
+		xC2a;		% chain <x^2>, adiabatic projection
 		xS;			% star displacement
 		jC;			% chain current
 		rho;		% rduced density matrix
@@ -76,14 +83,65 @@ classdef TDVPData
 			end
 			obj.version = str2double(obj.para.tdvp.version(2:end));
 			
-			if obj.version >= 50
+			if obj.version >= 50 && isfield(obj.tresults,'n')
 				obj.occC = obj.tresults.n;
-			else
+			elseif isfield(obj.tresults,'nx')
 				obj.occC = real(obj.tresults.nx);
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'na')
+				obj.occCa = obj.tresults.na;
+				if isempty(obj.occC)
+					obj.occC = squeeze(sum(real(obj.occCa),3));
+				end
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'nd')
+				obj.occCd = obj.tresults.nd;
+				if isempty(obj.occC)
+					obj.occC = squeeze(sum(real(obj.occCd),3));
+				end
 			end
 			
 			if obj.version >= 66 && isfield(obj.tresults,'x')
-				obj.xC = obj.tresults.x;
+				if ndims(obj.tresults.x) == 3
+					obj.xC = obj.tresults.x;
+				elseif ~isempty(strfind(obj.para.tdvp.Observables,'.x.'))		% support for version <=72
+					obj.xCd = obj.tresults.x;
+					if isempty(obj.xC)
+						obj.xC = squeeze(sum(real(obj.xCd),3));
+					end
+				elseif ~isempty(strfind(obj.para.tdvp.Observables,'.x2.'))		% support for version <=72
+					obj.xCa = obj.tresults.x;
+					if isempty(obj.xC)
+						obj.xC = squeeze(sum(real(obj.xCd),3));
+					end
+				end
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'xa')
+				obj.xCa = obj.tresults.xa;
+				if isempty(obj.xC)
+					obj.xC = squeeze(sum(real(obj.xCa),3));
+				end
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'xd')
+				obj.xCd = obj.tresults.xd;
+				if isempty(obj.xC)
+					obj.xC = squeeze(sum(real(obj.xCd),3));
+				end
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'x2')
+				obj.xC2 = obj.tresults.x2;
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'x2a')
+				obj.xC2a = obj.tresults.x2a;
+				if isempty(obj.xC2)
+					obj.xC2 = squeeze(sum(real(obj.xC2a),3));
+				end
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'x2d')
+				obj.xC2d = obj.tresults.x2d;
+				if isempty(obj.xC2)
+					obj.xC2 = squeeze(sum(real(obj.xC2d),3));
+				end
 			end
 			
 			if obj.version > 42
@@ -869,19 +927,39 @@ classdef TDVPData
 					h.zlbl = '$\left< n_k \right>$';
 					h.sldlbl = {'Chain'};
 					h.tlbl = 'Chain Occupation';
-				case 'chain-x'
-					h.zdata = real(obj.xC(1:obj.lastIdx,:,:,:));		% t x L x state x chain
-					h.zlbl = '$\left< x_k \right>$';
+				case 'chain-n-d'
+					h.zdata = real(obj.occCd(1:obj.lastIdx,:,:,:));		% t x L x state x chain
+					h.zlbl = '$\left< n_k \right>$';
 					h.sldlbl = {'State','Chain'};
-					h.tlbl = 'Chain Displacement';
-				case 'chain-x-avg'
-					h.zdata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x state x chain
+					h.tlbl = 'Chain Occupation - diabatic';
+				case 'chain-n-a'
+					h.zdata = real(obj.occCa(1:obj.lastIdx,:,:,:));		% t x L x state x chain
+					h.zlbl = '$\left< n_k \right>$';
+					h.sldlbl = {'State','Chain'};
+					h.tlbl = 'Chain Occupation - adiabatic';
+				case 'chain-x'
+					h.zdata = real(obj.xC(1:obj.lastIdx,:,:));			% t x L x chain
 					h.zlbl = '$\left< x_k \right>$';
 					h.sldlbl = {'Chain'};
-					h.tlbl = 'Average Chain Displacement';
+					h.tlbl = 'Chain Displacement';
+				case 'chain-x-d'
+					h.zdata = real(obj.xCd(1:obj.lastIdx,:,:,:));		% t x L x state x chain
+					h.zlbl = '$\left< x_k \right>$';
+					h.sldlbl = {'State','Chain'};
+					h.tlbl = 'Chain Displacement - diabatic';
+				case 'chain-x-a'
+					h.zdata = real(obj.xCa(1:obj.lastIdx,:,:,:));		% t x L x state x chain
+					h.zlbl = '$\left< x_k \right>$';
+					h.sldlbl = {'State','Chain'};
+					h.tlbl = 'Chain Displacement - adiabatic';
+				case 'chain-x-avg'
+					h.zdata = squeeze(sum(real(obj.xCa(1:obj.lastIdx,:,:,:)),3));		% t x L x state x chain
+					h.zlbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Chain'};
+					h.tlbl = 'Chain Displacement';
 				case 'chain-x-ft'
 					h.maxN = pow2(nextpow2(obj.lastIdx));				% FT window length
-					h.ydata = (0:h.maxN/2)/h.ydata(end);					% fs * k/N = k/T where k=0... N/2
+					h.ydata = (0:h.maxN/2)/h.ydata(end);				% fs * k/N = k/T where k=0... N/2
 					h.ylbl = '$f$ in $1/fs$';
 					if h.evTocm && h.ts ~=1
 						h.ydata = h.ydata*4.135*8065.73;
@@ -892,6 +970,29 @@ classdef TDVPData
 					h.zlbl = '$FT(\left< x_k \right>)$';
 					h.sldlbl = {'State','Chain'};
 					h.tlbl = 'Chain Displacement';
+				case 'chain-x2'
+					h.zdata = real(obj.xC2(1:obj.lastIdx,:,:));			% t x L x chain
+					h.zlbl = '$\left< x^2_k \right>$';
+					h.sldlbl = {'Chain'};
+					h.tlbl = 'Chain Displacement squared';
+				case 'chain-x2-d'
+					h.zdata = real(obj.xC2d(1:obj.lastIdx,:,:,:));		% t x L x chain
+					h.zlbl = '$\left< x^2_k \right>$';
+					h.sldlbl = {'State','Chain'};
+					h.tlbl = 'Chain Displacement squared - diabatic';
+				case 'chain-x2-a'
+					h.zdata = real(obj.xC2a(1:obj.lastIdx,:,:,:));		% t x L x chain
+					h.zlbl = '$\left< x^2_k \right>$';
+					h.sldlbl = {'State','Chain'};
+					h.tlbl = 'Chain Displacement squared - adiabatic';
+				case 'chain-x-unc'										% uncertainty in x
+					x = real(obj.xC(1:obj.lastIdx,:,:));
+					x2 = real(obj.xC2(1:obj.lastIdx,:,:));
+					h.zdata = sqrt(x2-x.^2);							% t x L x chain
+					h.zdata(:,1,:) = h.zdata(:,1,:) + 0.5;				% balance spin site
+					h.zlbl = '$\Delta x_k$';
+					h.sldlbl = {'Chain'};
+					h.tlbl = 'Chain Displacement - uncertainty';
 				case 'star-n'
 					h.zdata = real(obj.occS(1:h.ySize,:,:));			% t x w x nChains
 					h.zlbl = '$\left< n(\omega) \right>$';
