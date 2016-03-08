@@ -32,6 +32,7 @@ classdef TDVPData
 		xS;			% star displacement
 		jC;			% chain current
 		rho;		% rduced density matrix
+		rhoOscRes;	% residual of populations after exponential fit
 		stateProj;	% state projection amplitude
 		sysState;	% state of system
         mps;        % MPS and Vmat of sites 1&2
@@ -163,6 +164,7 @@ classdef TDVPData
 			else
 				obj.rho = [];
 			end
+			obj.rhoOscRes = [];
 			
 			if isfield(obj.tresults,'system') && isfield(obj.tresults.system,'state')
 				obj.sysState = obj.tresults.system.state;
@@ -312,14 +314,15 @@ classdef TDVPData
 			end
 		end
 		
-		function pl  = plot(obj,type,varargin)
+		function [pl,obj] = plot(obj,type,varargin)
 			% initialise modifiers
 			% plot(...,ax_handle)	Plots into the axes given by handle
 			if length(obj) > 1
 				% deal with object array
 				pl = gobjects(length(obj),1);
 				for ii = 1:length(obj)
-					temp = reshape(obj(ii).plot(type,varargin{:}),1,[]);
+					[temp,obj(ii)] = obj(ii).plot(type,varargin{:});
+					temp = reshape(temp,1,[]);
 					if size(pl,2) ~= size(temp,2)
 						pl(end,size(temp,2)) = gobjects(1,1);
 					end
@@ -336,6 +339,7 @@ classdef TDVPData
 			plotOpt = {};				% additional plotOptions from varargin
 			DFTplot = 0;				% plotting DFT data
 			DFTshift = 0;				% shift the fft results
+			normalise = 0;				% normalise to maximum peak (for FFT especially)
 			
 			for m = 1:nargin-2
 				switch lower(varargin{m})
@@ -361,6 +365,8 @@ classdef TDVPData
 						unicolor = 1;
 					case '-resetcolororder'
 						resetColorOrder = 1;
+					case '-norm'
+						normalise = 1;
 					otherwise
 						% pass through as direct plot options!
 						if isa(varargin{m},'matlab.graphics.axis.Axes')
@@ -454,7 +460,10 @@ classdef TDVPData
 % 					maxN = m;
 					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
 					f = (0:maxN-1)/obj.t(2)/maxN;
-					rhoii = obj.getData('rhoii-osc-res');		% t x nStates
+					if isempty(obj.rhoOscRes)
+						obj.rhoOscRes = obj.getData('rhoii-osc-res');		% t x nStates
+					end
+					rhoii = obj.rhoOscRes;
 					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
 % 					ft = fft(real(rhoii(1:m,:)),maxN,1);
 					if DFTshift

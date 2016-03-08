@@ -4987,13 +4987,14 @@ res((offset+1):end,1) = res(offset+I,1);
 
 %%
 for fignum = 1:size(defPlot,1)
-	f = figure(fignum); clf; hold all; ax = gca;
+	f = figure(fignum+10); clf; hold all; ax = gca;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
 % 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
 	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+% 	ph = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
 	axis tight;
 % 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
 % 	legend boxoff
@@ -5004,7 +5005,7 @@ for fignum = 1:size(defPlot,1)
 % 	xlabel('$t$');
 	ylabel('$\rho_{ii} (t)$');
 	fs = 22;
-	formatPlot(fignum,'twocolumn-single');
+	formatPlot(fignum+10,'twocolumn-single');
 	set(gca,'color','none');
 	grid on
 	if fignum == 1
@@ -5014,6 +5015,36 @@ for fignum = 1:size(defPlot,1)
 	end
 	drawnow
 end
+%%	Plot each dynamics, and FT of residual of following spectra
+sets = [3,5,6,7,11,12,13];
+% sets = 3
+for fignum = 1:length(sets)
+	f = figure(fignum*10+1); clf; hold all; ax = gca;
+	pick = sets(fignum);
+	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	formatPlot(f.Number,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	
+	f = figure(fignum*10+2); clf; hold all; ax = gca;
+	[ph,res(pick)] = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	formatPlot(f.Number,'twocolumn-single');
+	set(gca,'color','none');
+	ax.XLim = [0,1600];
+	grid on
+
+	f = figure(fignum*10+3); clf; hold all; ax = gca;
+	ph = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	for kk = 1:numel(ph)
+		ph(kk).YData = ph(kk).YData./max(ph(kk).YData);
+	end
+	formatPlot(f.Number,'twocolumn-single');
+	set(gca,'color','none');
+	ax.XLim = [0,1600];
+	grid on
+
+end
+
 
 %% DPMES5-7C v72  StarMPS LinAbs - TDVPData											% LabBook 12/01/2016
 % See effect of CT shift on dynamics
@@ -6011,7 +6042,8 @@ csvwrite('visibility02.dat',[x,y]);
 %% Save all currently opend figures
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
-	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
+% 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
+	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', f_handles(ii));
 end
 
 %% Deserialise all Variables
