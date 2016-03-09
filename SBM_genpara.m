@@ -219,13 +219,13 @@ end
 		if ~strcmp(chainpara.spectralDensity,'CoupDiscr')
 	        [epsilon,t]			= extroplate(epsilon,t,chainpara.L);              % extrapolate very small levels for higher precision
 		end
-        w = epsilon(1:chainpara.L-1);
-        t = t(1:chainpara.L-1);
+        w = epsilon(1:chainpara.L);
+        t = t(1:chainpara.L);
 		U = U(:,1:chainpara.L);
     end
 
     function [w, t] = chainParams_Stieltjes(xi, Gamma)
-        ab = stieltjes(chainpara.L-1,[xi,Gamma.^2]);
+        ab = stieltjes(chainpara.L,[xi,Gamma.^2]);
         w  = ab(:,1);
 		t  = ab(:,2);
 		t  = [sqrt(sum(Gamma.^2)); t];                             % put sqrt(eta_0/pi) = t(1) by hand in!

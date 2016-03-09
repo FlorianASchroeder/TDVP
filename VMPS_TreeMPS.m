@@ -23,17 +23,26 @@ pSBM.CaseSensitive = false;
 pSBM.KeepUnmatched = true;
 pSBM.FunctionName = 'VMPS_TreeMPS';
 
+pDPMES = inputParser;					% parses for para.SpinBoson
+pDPMES.CaseSensitive = false;
+pDPMES.KeepUnmatched = true;
+pDPMES.FunctionName = 'VMPS_TreeMPS';
+
+%% Define local parameters
+SBMInitialStates   = {'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'};
+DPMESInitialStates = {'TT','LE+', 'LE-', 'CT+', 'CT-'};					% Position of Name = number of InitialState
+
 %% Define validation functions for string expressions
 % para input parser
 p.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
 								{'SpinBoson','SpinBoson2C', 'DPMES5-7C','testTree'})));		% possible model inputs
 p.addParameter('s'				,1	,@isnumeric);
-p.addParameter('L'				,50	,@isnumeric);
+p.addParameter('L'				,50	,@isnumeric);		% longest L between root and all leaves
 p.addParameter('alpha'			,0.1,@isnumeric);
 p.addParameter('delta'			,0	,@isnumeric);		% in sx
 p.addParameter('epsilon'		,0.1,@isnumeric);		% in sz
 p.addParameter('wc'				,1	,@isnumeric);
-p.addParameter('dk_start'		,20	,@isnumeric);
+p.addParameter('dk_start'		,5	,@isnumeric);
 p.addParameter('D_start'		,5	,@isnumeric);
 p.addParameter('d_opt_start'	,5	,@isnumeric);
 p.addParameter('M'				,2	,@isnumeric);
@@ -96,8 +105,10 @@ pt.addParameter('rescaling'			,0	,@isnumeric);
 
 pSBM.addParameter('GroundStateMode'	,'artificial',@(x) any(validatestring(x,...
 									{'decoupled','coupled', 'artificial','artTTM'})));			% GroundState preparations
-pSBM.addParameter('InitialState'	,'sx',@(x) any(validatestring(x,...
-									{'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'})));			% Initial States
+pSBM.addParameter('InitialState'	,'sx',@(x) any(validatestring(x,SBMInitialStates)));		% Initial States
+
+pDPMES.addParameter('InitialState'	,'LE+',@(x) any(validatestring(x,DPMESInitialStates)));		% Initial States
+pDPMES.addParameter('CTShift'		,0	,@isnumeric);
 
 %%
 p.parse(varargin{:});
@@ -110,6 +121,7 @@ end
 
 %% Defaults to the models
 
+%% Settings for SBM
 if strfind(para.model,'SpinBoson')
 	pSBM.parse(varargin{:});
 	para.SpinBoson = pSBM.Results;
@@ -177,6 +189,55 @@ if strfind(para.model,'SpinBoson')
 	end
 end
 
+%% Settings for DPMES
+if strfind(para.model,'DPMES5-7C')
+ 	pDPMES.parse(varargin{:});
+	
+%% Setting Chain for SBM
+	para.nChains = 7;
+	para.systemStates				= load('DPMESdata_20160129/states.dat');					% [#state, E(eV)]
+	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states!
+	para.chain{1}.mapping			= 'LanczosTriDiag';
+	para.chain{1}.spectralDensity	= 'CoupDiscr';
+	para.chain{1}.Lambda            = 1;
+	para.chain{1}.initState		    = para.initChainState;
+	
+	para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-7-01.dat'));
+	para.chain{1}.L					= min(length(para.chain{1}.dataPoints),para.L-1);
+	
+	%% chain 2 & more:
+	para.chain{2}					= para.chain{1};		% simple copy
+	para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-10-x1.dat'));
+	para.chain{2}.L					= min(length(para.chain{2}.dataPoints),para.L-1);
+	para.chain{3}					= para.chain{2};
+	para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20160129/W14-A2-10-highv2.dat'));
+	para.chain{3}.L					= min(length(para.chain{3}.dataPoints),para.L-1);
+	para.chain{4}					= para.chain{2};
+	para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20160129/W24-B1-17-highv2.dat'));
+	para.chain{4}.L					= min(length(para.chain{4}.dataPoints),para.L-1);
+	para.chain{5}					= para.chain{2};
+	para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20160129/W23-B2-8-10.dat'));
+	para.chain{5}.L					= min(length(para.chain{5}.dataPoints),para.L-1);
+	para.chain{6}					= para.chain{2};
+	para.chain{6}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1x.dat'));
+	para.chain{6}.L					= min(length(para.chain{6}.dataPoints),para.L-1);
+	para.chain{7}					= para.chain{2};
+	para.chain{7}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1-x.dat'));
+	para.chain{7}.L					= min(length(para.chain{7}.dataPoints),para.L-1);
+	
+%% Setting TreeMPS for SBM
+	para.treeMPS.height    = 1;										% star structure, since only tree node + leaves
+	para.treeMPS.nNodes    = 1;
+	para.treeMPS.maxDegree = para.nChains;
+	para.treeMPS.leafIdx   = num2cell((1:para.nChains)'+1);			% maps from chain number to leaf index in para
+	para.treeMPS.nodeIdx   = {0+1};									% maps from node number to nodeIdx
+	
+%% Set-up parameters for specific ground state preparation!
+%     Initial States:			TT		LE+		LE-		CT+		CT-
+% 			para.IntialState:	 1		  2		  3		  4		  5
+	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
+end
+
 %% Defaults to para
 para.loopmax		= 50;						% (minimizeE)
 para.increasedk		= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
@@ -217,6 +278,8 @@ para.relativeshift=zeros(para.nChains,para.L);
 para.relativeshiftprecision=0.01;				% When the relative shift is below this value then stop shifting
 % para = maxshift(para);						% TODO!
 
+para.version = 'v73';
+
 if isstruct(para.tdvp)
 	%% Defaults to para for tdvp
 	para.trustsite = para.L+1;	% add system manually here
@@ -227,10 +290,67 @@ if isstruct(para.tdvp)
 	para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
 	para.tdvp.expvTol = 1e-15;					% error tolerance of expv(); default: 1e-7
 	para.tdvp.expvM   = 50;						% dim of Krylov subspace in expv(); default: 30
-	para.tdvp.version = 'v73';
-	para.tdvp.filename = 'test.mat';
-	para.tdvp.filenameSmall = 'test-small.mat';
-end		
+	para.tdvp.version = para.version;
+end
+
+%% Folder and File name definition
+[~, name] = system('hostname');
+para.hostname = strtrim(name);						% save hostname for later reference
+
+Descr = para.version;
+if ~strcmp(computer,'PCWIN64')
+	Descr = sprintf('%sTCM%s',Descr,para.hostname(3:end));
+end
+if para.useTreeMPS
+	MPStype = 'Tree-';
+elseif para.useStarMPS
+	MPStype = 'Star-';
+elseif para.useVtens
+	MPStype = 'VT-';
+else
+	MPStype = '';
+end
+Descr = [MPStype,Descr];
+if isfield(para.chain{1},'s') && para.chain{1}.s ~= 1 && isfield(para,'SpinBoson')
+	Descr = sprintf('%s-s%g',Descr,para.chain{1}.s);
+end
+
+if any(strfind(para.model,'DPMES'))
+	para.folder = sprintf('%s-%s-%s-L%dCT%g%s',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L,pDPMES.Results.CTShift,pDPMES.Results.InitialState);
+else
+	para.folder = sprintf('%s-%s-%s-L%d',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L);
+end
+
+para.filename      = [para.folder,'/results.mat'];
+
+para.tdvp.filename = sprintf([para.filename(1:end-4),'-Till%dStep%.2g%s'],para.tdvp.tmax,para.tdvp.deltaT,para.tdvp.version);
+% para.tdvp.filename = sprintf('%s-alpha%g',para.tdvp.filename,alpha);
+
+if para.tdvp.expandOBB
+	para.tdvp.filename = sprintf('%s-OBBmax%d',para.tdvp.filename, para.tdvp.maxOBBDim);
+end
+if para.tdvp.truncateExpandBonds
+	para.tdvp.filename = sprintf('%s-Dmax%d',para.tdvp.filename,para.tdvp.maxBondDim(end));
+end
+if para.tdvp.expvCustom
+	para.tdvp.filename = sprintf('%s-expvCustom%d',para.tdvp.filename,para.tdvp.maxExpVDim);
+end
+% finish Filenames
+para.tdvp.filename		= sprintf('%s-%dcore.mat',para.tdvp.filename,maxNumCompThreads);
+para.tdvp.filenameSmall = sprintf('%s-small.mat',para.tdvp.filename(1:end-4));		% only for para, tresults
+% Set MPS filename if needed
+if para.tdvp.storeMPS == 1
+	para.tdvp.filenameMPS = [para.tdvp.filename,'-MPS.mat'];		% only for tmps, tVmat
+end
+
+if ~exist(para.tdvp.filename,'file')
+    mkdir(para.folder);
+    para.savedexist=0;
+else
+    para.savedexist=1;
+end
+
+
 for k = 1:para.nChains
 	if ~strcmp(para.chain{k}.mapping,'')
 		[para.chain{k}]=SBM_genpara(para.chain{k});               % only need alpha, s, Lambda. Returns epsilon and t of Wilson chain. Auto choose L if L == 0
@@ -496,5 +616,17 @@ treeMPS = nodes(1);
 			Idx = arrayfun(@(x) 1:x,size(Lchild{jj}),'UniformOutput',false);		% create cell array containing index ranges of Lchild{ii}
 			L(jj+1,Idx{:}) = Lchild{jj};
 		end
+	end
+
+	function dummy()
+		%% This function just contains cells which can be executed to quickly run a certain model!
+		
+		%% DPMES 5-7C
+		%	full chains, no truncation!
+		VMPS_TreeMPS('model','DPMES5-7C','evolveSysTrotter',1,'L',18,'tmax',10,'deltaT',0.1,'extractObsInterval',0.1,'InitialState','LE+','useDkExpand',1,'maxBondDim',[5,10]);
+		% L: longest L of from root to all leaves
+		
+		%% SpinBoson2C
+		VMPS_TreeMPS('model','SpinBoson2C','evolveSysTrotter',0,'L',49,'deltaT',0.2,'wc',[1,5],'InitialState','-sx','extractObsInterval',0.2,'useDkExpand',1)
 	end
 end

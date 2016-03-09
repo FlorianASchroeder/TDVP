@@ -419,10 +419,11 @@ op.Opleft = cell(M,1);			% contains only terms interacting with Chain #nc
 
 % 1. construct non-interacting Hleft for child
 for mc = 0:NC
+	dProd = prod(d([mc+1,nc+1,NC+2]));
 	% mc: other chain to contract with MPS to get into left basis of nc
 	if mc == nc, continue, end
 	% always make sure that Hlrstorage{1} and Opstorage{:,2,1} are up-to-date!
-	if para.tdvp.HEffSplitIsometry == 0
+	if para.tdvp.HEffSplitIsometry == 0 || (prod(d)/dProd^2) < 1.3
 		if mc == 0 && treeMPS.isRoot
 			continue
 		elseif mc == 0 && ~treeMPS.isRoot				% Node-parent exists -> contract
@@ -461,13 +462,16 @@ for mc = 0:NC
 		% 1. Split-off isometry
 		%    but need D(mc), D(nc) and dk in Atens!
 		[Atens,dOut] = tensShape(mps, 'unfoldiso', [mc+1,nc+1,NC+2], d);	% +1 for leading singleton
-		
 		[~, Atens] = qr(Atens,0);			% Iso is isometry with all unused chains
-		
 		% TODO: comment if not testing!!
-% 				[Iso2,A2,err]= rrQR(Atens, floor(0.1*prod(dOut(end-2:end))),0);		% low rank QR approximation
+% 		rEst = rank(Atens,10^-4.5);
+% 		fprintf('H_eff: rank(A) = %d, dim(A,2) = %d\n',rEst,prod(dOut(end-2:end)));
+% 		[Q, ~]     = qr(Atens,0);			% Iso is isometry with all unused chains
+% 		A2 = Q'*Atens;
+% 		[Iso2,A3,err]= rrQR(Atens, rEst,0);		% low rank QR approximation
 % 				fprintf('H_eff: rank(A) = %d, dim(A,2) = %d, rrQR error = %g; %g\n', rank(Atens), prod(dOut(end-2:end)),norm(Atens - Iso2*A2), err);
-		
+% 		Atens = A1;
+
 		if mc == 0		% TODO: if these assignments take too long, then remove this shortcut!
 			Hstor  = treeMPS.op.Hlrstorage{1};					% Hleft of node
 			h2jOBB = treeMPS.op.h2jOBB(:,2,1);

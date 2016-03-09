@@ -37,16 +37,16 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='DPMES5-7C';
+para.model='SpinBoson2C';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
 	%		  'DPMES3-4C', 'DPMES4-5C', 'DPMES5-7C'
 	%		  'UniformBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 7;
+para.nEnvironments  = 2;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 7;
+para.nChains		= 2;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
@@ -137,7 +137,7 @@ elseif ~isempty(strfind(para.model,'SpinBoson'))
 	para.chain{1}.s					= s;			% SBM spectral function power law behaviour
 	para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
 	para.chain{1}.L					= L;
-% 	para.chain{1}.w_cutoff          = 1;
+	para.chain{1}.w_cutoff          = 1;
 	if alpha == 0 && para.chain{1}.L == 0                  
 		para.chain{1}.L = 10;						% otherwise encounter error
 	end
@@ -377,7 +377,7 @@ if strfind(para.model,'SpinBoson')
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
 		% - 'artificial' for SBM2CT sets up maximally entangled state between odd and even chains in the Bath
 		%	odd: thermal bath, even: ancilla
-    para.SpinBoson.InitialState = 'sz';
+    para.SpinBoson.InitialState = '-sx';
         % choose: 'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'
 		% works with all options
 

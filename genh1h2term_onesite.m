@@ -796,6 +796,9 @@ switch para.model
 		
 	case 'SpinBoson2C'
 		%%%%%%%%%%%%%%%%%%% Spin-boson Model 2-chains %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%
+		% working
+		% Created 03/16 by FS
 		op.h1term = {};
 		op.h2term = cell(para.M,2);
 		if treeIdx == 0
@@ -810,23 +813,18 @@ switch para.model
 		else
 			mc  = treeIdx;					% number of edge == chain number
 			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
 			switch s
 				case para.chain{mc}.L											% last chain pos: only coupling to left
-					if iscell(para.dk) && iscell(para.shift)
-						[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
-					else
-						[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
-					end
 					zm				  = sparse(size(bp,1),size(bp,1));
 					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
 					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
 					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
 				otherwise
-					if iscell(para.dk) && iscell(para.shift)
-						[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
-					else
-						[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
-					end
 					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
 					op.h2term{1,1}    = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;
 					op.h2term{2,1}    = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
@@ -840,6 +838,8 @@ switch para.model
 		% working?
 		% Created 22/02/16 by F.S.
 		%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
 		if treeIdx == 0
 			% is the pentacene system!
 			[H0,H1]               = DPMES_Operators('5-7C',para);
@@ -853,21 +853,21 @@ switch para.model
 		else
 			mc  = treeIdx;					% number of edge == chain number
 			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
-			switch s						% this is 1:L on chain
-				case para.L(idx)
-					if para.parity ~= 'n'
+			if para.parity ~= 'n'
 						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
-					end
-					[bp,bm,n] = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
 					zm = sparse(size(bp,1),size(bp,1));
 					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
 					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
 					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
 				otherwise
-					if para.parity ~= 'n'
-						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
-					end
-					[bp,bm,n] = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
 					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
 					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
 					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;

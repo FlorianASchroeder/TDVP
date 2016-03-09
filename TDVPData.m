@@ -1095,6 +1095,11 @@ classdef TDVPData
 			h.zdata = [];					% T x L x NC x ...  if not, needs to be reshaped!
 			h.xSize = obj.para.L*ones(1,obj.nChains);	% size for each slider value
 			
+			if obj.nChains > 1 && obj.para.useTreeMPS
+				h.xSize = cellfun(@(x) x.L,obj.para.chain)+1;
+				h.xdata = (1:max(h.xSize))'*ones(1,obj.nChains);
+			end
+			
 			h.xlbl = 'Site $k$';
 			h.ylbl = '$t$';
 			h.zlbl = '';
@@ -1296,6 +1301,7 @@ classdef TDVPData
 					mc = round(source.Value);
 					set(h.pl,'xdata', h.xdata(1:h.xSize(mc),mc));
 					set(h.pl,'zdata', h.zdata(:,1:h.xSize(mc),h.SldIdx{:}));
+					h.ax.CLim = h.ax.ZLim;
 				else
 					xs = length(get(h.pl,'xdata'));
 					set(h.pl,'zdata', h.zdata(:,1:xs,h.SldIdx{:}));
@@ -1586,9 +1592,9 @@ classdef TDVPData
 			obj.spin = zeros(obj.lastIdx,3,h.Nstates,'single');
 			for ii = 1:h.Nstates
 				% compute <sigma> of all rho
-				obj.spin(:,1,ii) = real(squeeze(h.rho(:,:,ii))*h.sigmaX);
-				obj.spin(:,2,ii) = real(squeeze(h.rho(:,:,ii))*h.sigmaY);
-				obj.spin(:,3,ii) = real(squeeze(h.rho(:,:,ii))*h.sigmaZ);
+				obj.spin(:,1,ii) = real(squeeze(h.rho(1:obj.lastIdx,:,ii))*h.sigmaX);
+				obj.spin(:,2,ii) = real(squeeze(h.rho(1:obj.lastIdx,:,ii))*h.sigmaY);
+				obj.spin(:,3,ii) = real(squeeze(h.rho(1:obj.lastIdx,:,ii))*h.sigmaZ);
 			end
 		end
 	end

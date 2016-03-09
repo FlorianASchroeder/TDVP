@@ -719,7 +719,7 @@ end
 
 		end
 
-		mps{1} = reshape(Atens, d);
+		treeMPS.mps{1} = reshape(Atens, d);
 	end
 	
 	end

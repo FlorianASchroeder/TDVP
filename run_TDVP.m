@@ -15,8 +15,8 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-% 	fileName =  VMPS_FullSBM(s,alpha,0.1,0,L,dk,5,5);	% VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
-	fileName =  VMPS_FullSBM(0,0,s,alpha,L,dk,5,5);			% VMPS_FullSBM(s,alpha,CTshift,InitState,L,dk,d_opt,D)	for DPMES
+	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk,5,5);	% VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
+% 	fileName =  VMPS_FullSBM(0,0,s,alpha,L,dk,5,5);			% VMPS_FullSBM(s,alpha,CTshift,InitState,L,dk,d_opt,D)	for DPMES
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);		% iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
 	fileName = fromFile;							% simple override!
