@@ -1656,6 +1656,22 @@ axis tight
 % ax.XLim = [0,9000];ax.YLim = [0,2];
 ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
+
+	%% TDVPData: DFT Smooth residuals
+f=figure(708);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+% 	a = x.getData('rhoii-osc-res');
+% x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
+ph = x.plot('rhoii-osc-res-med','-cmev'); ax=gca; f=gcf;
+for kk = 1:numel(ph)
+	ph(kk).YData = ph(kk).YData./max(ph(kk).YData)+5-kk;
+end
+leg = legend('TT','LE+','LE-','CT+','CT-');
+ylabel('$|FT(\rho_{ii})|^2$');
+grid on
+axis tight
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+ax.XLim = [0,2000];ax.YLim = [0,5];
+formatPlot(f,'twocolumn-single')
 %% TDVP (7.2) MLSBM RHO 1D
 f=figure(702);  f.Name = 'MLSBM DM-Occupation'; hold all; ax = gca;
 % x = res{31,1}; tresults = x.tresults; para = x.para;

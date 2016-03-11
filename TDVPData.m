@@ -301,6 +301,50 @@ classdef TDVPData
 					end
 					if plotFit,	figure(f); end
 					full = 1;
+				case 'rhoii-osc-res-med'
+					% oscillating residuals
+					plotFit = 1;						% 1: plot the fitted functions into separate figure to evaluate fitness.
+					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
+					rhoii = rhoii(1:obj.lastIdx,:);
+					out = zeros(size(rhoii));
+					% fit by smoothing and remove exponential components to obtain the residuals
+					if plotFit
+						f = gcf;
+						figure; hold all; ax = gca;
+						plot(obj.t(1:obj.lastIdx),rhoii);
+						ax.ColorOrderIndex = 1;					% reset to have fit in same color as original data
+					end
+% 					filtered = medfilt1(rhoii,1000,1);
+					filtered = zeros(size(rhoii));
+					for kk = 1:size(rhoii,2)
+						filtered(:,kk) = smooth(rhoii(:,kk),170/obj.dt,'moving');
+					end
+					if plotFit, plot(obj.t(1:obj.lastIdx),filtered); end
+					if plotFit,	figure(f); end
+					out = rhoii-filtered;
+					full = 1;
+				case 'rhoij'
+					% out{1}: t x #off-diagonal elements
+					% out{2}: [from,to] x #off-diagonal elements
+					%			carries information to identify objects in out{1}
+					if ~isfield(obj.tresults,'rho') || isempty(obj.tresults.rho)
+						error('TDVPData:getData:rhoij','rho does not exist')
+					end
+					r = obj.tresults.rho(1:obj.lastIdx,:,:);
+					d = size(r);
+					out{1} = zeros(d(1),d(2)*(d(2)-1)/2-1);				% calculates number of off-diagonals
+					out{2} = zeros(2,size(out,2));
+					iC = 1;
+					for jj = 1:d(2)
+						for ii = jj:d(2)
+							if ii ~= jj
+								out{1}(:,iC) = r(:,ii,jj);				% get offdiag
+								out{2}(:,iC) = [jj,ii];
+								iC = iC+1;
+							end
+						end
+					end
+					full = 1;
                 case 'sys-env-x'
 					out = obj.getSysEnvObs('x');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
 					full = 1;
@@ -406,6 +450,108 @@ classdef TDVPData
 					rhoii = gettRhoiiSystem(obj);
 					pl = plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)), plotOpt{:},'Displayname',obj.LegLabel);
 					h.ylbl = '$\rho_{ii}$';
+				case 'rho-current'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					r = obj.tresults.rho(1:obj.lastIdx,:,:);
+					d = size(r);
+					rhoDiag = zeros(d([1,2]));
+					LegLabD = cell(1,d(2));
+					rhoCur = zeros(d(1),d(2)*(d(2)-1)/2-1);				% calculates number of off-diagonals
+					LegLabCur = cell(1,size(rhoCur,2));
+					iC = 1;
+					for jj = 1:d(2)
+						for ii = 1:jj
+							if ii == jj
+								rhoDiag(:,ii) = real(r(:,ii,jj));		% get population
+								LegLabD{ii} = sprintf('$%d$',ii);
+							else
+								rhoCur(:,iC)  = real(r(:,ii,jj));		% get Current
+								LegLabCur{iC} = sprintf('$%d\\to%d$',ii,jj);
+								iC = iC+1;
+							end
+						end
+					end
+					% resize ax and add top axis for current!
+					ax.Position(4) = ax.Position(4)/2;
+					box on;
+ 					pl1 = plot(obj.t(1:obj.lastIdx)*ts,rhoDiag, plotOpt{:},'Displayname',obj.LegLabel);
+					ax2 = axes('Position',ax.Position);
+					ax2.Position(2) = ax2.Position(2)+ax2.Position(4);
+					pl2 = plot(obj.t(1:obj.lastIdx)*ts,rhoCur, plotOpt{:},'Displayname',obj.LegLabel);
+% 					ax2.XTickLabel = [];
+					ax2.XAxisLocation = 'top';
+					ax2.YAxisLocation = 'right';
+					ylabel('Im($\rho_{ij})$')
+					pl = [pl1;pl2];
+					set(pl,{'Displayname'},[LegLabD,LegLabCur]');
+					h.ylbl = '$\rho_{ii}$';
+					axes(ax);
+				case 'rho-dpmes'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					r = obj.tresults.rho(1:obj.lastIdx,:,:);
+					d = size(r);
+					rhoDiag = zeros(d([1,2]));
+					LegLabD = cell(1,d(2));
+					rhoCur = zeros(d(1),d(2)*(d(2)-1)/2-1);				% calculates number of off-diagonals
+					LegLabCur = cell(1,size(rhoCur,2));
+					iC = 1;
+					for jj = 1:d(2)
+						for ii = 1:jj
+							if ii == jj
+								rhoDiag(:,ii) = real(r(:,ii,jj));		% get population
+								LegLabD{ii} = sprintf('$%d$',ii);
+							else
+								rhoCur(:,iC)  = real(r(:,ii,jj));		% get Current
+								LegLabCur{iC} = sprintf('$%d\\to%d$',ii,jj);
+								iC = iC+1;
+							end
+						end
+					end
+					% resize ax and add top axis for current!
+					ax.Position(4) = ax.Position(4)/2;
+					box on;
+ 					pl1 = plot(obj.t(1:obj.lastIdx)*ts,rhoDiag, plotOpt{:},'Displayname',obj.LegLabel);
+					ax2 = axes('Position',ax.Position);
+					ax2.Position(2) = ax2.Position(2)+ax2.Position(4);
+					pl2 = plot(obj.t(1:obj.lastIdx)*ts,rhoCur(:,[2,5,7,9]), plotOpt{:},'Displayname',obj.LegLabel);		% select non-vanishing only!
+					LegLabD = {'$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$'};
+					LegLabCur = {'$LE^- \to TT$','$CT^+ \to LE^+$','$CT^- \to TT$','$CT^- \to LE^-$'};
+% 					ax2.XTickLabel = [];
+					ax2.XAxisLocation = 'top';
+					ax2.YAxisLocation = 'right';
+					legend toggle
+					ylabel('Re($\rho_{ij})$')
+					pl = [pl1;pl2];
+					set(pl,{'Displayname'},[LegLabD,LegLabCur]');
+					h.ylbl = '$\rho_{ii}$';
+					axes(ax);
+				case 'rhoij-real'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					r = obj.getData('rhoij');							% {rhoij, info}
+					LegLabCur = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
+					pl = plot(obj.t(1:obj.lastIdx)*ts, real(r{1}), plotOpt{:},'Displayname',obj.LegLabel);
+					box on;
+					legend toggle
+					set(pl,{'Displayname'},LegLabCur);
+					h.ylbl = 'Re($\rho_{ij})$';
+				case 'rhoij-imag'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					r = obj.getData('rhoij');							% {rhoij, info}
+					LegLabCur = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
+					pl = plot(obj.t(1:obj.lastIdx)*ts, imag(r{1}), plotOpt{:},'Displayname',obj.LegLabel);
+					box on;
+					legend toggle
+					set(pl,{'Displayname'},LegLabCur);
+					h.ylbl = 'Im($\rho_{ij})$';
+				case 'rhoij-abs'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					r = obj.getData('rhoij');							% {rhoij, info}
+					LegLabCur = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
+					pl = plot(obj.t(1:obj.lastIdx)*ts, abs(r{1}), plotOpt{:},'Displayname',obj.LegLabel);
+					box on;
+					legend toggle
+					set(pl,{'Displayname'},LegLabCur);
+					h.ylbl = '$|\rho_{ij}|$';
 				case 'hshi'
 					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
 					h.ylbl = '$\left< H_i \right>$';
@@ -472,6 +618,28 @@ classdef TDVPData
 					end
 					pl = plot(f, abs(ft));
 					h.ylbl = '$FT(\rho_{ii})$';
+				case 'rhoii-osc-res-med'
+					% applies DFT to the population probability of rho
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+					window = hann(m,'periodic');
+% 					maxN = m;
+					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					if isempty(obj.rhoOscRes)
+						obj.rhoOscRes = obj.getData('rhoii-osc-res-med');		% t x nStates
+					end
+					rhoii = obj.rhoOscRes;
+					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
+% 					ft = fft(real(rhoii(1:m,:)),maxN,1);
+					if DFTshift
+						ft = fftshift(ft,1);
+						f = f-f(end)/2;
+					end
+					pl = plot(f, abs(ft));
+					h.ylbl = '$FT(\rho_{ii})$';
+				otherwise
+					error('TDVPData:plot','PlotType not avaliable');
 			end
 			
 			if DFTplot == 1
@@ -695,6 +863,7 @@ classdef TDVPData
 			h.fInvert = 0;				% need 1/f for nm scale?
 			h.logY = 0;					% linear y-axis by default
 			h.evTocm = 0;				% convert all eV to cm^-1
+			h.normalise = 0;
 			h.xdata = obj.t(1:obj.lastIdx).';	% the time axis
 			h.ydata = [];				% T x L x NC x ...  if not, needs to be reshaped!
 			h.noSldDims = 1;			% default: only plot 1 dim
@@ -704,6 +873,7 @@ classdef TDVPData
 			h.xlbl = '$f$';
 			h.ylbl = '';
 			h.tlbl = '';
+			h.llbl = {};
 			
 			% FFT settings
 			h.data = [];								% FFT done in 1st dimension
@@ -733,7 +903,8 @@ classdef TDVPData
 						h.logY = 1;
 					case '-fftshift'
 						h.FFTshift = 1;
-					
+					case '-norm'
+						h.normalise = 1;
 				end
 			end
 			
@@ -765,6 +936,12 @@ classdef TDVPData
 					h.data = rhoii;
 					h.noSldDims = 2;
 % 					h.useWindowFcn = 0;
+				case 'rhoij-imag'
+					r = obj.getData('rhoij');							% {rhoij, info}
+					h.llbl = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
+					h.data = imag(r{1});
+					h.noSldDims = 2;
+% 					h.useWindowFcn = 0;
 			end
 			
 			calcFFT();				% fills h.ydata with FFT
@@ -783,10 +960,14 @@ classdef TDVPData
 			end
 			h.ysize = size(h.data);
 			h.sldlbl = {'tMax','nPad'};
+			h.sldInitVal= [h.ysize(1),0];
 			h.sldLimits = [1,h.ysize(1); 0, 100];					% [min1, max1; min2, max2; ...]
 			h.SldIdx = num2cell(ones(1,h.nSld),1);					% indices for each slider dimension, indicating currently displayed slice
 			
 			h.pl = plot(h.xdata, plotSpec());		% plotspec returns the actual data from h.ydata type-specific
+			if ~isempty(h.llbl)
+				set(h.pl,{'DisplayName'},h.llbl);					% h.llbl needs to be same shape as h.pl
+			end
 			
 			axis tight
 			grid on
@@ -799,7 +980,7 @@ classdef TDVPData
 			for ii = 1:h.nSld
 				h.sldText{ii} = uicontrol('Parent',h.controlPanel,'Style','text','String',sprintf('%s %d',h.sldlbl{ii},1),...
 										  'HorizontalAlignment','left','FontSize',10,'FontName',h.ax.FontName);
-				h.sld{ii} = javax.swing.JScrollBar(0,1,1,h.sldLimits(ii,1),h.sldLimits(ii,2)+1);									%JScrollBar(int orientation, int value, int extent, int min, int max)
+				h.sld{ii} = javax.swing.JScrollBar(0,h.sldInitVal(ii),1,h.sldLimits(ii,1),h.sldLimits(ii,2)+1);									%JScrollBar(int orientation, int value, int extent, int min, int max)
 				[~,h.sldContainer{ii}] = javacomponent(h.sld{ii}, [5, 5,h.sld_w,h.sld_h], h.controlPanel);	% position defined in posDisplay()
 				h.sld{ii}.setUnitIncrement(1); h.sld{ii}.setBlockIncrement(3);
 				h.hsld{ii} = handle(h.sld{ii},'CallbackProperties');
@@ -863,6 +1044,11 @@ classdef TDVPData
 					case 'rhoii-osc-res'
 						% applies DFT to the residual of the populations of rho
 						out = abs(h.ydata);
+					case 'rhoij-imag'
+						out = abs(h.ydata);
+				end
+				if h.normalise
+					out = bsxfun(@rdivide,out,max(out,[],1));
 				end
 			end
 			
