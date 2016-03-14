@@ -16,9 +16,14 @@ function tresults = calTimeObservables(tmps,tVmat,para,tresults)
 %	FS 24/07/15: - added switch to allow observable selection (especially current)
 %   FS 18/08/15: - changed to single precision for smaller tresults file!
 %	FS 03/03/16: - removed loop over slices -> perform that in outer function
+if nargin < 4 
+	tresults = [];		% allow access to variable
+	para.timeslice = 0;						% needed for extractObsInterval first run
+end
 
 if para.useTreeMPS
 	tresults = calTimeObservables_Tree(tmps,para,tresults);
+	return;
 end
 
 % switches
@@ -31,10 +36,6 @@ O        = para.tdvp.Observables;		% Observables list
 NC       = para.nChains;
 L        = para.L;
 
-if nargin < 4 
-	tresults = [];		% allow access to variable
-	para.timeslice = 0;						% needed for extractObsInterval first run
-end
 if size(tmps,1) > 1
 	% calculate Obs for many slices -> iterate over single slices
 	% need correct para.timeslice to do this!
@@ -513,37 +514,84 @@ j = tresults.star.lastIdx + 1;
 
 % 1. Chain Occupation
 if strContains(O,'.n.') && ~skipObs
+	chainN = real(getObservable({'bath1correlators','n'}, treeMPS,[],para));					% L x nChains
 	if isNew
-% 		tresults.n  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
-		tresults.n  = zeros(totalN,L,NC,'single');							% t x L x NC
+		d = size(chainN);
+		tresults.n  = zeros([totalN,d],'single');												% t x L x NC
 	end
-	tresults.n(i,:,:) = single(getObservable({'occupation'},treeMPS,[],para));		% (L x nChain)
+	tresults.n(i,:,:) = chainN;
+end
+if strContains(O,'.nd.') && ~skipObs															% diabatic projected occupation
+	chainN = real(getObservable({'bath1correlators','n','diabatic'}, treeMPS,[],para));			% L x nChains
+	if isNew
+		d = size(chainN);
+		tresults.nd = zeros([totalN,d],'single');
+	end
+	tresults.nd(i,:,:,:) = chainN;
+end
+if strContains(O,'.na.') && ~skipObs															% adiabatic projected occupation
+	chainN = real(getObservable({'bath1correlators','n','adiabatic'}, treeMPS,[],para));			% L x nChains
+	if isNew
+		d = size(chainN);
+		tresults.na = zeros([totalN,d],'single');
+	end
+	tresults.na(i,:,:,:) = chainN;
 end
 
 % 2. Chain Displacement
-if strContains(O,'.x.') && ~skipObs
+if strContains(O,'.x.') && ~skipObs																% displacement
+	chainX = real(getObservable({'bath1correlators','x'}, treeMPS,[],para));					% L x nChains
 	if isNew
-		tresults.x  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+		d = size(chainX);
+		tresults.x = zeros([totalN,d],'single');
 	end
-	tresults.x(i,:,:) = single(getObservable({'???'},treeMPS,[],para));				% (L x nChain)
+	tresults.x(i,:,:) = chainX;																	% (L x nChain)
 end
-
 % 2.1 Chain Displacement, diabatic
-if strContains(O,'.xd.') && ~skipObs
+if strContains(O,'.xd.') && ~skipObs															% diabatic projected displacement
+	chainX = real(getObservable({'bath1correlators','x','diabatic'}, treeMPS,[],para));			% L x nStates x nChains
 	if isNew
-		tresults.xd  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+		d = size(chainX);
+		tresults.xd = zeros([totalN,d],'single');
 	end
-	tresults.xd(i,:,:) = single(getObservable({'bath1correlators'},treeMPS,[],para));				% (L x nStates x nChain)
+	tresults.xd(i,:,:,:) = chainX;																% (L x nStates x nChain)
+end
+% 2.2 Chain Displacement, adiabatic
+if strContains(O,'.xa.') && ~skipObs															% adiabatic projected displacement
+	chainX = real(getObservable({'bath1correlators','x','adiabatic'}, treeMPS,[],para));		% L x nStates x nChains
+	if isNew
+		d = size(chainX);
+		tresults.xa = zeros([totalN,d],'single');
+	end
+	tresults.xa(i,:,:,:) = chainX;																% (L x nStates x nChain)
 end
 
-% 2.2 Chain Displacement, adiabatic
-if strContains(O,'.xa.') && ~skipObs
+% 3. Chain spread, squared displacement
+if strContains(O,'.x2.') && ~skipObs															% displacement squared <x^2>
+	chainX2 = real(getObservable({'bath1correlators','x^2'}, treeMPS,[],para));					% L x nChains
 	if isNew
-		tresults.xa  = zeros(totalN,L,max(NC,NE),'single');							% t x L x NC
+		d = size(chainX2);
+		tresults.x2 = zeros([totalN,d],'single');
 	end
-	tresults.xa(i,:,:) = single(getObservable({'bath1correlators','adiabatic'},treeMPS,[],para));	% (L x nStates x nChain)
+	tresults.x2(i,:,:) = chainX2;
 end
-		
+if strContains(O,'.x2d.') && ~skipObs															% diabatic projected displacement squared <x^2>
+	chainX2 = real(getObservable({'bath1correlators','x^2','diabatic'}, treeMPS,[],para));		% L x nChains
+	if isNew
+		d = size(chainX2);
+		tresults.x2d = zeros([totalN,d],'single');
+	end
+	tresults.x2d(i,:,:,:) = chainX2;
+end
+if strContains(O,'.x2a.') && ~skipObs															% adiabatic projected displacement squared <x^2>
+	chainX2 = real(getObservable({'bath1correlators','x^2','adiabatic'}, treeMPS,[],para));		% L x nChains
+	if isNew
+		d = size(chainX2);
+		tresults.x2a = zeros([totalN,d],'single');
+	end
+	tresults.x2a(i,:,:,:) = chainX2;
+end
+
 %% Star Observables
 
 %% Special Observables
@@ -559,6 +607,13 @@ if strContains(O,'.dm.','.dm2.') && ~skipObs
 		tresults.rho(i,:,:,2) = single(getObservable({'rdm_adiabatic',1,1},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
 		tresults.rho(i,:,:,3) = single(getObservable({'rdm_adiabatic',1,2},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
 	end
+end
+
+if strContains(para.tdvp.Observables,'.ss.')					% ss for system state
+	if isNew
+		tresults.system.state = zeros(totalN,treeMPS.dk(1),treeMPS.dk(1),'single');		% t x dk x D (adiabatic)
+	end
+	tresults.system.state(i,:,:) = single(getObservable({'state',1},treeMPS,[],para));
 end
 
 %% TTM Extraction

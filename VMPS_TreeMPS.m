@@ -364,8 +364,15 @@ results = initresults(para);
 		
 %% Calculate effective Hamiltonians
 treeMPS = initstorage(treeMPS,[],[],para);		% new call pattern for treeMPS
-		
-tdvp_1site_tree(treeMPS,para,results,[]);
+
+filename = para.tdvp.filename;
+save(para.tdvp.filename,'para','results','treeMPS','-v7.3');
+
+if strcmp(computer,'PCWIN64')
+	% Only calculate if this is not the cluster. Otherwise needs moving to scratch
+	tdvp_1site_tree(treeMPS,para,results,[]);
+end
+
 end
 
 function [treeMPS, para] = initState(para)
@@ -623,7 +630,8 @@ treeMPS = nodes(1);
 		
 		%% DPMES 5-7C
 		%	full chains, no truncation!
-		VMPS_TreeMPS('model','DPMES5-7C','evolveSysTrotter',1,'L',18,'tmax',10,'deltaT',0.1,'extractObsInterval',0.1,'InitialState','LE+','useDkExpand',1,'maxBondDim',[5,10]);
+		VMPS_TreeMPS('model','DPMES5-7C','evolveSysTrotter',1,'L',18,'tmax',10,'deltaT',0.1,'extractObsInterval',0.1,'InitialState','LE+','useDkExpand',1,'maxBondDim',[5,10],...
+			'Observables','.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.ss.');
 		% L: longest L of from root to all leaves
 		
 		%% SpinBoson2C

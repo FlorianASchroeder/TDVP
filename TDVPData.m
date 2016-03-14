@@ -751,6 +751,22 @@ classdef TDVPData
 					h.ylbl = '$\left< n_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Occupation vs t';
+				case 'chain-n-d-t'
+					% Plot n(t), slider in k & NC
+					h.ydata = real(obj.occCd(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< n_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Occupation vs t - diabatic';
+				case 'chain-n-a-t'
+					% Plot n(t), slider in k & NC
+					h.ydata = real(obj.occCa(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< n_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Occupation vs t - adiabatic';
 				case 'chain-n-k'
 					% Plot n(k), slider in t & NC
 					h.ydata = real(obj.occC(1:obj.lastIdx,:,:));		% t x L x nChain
@@ -762,13 +778,24 @@ classdef TDVPData
 					h.sldlbl = {'Time t =','Chain'};
 					h.tlbl = 'Chain Occupation vs k';
 				case 'chain-x-t'
-					hold all;
-					h.ydata = real(obj.xC(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = real(obj.xC(1:obj.lastIdx,:,:,:));		% t x L  x nChain
+					h.ylbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement';
+				case 'chain-x-d-t'
+					h.ydata = real(obj.xCd(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
 					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
 					h.noSldDims = 2;
 					h.ylbl = '$\left< x_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
-					h.tlbl = 'Chain Displacement';
+					h.tlbl = 'Chain Displacement - diabatic';
+				case 'chain-x2-d-t'
+					h.ydata = real(obj.xC2d(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< x^2_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement squared - diabatic';
 				case 'chain-x-t-avg'
 					hold all;
 					h.ydata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x  nChain
@@ -829,6 +856,7 @@ classdef TDVPData
 			if h.noSldDims == 1
 				h.pl{1} = plot(h.xdata(1:h.xSize(1),1),h.ydata(:,h.SldIdx{:}));
 			elseif h.noSldDims == 2
+				hold all;
 				for ii = 1:size(h.ydata,2)
 					h.pl{ii} = plot(h.xdata(1:h.xSize(1),1),h.ydata(:,ii,h.SldIdx{:}));
 				end
@@ -1305,6 +1333,7 @@ classdef TDVPData
 				else
 					xs = length(get(h.pl,'xdata'));
 					set(h.pl,'zdata', h.zdata(:,1:xs,h.SldIdx{:}));
+					h.ax.CLim = h.ax.ZLim;
 				end
 	% 			fprintf('Source.Value: %g, Sld.Value: %g',source.Value,h.sld.getValue);
 	% 			callbackdata
