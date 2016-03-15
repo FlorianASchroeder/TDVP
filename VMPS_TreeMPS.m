@@ -46,7 +46,6 @@ p.addParameter('dk_start'		,5	,@isnumeric);
 p.addParameter('D_start'		,5	,@isnumeric);
 p.addParameter('d_opt_start'	,5	,@isnumeric);
 p.addParameter('M'				,2	,@isnumeric);
-p.addParameter('CTshift'		,0	,@isnumeric);
 p.addParameter('useDkExpand'	,0	,@isnumeric);
 p.addParameter('dkmax'			,1e3,@isnumeric);
 p.addParameter('Dmin'			,2	,@isnumeric);

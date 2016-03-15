@@ -54,7 +54,7 @@ if chainpara.Lambda > 1
 	bigL = ceil(floor(-1*log(realmin)/log(chainpara.Lambda))/2)
 	%Use a large enough start H to make sure the accuracy after transformed to Wilson chain
 elseif chainpara.Lambda == 1
-	assert(chainpara.L > 1,'You need to define a chain length > 1!');
+	assert(chainpara.L > 1 || strcmp(chainpara.spectralDensity,'CoupDiscr'),'You need to define a chain length > 1!');
 	% TODO: make sensible estimate!
 	bigL = 10*chainpara.L		% arbitrary now
 	if strcmp(chainpara.discrMethod,'Direct') && strcmp(chainpara.mapping,'Stieltjes')

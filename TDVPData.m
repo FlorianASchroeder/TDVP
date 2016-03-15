@@ -18,8 +18,11 @@ classdef TDVPData
 		% for SBM:
 		alpha;		% if Spin-Boson
 		s;			% if Spin-Boson
-		lastIdx;    % last Observable Idx
 		spin;		% Spin Observable
+		% for DPMES
+		CTShift;	% string
+		% for all
+		lastIdx;    % last Observable Idx
 		occC;		% chain occupation
 		occCd;		% chain occupation, diabatic projection
 		occCa;		% chain occupation, adiabatic projection
@@ -40,6 +43,7 @@ classdef TDVPData
         Vmat;
 		LegLabel;	%
 		Comment;	% 
+		folder;		% for easy identification
 	end
 	
 	methods
@@ -50,17 +54,17 @@ classdef TDVPData
 			%
 			% Load TDVP dataset into a TDVPData object
 			if nargin > 1
+				% TDVPData(para,tresults)
+				% fname = para, varargin{1} = tresults
 				if isstruct(fname) && isstruct(varargin{1})
 					temp.para = fname;
 					temp.tresults = varargin{1};
 				else
 					fprintf('please program me\n');
 				end
-			end
-			if nargin == 0
+			elseif nargin == 0
 				return;		% empty initialization
-			end
-			if nargin == 1 && ischar(fname)
+			elseif nargin == 1 && ischar(fname)
 				try
 					temp = load(fname,'para','tresults');
 					% Deserialize if needed
@@ -76,6 +80,15 @@ classdef TDVPData
 					fprintf('load failed for: %s\n',fname);
 					return;
 				end
+			elseif iscell(fname)
+				% TDVPData({file1,file2,file3,...}
+				% to be loaded into TDVPData array!
+				L = length(fname);
+				obj(L,1) = TDVPData();
+				for ii = 1:L
+					obj(ii) = TDVPData(fname{ii});
+				end
+				return;
 			end
 			
 			% assign parameters
@@ -234,8 +247,20 @@ classdef TDVPData
 			
 			if ~isempty(strfind(obj.para.model,'DPMES'))
 				% any particular vars for DPMES?
+				temp = regexp(obj.para.folder,'CT([-.0-9]*)','tokens');
+				if ~isempty(temp)
+					obj.CTShift = temp{1}{1};
+				else
+					temp = regexp(obj.para.folder,'Delta([-.0-9]*)State','tokens');
+					if ~isempty(temp)
+						obj.CTShift = temp{1}{1};
+					else
+						obj.CTShift = 0;	% give up
+					end
+				end
 			end
 			obj.LegLabel = '';
+			obj.folder = obj.para.folder;
 		end
 		
 		function obj = setLegLabel(obj,entry)
@@ -311,7 +336,7 @@ classdef TDVPData
 					full = 1;
 				case 'rhoii-osc-res-med'
 					% oscillating residuals
-					plotFit = 1;						% 1: plot the fitted functions into separate figure to evaluate fitness.
+					plotFit = 0;							% 1: plot the fitted functions into separate figure to evaluate fitness.
 					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
 					rhoii = rhoii(1:obj.lastIdx,:);
 					out = zeros(size(rhoii));
@@ -325,7 +350,7 @@ classdef TDVPData
 % 					filtered = medfilt1(rhoii,1000,1);
 					filtered = zeros(size(rhoii));
 					for kk = 1:size(rhoii,2)
-						filtered(:,kk) = smooth(rhoii(:,kk),170/obj.dt,'moving');
+						filtered(:,kk) = smooth(rhoii(:,kk),350/obj.dt,'moving');
 					end
 					if plotFit, plot(obj.t(1:obj.lastIdx),filtered); end
 					if plotFit,	figure(f); end
@@ -431,6 +456,8 @@ classdef TDVPData
 				end
 			end
 			
+			h.f = gcf;
+			h.f.Renderer = 'painters';				% provides much better 2D results generally!
 			hold all; ax = gca;
 			
 			if resetColorOrder
@@ -471,6 +498,7 @@ classdef TDVPData
 					h.ylbl = 'CPU time/sweep/s';
 				case 'rhoii'
 					rhoii = gettRhoiiSystem(obj);
+					box on;
 					pl = plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)), plotOpt{:},'Displayname',obj.LegLabel);
 					h.ylbl = '$\rho_{ii}$';
 				case 'rho-current'
@@ -509,6 +537,51 @@ classdef TDVPData
 					set(pl,{'Displayname'},[LegLabD,LegLabCur]');
 					h.ylbl = '$\rho_{ii}$';
 					axes(ax);
+				case 'rho-dpmes-new'
+					% Plots rhoii, rhoij-real and rhoij-imag stacked in 3 axes
+					% start explicitely new figure?
+					LegLabij = {'LE$^- \to $TT','CT$^+ \to $LE$^+$','CT$^- \to $TT','CT$^- \to $LE$^-$'};
+					
+					% rhoii:
+					f = figure; hold all;
+					ax(1) = gca;
+					ax(1).Position(4) = ax(1).Position(4)/3;
+					pl = obj.plot('rhoii',varargin{:});
+					legend('TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$');
+					h.ylbl = '$\rho_{ii}$';
+					col = {pl.Color};
+					grid on;
+					axis tight;
+					% rhoij-real:
+					ax(2) = axes('Position',ax(1).Position); hold all;
+					ax(2).Position(2) = ax(2).Position(2)+ax(2).Position(4);
+					pl = obj.plot('rhoij-real',varargin{:});
+					ax(2).XTickLabels = '';
+					ax(2).YTick = ax(2).YTick(2:end);
+					xlabel('');
+					pl([1,3,5,7,8,10]).delete;
+					set(pl([2,4,6,9]),{'Color'},col(1:4)');			% reset color order
+					legend toggle
+					grid on;
+					axis tight;
+					ax(2).YLim = ax(2).YLim + [-1,1]*0.1*abs(diff(ax(2).YLim));
+					
+					% rhoij-imag:
+					ax(3) = axes('Position',ax(2).Position); hold all;
+					ax(3).Position(2) = ax(3).Position(2)+ax(3).Position(4);
+					pl = obj.plot('rhoij-imag',varargin{:});
+					ax(3).XTickLabels = '';
+					ax(3).YTick = ax(3).YTick(2:end);
+					xlabel('');
+					pl([1,3,5,7,8,10]).delete;
+					set(pl([2,4,6,9]),{'Color'},col(1:4)');			% reset color order
+					leg = legend(LegLabij{:});
+					leg.Position = [0.4,0.6,0.14,0.15];
+					grid on;
+					axis tight;
+					ax(3).YLim = ax(3).YLim + [-1,1]*0.1*abs(diff(ax(3).YLim));
+					axes(ax(1));						% select first axis again
+					
 				case 'rho-dpmes'
 					if ~isfield(obj.tresults,'rho'), return, end;
 					r = obj.tresults.rho(1:obj.lastIdx,:,:);
@@ -1639,6 +1712,12 @@ classdef TDVPData
 				       rdir(['..\TDVP-Git\',filePattern]);rdir(['..\TDVP-Git\Data\',filePattern])];
 			% remove 'incomplete' files
 			foldLib = foldLib(arrayfun(@(x) isempty(strfind(x.name,'incomplete')),foldLib));
+		end
+		
+		function matches = getMatches(lib, dirPat, filPat)
+			%% function matches = getMatches(lib, dirPat, filPat)
+			%	find files with regexp
+			matches = lib(arrayfun(@(x) ~isempty(regexp(x.name,[dirPat,'\\',filPat],'once')),lib));
 		end
 		
 		
