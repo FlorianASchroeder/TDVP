@@ -5316,6 +5316,8 @@ ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdv
 clear
 defPlot(1,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-LE-CTshift',		[ 1: 5], {'xlim',[0,1e3],'yscale','lin'}};
 defPlot(2,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-TT-CTshift',		[ 6: 9], {'xlim',[0,1e3],'yscale','lin'}};
+% defPlot(3,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-LE-CTshift',		[10:15], {'xlim',[0,3.3e3],'yscale','lin'}};
+% defPlot(4,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-TT-CTshift',		[16:19], {'xlim',[0,3.3e3],'yscale','lin'}};
 
 %%To update library:
 %TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
@@ -5325,7 +5327,7 @@ load('TDVPLib.mat');
 TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
 matches = [];
 
-% 1: from LE+
+% 1: from LE+, L=18
 dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*LE.*';
 filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
 m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
@@ -5333,7 +5335,7 @@ tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
 [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
 matches = [matches; m(I)];
 
-% 2: from TT
+% 2: from TT, L=18
 dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*TT.*';
 filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
 m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
@@ -5341,11 +5343,27 @@ tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
 [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
 matches = [matches; m(I)];
 
+% % 3: from LE, L=2
+% dirPat = '20160315-2359-07-DPMES5-7C-Tree-v73TCMde10-L2CT.*LE.*';
+% filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
+% 
+% % 4: from TT, L=2
+% dirPat = '20160315-2359-07-DPMES5-7C-Tree-v73TCMde10-L2CT.*TT.*';
+% filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
+
 res = TDVPData({matches.name});
 
 %%
 for fignum = 1:size(defPlot,1)
-	f = figure(fignum+10); clf; hold all; ax = gca;
+	f = figure(fignum); clf; hold all; ax = gca;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
 % 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
@@ -5363,7 +5381,7 @@ for fignum = 1:size(defPlot,1)
 % 	xlabel('$t$');
 	ylabel('$\rho_{ii} (t)$');
 	fs = 22;
-	formatPlot(fignum+10,'twocolumn-single');
+	formatPlot(fignum,'twocolumn-single');
 	set(gca,'color','none');
 	grid on
 	drawnow

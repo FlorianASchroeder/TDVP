@@ -26,10 +26,12 @@ classdef TDVPData
 		occC;		% chain occupation
 		occCd;		% chain occupation, diabatic projection
 		occCa;		% chain occupation, adiabatic projection
+		occCc;		% chain occupation, |TT><LE+| coherence projection
 		occS;		% star occupation
 		xC;			% chain displacement
 		xCd;		% chain displacement, diabatic projection
 		xCa;		% chain displacement, adiabatic projection
+		xCc;		% chain displacement, |TT><LE+| coherence projection
 		xC2;		% chain <x^2>
 		xC2d;		% chain <x^2>, diabatic projection
 		xC2a;		% chain <x^2>, adiabatic projection
@@ -122,6 +124,9 @@ classdef TDVPData
 					obj.occC = squeeze(sum(real(obj.occCd),3));
 				end
 			end
+			if obj.version >= 72 && isfield(obj.tresults,'nc')
+				obj.occCc = obj.tresults.nc;
+			end
 			
 			if obj.version >= 66 && isfield(obj.tresults,'x')
 				if ndims(obj.tresults.x) == 3
@@ -149,6 +154,9 @@ classdef TDVPData
 				if isempty(obj.xC)
 					obj.xC = squeeze(sum(real(obj.xCd),3));
 				end
+			end
+			if obj.version >= 72 && isfield(obj.tresults,'xc')
+				obj.xCc = obj.tresults.xc;
 			end
 			if obj.version >= 72 && isfield(obj.tresults,'x2')
 				obj.xC2 = obj.tresults.x2;
@@ -840,6 +848,14 @@ classdef TDVPData
 					h.ylbl = '$\left< n_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Occupation vs t - adiabatic';
+				case 'chain-n-c-t'
+					% Plot n(t), slider in k & NC
+					h.ydata = real(obj.occCc(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< n_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Occupation vs t - coherence';
 				case 'chain-n-k'
 					% Plot n(k), slider in t & NC
 					h.ydata = real(obj.occC(1:obj.lastIdx,:,:));		% t x L x nChain
@@ -862,6 +878,20 @@ classdef TDVPData
 					h.ylbl = '$\left< x_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Displacement - diabatic';
+				case 'chain-x-a-t'
+					h.ydata = real(obj.xCa(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement - adiabatic';
+				case 'chain-x-c-t'
+					h.ydata = real(obj.xCc(1:obj.lastIdx,:,:,:));		% t x L x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x chain x L
+					h.noSldDims = 2;
+					h.ylbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Site k ='};
+					h.tlbl = 'Chain Displacement - coherence';
 				case 'chain-x2-d-t'
 					h.ydata = real(obj.xC2d(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
 					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
@@ -905,6 +935,15 @@ classdef TDVPData
 					end
 					h.sldlbl = {'w =','Chain'};
 					h.tlbl = 'Star Displacement';
+				case 'state'
+					hold all;
+					h.ydata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
+					h.ydata = permute(h.ydata,[1,3,2]);
+					h.ydata(:,end+1,:) = sum(h.ydata,2);
+					h.ylbl = '$|\Psi_k|^2$';
+					h.noSldDims = 2;
+					h.tlbl = 'Adiabatic State evolution';
+					h.sldlbl = {'State #'};
 				case 'state-adiab'
 					hold all;
 					h.ydata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
@@ -988,6 +1027,7 @@ classdef TDVPData
 			h.logY = 0;					% linear y-axis by default
 			h.evTocm = 0;				% convert all eV to cm^-1
 			h.normalise = 0;
+			h.smoothRes = 0;			% apply to residual after smoothing?
 			h.xdata = obj.t(1:obj.lastIdx).';	% the time axis
 			h.ydata = [];				% T x L x NC x ...  if not, needs to be reshaped!
 			h.noSldDims = 1;			% default: only plot 1 dim
@@ -1029,6 +1069,8 @@ classdef TDVPData
 						h.FFTshift = 1;
 					case '-norm'
 						h.normalise = 1;
+					case '-smoothres'
+						h.smoothRes = 1;
 				end
 			end
 			
@@ -1066,7 +1108,32 @@ classdef TDVPData
 					h.data = imag(r{1});
 					h.noSldDims = 2;
 % 					h.useWindowFcn = 0;
+				case 'chain-n'
+					h.data = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.ylbl = '$\left< n_k \right>$';
+					h.tlbl = 'Chain Occupation Site 2 Fourier';
+					h.llbl = arrayfun(@(i) sprintf('Chain $%d$',i),(1:size(h.data,2))','UniformOutput',false);
+					h.noSldDims = 2;
+% 					h.useWindowFcn = 0;
+				case 'chain-x2'
+					h.data = squeeze(real(obj.xC2(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.ylbl = '$\left< n_k \right>$';
+					h.tlbl = 'Chain displacement squared Site 2 Fourier';
+					h.llbl = arrayfun(@(i) sprintf('Chain $%d$',i),(1:size(h.data,2))','UniformOutput',false);
+					h.noSldDims = 2;
+% 					h.useWindowFcn = 0;
 			end
+			
+			if h.smoothRes
+				d = size(h.data);
+				h.data = reshape(h.data, d(1),[]);
+				filtered = zeros(d(1), prod(d(2:end)));
+				for ii = 1:size(h.data,2)
+					filtered(:,ii) = smooth(h.data(:,ii),350/obj.dt,'moving');
+				end
+				h.data = reshape(h.data-filtered,d);
+			end
+
 			
 			calcFFT();				% fills h.ydata with FFT
 			
@@ -1138,7 +1205,7 @@ classdef TDVPData
 				if h.power2
 					maxN = pow2(nextpow2(maxN));
 				end
-				h.xdata = (0:maxN-1)/obj.t(2)/maxN;			% get frequency	
+				h.xdata = (0:maxN-1)/obj.t(2)/maxN;			% get frequency
 				if h.useWindowFcn
 					window = hann(h.dataRange,'periodic');
 					h.ydata = fft(h.data(1:h.dataRange,:).*(window*ones(1,size(h.data,2))),maxN,1);				% do FFT in 1st dimension
@@ -1169,6 +1236,10 @@ classdef TDVPData
 						% applies DFT to the residual of the populations of rho
 						out = abs(h.ydata);
 					case 'rhoij-imag'
+						out = abs(h.ydata);
+					case 'chain-n'
+						out = abs(h.ydata);
+					case 'chain-x2'
 						out = abs(h.ydata);
 				end
 				if h.normalise

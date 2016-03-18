@@ -249,12 +249,21 @@ switch type{1}
 					elseif strcmpi(type{3},'adiabatic')
 					% Project onto root nodes' adiabatic states
 						newV(kk,:) = V(kk,:);
+					elseif strcmpi(type{3},'lettcoherence')		% get |TT><LE+| mode-mediated coherence terms
+						newV = V;
+						projOp = zeros(size(V,2));
+						projOp(1,2) = 1;% projOp(2,1) = 1;
 					end
 					if norm(newV) ~= 0
 						newV = newV./norm(newV);				% remove weight by /norm()
 					end
 					mps.mps{1} = reshape(A*newV,d);
-					out(:,kk,:) = calBath1SiteCorrelators_Tree(mps,para,type{2});		% no projection needed anymore inside calBath1SiteCorrelators
+					if strcmpi(type{3},'lettcoherence')
+						out(:,kk,:) = calBath1SiteCorrelators_Tree(mps,para,type{2},projOp);		% projection needed for cross terms
+						break;																		% only do once!
+					else
+						out(:,kk,:) = calBath1SiteCorrelators_Tree(mps,para,type{2});				% no projection needed anymore inside calBath1SiteCorrelators
+					end
 				end
 			end
 			return;
@@ -976,7 +985,7 @@ end
 
 end
 
-function An = calBath1SiteCorrelators_Tree(treeMPS,para,opSelect)
+function An = calBath1SiteCorrelators_Tree(treeMPS,para,opSelect,projOp)
 % calculates the single-site expectation value
 % Zero operator for spin sites / nodes
 % output is matrix containing all values for all chains (L x nChains)
@@ -1010,7 +1019,11 @@ if treeMPS.height == 0
 					Op{1,j} = bp*bp';
 			end
 		else
-			Op{1,j} = zeros(treeMPS.dk(1,j));		% don't measure spin.
+			if nargin > 3
+				Op{1,j} = projOp;						% use Projection operator if specified
+			else
+				Op{1,j} = zeros(treeMPS.dk(1,j));		% no projection
+			end
 		end
 	end
 

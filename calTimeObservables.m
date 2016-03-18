@@ -522,7 +522,7 @@ if strContains(O,'.n.') && ~skipObs
 	tresults.n(i,:,:) = chainN;
 end
 if strContains(O,'.nd.') && ~skipObs															% diabatic projected occupation
-	chainN = real(getObservable({'bath1correlators','n','diabatic'}, treeMPS,[],para));			% L x nChains
+	chainN = real(getObservable({'bath1correlators','n','diabatic'}, treeMPS,[],para));			% L x States x nChains
 	if isNew
 		d = size(chainN);
 		tresults.nd = zeros([totalN,d],'single');
@@ -530,12 +530,20 @@ if strContains(O,'.nd.') && ~skipObs															% diabatic projected occupati
 	tresults.nd(i,:,:,:) = chainN;
 end
 if strContains(O,'.na.') && ~skipObs															% adiabatic projected occupation
-	chainN = real(getObservable({'bath1correlators','n','adiabatic'}, treeMPS,[],para));			% L x nChains
+	chainN = real(getObservable({'bath1correlators','n','adiabatic'}, treeMPS,[],para));			% L x States x nChains
 	if isNew
 		d = size(chainN);
 		tresults.na = zeros([totalN,d],'single');
 	end
 	tresults.na(i,:,:,:) = chainN;
+end
+if strContains(O,'.nc.') && ~skipObs															% coherence projected occupation
+	chainN = real(getObservable({'bath1correlators','n','lettcoherence'}, treeMPS,[],para));	% L x 1 x nChains
+	if isNew
+		d = size(chainN);
+		tresults.nc = zeros([totalN,d(1),d(3)],'single');
+	end
+	tresults.nc(i,:,:,:) = chainN(:,1,:);		% only take one state slice, since they are all equal
 end
 
 % 2. Chain Displacement
@@ -564,6 +572,14 @@ if strContains(O,'.xa.') && ~skipObs															% adiabatic projected displac
 		tresults.xa = zeros([totalN,d],'single');
 	end
 	tresults.xa(i,:,:,:) = chainX;																% (L x nStates x nChain)
+end
+if strContains(O,'.xc.') && ~skipObs															% coherence projected displacement
+	chainX = real(getObservable({'bath1correlators','x','lettcoherence'}, treeMPS,[],para));	% L x 1 x nChains
+	if isNew
+		d = size(chainX);
+		tresults.xc = zeros([totalN,d(1),d(3)],'single');
+	end
+	tresults.xc(i,:,:,:) = chainX(:,1,:);		% only take first state slice, since others are 0
 end
 
 % 3. Chain spread, squared displacement
