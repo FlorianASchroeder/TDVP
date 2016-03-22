@@ -538,7 +538,7 @@ if strContains(O,'.na.') && ~skipObs															% adiabatic projected occupat
 	tresults.na(i,:,:,:) = chainN;
 end
 if strContains(O,'.nc.') && ~skipObs															% coherence projected occupation
-	chainN = real(getObservable({'bath1correlators','n','lettcoherence'}, treeMPS,[],para));	% L x 1 x nChains
+	chainN = getObservable({'bath1correlators','n','lettcoherence'}, treeMPS,[],para);			% L x 1 x nChains
 	if isNew
 		d = size(chainN);
 		tresults.nc = zeros([totalN,d(1),d(3)],'single');
@@ -574,7 +574,7 @@ if strContains(O,'.xa.') && ~skipObs															% adiabatic projected displac
 	tresults.xa(i,:,:,:) = chainX;																% (L x nStates x nChain)
 end
 if strContains(O,'.xc.') && ~skipObs															% coherence projected displacement
-	chainX = real(getObservable({'bath1correlators','x','lettcoherence'}, treeMPS,[],para));	% L x 1 x nChains
+	chainX = getObservable({'bath1correlators','x','lettcoherence'}, treeMPS,[],para);			% L x 1 x nChains
 	if isNew
 		d = size(chainX);
 		tresults.xc = zeros([totalN,d(1),d(3)],'single');

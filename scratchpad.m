@@ -495,7 +495,7 @@ formatPlot(f,'twocolumn-single')
 grid on;
 
 f = figure(2); clf; hold all;
-x.plot('rho-dpmes',plotOpt{:});
+x.plot('rhoij-imag',plotOpt{:});
 formatPlot(f,'twocolumn-single')
 grid on;
 
@@ -624,7 +624,34 @@ if mode
 else
 	h = x.plotSld2D('chain-n','-fsev');
 end
+%% TDVP (3.1): 1D Plot <n> Chain coherence - TDVPData
+f=figure(315);  f.Name = ''; clf; hold all; ax = gca;
+% x = res(6);
+pl = x.plotSld1D('chain-n-c-t','-fsev',f);
+leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+ylabel('$|TT\rangle\langle LE^+|\hat n_k$');
+grid on
+axis tight
+formatPlot(f,'twocolumn-single')
 
+%% TDVP (3.1): 1D Plot <n> Chain DFT - TDVPData
+f=figure(315);  f.Name = ''; clf; hold all; ax = gca;
+% x = res(6);
+h = x.plotSld1DFT('chain-n','-cmev',f);
+ph = h.pl;
+for kk = 1:numel(ph)
+	ph(kk).YData = ph(kk).YData./max(ph(kk).YData)+5-kk;
+end
+leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+ylabel('$|FT (n_2)|$');
+grid on
+axis tight
+ax.XLim = [100,2000];
+formatPlot(f,'twocolumn-single')
+	%% update this after slider move
+for kk = 1:numel(ph)
+	ph(kk).YData = ph(kk).YData./max(ph(kk).YData(50:round(end/2)))+5-kk;
+end
 %% TDVP (3.2): Plot <n> STAR
 mode = 0;		% 0: lin, 1: log
 f=figure(320); clf; f.Name = 'Star Occupation';
@@ -874,10 +901,21 @@ formatPlot(gcf,'twocolumn-single')
 h = x.plotSld1D('chain-x-t','-fsev');
 formatPlot(gcf,'twocolumn-single')
 
-%% TDVP (3.8.3): 1D Plot <x> CHAIN - State avg - TDVPData
+%% TDVP (3.8.3): 1D Plot <x> CHAIN - Diabatic - TDVPData
 % x = res(35);
-h = x.plotSld1D('chain-x-t-avg','-fsev');
-formatPlot(gcf,'twocolumn-single')
+h = x.plotSld1D('chain-x-d-t','-fsev');
+% formatPlot(gcf,'twocolumn-single')
+formatPlot(gcf);
+
+%% TDVP (3.8.4): 1D Plot <x> CHAIN coherence - TDVPData
+f=figure(381);  f.Name = ''; clf; hold all; ax = gca;
+% x = res(6);
+pl = x.plotSld1D('chain-x-c-t','-fsev',f);
+leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+ylabel('$|TT\rangle\langle LE^+|\hat x_k$');
+grid on
+axis tight
+formatPlot(f,'twocolumn-single')
 
 %% TDVP (3.8.1): Plot FT(<x>) CHAIN - TDVPData
 % x = res(35);
@@ -1670,11 +1708,14 @@ axis tight
 % ax.XLim = [0,9000];ax.YLim = [0,2];
 ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
-	%% TDVPData: DFT residuals
+	%% TDVPData: DFT Fit residuals
 f=figure(707);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
 % 	a = x.getData('rhoii-osc-res');
 % x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
 ph=x.plot('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
+for kk = 1:numel(ph)
+	ph(kk).YData = ph(kk).YData./max(ph(kk).YData)+5-kk;
+end
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
@@ -5311,7 +5352,7 @@ end
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 
-%% DPMES5-7C v73  TreeMPS from LE+ & TT, CTshift - TDVPData							% LabBook 15/03/2016
+%% DPMES5-7C v73  TreeMPS from LE+ & TT, L18 CTshift - TDVPData						% LabBook 15/03/2016
 % See effect of CT shift on dynamics form LE+ and TT
 clear
 defPlot(1,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-LE-CTshift',		[ 1: 5], {'xlim',[0,1e3],'yscale','lin'}};
@@ -5385,6 +5426,9 @@ for fignum = 1:size(defPlot,1)
 	set(gca,'color','none');
 	grid on
 	drawnow
+	if fignum == 2
+		ph = res(2).plot('rhoii','-fsev','-unicol','k.');
+	end
 end
 
 

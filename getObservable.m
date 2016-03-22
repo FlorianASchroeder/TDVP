@@ -992,6 +992,7 @@ function An = calBath1SiteCorrelators_Tree(treeMPS,para,opSelect,projOp)
 % custom made solution for biggest speedup, exact solution!
 %	opSelect: ['bp'|'x'|'bp^2'|'x^2'|'n']
 %
+% Projection operator only applied to dk of root node!
 % supports only TreeMPS input!
 %
 % Created by FS 11/03/2016
@@ -1019,15 +1020,15 @@ if treeMPS.height == 0
 					Op{1,j} = bp*bp';
 			end
 		else
-			if nargin > 3
-				Op{1,j} = projOp;						% use Projection operator if specified
-			else
+% 			if nargin > 3
+% 				Op{1,j} = projOp;						% use Projection operator if specified
+% 			else
 				Op{1,j} = zeros(treeMPS.dk(1,j));		% no projection
-			end
+% 			end
 		end
 	end
 
-	An = real(expectation_allsites(Op,treeMPS.mps,treeMPS.Vmat,treeMPS.BondCenter));		% (NC x L)
+	An = expectation_allsites(Op,treeMPS.mps,treeMPS.Vmat,treeMPS.BondCenter);			% (NC x L)
 	An = reshape(An,[],1);					% L x 1
 else
 	%% this is node -> more recursive calls
@@ -1036,6 +1037,10 @@ else
 	nc    = treeMPS.degree;										% number of subchains at node
 	AnTemp = cell(1,nc);
 	Atemp = contracttensors(treeMPS.BondCenter,2,2,treeMPS.mps{1},nc+2,1);
+	if nargin > 3 && ~isempty(projOp)
+		Atemp = contracttensors(Atemp,nc+2,nc+2,projOp.',2,1);							% Apply projection to first site
+	end
+		
 	for ii = 1:nc
 		treeMPS.child(ii).BondCenter = contracttensors(conj(treeMPS.mps{1}),nc+2,[1:ii,ii+2:nc+2],Atemp,nc+2,[1:ii,ii+2:nc+2]);	% contract all except D_(ii+1)
 		AnTemp{ii}                   = calBath1SiteCorrelators_Tree(treeMPS.child(ii),para,opSelect);		% L x nc(child)

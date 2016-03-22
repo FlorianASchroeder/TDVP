@@ -788,7 +788,19 @@ classdef TDVPData
 			h.ylbl = '';
 			h.tlbl = '';
 			
+			h.f  = [];
+			h.ax = [];
+			
 			for m = 1:nargin-2
+				if isobject(varargin{m})
+					if isa(varargin{m},'matlab.ui.Figure')
+						h.f  = varargin{m};
+					elseif isa(varargin{m},'matlab.graphics.axis.Axes')
+						h.ax = varargin{m};
+					end
+					continue;
+				end
+					
 				switch lower(varargin{m})
 					case '-fsev'
 						% fs timescale for H in eV
@@ -805,8 +817,17 @@ classdef TDVPData
 			end
 			
 			% Create figure handles and panels
-			h.f = figure();
-			h.ax = gca;
+			if isempty(h.f)
+				if isempty(h.ax)
+					h.f = figure();
+				else
+					axes(h.ax);					% select axes
+					h.f = gcf;					% get their figure
+				end
+			end
+			if isempty(h.ax)
+				h.ax = gca;
+			end
 			% fix axes size and add space to the right
 			h.ax.Units = 'pixels';
 			h.f.Position(3) = h.f.Position(3)+100;
@@ -892,6 +913,11 @@ classdef TDVPData
 					h.ylbl = '$\left< x_k \right>$';
 					h.sldlbl = {'Site k ='};
 					h.tlbl = 'Chain Displacement - coherence';
+				case 'chain-x2-t'
+					h.ydata = real(obj.xC2(1:obj.lastIdx,:,:,:));		% t x L  x nChain
+					h.ylbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement squared';
 				case 'chain-x2-d-t'
 					h.ydata = real(obj.xC2d(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
 					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
@@ -952,6 +978,8 @@ classdef TDVPData
 					h.noSldDims = 2;
 					h.tlbl = 'Adiabatic State evolution';
 					h.sldlbl = {'Bond #'};
+				otherwise
+					return;
 			end
 			
 			h.f.Name = h.tlbl;
@@ -1039,6 +1067,9 @@ classdef TDVPData
 			h.tlbl = '';
 			h.llbl = {};
 			
+			h.f  = [];
+			h.ax = [];
+			
 			% FFT settings
 			h.data = [];								% FFT done in 1st dimension
 			h.dataRange = obj.lastIdx;					% last (real) datapoint to include
@@ -1048,6 +1079,14 @@ classdef TDVPData
 			h.FFTshift = 0;
 			
 			for m = 1:nargin-2
+				if isobject(varargin{m})
+					if isa(varargin{m},'matlab.ui.Figure')
+						h.f  = varargin{m};
+					elseif isa(varargin{m},'matlab.graphics.axis.Axes')
+						h.ax = varargin{m};
+					end
+					continue;
+				end
 				switch lower(varargin{m})
 					case '-ev'
 						% ev scale for H in eV
@@ -1075,8 +1114,17 @@ classdef TDVPData
 			end
 			
 			% Create figure handles and panels
-			h.f = figure();
-			h.ax = gca;
+			if isempty(h.f)
+				if isempty(h.ax)
+					h.f = figure();
+				else
+					axes(h.ax);					% select axes
+					h.f = gcf;					% get their figure
+				end
+			end
+			if isempty(h.ax)
+				h.ax = gca;
+			end
 			% fix axes size and add space to the right
 			h.ax.Units = 'pixels';
 			h.f.Position(3) = h.f.Position(3)+100;
