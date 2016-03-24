@@ -344,25 +344,10 @@ classdef TDVPData
 					full = 1;
 				case 'rhoii-osc-res-med'
 					% oscillating residuals
-					plotFit = 0;							% 1: plot the fitted functions into separate figure to evaluate fitness.
 					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
 					rhoii = rhoii(1:obj.lastIdx,:);
-					out = zeros(size(rhoii));
 					% fit by smoothing and remove exponential components to obtain the residuals
-					if plotFit
-						f = gcf;
-						figure; hold all; ax = gca;
-						plot(obj.t(1:obj.lastIdx),rhoii);
-						ax.ColorOrderIndex = 1;					% reset to have fit in same color as original data
-					end
-% 					filtered = medfilt1(rhoii,1000,1);
-					filtered = zeros(size(rhoii));
-					for kk = 1:size(rhoii,2)
-						filtered(:,kk) = smooth(rhoii(:,kk),350/obj.dt,'moving');
-					end
-					if plotFit, plot(obj.t(1:obj.lastIdx),filtered); end
-					if plotFit,	figure(f); end
-					out = rhoii-filtered;
+					out = TDVPData.movAvgRes(rhoii,170/obj.dt);
 					full = 1;
 				case 'rhoij'
 					% out{1}: t x #off-diagonal elements
@@ -401,9 +386,30 @@ classdef TDVPData
 			end
 		end
 		
-		function [pl,obj] = plot(obj,type,varargin)
+		function [h,obj] = plot(obj,type,varargin)
+			%% Simple 1D plots for following Observables:
+			% type:
+			%	'sz'
+			%	'spin'
+			%	'calctime'
+			%	'calctime-d'
+			%	'calctime-d-sec'
+			%	'rhoii'
+			%	'rho-current'
+			%	'rho-dpmes'
+			%	'rhoij-real'
+			%	'rhoij-imag'
+			%	'rhoij-abs'
+			%	'hshi'
+			%	'stateproj'
+			%	'chain-x-t-avg'
+			%	'linabs'
+			%	'rhoii-ft'
+			%	'rhoii-osc-res'
+			%	'rhoii-osc-res-med'
+
 			% initialise modifiers
-			% plot(...,ax_handle)	Plots into the axes given by handle
+			% plot(...,ax_handle)	Plots into the axes/figure given by handle
 			if length(obj) > 1
 				% deal with object array
 				pl = gobjects(length(obj),1);
@@ -419,6 +425,12 @@ classdef TDVPData
 			end
 			h.xlbl = 't';
 			h.ylbl = [];
+			h.leglbl = {};
+			h.xdata = [];
+			h.ydata = [];
+			h.pl = [];					% plot handle
+			pl = [];					% old plot handle;
+			
 			ts = 1;						% scale time axis
 			eScale = 0;					% energy units used for DFT: 0 = none, 1 = eV, 2 = cm (wavenumber)
 			unicolor = 0;
@@ -426,9 +438,21 @@ classdef TDVPData
 			plotOpt = {};				% additional plotOptions from varargin
 			DFTplot = 0;				% plotting DFT data
 			DFTshift = 0;				% shift the fft results
-			normalise = 0;				% normalise to maximum peak (for FFT especially)
+			h.normalise = 0;				% normalise to maximum peak (for FFT especially)
+			h.distribute = 0;			% distribute plot lines along y; only use if h.normalise = 1, otherwise gets messy
+			
+			h.f  = [];
+			h.ax = [];
 			
 			for m = 1:nargin-2
+				if isobject(varargin{m})
+					if isa(varargin{m},'matlab.ui.Figure')
+						h.f  = varargin{m};
+					elseif isa(varargin{m},'matlab.graphics.axis.Axes')
+						h.ax = varargin{m};
+					end
+					continue;
+				end
 				switch lower(varargin{m})
 					case '-fsev'
 						% fs timescale for H in eV and eV scale in DFT plots
@@ -453,62 +477,101 @@ classdef TDVPData
 					case '-resetcolororder'
 						resetColorOrder = 1;
 					case '-norm'
-						normalise = 1;
+						h.normalise = 1;
+					case '-dist'
+						h.distribute = 1;
 					otherwise
 						% pass through as direct plot options!
-						if isa(varargin{m},'matlab.graphics.axis.Axes')
-							axes(varargin{m});
-						else
-							plotOpt = [plotOpt, varargin(m)];
-						end
+						plotOpt = [plotOpt, varargin(m)];
 				end
 			end
-			
-			h.f = gcf;
+
+			% Create figure handles and panels
+			if isempty(h.f)
+				if isempty(h.ax)
+					h.f = figure();
+				else
+					axes(h.ax);					% select axes
+					h.f = gcf;					% get their figure
+				end
+			end
+			if isempty(h.ax)
+				h.ax = gca;
+			end
 			h.f.Renderer = 'painters';				% provides much better 2D results generally!
-			hold all; ax = gca;
+			hold all;
 			
 			if resetColorOrder
-				ax.ColorOrderIndex = 1;
+				h.ax.ColorOrderIndex = 1;
 			end
 			
 			if unicolor
-				idx = ax.ColorOrderIndex;
+				idx = h.ax.ColorOrderIndex;
 			end
 			
 			switch lower(type)
 				case 'sz'
-					pl = plot(obj.t(1:obj.lastIdx)*ts, obj.tresults.spin.sz(1:obj.lastIdx));
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.tresults.spin.sz(1:obj.lastIdx);
+					h.leglbl = {obj.LegLabel};
 					h.ylbl = '$\left<\sigma_z\right>$';
 				case 'spin'
 					if isempty(obj.spin)
 						disp('please calculate spin first');
 						return;
 					else
-						pl = plot(obj.t(1:obj.lastIdx)*ts, obj.spin);
-						pl(4) = plot(obj.t(1:obj.lastIdx)*ts, sqrt(obj.spin(:,1).^2+obj.spin(:,2).^2));
-						pl(1).DisplayName = '$\left<\sigma_x\right>$';
-						pl(2).DisplayName = '$\left<\sigma_y\right>$';
-						pl(3).DisplayName = '$\left<\sigma_z\right>$';
-						pl(4).DisplayName = '$\sqrt{\left<\sigma_x\right>^2+\left<\sigma_y\right>^2}$';
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						h.ydata = [obj.spin,sqrt(obj.spin(:,1).^2+obj.spin(:,2).^2)];
+						h.leglbl = {'$\left<\sigma_x\right>$','$\left<\sigma_y\right>$','$\left<\sigma_z\right>$','$\sqrt{\left<\sigma_x\right>^2+\left<\sigma_y\right>^2}$'};
 					end
 					h.ylbl = '$\left<\sigma\right>$';
 				case 'calctime'
-					pl = plot(obj.t(2:obj.lastIdx)*ts,obj.para.tdvp.calcTime(1:obj.lastIdx-1),'Displayname',obj.LegLabel);
-					h.ylbl = 'CPU time/h';
+					h.xdata  = obj.t(2:obj.lastIdx)*ts;
+					h.ydata  = obj.para.tdvp.calcTime(1:obj.lastIdx-1);
+					h.leglbl = {obj.LegLabel};
+					h.ylbl   = 'CPU time/h';
 				case 'calctime-d'
 					% 1st derivative, in hours
-					pl = plot(obj.t(2:obj.lastIdx-1)*ts,diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1)),'Displayname',obj.LegLabel);
+					h.xdata  = obj.t(2:obj.lastIdx-1)*ts;
+					h.ydata  = diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1));
+					h.leglbl = {obj.LegLabel};
 					h.ylbl = 'CPU time/sweep/h';
 				case 'calctime-d-sec'
 					% 1st derivative, in seconds
-					pl = plot(obj.t(2:obj.lastIdx-1)*ts,3600*diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1)),'Displayname',obj.LegLabel);
+					h.xdata = obj.t(2:obj.lastIdx-1)*ts;
+					h.ydata = 3600*diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1));
+					h.leglbl = {obj.LegLabel};
 					h.ylbl = 'CPU time/sweep/s';
 				case 'rhoii'
-					rhoii = gettRhoiiSystem(obj);
 					box on;
-					pl = plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)), plotOpt{:},'Displayname',obj.LegLabel);
-					h.ylbl = '$\rho_{ii}$';
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = abs(gettRhoiiSystem(obj));
+					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+					h.ylbl = '$\rho_{ii}(t)$';
+				case 'rhoij-real'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					box on;
+					r = obj.getData('rhoij');							% {rhoij, info}
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = real(r{1});
+					h.leglbl = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
+					h.ylbl = 'Re($\rho_{ij})$';
+				case 'rhoij-imag'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					box on;
+					r = obj.getData('rhoij');							% {rhoij, info}
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = imag(r{1});
+					h.leglbl = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
+					h.ylbl = 'Im($\rho_{ij})$';
+				case 'rhoij-abs'
+					if ~isfield(obj.tresults,'rho'), return, end;
+					box on;
+					r = obj.getData('rhoij');							% {rhoij, info}
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = abs(r{1});
+					h.leglbl = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
+					h.ylbl = '$|\rho_{ij}|$';
 				case 'rho-current'
 					if ~isfield(obj.tresults,'rho'), return, end;
 					r = obj.tresults.rho(1:obj.lastIdx,:,:);
@@ -531,160 +594,61 @@ classdef TDVPData
 						end
 					end
 					% resize ax and add top axis for current!
-					ax.Position(4) = ax.Position(4)/2;
+					h.ax.Position(4) = h.ax.Position(4)/2;
 					box on;
  					pl1 = plot(obj.t(1:obj.lastIdx)*ts,rhoDiag, plotOpt{:},'Displayname',obj.LegLabel);
-					ax2 = axes('Position',ax.Position);
-					ax2.Position(2) = ax2.Position(2)+ax2.Position(4);
+					h.ax2 = axes('Position',h.ax.Position);
+					h.ax2.Position(2) = h.ax2.Position(2)+h.ax2.Position(4);
 					pl2 = plot(obj.t(1:obj.lastIdx)*ts,rhoCur, plotOpt{:},'Displayname',obj.LegLabel);
 % 					ax2.XTickLabel = [];
-					ax2.XAxisLocation = 'top';
-					ax2.YAxisLocation = 'right';
+					h.ax2.XAxisLocation = 'top';
+					h.ax2.YAxisLocation = 'right';
 					ylabel('Im($\rho_{ij})$')
 					pl = [pl1;pl2];
 					set(pl,{'Displayname'},[LegLabD,LegLabCur]');
 					h.ylbl = '$\rho_{ii}$';
-					axes(ax);
-				case 'rho-dpmes-new'
+					axes(h.ax);
+				case 'rho-dpmes'
 					% Plots rhoii, rhoij-real and rhoij-imag stacked in 3 axes
 					% start explicitely new figure?
 					LegLabij = {'LE$^- \to $TT','CT$^+ \to $LE$^+$','CT$^- \to $TT','CT$^- \to $LE$^-$'};
 					
 					% rhoii:
-					f = figure; hold all;
-					ax(1) = gca;
-					ax(1).Position(4) = ax(1).Position(4)/3;
-					pl = obj.plot('rhoii',varargin{:});
+					h.ax(1).Position(4) = h.ax(1).Position(4)/3;
+					hsub = obj.plot('rhoii',h.ax(1),varargin{:});
 					legend('TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$');
 					h.ylbl = '$\rho_{ii}$';
-					col = {pl.Color};
+					col = {hsub.pl.Color};
 					grid on;
 					axis tight;
 					% rhoij-real:
-					ax(2) = axes('Position',ax(1).Position); hold all;
-					ax(2).Position(2) = ax(2).Position(2)+ax(2).Position(4);
-					pl = obj.plot('rhoij-real',varargin{:});
-					ax(2).XTickLabels = '';
-					ax(2).YTick = ax(2).YTick(2:end);
+					h.ax(2) = axes('Position',h.ax(1).Position); hold all;
+					h.ax(2).Position(2) = h.ax(2).Position(2)+h.ax(2).Position(4);
+					hsub = obj.plot('rhoij-real',h.ax(2),varargin{:});
+					h.ax(2).XTickLabels = '';
+					h.ax(2).YTick = h.ax(2).YTick(2:end);
 					xlabel('');
-					pl([1,3,5,7,8,10]).delete;
-					set(pl([2,4,6,9]),{'Color'},col(1:4)');			% reset color order
-					legend toggle
+					hsub.pl([1,3,5,7,8,10]).delete;
+					set(hsub.pl([2,4,6,9]),{'Color'},col(1:4)');			% reset color order
 					grid on;
 					axis tight;
-					ax(2).YLim = ax(2).YLim + [-1,1]*0.1*abs(diff(ax(2).YLim));
+					h.ax(2).YLim = h.ax(2).YLim + [-1,1]*0.1*abs(diff(h.ax(2).YLim));
 					
 					% rhoij-imag:
-					ax(3) = axes('Position',ax(2).Position); hold all;
-					ax(3).Position(2) = ax(3).Position(2)+ax(3).Position(4);
-					pl = obj.plot('rhoij-imag',varargin{:});
-					ax(3).XTickLabels = '';
-					ax(3).YTick = ax(3).YTick(2:end);
+					h.ax(3) = axes('Position',h.ax(2).Position); hold all;
+					h.ax(3).Position(2) = h.ax(3).Position(2)+h.ax(3).Position(4);
+					hsub = obj.plot('rhoij-imag',h.ax(3),varargin{:});
+					h.ax(3).XTickLabels = '';
+					h.ax(3).YTick = h.ax(3).YTick(2:end);
 					xlabel('');
-					pl([1,3,5,7,8,10]).delete;
-					set(pl([2,4,6,9]),{'Color'},col(1:4)');			% reset color order
+					hsub.pl([1,3,5,7,8,10]).delete;
+					set(hsub.pl([2,4,6,9]),{'Color'},col(1:4)');			% reset color order
 					leg = legend(LegLabij{:});
 					leg.Position = [0.4,0.6,0.14,0.15];
 					grid on;
 					axis tight;
-					ax(3).YLim = ax(3).YLim + [-1,1]*0.1*abs(diff(ax(3).YLim));
-					axes(ax(1));						% select first axis again
-					
-				case 'rho-dpmes'
-					if ~isfield(obj.tresults,'rho'), return, end;
-					r = obj.tresults.rho(1:obj.lastIdx,:,:);
-					d = size(r);
-					rhoDiag = zeros(d([1,2]));
-					LegLabD = cell(1,d(2));
-					rhoCur = zeros(d(1),d(2)*(d(2)-1)/2-1);				% calculates number of off-diagonals
-					LegLabCur = cell(1,size(rhoCur,2));
-					iC = 1;
-					for jj = 1:d(2)
-						for ii = 1:jj
-							if ii == jj
-								rhoDiag(:,ii) = real(r(:,ii,jj));		% get population
-								LegLabD{ii} = sprintf('$%d$',ii);
-							else
-								rhoCur(:,iC)  = real(r(:,ii,jj));		% get Current
-								LegLabCur{iC} = sprintf('$%d\\to%d$',ii,jj);
-								iC = iC+1;
-							end
-						end
-					end
-					% resize ax and add top axis for current!
-					ax.Position(4) = ax.Position(4)/2;
-					box on;
- 					pl1 = plot(obj.t(1:obj.lastIdx)*ts,rhoDiag, plotOpt{:},'Displayname',obj.LegLabel);
-					ax2 = axes('Position',ax.Position);
-					ax2.Position(2) = ax2.Position(2)+ax2.Position(4);
-					pl2 = plot(obj.t(1:obj.lastIdx)*ts,rhoCur(:,[2,5,7,9]), plotOpt{:},'Displayname',obj.LegLabel);		% select non-vanishing only!
-					LegLabD = {'$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$'};
-					LegLabCur = {'$LE^- \to TT$','$CT^+ \to LE^+$','$CT^- \to TT$','$CT^- \to LE^-$'};
-% 					ax2.XTickLabel = [];
-					ax2.XAxisLocation = 'top';
-					ax2.YAxisLocation = 'right';
-					legend toggle
-					ylabel('Re($\rho_{ij})$')
-					pl = [pl1;pl2];
-					set(pl,{'Displayname'},[LegLabD,LegLabCur]');
-					h.ylbl = '$\rho_{ii}$';
-					axes(ax);
-				case 'rhoij-real'
-					if ~isfield(obj.tresults,'rho'), return, end;
-					r = obj.getData('rhoij');							% {rhoij, info}
-					LegLabCur = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
-					pl = plot(obj.t(1:obj.lastIdx)*ts, real(r{1}), plotOpt{:},'Displayname',obj.LegLabel);
-					box on;
-					legend toggle
-					set(pl,{'Displayname'},LegLabCur);
-					h.ylbl = 'Re($\rho_{ij})$';
-				case 'rhoij-imag'
-					if ~isfield(obj.tresults,'rho'), return, end;
-					r = obj.getData('rhoij');							% {rhoij, info}
-					LegLabCur = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
-					pl = plot(obj.t(1:obj.lastIdx)*ts, imag(r{1}), plotOpt{:},'Displayname',obj.LegLabel);
-					box on;
-					legend toggle
-					set(pl,{'Displayname'},LegLabCur);
-					h.ylbl = 'Im($\rho_{ij})$';
-				case 'rhoij-abs'
-					if ~isfield(obj.tresults,'rho'), return, end;
-					r = obj.getData('rhoij');							% {rhoij, info}
-					LegLabCur = arrayfun(@(i) sprintf('$%d\\to%d$',r{2}(1,i),r{2}(2,i)),(1:size(r{2},2))','UniformOutput',false);
-					pl = plot(obj.t(1:obj.lastIdx)*ts, abs(r{1}), plotOpt{:},'Displayname',obj.LegLabel);
-					box on;
-					legend toggle
-					set(pl,{'Displayname'},LegLabCur);
-					h.ylbl = '$|\rho_{ij}|$';
-				case 'hshi'
-					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
-					h.ylbl = '$\left< H_i \right>$';
-				case 'stateproj'
-					pl = plot(obj.t(1:obj.lastIdx)*ts, [abs(obj.stateProj(1:obj.lastIdx)),real(obj.stateProj(1:obj.lastIdx)),imag(obj.stateProj(1:obj.lastIdx))]);
-					h.ylbl = 'Autocorrelation';
-				case 'chain-x-t-avg'
-					hold all;
-					h.ydata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x  nChain
-					h.ydata = permute(h.ydata,[1 3 2]);				% t x state x L x chain
-					pl = plot(obj.t(1:obj.lastIdx)*ts,h.ydata(:,:,2));
-					h.ylbl = '$\left< x_k \right>$';
-					
-				case 'linabs'
-					% linear absorption as DFT of stateProj autocorrelation function
-					DFTplot = 1;
-					m = obj.lastIdx;					% last datapoint to include
-% 					m = 5000;
-					maxN = m;
-% 					maxN = pow2(nextpow2(1*m));			% if > lastIdx -> zero padding
-					f = (0:maxN-1)/obj.t(2)/maxN;
-					linAbs = fft(conj(obj.stateProj(1:m)),maxN);	% do conj to get positive real part!
-					if DFTshift
-						linAbs = fftshift(linAbs);
-						f = f-f(end)/2;
-					end
-% 					pl = plot(f, [real(linAbs),imag(linAbs),abs(linAbs)]);
-					pl = plot(f, real(linAbs));
-					h.ylbl = 'Linear Absorption';
+					h.ax(3).YLim = h.ax(3).YLim + [-1,1]*0.1*abs(diff(h.ax(3).YLim));
+					axes(h.ax(1));						% select first axis again
 				case 'rhoii-ft'
 					% applies DFT to the population probability of rho
 					DFTplot = 1;
@@ -740,10 +704,59 @@ classdef TDVPData
 						ft = fftshift(ft,1);
 						f = f-f(end)/2;
 					end
-					pl = plot(f, abs(ft));
+					h.xdata = f;
+					h.ydata = abs(ft);
 					h.ylbl = '$FT(\rho_{ii})$';
+				case 'hshi'
+					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
+					h.ylbl = '$\left< H_i \right>$';
+				case 'stateproj'
+					pl = plot(obj.t(1:obj.lastIdx)*ts, [abs(obj.stateProj(1:obj.lastIdx)),real(obj.stateProj(1:obj.lastIdx)),imag(obj.stateProj(1:obj.lastIdx))]);
+					h.ylbl = 'Autocorrelation';
+				case 'chain-x-t-avg'
+					hold all;
+					h.ydata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x  nChain
+					h.ydata = permute(h.ydata,[1 3 2]);				% t x state x L x chain
+					pl = plot(obj.t(1:obj.lastIdx)*ts,h.ydata(:,:,2));
+					h.ylbl = '$\left< x_k \right>$';					
+				case 'linabs'
+					% linear absorption as DFT of stateProj autocorrelation function
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+% 					m = 5000;
+					maxN = m;
+% 					maxN = pow2(nextpow2(1*m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					linAbs = fft(conj(obj.stateProj(1:m)),maxN);	% do conj to get positive real part!
+					if DFTshift
+						linAbs = fftshift(linAbs);
+						f = f-f(end)/2;
+					end
+% 					pl = plot(f, [real(linAbs),imag(linAbs),abs(linAbs)]);
+					pl = plot(f, real(linAbs));
+					h.ylbl = 'Linear Absorption';
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
+			end
+			
+			if ~isempty(h.ydata)
+				if h.normalise
+					h.ydata = bsxfun(@rdivide,h.ydata,max(h.ydata,[],1));
+				end
+				h.pl = plot(h.xdata, h.ydata);
+			end
+			if ~isempty(pl) && isempty(h.pl)
+				h.pl = pl;
+			end
+			
+			if h.normalise && h.distribute
+				for kk = 1:length(h.pl)
+					set(h.pl(kk),'ydata', h.pl(kk).YData+length(h.pl)-kk);
+				end
+			end
+			
+			if all(size(h.pl) == size(h.leglbl))
+				set(h.pl,{'Displayname'},h.leglbl);
 			end
 			
 			if DFTplot == 1
@@ -758,8 +771,8 @@ classdef TDVPData
 				elseif eScale == 3
 					f = 1239.84193./(f*4.135);		% in nm: hc/(E in eV);
 				end
-				for k = 1:length(pl)
-					pl(k).XData = f(1:length(pl(k).XData));
+				for k = 1:length(h.pl)
+					h.pl(k).XData = f(1:length(h.pl(k).XData));
 				end
 			end
 			xlabel(h.xlbl);
@@ -767,8 +780,9 @@ classdef TDVPData
 			
 			if unicolor
 				arrayfun(@(x) set(x,'Color',pl(1).Color), pl);
-				ax.ColorOrderIndex = idx + 1;
+				h.ax.ColorOrderIndex = idx + 1;
 			end
+			
 % 			figure; plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)).*(window*ones(1,size(rhoii,2))));		% auxiliary plot for hann-windowed rhoii-ft
 		end
 		
@@ -1055,6 +1069,7 @@ classdef TDVPData
 			h.logY = 0;					% linear y-axis by default
 			h.evTocm = 0;				% convert all eV to cm^-1
 			h.normalise = 0;
+			h.distribute = 0;			% distribute plot lines along y; only use if h.normalise = 1, otherwise gets messy
 			h.smoothRes = 0;			% apply to residual after smoothing?
 			h.xdata = obj.t(1:obj.lastIdx).';	% the time axis
 			h.ydata = [];				% T x L x NC x ...  if not, needs to be reshaped!
@@ -1108,6 +1123,8 @@ classdef TDVPData
 						h.FFTshift = 1;
 					case '-norm'
 						h.normalise = 1;
+					case '-dist'
+						h.distribute = 1;
 					case '-smoothres'
 						h.smoothRes = 1;
 				end
@@ -1140,7 +1157,7 @@ classdef TDVPData
 					% linear absorption as DFT of stateProj autocorrelation function
 					h.data = conj(obj.stateProj(1:obj.lastIdx));
 					h.useWindowFcn = 0;								% needs to be switched off!!
-				case 'rhoii-ft'
+				case 'rhoii'
 					% applies DFT to the population probability of rho
 					rhoii = gettRhoiiSystem(obj);		% t x nStates
 					h.data = real(rhoii(1:obj.lastIdx,:));
@@ -1158,7 +1175,7 @@ classdef TDVPData
 % 					h.useWindowFcn = 0;
 				case 'chain-n'
 					h.data = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
-					h.ylbl = '$\left< n_k \right>$';
+					h.ylbl = '$FFT(\left< n_k \right>)$';
 					h.tlbl = 'Chain Occupation Site 2 Fourier';
 					h.llbl = arrayfun(@(i) sprintf('Chain $%d$',i),(1:size(h.data,2))','UniformOutput',false);
 					h.noSldDims = 2;
@@ -1170,16 +1187,13 @@ classdef TDVPData
 					h.llbl = arrayfun(@(i) sprintf('Chain $%d$',i),(1:size(h.data,2))','UniformOutput',false);
 					h.noSldDims = 2;
 % 					h.useWindowFcn = 0;
+				otherwise
+					warning('TDVPData:plotSld1DFT','Plot type not existent!');
+					return;
 			end
 			
 			if h.smoothRes
-				d = size(h.data);
-				h.data = reshape(h.data, d(1),[]);
-				filtered = zeros(d(1), prod(d(2:end)));
-				for ii = 1:size(h.data,2)
-					filtered(:,ii) = smooth(h.data(:,ii),350/obj.dt,'moving');
-				end
-				h.data = reshape(h.data-filtered,d);
+				h.data = TDVPData.movAvgRes(h.data,170/obj.dt);
 			end
 
 			
@@ -1220,29 +1234,36 @@ classdef TDVPData
 				h.sldText{ii} = uicontrol('Parent',h.controlPanel,'Style','text','String',sprintf('%s %d',h.sldlbl{ii},1),...
 										  'HorizontalAlignment','left','FontSize',10,'FontName',h.ax.FontName);
 				h.sld{ii} = javax.swing.JScrollBar(0,h.sldInitVal(ii),1,h.sldLimits(ii,1),h.sldLimits(ii,2)+1);									%JScrollBar(int orientation, int value, int extent, int min, int max)
+				h.SldIdx{ii} = h.sldInitVal(ii)-1;
 				[~,h.sldContainer{ii}] = javacomponent(h.sld{ii}, [5, 5,h.sld_w,h.sld_h], h.controlPanel);	% position defined in posDisplay()
 				h.sld{ii}.setUnitIncrement(1); h.sld{ii}.setBlockIncrement(3);
 				h.hsld{ii} = handle(h.sld{ii},'CallbackProperties');
 				set(h.hsld{ii},'AdjustmentValueChangedCallback',@(source,callbackdata) callback_1D_Sld(source, callbackdata,ii));%(source,callbackdata)  set(h.ax,'UserData',round(source.Value)));
 			end
+			
 			posDisplay();
+			callback_1D_Sld();
 			set(h.f, 'ResizeFcn',@posDisplay);
 			
 			function callback_1D_Sld(source, callbackdata, n)
 				% Callback for 1D Slider plots
 				% needs to be sub-function due to shared handle h.
 				%  n: number of dimension in z being changed
-				h.SldIdx{n} = round(source.Value);
-				h.sldText{n}.String = sprintf('%s %d', h.sldlbl{n},round(source.Value));
-				h.dataRange = h.SldIdx{1};
-				h.zeroPadFactor = h.SldIdx{2};
-				calcFFT();
+				if nargin > 0
+					h.SldIdx{n} = round(source.Value);
+					h.sldText{n}.String = sprintf('%s %d', h.sldlbl{n},round(source.Value));
+					h.dataRange = h.SldIdx{1};
+					h.zeroPadFactor = h.SldIdx{2};
+					calcFFT();
+				end
 				out = plotSpec();
 				for kk = 1:length(h.pl)
 					if length(h.pl) == 1
 						set(h.pl(1) ,'xdata',h.xdata,'ydata', out);
 					else
-						set(h.pl(kk),'xdata',h.xdata,'ydata', out(:,kk));
+						if h.normalise && h.distribute
+							set(h.pl(kk),'xdata',h.xdata,'ydata', out(:,kk)+length(h.pl)-kk);
+						end
 					end
 				end
 			end
@@ -1277,7 +1298,7 @@ classdef TDVPData
 					case 'linabs'
 						% linear absorption as DFT of stateProj autocorrelation function
 						out = [real(h.ydata),imag(h.ydata)];
-					case 'rhoii-ft'
+					case 'rhoii'
 						% applies DFT to the population probability of rho
 						out = abs(h.ydata);
 					case 'rhoii-osc-res'
@@ -1289,6 +1310,9 @@ classdef TDVPData
 						out = abs(h.ydata);
 					case 'chain-x2'
 						out = abs(h.ydata);
+					otherwise
+						warning('TDVPData:plotSld1DFT','Plot type not existent!');
+						return;
 				end
 				if h.normalise
 					out = bsxfun(@rdivide,out,max(out,[],1));
@@ -1839,8 +1863,26 @@ classdef TDVPData
 			matches = lib(arrayfun(@(x) ~isempty(regexp(x.name,[dirPat,'\\',filPat],'once')),lib));
 		end
 		
+		function B = movAvg(A,m)
+			%% function A = movAvg(A,m)
+			%	computes the moving average with window size m
+			%	smooth along first dimension
+			d = size(A);
+			B = reshape(A,d(1),[]);
+			for i = 1:size(B,2)
+				B(:,i) = smooth(B(:,i),m,'moving');
+			end
+% 			figure(); hold all
+% 			plot(reshape(A,d(1),[]),'b')
+% 			plot(B,'r')
+			B = reshape(B,d);
+		end
 		
-		
+		function B = movAvgRes(A,m)
+			%% function A = movAvgRes(A,m)
+			%	computes the residual of a moving average with window size m
+			B = A - TDVPData.movAvg(A,m);
+		end
 	end
 	
 end

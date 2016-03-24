@@ -637,16 +637,13 @@ formatPlot(f,'twocolumn-single')
 %% TDVP (3.1): 1D Plot <n> Chain DFT - TDVPData
 f=figure(315);  f.Name = ''; clf; hold all; ax = gca;
 % x = res(6);
-h = x.plotSld1DFT('chain-n','-cmev',f);
-ph = h.pl;
-for kk = 1:numel(ph)
-	ph(kk).YData = ph(kk).YData./max(ph(kk).YData)+5-kk;
-end
+h = x.plotSld1DFT('chain-n','-cmev','-norm','-dist','-smoothres',f);
+set(h.sld{2},'Value',20);	% start with 20 zero padding
 leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
 ylabel('$|FT (n_2)|$');
 grid on
 axis tight
-ax.XLim = [100,2000];
+ax.XLim = [0,2000];
 formatPlot(f,'twocolumn-single')
 	%% update this after slider move
 for kk = 1:numel(ph)
@@ -907,7 +904,7 @@ h = x.plotSld1D('chain-x-d-t','-fsev');
 % formatPlot(gcf,'twocolumn-single')
 formatPlot(gcf);
 
-%% TDVP (3.8.4): 1D Plot <x> CHAIN coherence - TDVPData
+%% TDVP (3.8.4): 1D Plot <x> CHAIN - Coherence - TDVPData
 f=figure(381);  f.Name = ''; clf; hold all; ax = gca;
 % x = res(6);
 pl = x.plotSld1D('chain-x-c-t','-fsev',f);
@@ -1316,6 +1313,7 @@ if mode
 	set(gca,'clim',get(gca,'zlim'));
 end
 % set(gca,'Xlim',[1,15]);
+
 %% TDVP (4) Bond Dimension Plots
 %% TDVP (4.1): Plot d_opt - per chain
 f=figure(411); clf; f.Name = 'OBB Dimension';
@@ -1624,82 +1622,47 @@ sld = uicontrol('Style', 'slider',...
         'Position', [1100 20 120 20],...
         'Callback', @(source,callbackdata) set(pl,'zdata',plotMatTime{round(source.Value)}));
 
-%% TDVP (7) MLSBM Wavefunction 2D surf
-mode = 0;		% 0: lin, 1: log
-f=figure(700); clf; f.Name = 'MLSBM Wave-Occupation';
-% x = res{15,1}; tresults = x.tresults; para = x.para;
-n = abs(tresults.PPCWavefunction);
-idx = tresults.lastIdx;
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-if mode
-	surf(1:size(n,2),t(1:idx),log10(abs(n(1:idx,:))));
-% 	surf(1:size(n,2),t(1:l),log10(abs(real(n(1:l,:))-ones(l,1)*real(n(1,:)))));		% subtract intitial population
-	zlabel('$\log_{10}|\rho_{k,k}|$');
-else
-	surf(1:size(n,2),t(1:idx),real(n(1:idx,:)));
-% 	surf(1:size(n,2),t(1:l),real(n(1:l,:))-ones(l,1)*real(n(1,:)));			% subtract initial population
-	zlabel('$|\rho_{k,k}|$');
-end
-ax = gca;
-cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = ax.ZLabel.String;
-xlabel('State $k$');
-ylabel('Time $t$');
-% set(gca,'yscale','log');se
-% set(gca,'View',[0 42]);
-set(gca,'View',[0 90]);
-shading interp
-rotate3d on
-axis tight
-if mode
-% 	ax.ZLim = [-30, max(max(ax.Children.ZData))];
-% 	ax.ZLim = [-4, 0];
-else
-% 	ax.ZLim = [0.1,1].*10^-26;
-end
-ax.CLim = ax.ZLim;
-% ax.YLim = [0,100];
+%% TDVP (7): System Density Matrix
 
-%% TDVP (7.1) MLSBM Wavefunction 1D
-f=figure(702);  f.Name = 'MLSBM Wave-Occupation'; hold all; ax = gca;
-% x = res{6,1}; tresults = x.tresults; para = x.para;
-n = abs(tresults.PPCWavefunction);
-idx = tresults.lastIdx;
-fil = 3;
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-for ii = 1:size(n,2)
-% 	plot(t(1:idx)*0.658,n(1:idx,ii))
-	plot(t(1:idx),(n(1:idx,ii)));
-end
-leg = legend('TT','LE+','CT+','CT-');
-% xlabel('t in fs')
-xlabel('t');
-grid on
-	%% TDVPData
-f=figure(704);  f.Name = 'MLSBM Wave-Occupation';  hold all; ax = gca;
-% x = res(6);
-% pl = x.plot('rhoii'); xlabel('$t$');
-pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
-% leg = legend('TT','LE+','CT+','CT-');
+%% TDVP (7.01): RDM Diagonal - TDVPData
+f=figure(701); clf; f.Name = 'RDM diagonal'; ax = gca;
+% x = res{15,1};
+% ph = x.plot('rhoii',f);
+ph = x.plot('rhoii','-fsev',f);
 leg = legend('TT','LE+','LE-','CT+','CT-');
-ylabel('$\rho_{ii}$');
-grid on
-axis tight
+grid on; axis tight;
 formatPlot(f,'twocolumn-single')
+%% TDVP (7.02): RDM Off-Diagonal imag - TDVPData
+f=figure(702); clf; f.Name = 'RDM off-diagonal imag'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rhoij-imag',f);
+legend toggle;
+% ax.YScale = 'log';
+%% TDVP (7.03): RDM Off-Diagonal real - TDVPData
+f=figure(703); clf; f.Name = 'RDM off-diagonal real'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rhoij-real',f);
+legend toggle;
+% ax.YScale = 'log';
+%% TDVP (7.04): RDM Off-Diagonal abs  - TDVPData
+f=figure(704); clf; f.Name = 'RDM off-diagonal abs'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rhoij-abs',f);
+legend toggle;
+% ax.YScale = 'log';
+%% TDVP (7.05): RDM DPMES Overview - TDVPData
+f=figure(705); clf; f.Name = 'RDM DPMES all'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rho-dpmes','-fsev',f);
+formatPlot(f,'twocolumn-single');
+
+%% TDVP (7.1): RDM Fourier Trafos
 	%% TDVPData: DFT
 f=figure(706);  f.Name = 'MLSBM Wave-Occupation DFT'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('rhoii'); xlabel('$t$');
-% pl = x.plot('rhoii-ft','-cmev'); xlabel('$E/cm^{-1}$');
-x.plotSld1DFT('rhoii-ft','-cmev'); ax = gca; f = gcf;
+% pl = x.plot('rhoii-ft','-cmev',f); xlabel('$E/cm^{-1}$');
+x.plotSld1DFT('rhoii-ft','-cmev',f);
 % leg = legend('TT','LE+','CT+','CT-');
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
@@ -1710,12 +1673,8 @@ ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
 	%% TDVPData: DFT Fit residuals
 f=figure(707);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
-% 	a = x.getData('rhoii-osc-res');
-% x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
-ph=x.plot('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
-for kk = 1:numel(ph)
-	ph(kk).YData = ph(kk).YData./max(ph(kk).YData)+5-kk;
-end
+% x.plotSld1DFT('rhoii-osc-res','-cmev',f); ax=gca; f=gcf;
+ph=x.plot('rhoii-osc-res','-cmev',f); ax=gca; f=gcf;
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
@@ -1724,27 +1683,41 @@ axis tight
 ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
 
-	%% TDVPData: DFT Smooth residuals norm 1
-f=figure(7);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
-% 	a = x.getData('rhoii-osc-res');
-% x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
-ph = x.plot('rhoii-osc-res-med','-cmev'); ax=gca; f=gcf;
 for kk = 1:numel(ph)
 	ph(kk).YData = ph(kk).YData./max(ph(kk).YData)+5-kk;
+	ax.YLim = [0,5];
 end
+
+	%% TDVPData: DFT Smooth residuals norm dist SLD
+f=figure(713);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+x = res(2);
+x.plotSld1DFT('rhoii','-cmev','-smoothres','-norm','-dist',f);
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
 axis tight
 % ax.XLim = [0,9000];ax.YLim = [0,2];
-ax.XLim = [0,2000];ax.YLim = [0,5];
+ax.XLim = [0,2000];
+formatPlot(f,'twocolumn-single')
+
+	%% TDVPData: DFT Smooth residuals norm dist
+f=figure(714);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+x = res(2);
+ph = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder','-norm','-dist',f); ax=gca; f=gcf;
+leg = legend('TT','LE+','LE-','CT+','CT-');
+ylabel('$|FT(\rho_{ii})|^2$');
+grid on
+axis tight
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+ax.XLim = [0,2000];
 formatPlot(f,'twocolumn-single')
 
 	%% TDVPData: DFT Smooth residuals norm 1272
 f=figure(711);  f.Name = 'Rhoii residual DFT'; clf;  hold all; ax = gca;
 % 	a = x.getData('rhoii-osc-res');
-% x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
-ph = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder'); ax=gca; f=gcf;
+% x.plotSld1DFT('rhoii-osc-res','-cmev',f);
+h = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder',f);
+ph = h.pl;
 if numel(ph) ~= length(ph)
 	set(ph(2,:),'LineStyle','-.');
 end
@@ -1761,27 +1734,6 @@ axis tight
 ax.XLim = [0,2000];
 formatPlot(f,'twocolumn-single')
 	
-%% TDVP (7.2) MLSBM RHO 1D
-f=figure(702);  f.Name = 'MLSBM DM-Occupation'; hold all; ax = gca;
-% x = res{31,1}; tresults = x.tresults; para = x.para;
-n = abs(tresults.rho);
-idx = tresults.lastIdx;
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-for ii = [1:2]%:size(n,2)
-	plot(t(1:idx)*0.658,n(1:idx,ii,ii))
-% 	plot(t(1:idx),n(1:idx,ii,ii+1))
-end
-plot(t(1:idx)*0.658,n(1:idx,1,3))
-plot(t(1:idx)*0.658,n(1:idx,1,4))
-leg = legend('TT/LE+','LE+/CT+','TT/CT+');
-xlabel('t in fs')
-grid on
-% set(gca,'yscale','log')
-
 %% TDVP (7.3) MLSBM HsHi
 f=figure(732);  f.Name = 'DPMES HsHi'; clf; hold all; ax = gca;
 % x = res(6);
@@ -5356,7 +5308,7 @@ ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdv
 % See effect of CT shift on dynamics form LE+ and TT
 clear
 defPlot(1,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-LE-CTshift',		[ 1: 5], {'xlim',[0,1e3],'yscale','lin'}};
-defPlot(2,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-TT-CTshift',		[ 6: 9], {'xlim',[0,1e3],'yscale','lin'}};
+% defPlot(2,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-TT-CTshift',		[ 6: 9], {'xlim',[0,1e3],'yscale','lin'}};
 % defPlot(3,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-LE-CTshift',		[10:15], {'xlim',[0,3.3e3],'yscale','lin'}};
 % defPlot(4,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-TT-CTshift',		[16:19], {'xlim',[0,3.3e3],'yscale','lin'}};
 
@@ -5376,13 +5328,13 @@ tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
 [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
 matches = [matches; m(I)];
 
-% 2: from TT, L=18
-dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*TT.*';
-filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
-m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
-tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
-[y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
-matches = [matches; m(I)];
+% % 2: from TT, L=18
+% dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*TT.*';
+% filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
 
 % % 3: from LE, L=2
 % dirPat = '20160315-2359-07-DPMES5-7C-Tree-v73TCMde10-L2CT.*LE.*';
@@ -5410,7 +5362,7 @@ for fignum = 1:size(defPlot,1)
 % 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
-	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);legend('TT','LE+','LE-','CT+','CT-')
 % 	ph = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
 	axis tight;
 % 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
@@ -5418,8 +5370,6 @@ for fignum = 1:size(defPlot,1)
 % 	fs = 22;
 % 	leg.FontSize = fs;
 	set(ax,defPlot{fignum,3}{:});
-	xlabel('$t/fs$');
-% 	xlabel('$t$');
 	ylabel('$\rho_{ii} (t)$');
 	fs = 22;
 	formatPlot(fignum,'twocolumn-single');
@@ -6228,7 +6178,9 @@ csvwrite('visibility02.dat',[x,y]);
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
 % 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
-	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', f_handles(ii));
+% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', f_handles(ii));
+	figure(f_handles(ii));
+	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end
 
 %% Deserialise all Variables
