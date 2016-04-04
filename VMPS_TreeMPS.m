@@ -329,7 +329,11 @@ if para.tdvp.expandOBB
 	para.tdvp.filename = sprintf('%s-OBBmax%d',para.tdvp.filename, para.tdvp.maxOBBDim);
 end
 if para.tdvp.truncateExpandBonds
-	para.tdvp.filename = sprintf('%s-Dmax%d',para.tdvp.filename,para.tdvp.maxBondDim(end));
+	if length(para.tdvp.maxBondDim) > 1
+		para.tdvp.filename = sprintf('%s-Dmax(%d-%d)',para.tdvp.filename,para.tdvp.maxBondDim(1),para.tdvp.maxBondDim(2));
+	else
+		para.tdvp.filename = sprintf('%s-Dmax%d',para.tdvp.filename,para.tdvp.maxBondDim);
+	end
 end
 if para.tdvp.expvCustom
 	para.tdvp.filename = sprintf('%s-expvCustom%d',para.tdvp.filename,para.tdvp.maxExpVDim);

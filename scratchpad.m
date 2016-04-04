@@ -634,21 +634,31 @@ grid on
 axis tight
 formatPlot(f,'twocolumn-single')
 
-%% TDVP (3.1): 1D Plot <n> Chain DFT - TDVPData
+%% TDVP (3.1): 1D Plot <n> Chain DFT - norm dist - TDVPData
 f=figure(315);  f.Name = ''; clf; hold all; ax = gca;
-% x = res(6);
+x = res(4);
 h = x.plotSld1DFT('chain-n','-cmev','-norm','-dist','-smoothres',f);
 set(h.sld{2},'Value',20);	% start with 20 zero padding
 leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
 ylabel('$|FT (n_2)|$');
 grid on
 axis tight
-ax.XLim = [0,2000];
+[h.ax.XLim] = deal([0,2000]);
 formatPlot(f,'twocolumn-single')
-	%% update this after slider move
-for kk = 1:numel(ph)
-	ph(kk).YData = ph(kk).YData./max(ph(kk).YData(50:round(end/2)))+5-kk;
-end
+%% TDVP (3.1): 1D Plot <n> Chain DFT - dist - TDVPData
+f=figure(316);  f.Name = ''; clf; hold all; ax = gca;
+x = res(4);
+h = x.plotSld1DFT('chain-n','-cmev','-dist','-smoothres',f);
+set(h.sld{2},'Value',20);	% start with 20 zero padding
+set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+ylabel('$|FT (n_2)|$');
+[h.ax.XLim] = deal([0,2000]);
+formatPlot(f,'twocolumn-single')
+drawnow; h.controlPanel.delete;
+
+
 %% TDVP (3.2): Plot <n> STAR
 mode = 0;		% 0: lin, 1: log
 f=figure(320); clf; f.Name = 'Star Occupation';
@@ -1700,9 +1710,21 @@ axis tight
 ax.XLim = [0,2000];
 formatPlot(f,'twocolumn-single')
 
-	%% TDVPData: DFT Smooth residuals norm dist
+	%% TDVPData: DFT Smooth residuals dist
 f=figure(714);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
 x = res(2);
+h = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder','-dist',f); ax=gca; f=gcf;
+set(h.pl,{'Displayname'},{'TT','LE+','LE-','CT+','CT-'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+ylabel('$|FT(\rho_{ii})|^2$');
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+
+[h.ax.XLim] = deal([0,2000]);
+formatPlot(f,'twocolumn-single')
+
+	%% TDVPData: DFT Smooth residuals norm dist
+f=figure(714);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+% x = res(2);
 ph = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder','-norm','-dist',f); ax=gca; f=gcf;
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
@@ -5304,7 +5326,7 @@ end
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 
-%% DPMES5-7C v73  TreeMPS from LE+ & TT, L18 CTshift - TDVPData						% LabBook 15/03/2016
+%% DPMES5-7C v73  TreeMPS from LE+ & TT, L18, L2 CTshift - TDVPData						% LabBook 15/03/2016
 % See effect of CT shift on dynamics form LE+ and TT
 clear
 defPlot(1,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-LE-CTshift',		[ 1: 5], {'xlim',[0,1e3],'yscale','lin'}};
@@ -5321,12 +5343,12 @@ TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds)
 matches = [];
 
 % 1: from LE+, L=18
-dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*LE.*';
-filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
-m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
-tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
-[y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
-matches = [matches; m(I)];
+% dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*LE.*';
+% filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
 
 % % 2: from TT, L=18
 % dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*TT.*';
@@ -5345,15 +5367,14 @@ matches = [matches; m(I)];
 % matches = [matches; m(I)];
 % 
 % % 4: from TT, L=2
-% dirPat = '20160315-2359-07-DPMES5-7C-Tree-v73TCMde10-L2CT.*TT.*';
-% filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
-% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
-% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
-% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
-% matches = [matches; m(I)];
+dirPat = '20160315-2359-07-DPMES5-7C-Tree-v73TCMde10-L2CT.*TT.*';
+filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+matches = [matches; m(I)];
 
 res = TDVPData({matches.name});
-
 %%
 for fignum = 1:size(defPlot,1)
 	f = figure(fignum); clf; hold all; ax = gca;
@@ -5381,6 +5402,60 @@ for fignum = 1:size(defPlot,1)
 	end
 end
 
+%% DPMES5-7C v73  TreeMPS from LE+ - D sys chain sweep - TDVPData						% LabBook 25/03/2016
+% See effect of CT shift on dynamics form LE+ and TT
+clear
+defPlot(1,:) = {'20160325-DPMES5-7C-v73-D(5-10-5-60)-5param-LE',		[ 1: 9], {'xlim',[0,1e3],'yscale','lin'}};
+% defPlot(2,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-TT-CTshift',		[ 6: 9], {'xlim',[0,1e3],'yscale','lin'}};
+% defPlot(3,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-LE-CTshift',		[10:15], {'xlim',[0,3.3e3],'yscale','lin'}};
+% defPlot(4,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-TT-CTshift',		[16:19], {'xlim',[0,3.3e3],'yscale','lin'}};
+
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1: from LE+, L=18
+dirPat = '20160325-123.-..-DPMES5-7C-Tree-v73TCMde.*-L18CT0LE\+';
+filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax\(.*-.*\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax.(?<Dsys>[0-9]*)-(?<Dchain>[0-9]*).-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.Dchain),tokens));
+m = m(I)
+tokens = regexp({m.name},'Dmax.(?<Dsys>[0-9]*)-(?<Dchain>[0-9]*).-','names');			% second sorting
+[y,I] = sort(cellfun(@(x) str2double(x.Dsys),tokens));
+
+matches = [matches; m(I)];
+
+res = TDVPData({matches.name});
+%% Legend Labels
+legLab = cellfun(@(x) sprintf('D%s-%s',x.Dsys,x.Dchain),tokens(I),'UniformOutput',false)
+%%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	
+	[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+	set(ph(1:end,1),{'Displayname'},legLab');
+	legend('TT','LE+','LE-','CT+','CT-')
+% 	ph = res(pick).plot('rhoii-osc-res-med','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	axis tight;
+% 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	ylabel('$\rho_{ii} (t)$');
+	fs = 22;
+	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	drawnow
+end
 
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
@@ -6174,13 +6249,68 @@ x = tresults.t; x = reshape(x,numel(x),1);
 y = tresults.spin.visibility; y = reshape(y,numel(y),1);
 csvwrite('visibility02.dat',[x,y]);
 
+%% Plot series of figures and save
+for ii = [1,4]
+h=res(ii).plot('rhoii-osc-res-med','-cmev','-dist');
+% h.f.Visible = 'off';
+% [h.ax.Units] = deal('pixels');
+% [h.ax.ActivePositionProperty] = deal('outerposition');
+% h.ax(end).ActivePositionProperty = 'outerposition';
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+
+[h.ax.XLim] = deal([0,2000]);
+[h.ax.Color] = deal('none');
+set(h.pl,{'Displayname'},{'TT','LE+','LE-','CT+','CT-'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+
+formatPlot(h.f,'twocolumn-single');
+h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+%%
+for ii = [1,4]
+h = res(ii).plot('chain-n-site2-ft','-cmev','-dist');
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+ylabel('$|FT (n_2)|$');
+[h.ax.XLim] = deal([0,2000]);
+[h.ax.Color] = deal('none');
+% formatPlot(h.f);
+drawnow;
+formatPlot(h.f,'twocolumn-single');
+h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+%%
+for ii = [1,4]
+h = res(ii).plotSld1DFT('rhoij-imag','-cmev','-dist');
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+% set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+ylabel('$|FT Im(\rho_{ij})|$');
+[h.ax.XLim] = deal([0,15000]);
+[h.ax.Color] = deal('none');
+% formatPlot(h.f);
+drawnow;
+formatPlot(h.f,'twocolumn-single');
+% h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+% export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+
 %% Save all currently opend figures
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
 % 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
-% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', f_handles(ii));
-	figure(f_handles(ii));
-	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
+	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', f_handles(ii));
+% 	figure(f_handles(ii));
+% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end
 
 %% Deserialise all Variables

@@ -17,9 +17,11 @@ subplots = get(gcf, 'children');    % array of subplot references.
 
 % change size
 screen = get(0,'screensize');	% x,y,width,height
-f.Position = [min(screen([3,4])-[1280,800]-100,f.Position([1,2])),1280 800];	% 100 for title bar
-% creates for 40pt: 31.5cm x 19.63cm @96dpi
-% creates for 21pt: 29.1cm x 19.31cm @96dpi
+if f.WindowStyle == 'normal'
+	f.Position = [min(screen([3,4])-[1280,800]-100,f.Position([1,2])),1280 800];	% 100 for title bar
+	% creates for 40pt: 31.5cm x 19.63cm @96dpi
+	% creates for 21pt: 29.1cm x 19.31cm @96dpi
+end
 
 plFontSize = 40;
 if ismember(varargin,'zbuffer')

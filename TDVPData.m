@@ -98,7 +98,11 @@ classdef TDVPData
 				obj.para = temp.para;
 				obj.tresults = temp.tresults;
 			end
-			obj.version = str2double(obj.para.tdvp.version(2:end));
+			if isfield(obj.para.tdvp,'version')
+				obj.version = str2double(obj.para.tdvp.version(2:end));
+			else
+				obj.version = 0;
+			end
 			
 			if isfield(obj.tresults,'spin')
 				obj.spin = zeros(obj.lastIdx,3,'single');				% t x 3
@@ -174,7 +178,7 @@ classdef TDVPData
 				end
 			end
 			
-			if obj.version > 42
+			if obj.version >= 42 && isfield(obj.tresults,'t')
 				obj.t = obj.tresults.t;
 			else
 				obj.t = obj.para.tdvp.t;
@@ -201,7 +205,11 @@ classdef TDVPData
 				obj.sysState = [];
 			end
 			
-			obj.lastIdx = obj.tresults.lastIdx;
+			if isfield(obj.tresults,'lastIdx')
+				obj.lastIdx = obj.tresults.lastIdx;
+			else
+				obj.lastIdx = size(obj.tresults.nx,1);
+			end
 			
 			% save star observables
 			if isfield(obj.tresults,'star')
@@ -347,7 +355,7 @@ classdef TDVPData
 					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
 					rhoii = rhoii(1:obj.lastIdx,:);
 					% fit by smoothing and remove exponential components to obtain the residuals
-					out = TDVPData.movAvgRes(rhoii,170/obj.dt);
+					out = TDVPData.movAvgRes(rhoii,760/obj.dt);		% 170 or 350
 					full = 1;
 				case 'rhoij'
 					% out{1}: t x #off-diagonal elements
@@ -386,7 +394,7 @@ classdef TDVPData
 			end
 		end
 		
-		function [h,obj] = plot(obj,type,varargin)
+		function [h,pl,obj] = plot(obj,type,varargin)
 			%% Simple 1D plots for following Observables:
 			% type:
 			%	'sz'
@@ -414,7 +422,7 @@ classdef TDVPData
 				% deal with object array
 				pl = gobjects(length(obj),1);
 				for ii = 1:length(obj)
-					[temp,obj(ii)] = obj(ii).plot(type,varargin{:});
+					[h,temp,obj(ii)] = obj(ii).plot(type,varargin{:});
 					temp = reshape(temp,1,[]);
 					if size(pl,2) ~= size(temp,2)
 						pl(end,size(temp,2)) = gobjects(1,1);
@@ -546,6 +554,7 @@ classdef TDVPData
 					box on;
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = abs(gettRhoiiSystem(obj));
+					h.ydata = h.ydata(1:obj.lastIdx,:)			% t x states
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\rho_{ii}(t)$';
 				case 'rhoij-real'
@@ -707,6 +716,24 @@ classdef TDVPData
 					h.xdata = f;
 					h.ydata = abs(ft);
 					h.ylbl = '$FT(\rho_{ii})$';
+				case 'chain-n-site2-ft'
+					% applies DFT to the occupation of site 2
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+					window = hann(m,'periodic');
+					maxN = pow2(nextpow2(20*m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					h.data = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.data = TDVPData.movAvgRes(h.data,760/obj.dt);
+					ft = fft(real(h.data).*(window*ones(1,size(h.data,2))),maxN,1);
+					if DFTshift
+						ft = fftshift(ft,1);
+						f = f-f(end)/2;
+					end
+					h.xdata = f;
+					h.ydata = abs(ft);
+					h.ylbl = '$FFT(\left< n_k \right>)$';
+					h.tlbl = 'Chain Occupation Site 2 Fourier';
 				case 'hshi'
 					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
 					h.ylbl = '$\left< H_i \right>$';
@@ -744,14 +771,45 @@ classdef TDVPData
 					h.ydata = bsxfun(@rdivide,h.ydata,max(h.ydata,[],1));
 				end
 				h.pl = plot(h.xdata, h.ydata);
+				pl = h.pl;
 			end
 			if ~isempty(pl) && isempty(h.pl)
 				h.pl = pl;
 			end
 			
-			if h.normalise && h.distribute
-				for kk = 1:length(h.pl)
-					set(h.pl(kk),'ydata', h.pl(kk).YData+length(h.pl)-kk);
+			if h.distribute
+				if  h.normalise
+					% distribute across one axis
+					for kk = 1:length(h.pl)
+						set(h.pl(kk),'ydata', h.pl(kk).YData+length(h.pl)-kk);
+					end
+				else
+					% create axis for each plot
+					N = length(h.pl);
+					heightTot = h.ax.Position(4);
+					heightSingle = heightTot/N;
+					h.ax.Position(4) = heightSingle;
+					tempDel = h.pl(2:end);				% temphandle for deletion
+					box on; axis tight;
+					% from bottom to top:
+% 					for i = 2:N							% from bottom to top
+% 						h.ax(i) = axes; box on; axis tight;
+% 						h.ax(i).Position([1,3,4,2]) = [h.ax(i-1).Position([1,3,4]),sum(h.ax(i-1).Position([2,4]))];
+% 						h.ax(i).XTickLabel = '';
+% 						h.pl(i) = copyobj(h.pl(i),h.ax(i));
+% 					end
+% 					axes(h.ax(1));
+					% from top to bottom
+					h.ax.Position(2) = h.ax.Position(2)+h.ax.Position(4)*(N-1);			% shift first plot to the top
+					for i = 2:N
+						h.ax(i) = axes; box on; axis tight;
+						h.ax(i).Position([1,3,4,2]) = [h.ax(i-1).Position([1,3,4]),-diff(h.ax(i-1).Position([2,4]))];
+						h.ax(i).XTickLabel = '';
+						h.pl(i) = copyobj(h.pl(i),h.ax(i));
+					end
+					h.ax(N).XTickLabelMode = 'auto';
+					h.ax(1).XTickLabel = '';
+					tempDel.delete();
 				end
 			end
 			
@@ -1193,7 +1251,7 @@ classdef TDVPData
 			end
 			
 			if h.smoothRes
-				h.data = TDVPData.movAvgRes(h.data,170/obj.dt);
+				h.data = TDVPData.movAvgRes(h.data,760/obj.dt);					% 170: 300cm or 350: 145cm or 760: 66cm accuracy
 			end
 
 			
@@ -1222,6 +1280,37 @@ classdef TDVPData
 				set(h.pl,{'DisplayName'},h.llbl);					% h.llbl needs to be same shape as h.pl
 			end
 			
+			if h.distribute
+				if  ~h.normalise
+					% create axis for each plot
+					N = length(h.pl);
+					heightTot = h.ax.Position(4);
+					heightSingle = heightTot/N;
+					h.ax.Position(4) = heightSingle;
+					tempDel = h.pl(2:end);				% temphandle for deletion
+% 					box on; axis tight;
+					% from bottom to top:
+% 					for i = 2:N							% from bottom to top
+% 						h.ax(i) = axes; box on; axis tight;
+% 						h.ax(i).Position([1,3,4,2]) = [h.ax(i-1).Position([1,3,4]),sum(h.ax(i-1).Position([2,4]))];
+% 						h.ax(i).XTickLabel = '';
+% 						h.pl(i) = copyobj(h.pl(i),h.ax(i));
+% 					end
+% 					axes(h.ax(1));
+					% from top to bottom
+					h.ax.Position(2) = h.ax.Position(2)+h.ax.Position(4)*(N-1);			% shift first plot to the top
+					for i = 2:N
+						h.ax(i) = axes; box on; axis tight;
+						h.ax(i).Position([1,3,4,2]) = [h.ax(i-1).Position([1,3,4]),-diff(h.ax(i-1).Position([2,4]))];
+						h.ax(i).XTickLabel = '';
+						h.pl(i) = copyobj(h.pl(i),h.ax(i));
+					end
+					h.ax(N).XTickLabelMode = 'auto';
+					h.ax(1).XTickLabel = '';
+					tempDel.delete();
+				end
+			end
+			
 			axis tight
 			grid on
 			xlabel(h.xlbl);
@@ -1232,7 +1321,7 @@ classdef TDVPData
 			h.cP_padIn = 5;		% controlPanel padding inside
 			for ii = 1:h.nSld
 				h.sldText{ii} = uicontrol('Parent',h.controlPanel,'Style','text','String',sprintf('%s %d',h.sldlbl{ii},1),...
-										  'HorizontalAlignment','left','FontSize',10,'FontName',h.ax.FontName);
+										  'HorizontalAlignment','left','FontSize',10,'FontName',h.ax(1).FontName);
 				h.sld{ii} = javax.swing.JScrollBar(0,h.sldInitVal(ii),1,h.sldLimits(ii,1),h.sldLimits(ii,2)+1);									%JScrollBar(int orientation, int value, int extent, int min, int max)
 				h.SldIdx{ii} = h.sldInitVal(ii)-1;
 				[~,h.sldContainer{ii}] = javacomponent(h.sld{ii}, [5, 5,h.sld_w,h.sld_h], h.controlPanel);	% position defined in posDisplay()
@@ -1263,6 +1352,8 @@ classdef TDVPData
 					else
 						if h.normalise && h.distribute
 							set(h.pl(kk),'xdata',h.xdata,'ydata', out(:,kk)+length(h.pl)-kk);
+						else
+							set(h.pl(kk),'xdata',h.xdata,'ydata', out(:,kk));
 						end
 					end
 				end
@@ -1320,9 +1411,11 @@ classdef TDVPData
 			end
 			
 			function posDisplay(varargin)
-				for kk = 1:h.nSld
-					h.sldText{kk}.Position      = [h.cP_padIn, h.f.Position(4)-(h.cP_padIn*kk+2*(kk-0.5)*h.sld_h) ,h.sld_w,h.sld_h];
-					h.sldContainer{kk}.Position = [h.cP_padIn, h.sldText{kk}.Position(2)-h.sld_h,h.sld_w,h.sld_h];
+				if isvalid(h.sldText{1})
+					for kk = 1:h.nSld
+						h.sldText{kk}.Position      = [h.cP_padIn, h.f.Position(4)-(h.cP_padIn*kk+2*(kk-0.5)*h.sld_h) ,h.sld_w,h.sld_h];
+						h.sldContainer{kk}.Position = [h.cP_padIn, h.sldText{kk}.Position(2)-h.sld_h,h.sld_w,h.sld_h];
+					end
 				end
 			end
 			
