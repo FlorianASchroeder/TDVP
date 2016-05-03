@@ -355,7 +355,7 @@ classdef TDVPData
 					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
 					rhoii = rhoii(1:obj.lastIdx,:);
 					% fit by smoothing and remove exponential components to obtain the residuals
-					out = TDVPData.movAvgRes(rhoii,760/obj.dt);		% 170 or 350
+					out = TDVPData.movAvgRes(rhoii,170/obj.dt);		% 170 or 350
 					full = 1;
 				case 'rhoij'
 					% out{1}: t x #off-diagonal elements
@@ -422,12 +422,13 @@ classdef TDVPData
 				% deal with object array
 				pl = gobjects(length(obj),1);
 				for ii = 1:length(obj)
-					[h,temp,obj(ii)] = obj(ii).plot(type,varargin{:});
+					[hTemp,temp,obj(ii)] = obj(ii).plot(type,varargin{:});
 					temp = reshape(temp,1,[]);
 					if size(pl,2) ~= size(temp,2)
 						pl(end,size(temp,2)) = gobjects(1,1);
 					end
 					pl(ii,:) = temp;
+					h(ii) = hTemp;
 				end
 				return;
 			end
@@ -724,7 +725,7 @@ classdef TDVPData
 					maxN = pow2(nextpow2(20*m));			% if > lastIdx -> zero padding
 					f = (0:maxN-1)/obj.t(2)/maxN;
 					h.data = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
-					h.data = TDVPData.movAvgRes(h.data,760/obj.dt);
+					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
 					ft = fft(real(h.data).*(window*ones(1,size(h.data,2))),maxN,1);
 					if DFTshift
 						ft = fftshift(ft,1);
@@ -734,6 +735,42 @@ classdef TDVPData
 					h.ydata = abs(ft);
 					h.ylbl = '$FFT(\left< n_k \right>)$';
 					h.tlbl = 'Chain Occupation Site 2 Fourier';
+				case 'chain-x-site2-ft'
+					% applies DFT to the occupation of site 2
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+					window = hann(m,'periodic');
+					maxN = pow2(nextpow2(20*m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					h.data = squeeze(real(obj.xC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.data = TDVPData.movAvgRes(h.data,760/obj.dt);
+					ft = fft(real(h.data).*(window*ones(1,size(h.data,2))),maxN,1);
+					if DFTshift
+						ft = fftshift(ft,1);
+						f = f-f(end)/2;
+					end
+					h.xdata = f;
+					h.ydata = abs(ft);
+					h.ylbl = '$FFT(\left< x_k \right>)$';
+					h.tlbl = 'Chain Displacement Site 2 Fourier';
+				case 'chain-x2-site2-ft'
+					% applies DFT to the occupation of site 2
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+					window = hann(m,'periodic');
+					maxN = pow2(nextpow2(20*m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					h.data = squeeze(real(obj.xC2(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.data = TDVPData.movAvgRes(h.data,760/obj.dt);
+					ft = fft(real(h.data).*(window*ones(1,size(h.data,2))),maxN,1);
+					if DFTshift
+						ft = fftshift(ft,1);
+						f = f-f(end)/2;
+					end
+					h.xdata = f;
+					h.ydata = abs(ft);
+					h.ylbl = '$FFT(\left< n_k \right>)$';
+					h.tlbl = 'Chain Displacement squared Site 2 Fourier';
 				case 'hshi'
 					pl = plot(obj.t(1:obj.lastIdx)*ts,[obj.tresults.hshi(1:obj.lastIdx,:),sum(obj.tresults.hshi(1:obj.lastIdx,:),2)]);
 					h.ylbl = '$\left< H_i \right>$';
@@ -797,7 +834,7 @@ classdef TDVPData
 % 						h.ax(i).Position([1,3,4,2]) = [h.ax(i-1).Position([1,3,4]),sum(h.ax(i-1).Position([2,4]))];
 % 						h.ax(i).XTickLabel = '';
 % 						h.pl(i) = copyobj(h.pl(i),h.ax(i));
-% 					end
+% 				end
 % 					axes(h.ax(1));
 					% from top to bottom
 					h.ax.Position(2) = h.ax.Position(2)+h.ax.Position(4)*(N-1);			% shift first plot to the top
@@ -979,7 +1016,7 @@ classdef TDVPData
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Displacement - adiabatic';
 				case 'chain-x-c-t'
-					h.ydata = real(obj.xCc(1:obj.lastIdx,:,:,:));		% t x L x nChain
+					h.ydata = abs(obj.xCc(1:obj.lastIdx,:,:,:));		% t x L x nChain
 					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x chain x L
 					h.noSldDims = 2;
 					h.ylbl = '$\left< x_k \right>$';
@@ -987,7 +1024,7 @@ classdef TDVPData
 					h.tlbl = 'Chain Displacement - coherence';
 				case 'chain-x2-t'
 					h.ydata = real(obj.xC2(1:obj.lastIdx,:,:,:));		% t x L  x nChain
-					h.ylbl = '$\left< x_k \right>$';
+					h.ylbl = '$\left< x^2_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Displacement squared';
 				case 'chain-x2-d-t'
@@ -1117,10 +1154,24 @@ classdef TDVPData
 			
 		end
 		
-		function h   = plotSld1DFT(obj, type, varargin)
+		function [h,pl]   = plotSld1DFT(obj, type, varargin)
 			%% Plot with Slider to change DFT range and window / padding
 			% No slider in dataset here. Only in DFT parameters
 			% default: Plot versus freq
+			if length(obj) > 1
+				% deal with object array
+				pl = gobjects(length(obj),1);
+				for ii = 1:length(obj)
+					[hTemp,temp] = obj(ii).plotSld1DFT(type,varargin{:});
+					temp = reshape(temp,1,[]);
+					if size(pl,2) ~= size(temp,2)
+						pl(end,size(temp,2)) = gobjects(1,1);
+					end
+					pl(ii,:) = temp;
+					h(ii) = hTemp;
+				end
+				return;
+			end	
 			h = struct();				% struct containing all infos & handles
 			h.freqScale = 1;			% scale freq axis
 			h.fInvert = 0;				% need 1/f for nm scale?
@@ -1129,6 +1180,7 @@ classdef TDVPData
 			h.normalise = 0;
 			h.distribute = 0;			% distribute plot lines along y; only use if h.normalise = 1, otherwise gets messy
 			h.smoothRes = 0;			% apply to residual after smoothing?
+			h.meanRes = 0;				% apply to residual after mean
 			h.xdata = obj.t(1:obj.lastIdx).';	% the time axis
 			h.ydata = [];				% T x L x NC x ...  if not, needs to be reshaped!
 			h.noSldDims = 1;			% default: only plot 1 dim
@@ -1146,8 +1198,8 @@ classdef TDVPData
 			% FFT settings
 			h.data = [];								% FFT done in 1st dimension
 			h.dataRange = obj.lastIdx;					% last (real) datapoint to include
-			h.zeroPadFactor = 0;						% multiples of dataset to pad
-			h.power2 = 0;								% FFT in power of 2?
+			h.zeroPadFactor = 4;						% multiples of dataset to pad
+			h.power2 = 1;								% FFT in power of 2?
 			h.useWindowFcn = 1;							% whether to use the Hann window function
 			h.FFTshift = 0;
 			
@@ -1158,6 +1210,9 @@ classdef TDVPData
 					elseif isa(varargin{m},'matlab.graphics.axis.Axes')
 						h.ax = varargin{m};
 					end
+					continue;
+				end
+				if isnumeric(varargin{m})
 					continue;
 				end
 				switch lower(varargin{m})
@@ -1184,7 +1239,13 @@ classdef TDVPData
 					case '-dist'
 						h.distribute = 1;
 					case '-smoothres'
-						h.smoothRes = 1;
+						if nargin-2 > m && isnumeric(varargin{m+1})
+							h.smoothRes = varargin{m+1};
+						else
+							h.smoothRes = 1;
+						end
+					case '-meanres'
+						h.meanRes = 1;
 				end
 			end
 			
@@ -1202,8 +1263,9 @@ classdef TDVPData
 			end
 			% fix axes size and add space to the right
 			h.ax.Units = 'pixels';
-			h.f.Position(3) = h.f.Position(3)+100;
-			h.controlPanel = uipanel('Tag','Panel','Units','pixels','Position',[h.f.Position(3)-100,1,100,h.f.Position(4)]);
+			h.cP_width = 150;						% control Panel width
+			h.f.Position(3) = h.f.Position(3)+h.cP_width;
+			h.controlPanel = uipanel('Tag','Panel','Units','pixels','Position',[h.f.Position(3)-h.cP_width,1,h.cP_width,h.f.Position(4)]);
 			
 			% set normalised units to enable scaling with window size
 			h.ax.Units = 'norm';
@@ -1250,10 +1312,15 @@ classdef TDVPData
 					return;
 			end
 			
-			if h.smoothRes
+			if h.smoothRes == 1
 				h.data = TDVPData.movAvgRes(h.data,760/obj.dt);					% 170: 300cm or 350: 145cm or 760: 66cm accuracy
+			elseif h.smoothRes ~= 0
+				h.data = TDVPData.movAvgRes(h.data,h.smoothRes/obj.dt);					% 170: 300cm or 350: 145cm or 760: 66cm accuracy
 			end
-
+			
+			if h.meanRes == 1
+				h.data = TDVPData.meanRes(h.data);
+			end
 			
 			calcFFT();				% fills h.ydata with FFT
 			
@@ -1317,15 +1384,15 @@ classdef TDVPData
 			ylabel(h.ylbl);
 			
 			% Create Slider(s) inside h.controlPanel
-			h.sld_w = 70; h.sld_h = 20;
 			h.cP_padIn = 5;		% controlPanel padding inside
+			h.sld_w = (h.cP_width-h.cP_padIn); h.sld_h = 20;
 			for ii = 1:h.nSld
 				h.sldText{ii} = uicontrol('Parent',h.controlPanel,'Style','text','String',sprintf('%s %d',h.sldlbl{ii},1),...
 										  'HorizontalAlignment','left','FontSize',10,'FontName',h.ax(1).FontName);
 				h.sld{ii} = javax.swing.JScrollBar(0,h.sldInitVal(ii),1,h.sldLimits(ii,1),h.sldLimits(ii,2)+1);									%JScrollBar(int orientation, int value, int extent, int min, int max)
 				h.SldIdx{ii} = h.sldInitVal(ii)-1;
 				[~,h.sldContainer{ii}] = javacomponent(h.sld{ii}, [5, 5,h.sld_w,h.sld_h], h.controlPanel);	% position defined in posDisplay()
-				h.sld{ii}.setUnitIncrement(1); h.sld{ii}.setBlockIncrement(3);
+				h.sld{ii}.setUnitIncrement(round(diff(h.sldLimits(ii,:))/100)); h.sld{ii}.setBlockIncrement(round(diff(h.sldLimits(ii,:))/10));
 				h.hsld{ii} = handle(h.sld{ii},'CallbackProperties');
 				set(h.hsld{ii},'AdjustmentValueChangedCallback',@(source,callbackdata) callback_1D_Sld(source, callbackdata,ii));%(source,callbackdata)  set(h.ax,'UserData',round(source.Value)));
 			end
@@ -1333,6 +1400,8 @@ classdef TDVPData
 			posDisplay();
 			callback_1D_Sld();
 			set(h.f, 'ResizeFcn',@posDisplay);
+			
+			pl = h.pl;
 			
 			function callback_1D_Sld(source, callbackdata, n)
 				% Callback for 1D Slider plots
@@ -1975,6 +2044,48 @@ classdef TDVPData
 			%% function A = movAvgRes(A,m)
 			%	computes the residual of a moving average with window size m
 			B = A - TDVPData.movAvg(A,m);
+		end
+		
+		function B = meanRes(A)
+			%% function B = meanRes(A,m)
+			%	subtracts the mean along the first dimension
+			B = bsxfun(@minus,A,mean(A,1));
+		end
+		
+		function h = plotGrid(rows,cols,f)
+			%% function h = plotGrid(rows,cols)
+			%	creates a grid of axes
+			%	onto a 8.5 cm x 6.4 cm figure
+			if nargin >= 3
+				h.f = f;
+				figure(h.f);
+				clf;
+			else
+				h.f = figure();
+			end
+			h.rows = rows;
+			h.cols = 1;			% TODO: extend for more columns
+			
+			% Pre-process axes
+			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [8.5,6.4];
+			% f.Renderer = 'painters';
+			set(h.f,'DefaultAxesFontSize', 8,...
+					'DefaultLineLineWidth',1);
+			% important measures:
+				% 2016a: ax.Position = [1.1041   0.70432   6.5822   5.2184]   for only left and bottom axis label
+			h.axW = 7.2; h.axH = 5.4; h.axdX = 0; h.axdY = 0;		% maximum sizes and default paddings between axes
+			% Lowest 
+			i=h.rows; h.ax(i) = axes; box on;
+			xlabel('xlabel');ylabel('ylabel');
+			h.ax(i).Units = 'centimeters'; h.ax(i).Position([2,3,4]) = [0.9,h.axW,h.axH/h.rows];
+
+			for i = (h.rows-1):-1:1
+				h.ax(i) = axes; box on;
+				h.ax(i).Units = 'centimeters'; h.ax(i).Position([1,3,4,2]) = [h.ax(i+1).Position([1,3,4]),sum(h.ax(i+1).Position([2,4]))];
+				h.ax(i).XTickLabel = '';
+			end
+
+			[h.ax.Units] = deal('norm');
 		end
 	end
 	
