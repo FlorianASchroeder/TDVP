@@ -653,7 +653,7 @@ set(h.sld{2},'Value',20);	% start with 20 zero padding
 set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
 arrayfun(@(x) legend(x,'show'),h.ax);
 arrayfun(@(x) grid(x,'on'),h.ax);
-ylabel('$|FT (n_2)|$');
+ylabel('$|FT (n_{RC})|$');
 [h.ax.XLim] = deal([0,2000]);
 formatPlot(f,'twocolumn-single')
 drawnow; h.controlPanel.delete;
@@ -5342,13 +5342,13 @@ load('TDVPLib.mat');
 TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
 matches = [];
 
-% % 1: from LE+, L=18
-% dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*LE.*';
-% filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
-% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
-% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
-% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
-% matches = [matches; m(I)];
+% 1: from LE+, L=18
+dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*LE.*';
+filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+matches = [matches; m(I)];
 % 
 % % 2: from TT, L=18
 % dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*TT.*';
@@ -5381,7 +5381,7 @@ matches = [];
 % tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
 % [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
 % matches = [matches; m(I)];
-% 
+
 % 6: from TT, L=2, more observables dt=1
 % dirPat = '20160407-2035-4.-DPMES5-7C-Tree-v73TCMde10-L2CT.*TT';
 % filPat = 'results-Till10000Step0.1v73-OBBmax60-Dmax\(5-20\)-expvCustom700-1core-small.mat';
@@ -5417,7 +5417,59 @@ for fignum = 1:size(defPlot,1)
 		ph = res(2).plot('rhoii','-fsev','-unicol','k.');
 	end
 end
-
+	%% Correlate FT of pop and occ
+	corrCT = zeros(5,7,5);				% states x chains x CT shifts
+for ii = 1:5
+	m        = res(ii).lastIdx;
+	dt       = res(ii).t(2);
+	t        = res(ii).t;
+	rhoii    = abs(res(ii).getData('rhoii'));
+	rhoiiAvg = TDVPData.movAvg(rhoii,170/dt);
+	rhoiiRes = rhoii-rhoiiAvg;
+	occRC    = squeeze(real(res(ii).occC(1:m,2,:))); % t x L x nChain
+	occRCAvg = TDVPData.movAvg(occRC,760/dt);
+	occRCRes = occRC-occRCAvg;
+	
+% 	f = figure(1);hold all; plot(t,rhoii); 	plot(t,rhoiiAvg);
+% 	f = figure(2);hold all; plot(t,occRC);	plot(t,occRCAvg);
+% 	
+	% FFT of residuals
+	window = hann(m,'periodic');
+	maxN = pow2(nextpow2(20*m));			% if > lastIdx -> zero padding
+	freq = (0:maxN-1)/dt/maxN;
+	freq = freq/0.658*4.135*8065.73;		% to cm
+	rhoiiFT = fft(rhoiiRes.*(window*ones(1,size(rhoiiRes,2))),maxN,1);
+	occRCFT = fft(occRCRes.*(window*ones(1,size(occRCRes,2))),maxN,1);
+	
+	f = figure(1);clf; hold all; plot(freq,abs(rhoiiFT)); set(gca,'xlim',[0,2000]);
+	f = figure(2);clf; hold all; plot(freq,abs(occRCFT)); set(gca,'xlim',[0,2000]);
+	
+	% plot correlation, normalised spectra
+	rhoiiFTnorm = bsxfun(@rdivide, abs(rhoiiFT), sqrt(sum(abs(rhoiiFT).^2)));
+	occRCFTnorm = bsxfun(@rdivide, abs(occRCFT), sqrt(sum(abs(occRCFT).^2)));
+	f = figure(3+ii); ax = gca;
+	maxFreq = 2000;
+	corr = abs(rhoiiFTnorm(freq<maxFreq,:))'*abs(occRCFTnorm(freq<maxFreq,:));
+	corrCT(:,:,ii) = corr;
+% 	pl = scatter3(reshape(repmat(1:5,1,7),[],1),reshape(repmat(1:7,5,1),[],1),reshape(corr,[],1),100,reshape(corr,[],1),'filled');
+	pl = scatter3(reshape(repmat(1:5,1,7),[],1),reshape(repmat(1:7,5,1),[],1),reshape(corr+repmat(0:6,5,1),[],1),100,reshape(corr,[],1),'filled');
+	view([0,0]);
+	title(res(ii).folder);
+	ax.XTick = 1:5; ax.XTickLabel = {'TT','LE^+','LE^-','CT^+','CT^-'};
+	ax.YTick = 1:7; ax.YTickLabel = {'A_{1,1}','A_{1,2}','A_2','B_1','B_{2,1}','B_{2,2}','B_{2,3}'};
+	ax.ZTick = (1:7); ax.ZTickLabel = {'A_{1,1}','A_{1,2}','A_2','B_1','B_{2,1}','B_{2,2}','B_{2,3}'};
+end
+%%
+states = {'TT','$LE^+$','$LE^-$','$CT^+$','$CT^-$'};
+for ii = 1:5
+	f = figure(10+ii); clf; hold all;
+	plot([-5,0,5,10,20],squeeze(corrCT(ii,:,:))')
+% 	legend('$A_{1,1}$','$A_{1,2}$','$A_2$','$B_1$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+	xlabel('CT shift (\%)')
+	ylabel(['Correlation of $\langle n\rangle$ with ',states{ii}]);
+	formatPlot(f);
+	export_fig(sprintf('img/%d',f.Number),'-transparent','-png','-m3', f);
+end
 %% DPMES5-7C v73  TreeMPS from LE+, L18 - D sys chain sweep - TDVPData					% LabBook 25/03/2016
 % See effect of CT shift on dynamics form LE+ and TT
 clear

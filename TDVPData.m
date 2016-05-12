@@ -292,6 +292,7 @@ classdef TDVPData
 		end
 		
 		function out = gettRhoiiSystem(obj)
+			% DEPRECATED
 			% returns the diagonal of the system reduced density matrix
 			out = 0;
 			if isfield(obj.tresults,'PPCWavefunction')
@@ -305,6 +306,7 @@ classdef TDVPData
 			% returns certain data or observables
 			full = 0;		% truncate to simulated time - tresults.lastIdx
 			idxOffset = 0;
+			out = 0;
 			
 			for m = 1:nargin-2
 				switch lower(varargin{m})
@@ -320,11 +322,21 @@ classdef TDVPData
 				case 'calctime-d'
 					out = diff(obj.para.tdvp.calcTime);
 					idxOffset = 2;
+				case 'rhoii'
+					if isfield(obj.tresults,'PPCWavefunction')
+						rhoii = obj.tresults.PPCWavefunction;
+					elseif isfield(obj.tresults,'rho')
+						rhoii = cell2mat(arrayfun(@(i) diag(squeeze(obj.tresults.rho(i,:,:))),1:obj.lastIdx,'UniformOutput',false)).';
+					else
+						warning('TDVPData:getData:rhoii','rho does not exist');
+						rhoii = 0;
+					end
+					out = rhoii;
+					full = 1;
 				case 'rhoii-osc-res'
 					% oscillating residuals
 					plotFit = 1;						% 1: plot the fitted functions into separate figure to evaluate fitness.
-					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
-					rhoii = rhoii(1:obj.lastIdx,:);
+					rhoii = abs(obj.getData('rhoii'));		% t x dk(1)
 					out = zeros(size(rhoii));
 					% fit and remove exponential components to obtain the residuals
 					if plotFit
@@ -352,10 +364,13 @@ classdef TDVPData
 					full = 1;
 				case 'rhoii-osc-res-med'
 					% oscillating residuals
-					rhoii = abs(gettRhoiiSystem(obj));		% t x dk(1)
-					rhoii = rhoii(1:obj.lastIdx,:);
+					rhoii = abs(obj.getData('rhoii'));		% t x dk(1)
 					% fit by smoothing and remove exponential components to obtain the residuals
-					out = TDVPData.movAvgRes(rhoii,170/obj.dt);		% 170 or 350
+					out = TDVPData.movAvgRes(rhoii,170/obj.t(2));		% 170 or 350
+					full = 1;
+				case 'rhoii-osc-res-mean'
+					% oscillating residuals by removing DC via mean
+					out = TDVPData.meanRes(abs(obj.getData('rhoii')));
 					full = 1;
 				case 'rhoij'
 					% out{1}: t x #off-diagonal elements
@@ -422,12 +437,12 @@ classdef TDVPData
 				% deal with object array
 				pl = gobjects(length(obj),1);
 				for ii = 1:length(obj)
-					[hTemp,temp,obj(ii)] = obj(ii).plot(type,varargin{:});
-					temp = reshape(temp,1,[]);
-					if size(pl,2) ~= size(temp,2)
-						pl(end,size(temp,2)) = gobjects(1,1);
+					[hTemp,plTemp,obj(ii)] = obj(ii).plot(type,varargin{:});
+					plTemp = reshape(plTemp,1,[]);
+					if size(pl,2) ~= size(plTemp,2)
+						pl(end,size(plTemp,2)) = gobjects(1,1);
 					end
-					pl(ii,:) = temp;
+					pl(ii,:) = plTemp;
 					h(ii) = hTemp;
 				end
 				return;
@@ -554,8 +569,7 @@ classdef TDVPData
 				case 'rhoii'
 					box on;
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ydata = abs(gettRhoiiSystem(obj));
-					h.ydata = h.ydata(1:obj.lastIdx,:)			% t x states
+					h.ydata = abs(obj.getData('rhoii'));
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\rho_{ii}(t)$';
 				case 'rhoij-real'
@@ -621,7 +635,7 @@ classdef TDVPData
 				case 'rho-dpmes'
 					% Plots rhoii, rhoij-real and rhoij-imag stacked in 3 axes
 					% start explicitely new figure?
-					LegLabij = {'LE$^- \to $TT','CT$^+ \to $LE$^+$','CT$^- \to $TT','CT$^- \to $LE$^-$'};
+					LegLabij = {'LE$^- \leftrightarrow $TT','CT$^+ \leftrightarrow $LE$^+$','CT$^- \leftrightarrow $TT','CT$^- \leftrightarrow $LE$^-$'};
 					
 					% rhoii:
 					h.ax(1).Position(4) = h.ax(1).Position(4)/3;
@@ -667,7 +681,7 @@ classdef TDVPData
 % 					maxN = m;
 					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
 					f = (0:maxN-1)/obj.t(2)/maxN;
-					rhoii = gettRhoiiSystem(obj);		% t x nStates
+					rhoii = obj.getData('rhoii');		% t x nStates
 					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
 % 					ft = fft(real(rhoii(1:m,:)),maxN,1);
 					if DFTshift
@@ -717,6 +731,32 @@ classdef TDVPData
 					h.xdata = f;
 					h.ydata = abs(ft);
 					h.ylbl = '$FT(\rho_{ii})$';
+				case 'rhoii-osc-res-mean'
+					% applies DFT to the population probability of rho
+					DFTplot = 1;
+					m = obj.lastIdx;					% last datapoint to include
+					window = hann(m,'periodic');
+% 					maxN = m;
+					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
+					f = (0:maxN-1)/obj.t(2)/maxN;
+					if isempty(obj.rhoOscRes)
+						obj.rhoOscRes = obj.getData('rhoii-osc-res-mean');		% t x nStates
+					end
+					rhoii = obj.rhoOscRes;
+					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
+% 					ft = fft(real(rhoii(1:m,:)),maxN,1);
+					if DFTshift
+						ft = fftshift(ft,1);
+						f = f-f(end)/2;
+					end
+					h.xdata = f;
+					h.ydata = abs(ft);
+					h.ylbl = '$FT(\rho_{ii})$';
+				case 'chain-n-rc'
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+					h.ylbl = '$\langle n \rangle$';
 				case 'chain-n-site2-ft'
 					% applies DFT to the occupation of site 2
 					DFTplot = 1;
@@ -2066,18 +2106,19 @@ classdef TDVPData
 			h.rows = rows;
 			h.cols = 1;			% TODO: extend for more columns
 			
+			% important measures:
+				% 2016a: ax.Position = [1.1041   0.70432   6.5822   5.2184]   for only left and bottom axis label
+			h.axW = 7.2; h.axH = 1; h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
+			
 			% Pre-process axes
-			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [8.5,6.4];
+			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [8.5,1+h.axH*h.rows];
 			% f.Renderer = 'painters';
 			set(h.f,'DefaultAxesFontSize', 8,...
 					'DefaultLineLineWidth',1);
-			% important measures:
-				% 2016a: ax.Position = [1.1041   0.70432   6.5822   5.2184]   for only left and bottom axis label
-			h.axW = 7.2; h.axH = 5.4; h.axdX = 0; h.axdY = 0;		% maximum sizes and default paddings between axes
 			% Lowest 
 			i=h.rows; h.ax(i) = axes; box on;
 			xlabel('xlabel');ylabel('ylabel');
-			h.ax(i).Units = 'centimeters'; h.ax(i).Position([2,3,4]) = [0.9,h.axW,h.axH/h.rows];
+			h.ax(i).Units = 'centimeters'; h.ax(i).Position([2,3,4]) = [0.9,h.axW,h.axH];
 
 			for i = (h.rows-1):-1:1
 				h.ax(i) = axes; box on;
@@ -2086,6 +2127,49 @@ classdef TDVPData
 			end
 
 			[h.ax.Units] = deal('norm');
+		end
+		
+		function h = plotRowGroups(rows,f)
+			%% function h = plotRowGroups(rows[,f])
+			%	creates rows of axes
+			%	onto a 8.5 cm x ? cm figure
+			%	rows = [5,7]
+			%		gives 2 groups of rows
+			if nargin >= 2
+				h.f = f;
+				figure(h.f);
+				clf;
+			else
+				h.f = figure();
+			end
+			h.rows = rows;
+			h.split = rows(1:end-1);	% which axes have to be shifted upwards for the split
+			% important measures:
+				% 2016a: ax.Position = [1.1041   0.70432   6.5822   5.2184]   for only left and bottom axis label
+			h.axW = 7.2; h.axH = 1; h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
+			
+			% Pre-process axes
+			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [8.5,1+h.axH*sum(h.rows)+h.axdYgroup*(length(h.rows)-1)];
+			% f.Renderer = 'painters';
+			set(h.f,'DefaultAxesFontSize', 8,...
+					'DefaultLegendInterpreter','latex',...
+					'DefaultLineLineWidth',1);
+			% Lowest 
+			i=sum(h.rows); h.ax(i) = axes; box on;
+			xlabel('xlabel');ylabel('ylabel');
+			h.ax(i).Units = 'centimeters'; h.ax(i).Position([2,3,4]) = [0.9,h.axW,h.axH];
+
+			for i = (sum(h.rows)-1):-1:1
+				h.ax(i) = axes; box on;
+				h.ax(i).Units = 'centimeters'; h.ax(i).Position([1,3,4,2]) = [h.ax(i+1).Position([1,3,4]),sum(h.ax(i+1).Position([2,4]))];
+				h.ax(i).XTickLabel = '';
+				if any(i == h.split)
+					h.ax(i).Position(2) = h.ax(i).Position(2)+h.axdYgroup;		% shift upwards for group split
+				end
+			end
+
+			[h.ax.Units] = deal('norm');
+			movegui(h.f,'center');
 		end
 	end
 	
