@@ -657,8 +657,24 @@ ylabel('$|FT (n_{RC})|$');
 [h.ax.XLim] = deal([0,2000]);
 formatPlot(f,'twocolumn-single')
 drawnow; h.controlPanel.delete;
+%% TDVP (3.1): 2D Plot <n> RC tFFT
+f= figure(6); clf;
+x = res(1); nc = 1;
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;			% convert from simulation timescale to cm
+h.data = real(squeeze(real(x.occC(1:h.m,2,nc))));		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,350/x.dt);
+h.tdata = x.t;
+h.Fs = 1/x.dt;
+%spectrogram(x     ,window        ,Nolap,NFFT/F,h.Fs,'yaxis','reassigned','power','MinThreshold',-40); 
+[h.S,h.F,h.T,h.P] = spectrogram(h.data,kaiser(1024,2.5),1020,[0:1800]*h.tTocm,h.Fs,'yaxis','reassigned','power','MinThreshold',-30);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,0:0.0001:0.04,h.Fs,'yaxis','reassigned','power','MinThreshold',-40);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,(h.m*7),h.Fs,'yaxis','reassigned','power','MinThreshold',-40);		% to zero padding across entire range!
+% ax=gca; ax.Children.YData = ax.Children.YData/0.658*4.135*8065.73*1e-3; ylim([0,2000]);
+% surf(h.T,h.F,10*log10(abs(h.P).^2))
+surf(h.T,h.F,mag2db(h.P))
+axis tight; shading interp; view([0,90]);
 
-
+ax=gca; ax.Children.YData = ax.Children.YData/h.tTocm; %ylim([0,2000]);
 %% TDVP (3.2): Plot <n> STAR
 mode = 0;		% 0: lin, 1: log
 f=figure(320); clf; f.Name = 'Star Occupation';
@@ -5434,7 +5450,8 @@ for ii = 1:5
 % 	f = figure(2);hold all; plot(t,occRC);	plot(t,occRCAvg);
 % 	
 	% FFT of residuals
-	window = hann(m,'periodic');
+% 	window = hann(m,'periodic');
+	window = kaiser(m,2.5);
 	maxN = pow2(nextpow2(20*m));			% if > lastIdx -> zero padding
 	freq = (0:maxN-1)/dt/maxN;
 	freq = freq/0.658*4.135*8065.73;		% to cm
@@ -6484,7 +6501,7 @@ formatPlot(h.f,'twocolumn-single');
 end
 
 %% add stems into norm dist reaction coord plot - L18
-x = res(2);
+x = res(1);
 % figure
 hold all
 for nc = 1:7
@@ -6506,6 +6523,58 @@ for nc = 1:7
 % or:
 	dat = [x.para.chain{nc}.epsilon(1)*8065.6, 1];
 	line([1 1]*dat(1),[0,1]-nc+7,'color',[0 0 0],'linewidth',2);
+end
+
+%%
+h=res(1).plotSld1D('chain-n-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-n-d-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+legend('$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$')
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x-d-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+legend('$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$')
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x2-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x2-d-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+legend('$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$')
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
 end
 
 %% Save all currently opend figures

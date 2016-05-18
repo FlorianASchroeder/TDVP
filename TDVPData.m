@@ -379,6 +379,7 @@ classdef TDVPData
 					if ~isfield(obj.tresults,'rho') || isempty(obj.tresults.rho)
 						error('TDVPData:getData:rhoij','rho does not exist')
 					end
+					out = {};
 					r = obj.tresults.rho(1:obj.lastIdx,:,:);
 					d = size(r);
 					out{1} = zeros(d(1),d(2)*(d(2)-1)/2-1);				% calculates number of off-diagonals
@@ -394,6 +395,14 @@ classdef TDVPData
 						end
 					end
 					full = 1;
+				case 'vne'
+					% von Neumann Entropy = -tr(r ln r)
+					rdm = obj.tresults.rho;						% t x i x j
+					out = zeros(size(rdm,1),1);					% t x 1
+					rdm = permute(rdm,[2,3,1]);					% i x j x t
+					for ii = 1:length(out)
+						out(ii) = real(-sum(sum(rdm(:,:,ii).*log(rdm(:,:,ii).'))));
+					end
                 case 'sys-env-x'
 					out = obj.getSysEnvObs('x');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
 					full = 1;
@@ -752,6 +761,13 @@ classdef TDVPData
 					h.xdata = f;
 					h.ydata = abs(ft);
 					h.ylbl = '$FT(\rho_{ii})$';
+				case 'vne'
+					% von Neumann Entropy of the system
+					box on;
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('vne');				% t x 1
+					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+					h.ylbl = '$S_{vNE}(t)$';
 				case 'chain-n-rc'
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
@@ -772,9 +788,42 @@ classdef TDVPData
 						f = f-f(end)/2;
 					end
 					h.xdata = f;
-					h.ydata = abs(ft);
+					h.ydata = abs(ft).^2;
 					h.ylbl = '$FFT(\left< n_k \right>)$';
 					h.tlbl = 'Chain Occupation Site 2 Fourier';
+				case 'chain-n-rc-ft'
+					% applies DFT to the occupation of site 2
+					DFTplot = 1;
+					h.data = real(squeeze(real(obj.occC(1:obj.lastIdx,2,:))));		% t x L x nChain
+					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
+					h.tdata = obj.t;
+					h.Fs = 1/diff(obj.t(1:2));
+					h.window = 'kaiser';
+					h.zeroPadFact = 100;
+					h.reassign = 1;
+					h = TDVPData.FFT(h);
+					f = h.xdata;
+					h.ylbl = '$FFT(\left< n_k \right>)$';
+					h.tlbl = 'Chain Occupation Site 2 Fourier';
+				case 'chain-n-rc-tft'
+					% applies DFT to the occupation of site 2
+					DFTplot = 1;
+					h.data = real(squeeze(real(obj.occC(1:obj.lastIdx,2,:))));		% t x L x nChain
+					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
+					h.tdata = obj.t;
+					h.Fs = 1/diff(obj.t(1:2));
+					h.window = 'kaiser';
+					h.zeroPadFact = 100;
+					h.reassign = 1;
+					h = TDVPData.tFFT(h);
+					f = h.xdata;
+					h.ylbl = '$FFT(\left< n_k \right>)$';
+					h.tlbl = 'Chain Occupation Site 2 Fourier';
+				case 'chain-x-rc'
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = squeeze(real(obj.xC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+					h.ylbl = '$\langle n \rangle$';
 				case 'chain-x-site2-ft'
 					% applies DFT to the occupation of site 2
 					DFTplot = 1;
@@ -1240,7 +1289,7 @@ classdef TDVPData
 			h.dataRange = obj.lastIdx;					% last (real) datapoint to include
 			h.zeroPadFactor = 4;						% multiples of dataset to pad
 			h.power2 = 1;								% FFT in power of 2?
-			h.useWindowFcn = 1;							% whether to use the Hann window function
+			h.useWindowFcn = 1;							% whether to use the (1) Hann or (2) Kaiser window function
 			h.FFTshift = 0;
 			
 			for m = 1:nargin-2
@@ -1286,6 +1335,8 @@ classdef TDVPData
 						end
 					case '-meanres'
 						h.meanRes = 1;
+					case '-kaiser'
+						h.useWindowFcn = 2;
 				end
 			end
 			
@@ -1476,7 +1527,11 @@ classdef TDVPData
 				end
 				h.xdata = (0:maxN-1)/obj.t(2)/maxN;			% get frequency
 				if h.useWindowFcn
-					window = hann(h.dataRange,'periodic');
+					if h.useWindowFcn == 1
+						window = hann(h.dataRange,'periodic');
+					elseif h.useWindowFcn == 2
+						window = kaiser(h.dataRange,2.5);
+					end
 					h.ydata = fft(h.data(1:h.dataRange,:).*(window*ones(1,size(h.data,2))),maxN,1);				% do FFT in 1st dimension
 				else
 					h.ydata = fft(h.data,maxN,1);			% do FFT in 1st dimension
@@ -2170,6 +2225,85 @@ classdef TDVPData
 
 			[h.ax.Units] = deal('norm');
 			movegui(h.f,'center');
+		end
+		
+		function h = FFT(h)
+			%% function h = FFT(h)
+			%	performs the FFT using the periodogram function
+			%	h.data = x;		-> h.ydata = FFT(x)
+			%	h.tdata = t;	-> h.xdata = freq
+			if ~isfield(h,'reassign')
+				h.reassign = 0;
+			end
+			if ~isfield(h,'window')
+				h.window = '';
+			end
+			if ~isfield(h,'zeroPadFact')
+				h.zeroPadFact = 0;
+			end
+			assert(length(h.tdata) == size(h.data,1),'FFT input has wrong dimensions');
+			
+			h.m = length(h.tdata);
+			
+			if strcmp(h.window,'hann')
+				h.wind = hann(h.m,'periodic');
+			elseif strcmp(h.window,'kaiser')
+				h.wind = kaiser(h.m,5);
+			else
+				h.wind = [];
+			end
+			
+			if h.reassign
+				[pre,ft,pxx,fc] = periodogram(h.data,h.wind,pow2(nextpow2((1+h.zeroPadFact)*h.m)),h.Fs,'power','reassigned');
+% 				h.xdata = fc;		% center-of-mass frequencies, plots only for stem()
+				h.xdata = ft;
+				h.ydata = pre;
+			else
+				[pxx,f] = periodogram(h.data,h.wind,pow2(nextpow2((1+h.zeroPadFact)*h.m)),h.Fs,'power');
+				h.xdata = f;
+				h.ydata = pxx;
+			end
+			
+		end
+		
+		function h = tFFT(h)
+			%% function h = tFFT(h)
+			%	performs the time-resolved FFT using the spectrogram function
+			%	h.data = x;		-> h.ydata = FFT(x)
+			%	h.tdata = t;	-> h.xdata = freq
+			if ~isfield(h,'reassign')
+				h.reassign = 0;
+			end
+			if ~isfield(h,'window')
+				h.window = '';
+			end
+			if ~isfield(h,'zeroPadFact')
+				h.zeroPadFact = 0;
+			end
+			assert(length(h.tdata) == size(h.data,1),'FFT input has wrong dimensions');
+			
+			h.m = length(h.tdata);
+			
+			if strcmp(h.window,'hann')
+				h.wind = hann(h.m,'periodic');
+			elseif strcmp(h.window,'kaiser')
+				h.wind = kaiser(h.m,5);
+			else
+				h.wind = [];
+			end
+			
+			if h.reassign
+								  spectrogram(h.data(:,4),kaiser(1024,5),1000,(h.m*7),10,'reassigned','power','MinThreshold',-40)
+				[pre,ft,pxx,fc] = spectrogram(h.data,h.wind,pow2(nextpow2((1+h.zeroPadFact)*h.m)),h.Fs,'power','reassigned');
+% 				h.xdata = fc;		% center-of-mass frequencies, plots only for stem()
+				h.xdata = ft;
+				h.ydata = pre;
+			else
+				[pxx,f] = spectrogram(h.data,h.wind,pow2(nextpow2((1+h.zeroPadFact)*h.m)),h.Fs,'power');
+				h.xdata = f;
+				h.ydata = pxx;
+			end
+			
 		end
 	end
 	
