@@ -184,7 +184,7 @@ classdef TDVPData
 				obj.t = obj.para.tdvp.t;
 			end
 			obj.tCalc = obj.para.tdvp.t;
-			obj.dt    = obj.para.tdvp.deltaT;
+			obj.dt    = max(diff(obj.tresults.t));				% important for fourier smoothing
 			
 			if isfield(obj.para,'nChains')
 				obj.nChains = obj.para.nChains;
@@ -439,14 +439,53 @@ classdef TDVPData
 			%	'rhoii-ft'
 			%	'rhoii-osc-res'
 			%	'rhoii-osc-res-med'
-
+			
+			% single options:
+			%	'-resetcolororder'	:	plot into existing axes given as argument. Before plotting reset the Color order to initial state.
+			%
+			% additional options ,Name,Value, pair:
+			%	'-grid',[m n]		:	Use with object array: plots into specified grid m x n; can specify figure
+			
 			% initialise modifiers
 			% plot(...,ax_handle)	Plots into the axes/figure given by handle
 			if length(obj) > 1
+				plotToGrid = 0;
+				gridh = [];					% grid handle, will contain figure and axes handles
+				% allow additional option grid
+				if nargin-2 > 0
+					m    = find(strcmp(varargin,'-grid'));
+					fInd = cellfun('isclass',varargin,'matlab.ui.Figure');
+					axInd = cellfun('isclass',varargin,'matlab.graphics.axis.Axes');			% override!
+					
+					if ~isempty(m)						% plot into grid
+						plotToGrid = 1;
+						if sum(fInd) == 1
+							gridh = TDVPData.plotGrid(varargin{m+1}(1),varargin{m+1}(2),varargin{fInd});
+						else
+							gridh = TDVPData.plotGrid(varargin{m+1}(1),varargin{m+1}(2));
+						end
+						if any(axInd)
+							varargin{axInd} = [];														% cannot plot multiple plots into single axes
+						end
+						if any(fInd)
+							varargin{fInd}  = [];
+						end
+						[varargin{[m,m+1]}] = deal([]);
+					end
+				end
 				% deal with object array
 				pl = gobjects(length(obj),1);
 				for ii = 1:length(obj)
-					[hTemp,plTemp,obj(ii)] = obj(ii).plot(type,varargin{:});
+					if plotToGrid
+						[hTemp,plTemp,obj(ii)] = obj(ii).plot(type,varargin{:},gridh.ax(ii));
+					else
+						[hTemp,plTemp,obj(ii)] = obj(ii).plot(type,varargin{:});
+					end
+					t = title(obj(ii).folder);
+					if plotToGrid
+						t.Units  = 'normalized';
+						t.Position = [0.5,0.9];
+					end
 					plTemp = reshape(plTemp,1,[]);
 					if size(pl,2) ~= size(plTemp,2)
 						pl(end,size(plTemp,2)) = gobjects(1,1);
@@ -463,6 +502,7 @@ classdef TDVPData
 			h.ydata = [];
 			h.pl = [];					% plot handle
 			pl = [];					% old plot handle;
+			h.chain = [];				% chain number needed for (a)diabatic n and x plots
 			
 			ts = 1;						% scale time axis
 			eScale = 0;					% energy units used for DFT: 0 = none, 1 = eV, 2 = cm (wavenumber)
@@ -482,8 +522,10 @@ classdef TDVPData
 					if isa(varargin{m},'matlab.ui.Figure')
 						h.f  = varargin{m};
 					elseif isa(varargin{m},'matlab.graphics.axis.Axes')
-						h.ax = varargin{m};
+						h.ax = varargin{m};									% the last axis added will be used!
 					end
+					continue;
+				elseif isempty(varargin{m})
 					continue;
 				end
 				switch lower(varargin{m})
@@ -513,6 +555,9 @@ classdef TDVPData
 						h.normalise = 1;
 					case '-dist'
 						h.distribute = 1;
+					case '-chain'
+						h.chain = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
 					otherwise
 						% pass through as direct plot options!
 						plotOpt = [plotOpt, varargin(m)];
@@ -685,20 +730,18 @@ classdef TDVPData
 				case 'rhoii-ft'
 					% applies DFT to the population probability of rho
 					DFTplot = 1;
-					m = obj.lastIdx;					% last datapoint to include
-					window = hann(m,'periodic');
-% 					maxN = m;
-					maxN = pow2(nextpow2(10*m));			% if > lastIdx -> zero padding
-					f = (0:maxN-1)/obj.t(2)/maxN;
-					rhoii = obj.getData('rhoii');		% t x nStates
-					ft = fft(real(rhoii(1:m,:)).*(window*ones(1,size(rhoii,2))),maxN,1);
-% 					ft = fft(real(rhoii(1:m,:)),maxN,1);
-					if DFTshift
-						ft = fftshift(ft,1);
-						f = f-f(end)/2;
-					end
-					pl = plot(f, abs(ft));
+					h.data = squeeze(real(obj.getData('rhoii')));		% t x L x nChain
+% 					h.data = TDVPData.meanRes(h.data);
+					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
+					h.tdata = obj.t(1:obj.lastIdx);
+					h.Fs = 1/diff(obj.t(1:2));
+					h.window = 'kaiser';
+					h.zeroPadFact = 10;
+					h.reassign = 1;
+					h = TDVPData.FFT(h);
+					f = h.xdata;
 					h.ylbl = '$FT(\rho_{ii})$';
+					h.tlbl = 'Population Fourier';
 				case 'rhoii-osc-res'
 					% applies DFT to the population probability of rho
 					DFTplot = 1;
@@ -773,6 +816,38 @@ classdef TDVPData
 					h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\langle n \rangle$';
+				case 'chain-n-d-rc'
+					if ~isempty(h.chain)
+						% this is specific call to subplot!
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						h.ydata = squeeze(real(obj.occCd(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						h.ylbl = '$\langle n \rangle$';
+						h.tlbl = 'Diabatic Occupation';
+					else
+						% this is the first call to generate grid plot!
+						htemp = TDVPData.plotGrid(2,4,h.f);
+						for ii = 1:size(obj.occCd,4)
+							obj.plot('chain-n-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						end
+						return;				% exit here!
+					end
+				case 'chain-n-a-rc'
+					if ~isempty(h.chain)
+						% this is specific call to subplot!
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						h.ydata = squeeze(real(obj.occCa(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						h.ylbl = '$\langle n \rangle$';
+						h.tlbl = 'Adiabatic Occupation';
+					else
+						% this is the first call to generate grid plot!
+						htemp = TDVPData.plotGrid(2,4,h.f);
+						for ii = 1:size(obj.occCd,4)
+							obj.plot('chain-n-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						end
+						return;				% exit here!
+					end
 				case 'chain-n-site2-ft'
 					% applies DFT to the occupation of site 2
 					DFTplot = 1;
@@ -795,11 +870,12 @@ classdef TDVPData
 					% applies DFT to the occupation of site 2
 					DFTplot = 1;
 					h.data = real(squeeze(real(obj.occC(1:obj.lastIdx,2,:))));		% t x L x nChain
-					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
-					h.tdata = obj.t;
+					h.data = TDVPData.meanRes(h.data);
+% 					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
+					h.tdata = obj.t(1:obj.lastIdx);
 					h.Fs = 1/diff(obj.t(1:2));
 					h.window = 'kaiser';
-					h.zeroPadFact = 100;
+					h.zeroPadFact = 10;
 					h.reassign = 1;
 					h = TDVPData.FFT(h);
 					f = h.xdata;
@@ -824,6 +900,38 @@ classdef TDVPData
 					h.ydata = squeeze(real(obj.xC(1:obj.lastIdx,2,:)));		% t x L x nChain
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\langle n \rangle$';
+				case 'chain-x-d-rc'
+					if ~isempty(h.chain)
+						% this is specific call to subplot!
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						h.ydata = squeeze(real(obj.xCd(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						h.ylbl = '$\langle x \rangle$';
+						h.tlbl = 'Diabatic Displacement';
+					else
+						% this is the first call to generate grid plot!
+						htemp = TDVPData.plotGrid(2,4,h.f);
+						for ii = 1:size(obj.occCd,4)
+							obj.plot('chain-x-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						end
+						return;				% exit here!
+					end
+				case 'chain-x-a-rc'
+					if ~isempty(h.chain)
+						% this is specific call to subplot!
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						h.ydata = squeeze(real(obj.xCa(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						h.ylbl = '$\langle x \rangle$';
+						h.tlbl = 'Adiabatic Displacement';
+					else
+						% this is the first call to generate grid plot!
+						htemp = TDVPData.plotGrid(2,4,h.f);
+						for ii = 1:size(obj.occCd,4)
+							obj.plot('chain-x-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						end
+						return;				% exit here!
+					end
 				case 'chain-x-site2-ft'
 					% applies DFT to the occupation of site 2
 					DFTplot = 1;
@@ -1123,6 +1231,18 @@ classdef TDVPData
 					h.ylbl = '$\left< x^2_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Displacement squared - diabatic';
+				case 'chain-dx-t'
+					h.ydata = real(obj.xC2(1:obj.lastIdx,:,:,:)-obj.xC(1:obj.lastIdx,:,:,:).^2);		% t x L  x nChain
+					h.ylbl = '$\left< x^2_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement Uncertainty';
+				case 'chain-dx-d-t'
+					h.ydata = real(obj.xC2d(1:obj.lastIdx,:,:,:)-obj.xCd(1:obj.lastIdx,:,:,:).^2);		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< x^2_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement Uncertainty - diabatic';
 				case 'chain-x-t-avg'
 					hold all;
 					h.ydata = squeeze(sum(real(obj.xC(1:obj.lastIdx,:,:,:)),3));		% t x L x  nChain
@@ -2159,28 +2279,37 @@ classdef TDVPData
 				h.f = figure();
 			end
 			h.rows = rows;
-			h.cols = 1;			% TODO: extend for more columns
+			h.cols = cols;			% TODO: extend for more columns
 			
 			% important measures:
 				% 2016a: ax.Position = [1.1041   0.70432   6.5822   5.2184]   for only left and bottom axis label
-			h.axW = 7.2; h.axH = 1; h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
+			h.axW = 7.2/h.cols; h.axH = 1; h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
+			h.axX = 1.1; h.axY = 0.9;		% spacing bottom left for ticks and labels
 			
 			% Pre-process axes
 			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [8.5,1+h.axH*h.rows];
 			% f.Renderer = 'painters';
 			set(h.f,'DefaultAxesFontSize', 8,...
 					'DefaultLineLineWidth',1);
-			% Lowest 
-			i=h.rows; h.ax(i) = axes; box on;
-			xlabel('xlabel');ylabel('ylabel');
-			h.ax(i).Units = 'centimeters'; h.ax(i).Position([2,3,4]) = [0.9,h.axW,h.axH];
-
-			for i = (h.rows-1):-1:1
-				h.ax(i) = axes; box on;
-				h.ax(i).Units = 'centimeters'; h.ax(i).Position([1,3,4,2]) = [h.ax(i+1).Position([1,3,4]),sum(h.ax(i+1).Position([2,4]))];
-				h.ax(i).XTickLabel = '';
+% 			% Lowest 
+% 			i=h.rows*h.cols; h.ax(i) = axes; box on;
+% 			xlabel('xlabel');ylabel('ylabel');
+% 			h.ax(i).Units = 'centimeters'; h.ax(i).Position([2,3,4]) = [0.9,h.axW,h.axH];
+			
+			for kk = 1:h.rows*h.cols			% linear index
+				[ii,jj] = ind2sub([h.rows,h.cols],kk);
+				h.ax(kk) = axes; box on;
+				h.ax(kk).Units = 'centimeters'; 
+				h.ax(kk).Position([1,2,3,4]) = [h.axX+(jj-1)*h.axW,h.axY+(h.rows-ii)*h.axH,h.axW,h.axH];
+				if ii ~= h.rows
+					h.ax(kk).XTickLabel = '';
+				elseif jj == 1
+					xlabel('xlabel');ylabel('ylabel');
+				end
+				if jj ~= 1
+					h.ax(kk).YTickLabel = '';
+				end
 			end
-
 			[h.ax.Units] = deal('norm');
 		end
 		

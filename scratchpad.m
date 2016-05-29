@@ -557,61 +557,7 @@ else
 end
 ax.CLim = ax.ZLim;
 % ax.YLim = [0,100];
-%% TDVP (3.1): Plot <n> CHAIN - MC Slider
-mode = 0;		% 0: lin, 1: log
-f=figure(313); clf; f.Name = 'Chain Occupation'; pos = f.Position;
-del = findobj(f,'Type','hgjavacomponent'); del.delete;	% get rid of old sliders
-hold all; ax = gca; ax.UserData = 1;
-hPl = handle(ax); hProp = findprop(hPl,'UserData');
-% x = res{9,1}; tresults = x.tresults; para = x.para;
-% x = res(9); tresults = x.tresults; para = x.para;
-if str2double(para.tdvp.version(2:end)) < 50
-	tresults.n = tresults.nx;
-end
-n = tresults.n;
-l = find(n(:,3,1),1,'last');
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-if mode
-	pl = surf(1:size(n,2),t(1:l),log10(abs(n(1:l,:,ax.UserData))));
-	hPl.addlistener(hProp, 'PostSet', @(src, event) set(pl, 'zdata', log10(abs(n(1:l, :, ax.UserData)))));
-% 	surf(1:size(n,2),t(1:l),log10(abs(real(n(1:l,:))-ones(l,1)*real(n(1,:)))));		% subtract intitial population
-	zlabel('$\log_{10}\left<n_k\right>$');
-else
-	pl = surf(1:size(n,2),t(1:l),real(n(1:l,:,ax.UserData)));
-	hPl.addlistener(hProp, 'PostSet', @(src, event) set(pl, 'zdata', real(n(1:l,:,ax.UserData))));
-% 	surf(1:size(n,2),t(1:l),real(n(1:l,:))-ones(l,1)*real(n(1,:)));			% subtract initial population
-	zlabel('$\left<n_k\right>$');
-end
-cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = ax.ZLabel.String;
-xlabel('Site $k$');
-ylabel('Time $\omega_c t$');
-% set(gca,'yscale','log');se
-% set(gca,'View',[0 42]);
-set(gca,'View',[0 90]);
-shading interp
-rotate3d on
-axis tight
-if mode
-% 	ax.ZLim = [-30, max(max(ax.Children.ZData))];
-% 	ax.ZLim = [-6, 0];
-else
-% 	ax.ZLim = [0.1,1].*10^-26;
-end
-% ax.CLim = ax.ZLim;
-% ax.YLim = [0,100];
-
-% slider definition for datasets:
-sld = javax.swing.JScrollBar(0,1,1,1,para.nChains+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
-javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
-sld.setUnitIncrement(1); sld.setBlockIncrement(3);
-hsld = handle(sld,'CallbackProperties');
-set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax,'userdata',round(source.Value)));
-%% TDVP (3.1): Plot <n> CHAIN - TDVPData
+%% TDVP (3.1): 2D Plot <n> CHAIN - L x t - TDVPData
 mode = 0;		% 0: lin, 1: log
 f=figure(313); clf; f.Name = 'Chain Occupation';
 del = findobj(f,'Type','hgjavacomponent'); del.delete;	% get rid of old sliders
@@ -657,24 +603,268 @@ ylabel('$|FT (n_{RC})|$');
 [h.ax.XLim] = deal([0,2000]);
 formatPlot(f,'twocolumn-single')
 drawnow; h.controlPanel.delete;
+%% TDVP (3.1): 1D Plot <n> RC - diabatic all chains, grid - TDVPData
+x = y(end);
+h = x.plot('chain-n-d-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Diabatic Occupation RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.8,0.85,sprintf('$\\langle n \\rangle_{max} \\approx %g$',h.f.Children(ii).YLim(end)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+legend(popName{:});
+ax(end).Visible = 'off';
+t = title(x.folder); t.Position = [475,-0.13,0];
+%% TDVP (3.1): 1D Plot <n> RC - adiabatic all chains, grid - TDVPData
+x = y(end);
+h = x.plot('chain-n-a-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Occupation RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.8,0.85,sprintf('$\\langle n \\rangle_{max} \\approx %g$',h.f.Children(ii).YLim(end)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+legend toggle;
+ax(end).Visible = 'off';
+t = title(x.folder); t.Position = [475,-0.13,0];
 %% TDVP (3.1): 2D Plot <n> RC tFFT
-f= figure(6); clf;
-x = res(1); nc = 1;
+nc = 2;
+f = figure(310+nc+4); clf;f.Name = sprintf('Chain %d',nc);
+x = res(1); 
 h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;			% convert from simulation timescale to cm
 h.data = real(squeeze(real(x.occC(1:h.m,2,nc))));		% t x L x nChain
 h.data = TDVPData.movAvgRes(h.data,350/x.dt);
 h.tdata = x.t;
 h.Fs = 1/x.dt;
+h.nwind = 1024*6;
 %spectrogram(x     ,window        ,Nolap,NFFT/F,h.Fs,'yaxis','reassigned','power','MinThreshold',-40); 
-[h.S,h.F,h.T,h.P] = spectrogram(h.data,kaiser(1024,2.5),1020,[0:1800]*h.tTocm,h.Fs,'yaxis','reassigned','power','MinThreshold',-30);	% only calculate for specified points!
+[h.S,h.F,h.T,h.P] = spectrogram(h.data,kaiser(h.nwind,5),h.nwind-2,[0:1600]*h.tTocm,h.Fs,'yaxis','reassigned','power','MinThreshold',-50);	% only calculate for specified points!
 %  spectrogram(h.data,kaiser(1024,5),1000,0:0.0001:0.04,h.Fs,'yaxis','reassigned','power','MinThreshold',-40);	% only calculate for specified points!
 %  spectrogram(h.data,kaiser(1024,5),1000,(h.m*7),h.Fs,'yaxis','reassigned','power','MinThreshold',-40);		% to zero padding across entire range!
 % ax=gca; ax.Children.YData = ax.Children.YData/0.658*4.135*8065.73*1e-3; ylim([0,2000]);
 % surf(h.T,h.F,10*log10(abs(h.P).^2))
-surf(h.T,h.F,mag2db(h.P))
+surf(h.T*0.658,h.F,mag2db(h.P))
 axis tight; shading interp; view([0,90]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
 
-ax=gca; ax.Children.YData = ax.Children.YData/h.tTocm; %ylim([0,2000]);
+ax=gca; ax.Children.YData = ax.Children.YData/h.tTocm; ylim([0,1600]); xlim([0,960]);
+%% TDVP (3.1): 2D Plot <n> RC WSST
+%	Wavelet Synchrosqueezed Transform
+% not optimal, since needs better scale resolution! padding is not controllable!
+nc = 3; fwind = 1;
+popName = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+for nc = [1:7]
+% for fwind = [1,2,4,6,8]
+f = figure(300+nc*10+fwind); clf;f.Name = sprintf('Chain WSST - %s',popName{nc});
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = real(squeeze(real(x.occC(1:h.m,2,nc))));		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t*h.tTocm; h.dt = x.dt*h.tTocm;
+h.f0 = 6/(2*pi);				% 5 for bump, 6 for morl
+% h.scales = helperCWTTimeFreqVector(30,1600,h.f0,h.dt,128)/h.dt;	%	(fmin, fmax, f0, dt, nVoices), returns s*dt and not pure scale
+h.scales = fliplr(h.f0/h.dt./(30:1600));
+[h.sst,h.f]=mywsst(double(h.data),1/h.dt,'VoicesPerOctave',128,'amor'); ylim([0,1.6]);
+% [h.sst,h.f] = mywsst(double(h.data),1/h.dt,'scales',h.scales,'amor'); h.f = fliplr(h.f0./h.scales./h.dt);% does not work! frequencies are stretched
+% [h.sst,h.f] = sswt(double(h.data),1/h.dt,'fmin',50,'fmax',1600,'plot','amp'); 
+%
+h.sstDB = mag2db(abs(h.sst)/max(max(abs(h.sst))));
+h.sstDB(h.sstDB<-90) = -inf;
+surf(x.t*0.658,h.f,h.sstDB);
+% surf(x.t*0.658,Freq,abs(h.sst));
+axis tight; shading interp; view([0,90]); ylim([0,10000]);xlim([0,987]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
+title(sprintf('Chain WSST - %s',popName{nc}));
+
+export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+close(f);
+% end
+end
+%% TDVP (3.1): 2D Plot rhoii tFFT
+pop = 1; fwind = 3;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for pop = 1:5
+for fwind = [1,2,4,6,8]
+f = figure(300+pop*10+fwind); clf;f.Name = sprintf('Population STFT - %s',popName{pop});
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,350/x.dt);
+h.tdata = x.t;
+h.Fs = 1/x.dt;
+h.nwind = 1024*fwind;
+%spectrogram(x     ,window        ,Nolap,NFFT/F,h.Fs,'yaxis','reassigned','power','MinThreshold',-40); 
+[h.S,h.F,h.T,h.P] = spectrogram(h.data,kaiser(h.nwind,5),h.nwind-2,[0:1600]*h.tTocm,h.Fs,'yaxis','reassigned','power','MinThreshold',-50);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,0:0.0001:0.04,h.Fs,'yaxis','reassigned','power','MinThreshold',-40);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,(h.m*7),h.Fs,'yaxis','reassigned','power','MinThreshold',-40);		% to zero padding across entire range!
+% ax=gca; ax.Children.YData = ax.Children.YData/0.658*4.135*8065.73*1e-3; ylim([0,2000]);
+% surf(h.T,h.F,10*log10(abs(h.P).^2))
+surf(h.T*0.658,h.F,mag2db(h.P))
+axis tight; shading interp; view([0,90]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
+title(sprintf('Population STFT - %s - Nwind %d',popName{pop}, h.nwind));
+
+ax=gca; ax.Children.YData = ax.Children.YData/h.tTocm; ylim([0,1600]); xlim([0,960]);
+% export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+close(f);
+end
+end
+
+%% TDVP (3.1): 2D Plot rhoii CWTft
+% not optimal since needs reassignment!
+pop = 3; fwind = 2;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for pop = 1:5
+% for fwind = [1,2,4,6,8]
+f = figure(400+pop*10+fwind); clf;f.Name = sprintf('Population CWTft - %s',popName{pop});
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t*h.tTocm; h.dt = x.dt*h.tTocm;
+h.s0 = 2*h.dt;
+h.f0 = 5/(2*pi);				% 5 for bump, 6 for morl
+h.scales = helperCWTTimeFreqVector(30,1600,h.f0,h.dt,128);	%	(fmin, fmax, f0, dt, nVoices)
+% h.scales = fliplr(h.f0/h.dt./(30:1600));
+h.cwtdata = cwtft({h.data,h.dt},'wavelet','bump','scales',h.scales,'padmode','symw');
+helperCWTTimeFreqPlot((h.cwtdata.cfs),h.tdata/h.tTocm*0.658,h.cwtdata.frequencies,...
+    'surf',sprintf('Population CWTFT - %s',popName{pop}),'$t/fs$','$E/cm^{-1}$')
+% export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+% close(f);
+end
+%% TDVP (3.1): 2D Plot rhoii WSST
+%	Wavelet Synchrosqueezed Transform
+% not optimal, since needs better scale resolution! padding is not controllable!
+pop = 3; fwind = 1;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for pop = 1
+% for fwind = [1,2,4,6,8]
+f = figure(300+pop*10+fwind); clf;f.Name = sprintf('Population WSST - %s',popName{pop});
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t*h.tTocm; h.dt = max(diff(x.t))*h.tTocm;
+h.f0 = 6/(2*pi);				% 5 for bump, 6 for morl
+% h.scales = helperCWTTimeFreqVector(30,1600,h.f0,h.dt,128)/h.dt;	%	(fmin, fmax, f0, dt, nVoices), returns s*dt and not pure scale
+% h.scales = fliplr(h.f0/h.dt./(30:1600));
+% [h.sst,h.f]=mywsst(double(h.data),1/h.dt,'VoicesPerOctave',128,'amor'); %ylim([0,1.6]);
+% [h.sst,h.f] = mywsst(double(h.data),1/h.dt,'scales',h.scales,'amor'); h.f = fliplr(h.f0./h.scales./h.dt);% does not work! frequencies are stretched
+[h.sst,h.f,h.wopt,h.wt,h.wtf,h.ifr] = sswt(double(h.data),1/h.dt,'fmin',50,'fmax',1600,'plot','amp++-wr','Padding',0,'nv',256,'Wavelet','Morlet'); 
+
+% separate plot, if needed
+h.sstDB = mag2db(abs(h.sst)/max(max(abs(h.sst))));
+h.sstDB(h.sstDB<-90) = -inf;
+f = figure(300+pop*10+fwind); 
+surf(x.t(1:h.m)*0.658,h.f,h.sstDB); shading interp, view([0,90]), axis tight
+% surf(x.t*0.658,Freq,abs(h.sst));
+end
+%%
+for pop = 1:5
+figure(300+pop*10+fwind);
+axis tight; shading interp; view([0,90]); ylim([0,1600]);xlim([0,987]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
+title(sprintf('Population WSST - %s',popName{pop}));
+
+export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+% close(f);
+% end
+end
+
+%% TDVP (3.1) Wavelet Coherence between states and <n> RC
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73; h.dt = max(diff(x.t))*h.tTocm;
+h.tdata = x.t(1:h.m);
+h.Odata = real(squeeze(real(x.occC(1:h.m,2,:)))); h.Odata = TDVPData.movAvgRes(h.Odata,760/x.dt);
+h.pdata = abs(x.getData('rhoii'));                h.pdata = TDVPData.movAvgRes(h.pdata,760/x.dt);
+%% state-RC coherences
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'}; chainName = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+[~,m] = size(h.pdata); [~,n] = size(h.Odata);
+hPl = TDVPData.plotGrid(m,n); hPl.f.Units = 'pixels';
+hPl.f.Position = [1,1,1920,1080]; hPl.f.Name = 'Wavelet Coherence state-RC';
+for kk = 1:m*n
+	[ii,jj] = ind2sub([m,n],kk);
+	axes(hPl.ax(kk));
+	wcoherence(h.pdata(:,ii),h.Odata(:,jj),1/h.dt,'VoicesPerOctave',32,'PhaseDisplayThreshold',0.5,'NumScalesToSmooth',10);
+	hPl.ax(kk).YLim(end) = 4;		% 2^4 = 16 kcm^-1
+	hPl.ax(kk).YTick = hPl.ax(kk).YLim(1):(hPl.ax(kk).YLim(end)-1);
+	title('');
+	if ii < m 
+		xlabel(''); 
+		hPl.ax(kk).XTickLabel = '';
+		if ii == 1
+			title(chainName{jj});
+		end
+	else
+		hPl.ax(kk).XTickLabel = strsplit(sprintf('%d ',round(hPl.ax(kk).XTick*10^-3/h.tTocm*0.658)));
+		xlabel('$t/fs$');
+	end
+	if jj > 1
+		ylabel(''); 
+		hPl.ax(kk).YTickLabel = '';
+		if jj == n
+			hPl.ax(kk).YAxisLocation = 'right';
+			ylabel(popName{ii});
+		end
+	else
+		ylabel('$E/(10^3 cm^{-1})$');
+	end
+	colorbar off
+	drawnow
+end
+
+%% inter-state coherences
+[m,n] = size(h.pdata);
+hPl = TDVPData.plotGrid(n-1,n-1); hPl.f.Units = 'pixels';
+hPl.f.Position = [1,1,1920,1080]; hPl.f.Name = 'Wavelet Coherence inter-state';
+hPl.ax = reshape(hPl.ax,n-1,n-1);
+for kk = 1:n*n
+	[ii,jj] = ind2sub([n,n],kk);
+	if ii >= jj
+		if all([ii,jj-1] > 0) && ii < n
+			hPl.ax(ii,jj-1).Visible = 'off';
+		end
+		continue;
+	end
+	axes(hPl.ax(ii,jj-1));
+	wcoherence(h.pdata(:,ii),h.pdata(:,jj),1/h.dt,'VoicesPerOctave',32,'PhaseDisplayThreshold',0.5,'NumScalesToSmooth',10);
+	hPl.ax(ii,jj-1).YLim(end) = 4;		% 2^4 = 16 kcm^-1
+	hPl.ax(ii,jj-1).YTick = hPl.ax(ii,jj-1).YLim(1):(hPl.ax(ii,jj-1).YLim(end)-1);
+	title('');
+	if ii < n 
+		if ii == 1
+			title(popName{jj});
+		end
+		xlabel(''); 
+		hPl.ax(ii,jj-1).XTickLabel = '';
+	end
+	if jj > 2
+		if jj ~= ii+1
+			ylabel(''); 
+			hPl.ax(ii,jj-1).YTickLabel = '';
+		end
+		if jj == n
+			hPl.ax(ii,jj-1).YAxisLocation = 'right';
+			ylabel(popName{ii});
+		end
+	end
+	if ii == jj-1 && ii ~= n-1
+		ylabel('$E/(10^3 cm^{-1})$');
+		hPl.ax(ii,jj-1).XTickLabel = strsplit(sprintf('%d ',round(hPl.ax(ii,jj-1).XTick*10^-3/h.tTocm*0.658)));
+		xlabel('$t/fs$');
+	end
+	if ii == n-1
+		hPl.ax(ii,jj-1).YTickLabel = '';
+		hPl.ax(ii,jj-1).XTickLabel = strsplit(sprintf('%d ',round(hPl.ax(ii,jj-1).XTick*10^-3/h.tTocm*0.658)));
+		xlabel('$t/fs$');
+	end
+	colorbar off
+	drawnow
+end
+
 %% TDVP (3.2): Plot <n> STAR
 mode = 0;		% 0: lin, 1: log
 f=figure(320); clf; f.Name = 'Star Occupation';
@@ -924,6 +1114,33 @@ formatPlot(gcf,'twocolumn-single')
 h = x.plotSld1D('chain-x-t','-fsev');
 formatPlot(gcf,'twocolumn-single')
 
+%% TDVP (3.1): 1D Plot <n> RC - diabatic all chains, grid - TDVPData
+x = y(end);
+h = x.plot('chain-x-d-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Diabatic Displacement RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+legend(popName{:});
+ax(end).Visible = 'off';
+t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
+%% TDVP (3.1): 1D Plot <n> RC - adiabatic all chains, grid - TDVPData
+x = y(end);
+h = x.plot('chain-x-a-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Displacement RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+legend toggle;
+ax(end).Visible = 'off';
+t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
 %% TDVP (3.8.3): 1D Plot <x> CHAIN - Diabatic - TDVPData
 % x = res(35);
 h = x.plotSld1D('chain-x-d-t','-fsev');
@@ -5345,7 +5562,7 @@ ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdv
 %% DPMES5-7C v73  TreeMPS from LE+ & TT, L18, L2 CTshift - TDVPData						% LabBook 15/03/2016
 % See effect of CT shift on dynamics form LE+ and TT
 clear
-defPlot(1,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-LE-CTshift',		[ 1: 5], {'xlim',[0,1e3],'yscale','lin'}};
+defPlot(1,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-LE-CTshift',		[ 1: 6], {'xlim',[0,1e3],'yscale','lin'}};
 % defPlot(2,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-TT-CTshift',		[ 6: 9], {'xlim',[0,1e3],'yscale','lin'}};
 % defPlot(3,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-LE-CTshift',		[10:15], {'xlim',[0,3.3e3],'yscale','lin'}};
 % defPlot(4,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-TT-CTshift',		[16:19], {'xlim',[0,3.3e3],'yscale','lin'}};
@@ -5358,13 +5575,14 @@ load('TDVPLib.mat');
 TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
 matches = [];
 
-% 1: from LE+, L=18
+% 1: from LE+, L=18 CT up
 dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*LE.*';
 filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
 m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
 tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
 [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
 matches = [matches; m(I)];
+
 % 
 % % 2: from TT, L=18
 % dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*TT.*';
@@ -5406,6 +5624,14 @@ matches = [matches; m(I)];
 % [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
 % matches = [matches; m(I)];
 
+% 7: 1-6: from LE+, L=18 CT down
+dirPat = '20160516-2007-43-DPMES5-7C-Tree-v73TCMde11-L18CT.*LE.';
+filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax\(5-20\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+matches = [matches; m(I)];
+
 res = TDVPData({matches.name});
 %%
 for fignum = 1:size(defPlot,1)
@@ -5415,7 +5641,7 @@ for fignum = 1:size(defPlot,1)
 % 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
-	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);legend('TT','LE+','LE-','CT+','CT-')
+	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
 % 	ph = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
 	axis tight;
 % 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
@@ -5425,7 +5651,7 @@ for fignum = 1:size(defPlot,1)
 	set(ax,defPlot{fignum,3}{:});
 	ylabel('$\rho_{ii} (t)$');
 	fs = 22;
-	formatPlot(fignum,'twocolumn-single');
+% 	formatPlot(fignum,'twocolumn-single');
 	set(gca,'color','none');
 	grid on
 	drawnow
@@ -6581,7 +6807,7 @@ end
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
 % 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
-	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', f_handles(ii));
+	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m3', f_handles(ii));
 % 	figure(f_handles(ii));
 % 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end
