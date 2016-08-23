@@ -1,4 +1,4 @@
-function run_TDVP(tmax,dt,s,alpha,OBB,Bond,dk,L, fromFile)
+function out = run_TDVP(tmax,dt,s,alpha,delta,epsilon,OBB,Bond,dk,L, fromFile)
 % try
 % needed if started from command line:
 if isdeployed
@@ -6,6 +6,8 @@ if isdeployed
 	if ischar(dt),		dt		= str2double(dt); end
 	if ischar(s),		s		= str2double(s); end
 	if ischar(alpha),	alpha	= str2double(alpha); end
+	if ischar(delta),	delta	= str2double(delta); end
+	if ischar(epsilon),	epsilon	= str2double(epsilon); end
 	if ischar(OBB), 	OBB 	= str2double(OBB); end
 	if ischar(Bond), 	Bond 	= str2double(Bond); end
 	if ischar(dk),		dk		= str2double(dk); end
@@ -15,7 +17,7 @@ end
 %% start ground state calculations
 loadedFromFile = 0;
 if isempty(fromFile)
-	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk,5,5);	% VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
+	fileName =  VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,5,5);	% VMPS_FullSBM(s,alpha,delta,epsilon,L,dk,d_opt,D)
 % 	fileName =  VMPS_FullSBM(0,0,s,alpha,L,dk,5,5);			% VMPS_FullSBM(s,alpha,CTshift,InitState,L,dk,d_opt,D)	for DPMES
 % 	fileName =  VMPS_FullSBM(s,alpha,0,0.1,L,dk);		% iSBM(s,alpha,delta,epsilon,L,rescaling)
 else
@@ -61,7 +63,7 @@ para.tdvp.deltaT = dt;					% size of timeslice in units:
 para.tdvp.t = 0:para.tdvp.deltaT:para.tdvp.tmax;
 para.tdvp.resume = 0;					% additionally control if want to resume!
 para.tdvp.saveInterval = 30;			% save '-small.mat' every n-th step
-para.tdvp.serialize = 1;				% much faster I/O saving
+para.tdvp.serialize = 0;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = 10*para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = 10*para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
@@ -75,8 +77,8 @@ para.tdvp.Observables = '.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
 	% ss: system state -> map from diabatic to adiabatic basis
 	% ses: System-environment state for site 1&2; includes ss
 para.tdvp.storeMPS = 0;					% save tmps or not!
-para.tdvp.evolveSysTrotter = 1;			% Trotter splitting in System evolution?
-para.tdvp.HEffSplitIsometry = 1;		% split mps{1} into isometry + relevant part
+para.tdvp.evolveSysTrotter = 0;			% Trotter splitting in System evolution?
+para.tdvp.HEffSplitIsometry = 0;		% split mps{1} into isometry + relevant part
 para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
 para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
@@ -96,8 +98,8 @@ para.tdvp.expandOBB = min(1,OBB);
 para.tdvp.truncateExpandBonds = min(1,Bond);
 % Calculate max Bond Dim: 1GB for array (l,r,n,l,r,n) with n around 20,
 % 1 complex double needs 16byte. -> 20^6 * 16byte < 1GB
-para.tdvp.maxBondDim = [Bond,10];		%
-% para.tdvp.maxBondDim = Bond;
+% para.tdvp.maxBondDim = [Bond,10];		%
+para.tdvp.maxBondDim = Bond;
 para.Dmin = 2;
 para.tdvp.maxOBBDim  = OBB;
 para.svmaxtol = 10^-4;					% keep 1 below this!
@@ -175,7 +177,7 @@ para.rescaling = para.tdvp.rescaling;
 para.complex = 1;						% necessary since time-evolution is complex
 
 %% Copy to scratch for computation
-if ~strcmp(computer,'PCWIN64')
+if ~any(strcmp(computer,{'PCWIN64','MACI64'}))
 	[~, name] = system('hostname');
 	para.tdvp.hostname = strtrim(name);
 	para.tdvp.scratchDir = '/scratch/fayns2/TDVPtemp/'; tempFold = fileparts(para.filename);
@@ -243,7 +245,7 @@ else
         para.tdvp.starttime = tic;
         tdvp_1site(mps,Vmat,para,results,op);
 
-		if ~strcmp(computer,'PCWIN64')
+		if ~any(strcmp(computer,{'PCWIN64','MACI64'}))
 			copyfile(para.tdvp.filenameSmall,[currentDir,'/',para.tdvp.filenameSmall]);
 		end
         %% clear all results from sweep
@@ -251,7 +253,8 @@ else
         results.tdvp = struct();
     end
 end
-if ~strcmp(computer,'PCWIN64')
+out = para.tdvp.filename;
+if ~any(strcmp(computer,{'PCWIN64','MACI64'}))
 	copyfile(para.tdvp.filenameSmall,[currentDir,'/',para.tdvp.filenameSmall]);
 	%delete([currentDir,'/',para.tdvp.filename(1:end-4),'-incomplete.mat']);
 % 	sendmailCAM('fayns2@cam.ac.uk',...

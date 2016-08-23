@@ -37,22 +37,22 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson2C';
+para.model='SpinBoson';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
 	%		  'DPMES3-4C', 'DPMES4-5C', 'DPMES5-7C'
 	%		  'UniformBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 2;
+para.nEnvironments  = 1;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 2;
+para.nChains		= 1;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
 para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
 
-para.useStarMPS = 1;
+para.useStarMPS = 0;
 para.useTreeMPS = 0;
 
 %% System Definitions:
@@ -377,7 +377,7 @@ if strfind(para.model,'SpinBoson')
 		%		ground state with <n> = 0 on chain and InitialState 'sz'
 		% - 'artificial' for SBM2CT sets up maximally entangled state between odd and even chains in the Bath
 		%	odd: thermal bath, even: ancilla
-    para.SpinBoson.InitialState = '-sx';
+    para.SpinBoson.InitialState = 'sz';
         % choose: 'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'
 		% works with all options
 

@@ -223,9 +223,9 @@ if strfind(para.tdvp.Observables,'.j.')
 		tresults.j(totalN,para.L,nChains) = single(0);
 	end
 	if ~exist('AnAm','var')
-		tresults.j(i,:,:) = single(getObservable({'current'},tmps(j,:),tVmat(j,:),para));
+		tresults.j(i,:,:) = single(getObservable({'current'},tmps,tVmat,para));
 	else
-		tresults.j(i,:,:) = single(getObservable({'current',AnAm},tmps(j,:),tVmat(j,:),para));
+		tresults.j(i,:,:) = single(getObservable({'current',AnAm},tmps,tVmat,para));
 	end
 end
 
@@ -237,20 +237,20 @@ if isfield(para.tdvp,'extractStarInterval') && strContains(para.tdvp.Observables
 
 		if strfind(para.tdvp.Observables,'.sn.')
 			if ~exist('AnAm','var')
-				occ	= getObservable({'staroccupation'}     ,tmps(j,:),tVmat(j,:),para);		% (1+1) x k x nc
+				occ	= getObservable({'staroccupation'}     ,tmps,tVmat,para);		% (1+1) x k x nc
 			else
-				occ = getObservable({'staroccupation',AnAm},tmps(j,:),tVmat(j,:),para);		% (1+1) x k x nc
+				occ = getObservable({'staroccupation',AnAm},tmps,tVmat,para);		% (1+1) x k x nc
 			end
 			starOmega = squeeze(single(occ(1,:,:)));				% get rid of leading singleton
 		end
 
 		if strContains(para.tdvp.Observables,'.sx.','.sx2.')
 			if strfind(para.tdvp.Observables,'.sx.')
-				polaron = getObservable({'starpolaron'},tmps(j,:),tVmat(j,:),para);				% (1+2) x k x nc, diabatic states
+				polaron = getObservable({'starpolaron'},tmps,tVmat,para);				% (1+2) x k x nc, diabatic states
 			elseif strfind(para.tdvp.Observables,'.sx2.')
 				% not state projecting, but selecting single dominating states across the first bond!
 				% kind of similar to diabatic states picture!
-				polaron = getObservable({'starpolaron','adiabatic'},tmps(j,:),tVmat(j,:),para);	% (1+2) x k x nc
+				polaron = getObservable({'starpolaron','adiabatic'},tmps,tVmat,para);	% (1+2) x k x nc
 
 			end
 			starOmega = squeeze(single(polaron(1,:,:)));			% get rid of leading singleton
@@ -291,7 +291,7 @@ if ~isempty(strfind(para.model, 'SpinBoson'))
 		tresults.spin.sz = single([tresults.spin.sz; zeros(missingN,1)]);
 		tresults.spin.visibility = single([tresults.spin.visibility; zeros(missingN,1)]);
 	end
-	temp = getObservable({'spin'},tmps(j,:),tVmat(j,:),para);
+	temp = getObservable({'spin'},tmps,tVmat,para);
 	tresults.spin.sx(i) = single(temp.sx);
 	tresults.spin.sy(i) = single(temp.sy);
 	tresults.spin.sz(i) = single(temp.sz);
@@ -353,7 +353,7 @@ if strContains(para.tdvp.Observables,'.sp.')					% sp for state projection
 	elseif missingN > 0
 		tresults.stateProjection(totalN,1) = 0;			% does preallocation
 	end
-	tresults.stateProjection(i,1) = single(getObservable({'stateproject',para.InitialState,1},tmps(j,:),tVmat(j,:),para));	% project onto |IS>|0>, IS = initial state
+	tresults.stateProjection(i,1) = single(getObservable({'stateproject',para.InitialState,1},tmps,tVmat,para));	% project onto |IS>|0>, IS = initial state
 end
 
 if strContains(para.tdvp.Observables,'.ss.')					% ss for system state
@@ -362,7 +362,7 @@ if strContains(para.tdvp.Observables,'.ss.')					% ss for system state
 	elseif missingN > 0
 		tresults.system.state(totalN,para.dk(1),para.dk(1)) = 0;			% does preallocation
 	end
-	tresults.system.state(i,:,:) = single(getObservable({'state',1},tmps(j,:),tVmat(j,:),para));
+	tresults.system.state(i,:,:) = single(getObservable({'state',1},tmps,tVmat,para));
 end
 
 if strContains(para.tdvp.Observables,'.ses.')					% ses for system-environment state
@@ -373,7 +373,7 @@ if strContains(para.tdvp.Observables,'.ses.')					% ses for system-environment s
 		tresults.mps(totalN,2) = {};			% does preallocation
 		tresults.Vmat(totalN,2) = {};
 	end
-	out = getObservable({'sys-env-state'},tmps(j,:),tVmat(j,:),para);		% get mps([1,2]) and Vmat([1,2])
+	out = getObservable({'sys-env-state'},tmps,tVmat,para);		% get mps([1,2]) and Vmat([1,2])
 	tresults.mps(i,:) = out.mps;
 	tresults.Vmat(i,:) = out.Vmat;
 end
@@ -382,7 +382,7 @@ if strcmp(para.model, 'SpinBosonTTM')
 	%% extract transfer tensor
 	% only use for single-slice tMPS due to iterative procedure
 	if length(slices) > 1, return; end;
-	rdm = getObservable({'rdm',[1 2]},tmps(j,:),tVmat(j,:),para);
+	rdm = getObservable({'rdm',[1 2]},tmps,tVmat,para);
 	% Ortho Normal Operator Basis in dxd
 	d = para.dk(1,2);
 	ONOB = eye(d^2); ONOB = reshape(ONOB,[d,d,d^2]);
@@ -620,8 +620,8 @@ if strContains(O,'.dm.','.dm2.') && ~skipObs
 	tresults.rho(i,:,:,1) = single(getObservable({'rdm',1},treeMPS,[],para));
 	if strContains(para.tdvp.Observables,'.dm2.')
 		% only for 2-lvl system for now; only calculates largest bond state.
-		tresults.rho(i,:,:,2) = single(getObservable({'rdm_adiabatic',1,1},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
-		tresults.rho(i,:,:,3) = single(getObservable({'rdm_adiabatic',1,2},tmps(j,:),tVmat(j,:),para));  %{'rdm_adiabatic',sitej,state}
+		tresults.rho(i,:,:,2) = single(getObservable({'rdm_adiabatic',1,1},tmps,tVmat,para));  %{'rdm_adiabatic',sitej,state}
+		tresults.rho(i,:,:,3) = single(getObservable({'rdm_adiabatic',1,2},tmps,tVmat,para));  %{'rdm_adiabatic',sitej,state}
 	end
 end
 

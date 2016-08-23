@@ -604,7 +604,7 @@ ylabel('$|FT (n_{RC})|$');
 formatPlot(f,'twocolumn-single')
 drawnow; h.controlPanel.delete;
 %% TDVP (3.1): 1D Plot <n> RC - diabatic all chains, grid - TDVPData
-x = y(end);
+% x = y(end);
 h = x.plot('chain-n-d-rc','-fsev');
 h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Diabatic Occupation RC';
 chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
@@ -613,12 +613,12 @@ for ii = 1:length(chainlbl)
 	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
 	text(h.f.Children(ii),0.8,0.85,sprintf('$\\langle n \\rangle_{max} \\approx %g$',h.f.Children(ii).YLim(end)),'sc');
 end
-ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
 legend(popName{:});
 ax(end).Visible = 'off';
-t = title(x.folder); t.Position = [475,-0.13,0];
+t = title(x.folder); t.Units = 'norm'; t.Position = [0.5,-0.13,0];
 %% TDVP (3.1): 1D Plot <n> RC - adiabatic all chains, grid - TDVPData
-x = y(end);
+% x = y(1);
 h = x.plot('chain-n-a-rc','-fsev');
 h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Occupation RC';
 chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
@@ -626,10 +626,10 @@ for ii = 1:length(chainlbl)
 	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
 	text(h.f.Children(ii),0.8,0.85,sprintf('$\\langle n \\rangle_{max} \\approx %g$',h.f.Children(ii).YLim(end)),'sc');
 end
-ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
 legend toggle;
 ax(end).Visible = 'off';
-t = title(x.folder); t.Position = [475,-0.13,0];
+t = title(x.folder); t.Units = 'norm'; t.Position = [0.5,-0.13,0];
 %% TDVP (3.1): 2D Plot <n> RC tFFT
 nc = 2;
 f = figure(310+nc+4); clf;f.Name = sprintf('Chain %d',nc);
@@ -1114,8 +1114,8 @@ formatPlot(gcf,'twocolumn-single')
 h = x.plotSld1D('chain-x-t','-fsev');
 formatPlot(gcf,'twocolumn-single')
 
-%% TDVP (3.1): 1D Plot <n> RC - diabatic all chains, grid - TDVPData
-x = y(end);
+%% TDVP (3.1): 1D Plot <x> RC - diabatic all chains, grid - TDVPData
+% x = y(1);
 h = x.plot('chain-x-d-rc','-fsev');
 h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Diabatic Displacement RC';
 chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
@@ -1124,12 +1124,12 @@ for ii = 1:length(chainlbl)
 	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
 	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
 end
-ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
 legend(popName{:});
 ax(end).Visible = 'off';
 t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
-%% TDVP (3.1): 1D Plot <n> RC - adiabatic all chains, grid - TDVPData
-x = y(end);
+%% TDVP (3.1): 1D Plot <x> RC - adiabatic all chains, grid - TDVPData
+% x = y(1);
 h = x.plot('chain-x-a-rc','-fsev');
 h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Displacement RC';
 chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
@@ -1137,7 +1137,7 @@ for ii = 1:length(chainlbl)
 	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
 	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
 end
-ax = [h.f.Children]; [ax.XLim] = deal([0,990]); %[ax.YLim] = deal([-0.07,0.3]);
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
 legend toggle;
 ax(end).Visible = 'off';
 t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
@@ -6807,7 +6807,7 @@ end
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
 % 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
-	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m3', f_handles(ii));
+	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m4', f_handles(ii));
 % 	figure(f_handles(ii));
 % 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end

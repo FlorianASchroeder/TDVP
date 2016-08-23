@@ -104,6 +104,12 @@ classdef TDVPData
 				obj.version = 0;
 			end
 			
+			if isfield(obj.tresults,'lastIdx')
+				obj.lastIdx = obj.tresults.lastIdx;
+			else
+				obj.lastIdx = size(obj.tresults.nx,1);
+			end
+			
 			if isfield(obj.tresults,'spin')
 				obj.spin = zeros(obj.lastIdx,3,'single');				% t x 3
 				obj.spin(:,1) = obj.tresults.spin.sx(1:obj.lastIdx);
@@ -205,11 +211,6 @@ classdef TDVPData
 				obj.sysState = [];
 			end
 			
-			if isfield(obj.tresults,'lastIdx')
-				obj.lastIdx = obj.tresults.lastIdx;
-			else
-				obj.lastIdx = size(obj.tresults.nx,1);
-			end
 			
 			% save star observables
 			if isfield(obj.tresults,'star')
@@ -600,7 +601,7 @@ classdef TDVPData
 					else
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						h.ydata = [obj.spin,sqrt(obj.spin(:,1).^2+obj.spin(:,2).^2)];
-						h.leglbl = {'$\left<\sigma_x\right>$','$\left<\sigma_y\right>$','$\left<\sigma_z\right>$','$\sqrt{\left<\sigma_x\right>^2+\left<\sigma_y\right>^2}$'};
+						h.leglbl = {'$\left<\sigma_x\right>$','$\left<\sigma_y\right>$','$\left<\sigma_z\right>$','$\sqrt{\left<\sigma_x\right>^2+\left<\sigma_y\right>^2}$'}';
 					end
 					h.ylbl = '$\left<\sigma\right>$';
 				case 'calctime'
@@ -1231,6 +1232,13 @@ classdef TDVPData
 					h.ylbl = '$\left< x^2_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Displacement squared - diabatic';
+				case 'chain-x2-a-t'
+					h.ydata = real(obj.xC2a(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[1 3 2 4]);				% t x state x L x chain
+					h.noSldDims = 2;
+					h.ylbl = '$\left< x^2_k \right>$';
+					h.sldlbl = {'Site k =','Chain'};
+					h.tlbl = 'Chain Displacement squared - adiabatic';
 				case 'chain-dx-t'
 					h.ydata = real(obj.xC2(1:obj.lastIdx,:,:,:)-obj.xC(1:obj.lastIdx,:,:,:).^2);		% t x L  x nChain
 					h.ylbl = '$\left< x^2_k \right>$';
