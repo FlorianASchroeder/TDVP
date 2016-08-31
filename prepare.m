@@ -166,7 +166,9 @@ end
 		%	subfunction to perform an orthonormalisation of Higher order tensor
 		%
 		%	Modify treeMPS only
-		[treeMPS.Vmat{1}, V] = prepare_onesiteVmat(treeMPS.Vmat{1},p);		% normalize V
+		if treeMPS.hasSite
+			[treeMPS.Vmat{1}, V] = prepare_onesiteVmat(treeMPS.Vmat{1},p);		% normalize V
+		end
 		
 		nd = ndims(treeMPS.mps{1}); 
 		% contract V and all Children's Bond Centers into MPS
@@ -174,15 +176,23 @@ end
 		for ii = 1:treeMPS.degree
 			treeMPS.mps{1} = contracttensors(treeMPS.mps{1},nd,2, treeMPS.child(ii).BondCenter,2,1);
 		end
-		treeMPS.mps{1} = contracttensors(treeMPS.mps{1},nd,2, V.',2,1);
+		
+		if treeMPS.hasSite
+			treeMPS.mps{1} = contracttensors(treeMPS.mps{1},nd,2, V.',2,1);
+		end
 		
 		d = size(treeMPS.mps{1});
 		
+		% TODO: optimise for ~hasSite
 		[treeMPS.mps{1}, U] = prepare_onesite(reshape(treeMPS.mps{1},[d(1),prod(d(2:end-1)),d(end)]),p,1);		% reshape into Dl x Dr x dk
 		treeMPS.mps{1} = reshape(treeMPS.mps{1},d);
 		treeMPS.BondCenter = U;
 		
-		treeMPS.D     = d(1:end-1)';
-		treeMPS.d_opt = d(end);
+		if treeMPS.hasSite
+			treeMPS.D     = d(1:end-1)';
+			treeMPS.d_opt = d(end);
+		else
+			treeMPS.D     = d';				% since no local site dimension
+		end
 	end
 end

@@ -773,7 +773,28 @@ export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
 % close(f);
 % end
 end
-
+%% TDVP (3.1): 2D Plot rhoij-imag CWTft
+% not optimal since needs reassignment!
+pop = 4; fwind = 2;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+% for pop = 1:5
+% for fwind = [1,2,4,6,8]
+f = figure(400+pop*10+fwind); clf;%f.Name = sprintf('Coherence CWTft - %s',popName{pop});
+% x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+out = x.getData('rhoij'); h.data = imag(out{1}(:,pop));         % out: { t x coherences, state numbers}
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t(1:x.lastIdx)*h.tTocm; h.dt = x.dt*h.tTocm;
+h.s0 = 2*h.dt;
+h.f0 = 5/(2*pi);				% 5 for bump, 6 for morl
+h.scales = helperCWTTimeFreqVector(30,8000,h.f0,h.dt,128);	%	(fmin, fmax, f0, dt, nVoices)
+% h.scales = fliplr(h.f0/h.dt./(30:1600));
+h.cwtdata = cwtft({h.data,h.dt},'wavelet','bump','scales',h.scales,'padmode','symw');
+helperCWTTimeFreqPlot((h.cwtdata.cfs),h.tdata/h.tTocm*0.658,h.cwtdata.frequencies,...
+    'surf',sprintf('Coherence CWTFT - %s-%s',popName{out{2}(1,pop)},popName{out{2}(2,pop)}),'$t/fs$','$E/cm^{-1}$')
+% export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+% close(f);
+% end
 %% TDVP (3.1) Wavelet Coherence between states and <n> RC
 x = res(1); 
 h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73; h.dt = max(diff(x.t))*h.tTocm;
@@ -5717,6 +5738,7 @@ end
 % See effect of CT shift on dynamics form LE+ and TT
 clear
 defPlot(1,:) = {'20160325-DPMES5-7C-v73-D(5-10-5-60)-5param-LE',		[ 1: 9], {'xlim',[0,3.3e3],'yscale','lin'}};
+defPlot(2,:) = {'20160325-DPMES5-7C-v73-D(5-(10-60))-5param-LE',		[ 1: 3], {'xlim',[0,3.3e3],'yscale','lin'}};
 %%To update library:
 %TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
 %
@@ -5747,7 +5769,7 @@ for fignum = 1:size(defPlot,1)
 	pick = defPlot{fignum,2};			% plot all
 	
 	[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
-	set(ph(1:end,1),{'Displayname'},legLab');
+	set(ph(1:end,1),{'Displayname'},legLab(pick)');
 	legend('TT','LE+','LE-','CT+','CT-')
 % 	ph = res(pick).plot('rhoii-osc-res-med','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
 	axis tight;
@@ -5763,6 +5785,77 @@ for fignum = 1:size(defPlot,1)
 	grid on
 	drawnow
 end
+%% Compare Dchain for Dsys=5
+f=figure(11); clf; hold all; ax = gca; f.Name = 'DPMES Convergence for Dsys5';
+pick = [1:3];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dchain for Dsys=7
+f=figure(12); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dsys7';
+pick = [4:6];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dchain for Dsys=10
+f=figure(13); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dsys10';
+pick = [7:9];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dsys for Dchain=5
+f=figure(14); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain5';
+pick = [1,4,7];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dsys for Dchain=20
+f=figure(15); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain20';
+pick = [1,4,7]+1;
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dsys for Dchain=60
+f=figure(16); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain60';
+pick = [1,4,7]+2;
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% CPU Time
+f=figure(17); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain Dsys - CPU time';
+pick = 1:9;
+[h,ph] = res(pick).plot('calctime-d','-fsev',f); ylim([0,5])
+% set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+% set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+	
 
 %% DPMES5-7C v73  TreeMPS from LE+ & TT, L2 CTshift 5ps - TDVPData					% LabBook 25/03/2016
 % See effect of CT shift on dynamics form LE+ and TT
@@ -6584,6 +6677,19 @@ for ii = 1:para.nChains
 	exponent = exponent + vpa(f,3);
 end
 plot(t,exp(-exponent));
+%%
+plot(t,exponent./t)
+
+%% Plot iSBM pure dephasing decoherence
+t = 0:0.2:200;
+a = 0.1; s=1; wc=1; wcut=inf;
+Jsmooth = @(w) 2.*a.* w.^(s-2).* wc.^(1-s).*exp(-w/wc);
+Jhard = @(w) 2.*a.* w.^(s-2).* wc.^(1-s);
+exponent = integral(@(w) Jhard(w).*(1-cos(w.*t)),0,wc,'ArrayValued',true);
+
+figure(2); clf; hold all;
+plot(t,exp(-exponent));
+plot(t(2:end),diff(exponent)./t(2))
 %% Create ideal 2D <n> for Thermal cooling
 n = para.L; beta = 40; dt = 0.1;
 sigmaZ= [1,-1]; ii = 1; Aocc = zeros(n,n,2);
@@ -6802,6 +6908,18 @@ for ii = 1:7
 	h.sld{2}.setValue(ii);
 	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
 end
+
+%% Analyse TreeMPS node for inter-chain entanglement
+% which could be reduced by chain combination
+%x = TDVPData('H:\Documents\Theory\schroederflorian-vmps-tdvp\TDVP-Git\Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat');
+load('Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat','treeMPS','para')
+%% Get vNE for each partition
+% lower vNE: lower entanglement!
+res = getTensorVNE(squeeze(treeMPS.mps{1}));
+%% [5,9] and [6,7] SV:
+A = treeMPS.mps{1}; dA = size(A);
+[B, dB] = tensShape(A,'unfoldiso', [5,9],dA);
+[~,S,~] = svd2(B);
 
 %% Save all currently opend figures
 f_handles = get(0,'children');

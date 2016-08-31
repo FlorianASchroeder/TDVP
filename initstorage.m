@@ -104,13 +104,14 @@ end
 		
 		L = treeMPS.L(1);								% should be 1
 		M = treeMPS.M;									% number of terms in sum per site
+		N = length(treeMPS.chainIdx);					% number of chains to couple to parent
 		
 		% following will only store Hright for the parent node or Hleft of/from the parent node
 		% Hright of the children for this node and Hleft of this node for the children will be stored in
 		%	treeMPS.child(ii).op.Hlrstorage
 		% No need for op.chain{}.*storage variables (replaced op.chain{} by treeMPS.child(ii).op)
 		treeMPS.op.Hlrstorage = cell(1, L);			% No +1 since right part is inside children.
-		treeMPS.op.Opstorage  = cell(M, 2, L);
+		treeMPS.op.Opstorage  = cell(M, 2, L, N);
 		treeMPS.op.h1j    = []; treeMPS.op.h2j    = [];
 		treeMPS.op.h1jOBB = []; treeMPS.op.h2jOBB = [];
 

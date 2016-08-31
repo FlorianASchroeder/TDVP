@@ -1526,6 +1526,14 @@ classdef TDVPData
 					h.llbl = arrayfun(@(i) sprintf('Chain $%d$',i),(1:size(h.data,2))','UniformOutput',false);
 					h.noSldDims = 2;
 % 					h.useWindowFcn = 0;
+                case 'chain-x-c'
+                    h.data = abs(obj.xCc(1:obj.lastIdx,2,:,:));		% t x L x nChain
+					h.data = permute(h.data,[1 3 2 4]);				% t x chain x L
+					h.noSldDims = 2;
+					h.ylbl = '$\left< x_k \right>$';
+					h.sldlbl = {'Site k ='};
+                    h.llbl = arrayfun(@(i) sprintf('Chain $%d$',i),(1:size(h.data,2))','UniformOutput',false);
+					h.tlbl = 'Chain Displacement - coherence';
 				otherwise
 					warning('TDVPData:plotSld1DFT','Plot type not existent!');
 					return;
@@ -1693,6 +1701,8 @@ classdef TDVPData
 						out = abs(h.ydata);
 					case 'chain-x2'
 						out = abs(h.ydata);
+                    case 'chain-x-c'
+                        out = abs(h.ydata);
 					otherwise
 						warning('TDVPData:plotSld1DFT','Plot type not existent!');
 						return;

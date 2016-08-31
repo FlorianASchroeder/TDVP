@@ -35,7 +35,13 @@ switch A
 	case 'STAR-Hn1Trotter'
 		AFUN = @STARmultATrotter;
 	case 'TREE-Hn1'
-		AFUN = @TREEmultA;
+		if para.hasSite
+			AFUN = @TREEmultA;
+			assert( size(op.h2jOBB,3) == length([para.child.chainIdx]), 'VMPS:expvCustom:TREE-Hn1','There are not enough chain terms in h2jOBB for all child nodes!');
+		else
+			AFUN = @TREEmultA_NoSite;
+			assert( size(op.Opstorage,4) == length([para.child.chainIdx]), 'VMPS:expvCustom:TREE-Hn1','There are not enough interaction terms from parent node for all child nodes!');
+		end
 	case 'TREE-Hn1Trotter'
 		AFUN = @TREEmultATrotter;
 	
@@ -215,24 +221,29 @@ hump = hump / normv;
 		%	is sweep direction dependent! C_(l,l^) and C_(r^,r)
 		% A_(l,r^,n) in mps as tensor.
 		w = 0;
+		NC = size(op.h2jAV,2);		% for multiple chain-channels through bond
 
 		switch para.sweepto
 			case 'r'
 				[~,BondDimRight] = size(op.Hright);
 				CA = reshape(CA, [],BondDimRight);
 				w = w + op.HleftAV * CA + CA * op.Hright.';
-				for k = 1:M
-					if ~isempty(op.Opright{k}) && ~isempty(op.h2jAV{k})
-						w = w + op.h2jAV{k} * CA * op.Opright{k}.';
+				for l = 1:NC
+					for k = 1:M
+						if ~isempty(op.Opright{k,l}) && ~isempty(op.h2jAV{k,l})
+							w = w + op.h2jAV{k,l} * CA * op.Opright{k,l}.';
+						end
 					end
 				end
 			case 'l'
 				[~,BondDimLeft]  = size(op.Hleft);
 				CA = reshape(CA, BondDimLeft,[]);
 				w = w + op.Hleft * CA + CA * op.HrightAV.';
-				for k = 1:M
-					if ~isempty(op.Opleft{k}) && ~isempty(op.h2jAV{k})
-						w = w + op.Opleft{k} * CA * op.h2jAV{k}.';
+				for l = 1:NC
+					for k = 1:M
+						if ~isempty(op.Opleft{k,l}) && ~isempty(op.h2jAV{k,l})
+							w = w + op.Opleft{k,l} * CA * op.h2jAV{k,l}.';
+						end
 					end
 				end
 		end
@@ -412,15 +423,18 @@ hump = hump / normv;
 	function w = TREEmultA(A)
 		%% w = TREEmultA(A)
 		% called by 'TREE-Hn1'
+		% for node which hasSite
 		% para == treeMPS
 		d = [para.D(:,1).',para.dk(1,1)];					% dim(A)
-		NC = para.nChains;
+		NC = para.degree;
 		
 		A = reshape(A,d);
 		
 		% 1. on-site H1
 		w =	contracttensors(A, NC+2, NC+2, op.h1jOBB.', 2,1);
 		
+		NCoupOffset = 0;									% needed for child nodes being entanglement renormalisation tensors
+		% 2. iterate through children
 		for mc = 1:NC
 			% Order for permute after contraction
 % 			ord = [1:mc,NC+2,mc+1:NC+1];
@@ -430,11 +444,15 @@ hump = hump / normv;
 			w = w + tensShape(OpTemp,'fold',mc+1, d);
 			
 			% 3. all interacting parts
-			for mm = 1:para.M
-				OpTemp = para.child(mc).op.Opstorage{mm,2,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
-				OpTemp = tensShape(OpTemp,'fold',mc+1, d);
-				w = w+ contracttensors(OpTemp, NC+2, NC+2, op.h2jOBB{mm,1,mc}.',2,1);
+			NCoup = size(para.child(mc).op.Opstorage,4);
+			for nn = 1:NCoup								% iterate through chains of child
+				for mm = 1:para.M
+					OpTemp = para.child(mc).op.Opstorage{mm,2,1,nn} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+					OpTemp = tensShape(OpTemp,'fold',mc+1, d);
+					w = w+ contracttensors(OpTemp, NC+2, NC+2, op.h2jOBB{mm,1,nn+NCoupOffset}.',2,1);
+				end
 			end
+			NCoupOffset = NCoupOffset + NCoup;
 		end
 		if ~para.isRoot
 			% also contract with parent operators
@@ -457,7 +475,7 @@ hump = hump / normv;
 		mc = para.currentChain;								% chain to be evolved; 0: parent
 		d = [para.D(:,1).',para.dk(1,1)];					% original dim(A)
 		dA = [d(mc+1)*d(end), d(mc+1), d(end)];				% current shape of A
-		NC = para.nChains;
+		NC = para.degree;
 		if ~para.isRoot
 			NC = NC+1;		% divide by 1 more due to additional evolution step
 		end
@@ -491,6 +509,48 @@ hump = hump / normv;
 				w = w + contracttensors(OpTemp, 3, 3, op.h2jOBB{mm,2,1}.',2,1);
 			end
 		end
+		w = reshape(w, [numel(w),1]);
+	end
+
+	function w = TREEmultA_NoSite(A)
+		%% w = TREEmultA_NoSite(A)
+		% called by 'TREE-Hn1'
+		% for node which ~hasSite; allow only non-root nodes to have no sites
+		% para == treeMPS
+		d  = para.D(:,1).';					% dim(A)
+		NC = para.degree;
+		
+		A = reshape(A,d);
+		
+		% 1. initialise w
+		w =	0;
+		
+		NCoupOffset = 0;									% needed for child nodes being entanglement renormalisation tensors
+		% 2. iterate through children
+		for mc = 1:NC
+			% Order for permute after contraction
+% 			ord = [1:mc,NC+2,mc+1:NC+1];
+			Atemp = tensShape(A, 'unfold', mc+1, d);		% chain index to front
+			% 2. non-interacting Hlrstorage (Hright)
+			OpTemp = para.child(mc).op.Hlrstorage{1} * Atemp;
+			w = w + tensShape(OpTemp,'fold',mc+1, d);
+			
+			% 3. all interacting parts
+			NCoup = size(para.child(mc).op.Opstorage,4);
+			for nn = 1:NCoup								% iterate through chains of child
+				for mm = 1:para.M
+					OpTemp = para.child(mc).op.Opstorage{mm,2,1,nn} * Atemp;					% (m,2,1,n) should be the operator of child site 1, chain n in the effective right basis for node
+					OpTemp = tensShape(OpTemp,'fold',mc+1, d);
+					w = w + contracttensors(op.Opstorage{mm,1,1,nn+NCoupOffset},2,2, OpTemp, NC+1, 1);
+				end
+			end
+			NCoupOffset = NCoupOffset + NCoup;
+		end
+		
+		% also contract with non-interacting parent operator
+		% 1. Contract to non-interacting parts
+		w = w + contracttensors(op.Hlrstorage{1},2,2, A, NC+1, 1);								% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
+		
 		w = reshape(w, [numel(w),1]);
 	end
 end

@@ -27,6 +27,8 @@ end
 saveResults = 0;
 if nargin > 3
 	saveResults = 1;
+else
+	results = [];
 end
 
 switch para.sweepto

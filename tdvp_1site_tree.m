@@ -183,6 +183,18 @@ for timeslice = para.tdvp.slices
 	end
 	
 	%% Sweep finished. Logging output:
+	
+	% Output matrix dimensions if changed:
+	if para.tdvp.truncateExpandBonds
+		fprintf('\npara.D:\n');
+		out = D2Str(treeMPS);
+		fprintf('%s\n',out{:});
+		fprintf('-log10(minSV):\n');
+		out = minSV2Str(treeMPS);
+		fprintf('%s\n',out{:});
+	end
+	fprintf('\n')
+	
 	% report time estimates
 %	results.tdvp.EvaluesLog(timeslice) = getObservable({'energy',op},mps,Vmat,para);
 	completePercent = round(timeslice./(length(para.tdvp.t)-1)*1000)./10;
@@ -479,6 +491,83 @@ delete([para.tdvp.filename(1:end-4),'.bak']);			% get rid of bak file
 	end
 end
 
+function out = D2Str(treeMPS)
+%% function out = D2Str(treeMPS)
+%	generates string output of bond dimensions returned in a flattened cell array for each line to display
+if treeMPS.height == 0
+	out = {num2str(treeMPS.D,'%-5u')};		% converts a chain to string; pack into cell
+	return;
+end
+% else: hasChild!
+childStr = {};
+for i = 1:treeMPS.degree
+	childStr{i} = D2Str(treeMPS.child(i));
+end
+
+for i = 1:treeMPS.degree
+	% str1 for the first line of each child
+	if i == 1
+		str1 = sprintf('%-5u%s',treeMPS.D(1));
+	elseif i == treeMPS.degree
+		str1 = sprintf('  \\- ');
+	else
+		str1 = sprintf('  |- ');
+	end
+	if iscell(childStr{i})
+		childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+		for j = 2:length(childStr{i})
+			if i == treeMPS.degree
+				childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+			else
+				childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+			end
+		end
+	end
+end
+childStr = [childStr{:}];		% flatten cell array
+out = childStr;
+
+end
+
+function out = minSV2Str(treeMPS)
+%% function minSV2Str(treeMPS)
+%	generates string output of smallest Amat singular value returned in a flattened cell array for each line to display
+if treeMPS.height == 0
+	out = {num2str(cellfun(@(x) -log10(x(find(x,1,'last'))),treeMPS.Amat_sv),'%-5.1f')};		% converts a chain to string; pack into cell
+	return;
+end
+% else: hasChild!
+childStr = {};
+for i = 1:treeMPS.degree
+	childStr{i} = minSV2Str(treeMPS.child(i));
+end
+
+for i = 1:treeMPS.degree
+	% str1 for the first line of each child
+	if i == 1
+		str1 = sprintf('%-5.1f%s',-log10(treeMPS.Amat_sv{1}(end)));
+	elseif i == treeMPS.degree
+		str1 = sprintf('  \\- ');
+	else
+		str1 = sprintf('  |- ');
+	end
+	if iscell(childStr{i})
+		childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+		for j = 2:length(childStr{i})
+			if i == treeMPS.degree
+				childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+			else
+				childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+			end
+		end
+	end
+end
+childStr = [childStr{:}];		% flatten cell array
+out = childStr;
+
+% out = num2str(cellfun(@(x) -log10(x(find(x,1,'last'))),results.Amat_sv),'%-4.2g');
+end
+
 function results = initresultsTDVP(para, results)
 	% save Dimension Log only as difference! reconstruct with cumsum(A)
 % 	fprintf('Initialize results.tdvp\n');
@@ -638,8 +727,15 @@ tdvp_1site_evolveNode();				% nested function for now!
 
 % Shift focus to the parent!
 d = size(treeMPS.mps{1});
-[treeMPS.mps{1}, Cn] = prepare_onesite(reshape(treeMPS.mps{1},d(1),[],d(end)),para);		% TODO: replace by faster 2D SVD?
+if treeMPS.isRoot
+	[treeMPS.mps{1}, Cn,~,~,sv,vNE] = prepare_onesite(reshape(treeMPS.mps{1},d(1),[],d(end)),para,1,[]);		% TODO: replace by faster 2D SVD?
+else
+	[treeMPS.mps{1}, Cn,~,~,sv,vNE] = prepare_onesite_truncate(reshape(treeMPS.mps{1},d(1),[],d(end)),para,1,[]);		% Do truncation with maxBondDim(1) TODO: replace by faster 2D SVD?
+end
+d(1) = size(Cn,2); treeMPS.D(1) = d(1);																			% can be smaller for ER-tensors -> update
+
 treeMPS.mps{1} = reshape(treeMPS.mps{1},d);
+treeMPS.Amat_sv = {sv};
 
 treeMPS.op = updateop([],treeMPS,[],[],para);
 
@@ -888,8 +984,8 @@ for sitej = para.L-1:-1:0
 	end
 end
 
-% sitej = 0:
-treeMPS.BondCenter = tdvp_1site_evolveKn(treeMPS.mps,[],para,[],treeMPS.op,0,Cn,[]);
+% sitej = 0: Done above!
+% treeMPS.BondCenter = tdvp_1site_evolveKn(treeMPS.mps,[],para,[],treeMPS.op,0,Cn,[]);
 % [    Cn  , treeMPS.Vmat, para, results] = tdvp_1site_evolveKn(treeMPS.mps,treeMPS.Vmat,para,results,opChain,sitej,Cn,Hn);
 treeMPS.BondCenter = Cn;
 
@@ -898,10 +994,10 @@ treeMPS.D(2:end-1) = para.D;
 treeMPS.D(1)       = size(treeMPS.mps{1},1);
 treeMPS.dk         = para.dk;
 treeMPS.d_opt      = para.d_opt;
-
+treeMPS.Amat_sv    = {sv,results.Amat_sv{:}};
 % can be omitted:
-results.Amat_sv{1,1}  = sv;
-results.Amat_vNE(1,1) = vNE;		% from last prepare_onesite_truncate
+% results.Amat_sv{1,1}  = sv;
+% results.Amat_vNE(1,1) = vNE;		% from last prepare_onesite_truncate
 
 
 	function copyPara()

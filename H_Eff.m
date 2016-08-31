@@ -356,7 +356,9 @@ switch target
 		%	para: para - contains calculation-specific para
 		
 		% do call to subfunction to translate variable names -> more consistent
+		
 		op = H_Eff_TR_CA(mps,para);
+		
 	case 'TR-CP'
 		%% Create the effective Hright terms for the parent of TREE-MPS
 		%	TRee - CenterParent
@@ -368,8 +370,11 @@ switch target
 		%	V:    []
 		%	op:   []
 		%	para: para - contains calculation-specific para
-		
-		op = H_Eff_TR_CP(mps,para);
+		if mps.hasSite
+			op = H_Eff_TR_CP_Site(mps,para);
+		else
+			op = H_Eff_TR_CP_NoSite(mps,para);			% special version to treat chain-combination nodes
+		end
 	
 end
 end
@@ -403,23 +408,30 @@ function op = H_Eff_TR_CA(treeMPS,para)
 %% function op = H_Eff_TR_CA(treeMPS,para)
 %
 %	Creates Hleft for entering a child/chain = walking down the tree
+%	Child has no site and is an entanglement renormalisation tensor!
 %
 %	created by FS 23/02/2016
 
-nc = treeMPS.currentChain;		% = currentChild
-NC = treeMPS.degree;			% = nChains for node
+nc = treeMPS.currentChild;				% = child to prepare operators for
+NC = treeMPS.degree;					% = nChild for node
 M  = treeMPS.M;
-d  = size(treeMPS.mps{1});		% numel(d) = NC+2
-mps = treeMPS.mps{1};			% get handle, should not copy object!
+d  = size(treeMPS.mps{1});				% numel(d) = NC+1 or NC+2
+Nd = numel(d);
+mps = treeMPS.mps{1};					% get handle, should not copy object!
 % MPS is only mps{1}: Dl x D1 x D2 x D3 x ... X D(NC) x dk
 %   chain index in mps is shifted by 1 due to first left Bond
-op = treeMPS.child(nc).op;		% only return op -> needs overwriting in function call
-op.Hleft  = 0;					% contains effective H of all other chains
-op.Opleft = cell(M,1);			% contains only terms interacting with Chain #nc
+NCoup = arrayfun(@(x) length(x.chainIdx),treeMPS.child);				% number of coupling terms in each child
+op = treeMPS.child(nc).op;				% only return op -> needs overwriting in function call
+op.Hleft  = 0;							% contains effective H of all other chains
+op.Opleft = cell(M,NCoup(nc));			% contains only terms interacting with Chain #nc
 
 % 1. construct non-interacting Hleft for child
 for mc = 0:NC
-	dProd = prod(d([mc+1,nc+1,NC+2]));
+	if treeMPS.hasSite
+		dProd = prod(d([mc+1,nc+1,NC+2]));		% mc interacts with local site
+	else
+		dProd = prod(d([mc+1,nc+1,1]));			% mc interacts with parent
+	end
 	% mc: other chain to contract with MPS to get into left basis of nc
 	if mc == nc, continue, end
 	% always make sure that Hlrstorage{1} and Opstorage{:,2,1} are up-to-date!
@@ -427,32 +439,48 @@ for mc = 0:NC
 		if mc == 0 && treeMPS.isRoot
 			continue
 		elseif mc == 0 && ~treeMPS.isRoot				% Node-parent exists -> contract
-			idx = 1:NC+2; idx(nc+1) = [];
+			idx = 1:Nd; idx(nc+1) = [];
 			% 1. Contract to non-interacting parts
-			OpTemp   = contracttensors(treeMPS.op.Hlrstorage{1},2,2, mps, NC+2, 1);								% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
-			op.Hleft = op.Hleft + contracttensors(conj(mps),NC+2, idx, OpTemp, NC+2, idx);
+			OpTemp   = contracttensors(treeMPS.op.Hlrstorage{1},2,2, mps, Nd, 1);								% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
+			op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idx, OpTemp, Nd, idx);
 			
-			% 2. Contract the other chain-system interacting parts
-			for m = 1:M
-				OpTemp   = contracttensors(mps, NC+2, NC+2, treeMPS.op.h2jOBB{m,2,1}.',2,1);						% parent is 1st, node is 2nd position in H_int !!
-				OpTemp   = contracttensors(treeMPS.op.Opstorage{m,1,1},2,2, OpTemp, NC+2, 1);					% (m,1,1) should be the operator of parent in the effective left basis for node site 1
-				op.Hleft = op.Hleft + contracttensors(conj(mps),NC+2, idx, OpTemp, NC+2, idx);					% 	build in H_Eff('TR-CA') for node, store in op.Hleft, copy with updateop
+			if treeMPS.hasSite
+				% 2. Contract the parent-local site interacting parts
+				for m = 1:M
+					OpTemp   = contracttensors(mps, Nd, Nd, treeMPS.op.h2jOBB{m,2,1}.',2,1);					% parent is 1st, node is 2nd position in H_int !!
+					OpTemp   = contracttensors(treeMPS.op.Opstorage{m,1,1},2,2, OpTemp, Nd, 1);					% (m,1,1) should be the operator of parent in the effective left basis for node site 1
+					op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idx, OpTemp, Nd, idx);					% 	build in H_Eff('TR-CA') for node, store in op.Hleft, copy with updateop
+				end
 			end
 			continue
 		end
-		[idxA, idxB] = getIdxTensChain(NC+2,mc+1,nc+1);		
+		[idxA, idxB] = getIdxTensChain(Nd,mc+1,nc+1);		
 		% contraction of mps with chain ops of mc will move its index to the end 
 		% -> generate idx pair for <mps|H|MPS>, where everything except nc shall be contracted
 		
 		% 1. Contract to non-interacting parts -> Hleft
-		OpTemp   = contracttensors(mps, NC+2, mc+1, treeMPS.child(mc).op.Hlrstorage{1}.',2,1);					%_(ni..,nk)
-		op.Hleft = op.Hleft + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+		OpTemp   = contracttensors(mps, Nd, mc+1, treeMPS.child(mc).op.Hlrstorage{1}.',2,1);					%_(ni..,nk)
+		op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idxA, OpTemp, Nd, idxB);
 
 		% 2. Contract the other chain-system interacting parts -> Hleft
-		for m = 1:M
-			OpTemp   = contracttensors(mps   , NC+2, NC+2, treeMPS.op.h2jOBB{m,1,mc}.'            ,2,1);
-			OpTemp   = contracttensors(OpTemp, NC+2, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
-			op.Hleft = op.Hleft + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+		% NCoup(mc) indicates how many terms are needed: 1 for leaf/chain; more for ER-tensor
+		NCoupOffset = sum(NCoup(1:mc-1));																		% how many terms belong to other children -> Offset
+		if treeMPS.hasSite
+			for nn = 1:NCoup(mc)
+				for m = 1:M
+					OpTemp   = contracttensors(mps   , Nd, Nd, treeMPS.op.h2jOBB{m,1,nn+NCoupOffset}.'    ,2,1);
+					OpTemp   = contracttensors(OpTemp, Nd, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1,nn}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+					op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idxA, OpTemp, Nd, idxB);
+				end
+			end
+		else % ~hasSite
+			for nn = 1:NCoup(mc)
+				for m = 1:M
+					OpTemp   = contracttensors(treeMPS.op.Opstorage{m,1,1, nn+NCoupOffset},2,2, mps   , Nd, 1);			% Take interaction from parent
+					OpTemp   = contracttensors(OpTemp, Nd, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1,nn}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+					op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idxA, OpTemp, Nd, idxB);
+				end
+			end
 		end
 		
 	else
@@ -498,66 +526,81 @@ for mc = 0:NC
 	end
 end
 
-% 3. Contract h1jOBB -> Hleft
-idx = 1:NC+2; idx(nc+1) = [];
-OpTemp = contracttensors(mps, NC+2, NC+2, treeMPS.op.h1jOBB.', 2, 1);
-op.Hleft = op.Hleft + contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
+idx = 1:Nd; idx(nc+1) = [];
+NCoupOffset = sum(NCoup(1:nc-1));																		% how many terms belong to other children -> Offset
+if treeMPS.hasSite
+	% 3. Contract h1jOBB -> Hleft
+	OpTemp = contracttensors(mps, Nd, Nd, treeMPS.op.h1jOBB.', 2, 1);
+	op.Hleft = op.Hleft + contracttensors(conj(mps), Nd, idx, OpTemp,Nd, idx);
 
-% 4. Contract h2jOBB which will interact with chain nc
-for m = 1:M
-	OpTemp = contracttensors(mps, NC+2, NC+2, treeMPS.op.h2jOBB{m,1,nc}.', 2, 1);
-	op.Opleft{m} = contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
+	% 4. Contract h2jOBB which will interact with chain nc
+	for nn = 1:NCoup(nc)
+		for m = 1:M
+			OpTemp = contracttensors(mps, Nd, Nd, treeMPS.op.h2jOBB{m,1,nn+NCoupOffset}.', 2, 1);
+			op.Opleft{m,nn} = contracttensors(conj(mps), Nd, idx, OpTemp,Nd, idx);
+		end
+	end
+else % ~hasSite: carry over parent interactions
+	for nn = 1:NCoup(nc)
+		for m = 1:M
+			OpTemp = contracttensors(treeMPS.op.Opstorage{m,1,1,nn+NCoupOffset}, 2, 2, mps, Nd, 1);
+			op.Opleft{m,nn} = contracttensors(conj(mps), Nd, idx, OpTemp,Nd, idx);
+		end
+	end
 end
 
 op.Hright  = treeMPS.child(nc).op.Hlrstorage{1};		% copy into temporary H/Opright to allow overwriting in updateop.
-op.Opright = treeMPS.child(nc).op.Opstorage(:,2,1);
+op.Opright = squeeze(treeMPS.child(nc).op.Opstorage(:,2,1,:));		% (M,NCoup)
 
 end
 
-function op = H_Eff_TR_CP(treeMPS,para)
-%% function op = H_Eff_TR_CP(treeMPS,para)
+function op = H_Eff_TR_CP_Site(treeMPS,para)
+%% function op = H_Eff_TR_CP_Site(treeMPS,para)
 %
 %	Creates Hright for entering the parent = walking up the tree
+%	Applies if current node carries a physical site which couples to the parent and which all children are coupled to
 %
 %	created by FS 23/02/2016
 
-NC = treeMPS.degree;			% = nChains for node
+NChild = treeMPS.degree;		% = nChildren for node
+NChain = treeMPS.nChains;		% = nChains of node
 M  = treeMPS.M;
-d  = size(treeMPS.mps{1});		% numel(d) = NC+2
+d  = size(treeMPS.mps{1});		% numel(d) = NC+2 if hasSite; elseif ~hasSite: NC+1
 mps = treeMPS.mps{1};			% get handle, should not copy object!
-% MPS is only mps{1}: Dl x D1 x D2 x D3 x ... X D(NC) x dk
+% MPS is only mps{1}: Dl x D1 x D2 x D3 x ... X D(NC) [x dk ]
 %   chain index in mps is shifted by 1 due to first left Bond
 op = treeMPS.op;				% only return op -> needs overwriting in function call
 op.Hright  = 0;					% contains effective H of node and all chains
 op.Opright = cell(M,1);			% contains only terms interacting with parent
-if treeMPS.isRoot 
+
+if treeMPS.isRoot
 	error('VMPS:H_Eff:NotSupported','This function shall only be used for non-root nodes');
 end
 
 % 1. construct non-interacting Hright for parent
-for mc = 1:NC
+for mc = 1:NChild
 	% mc: chain to contract with MPS to get into right basis of parent
 	
 	% always make sure that Hlrstorage{1} and Opstorage{:,2,1} are up-to-date!
 	if para.tdvp.HEffSplitIsometry == 0
-		[idxA, idxB] = getIdxTensChain(NC+2,mc+1,1);		
+		[idxA, idxB] = getIdxTensChain(NChild+2,mc+1,1);		
 		% contraction of mps with chain ops of mc will move its index to the end 
 		% -> generate idx pair for <mps|H|MPS>, where everything except 1 shall be contracted
 		
 		% 1. Contract to non-interacting parts -> Hright
-		OpTemp   = contracttensors(mps, NC+2, mc+1, treeMPS.child(mc).op.Hlrstorage{1}.',2,1);
-		op.Hright = op.Hright + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+		OpTemp   = contracttensors(mps, NChild+2, mc+1, treeMPS.child(mc).op.Hlrstorage{1}.',2,1);
+		op.Hright = op.Hright + contracttensors(conj(mps),NChild+2, idxA, OpTemp, NChild+2, idxB);
 
 		% 2. Contract the other chain-system interacting parts -> Hright
 		for m = 1:M
-			OpTemp    = contracttensors(mps   , NC+2, NC+2, treeMPS.op.h2jOBB{m,1,mc}.'            ,2,1);
-			OpTemp    = contracttensors(OpTemp, NC+2, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
-			op.Hright = op.Hright + contracttensors(conj(mps),NC+2, idxA, OpTemp, NC+2, idxB);
+			OpTemp    = contracttensors(mps   , NChild+2, NChild+2, treeMPS.op.h2jOBB{m,1,mc}.'            ,2,1);
+			OpTemp    = contracttensors(OpTemp, NChild+2, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+			op.Hright = op.Hright + contracttensors(conj(mps),NChild+2, idxA, OpTemp, NChild+2, idxB);
 		end
 	else
 		% 1. Split-off isometry
 		%    but need D(mc), D(nc) and dk in Atens!
-		[Atens,dOut] = tensShape(mps, 'unfoldiso', [mc+1,1,NC+2], d);	% +1 for leading singleton
+		[Atens,dOut] = tensShape(mps, 'unfoldiso', [mc+1,1,NChild+2], d);	% +1 for leading singleton
 		
 		[~, Atens] = qr(Atens,0);			% Iso is isometry with all unused chains
 		
@@ -585,18 +628,106 @@ for mc = 1:NC
 end
 
 % 3. Contract h1jOBB -> Hright
-idx = 2:NC+2;
-OpTemp    = contracttensors(mps, NC+2, NC+2, treeMPS.op.h1jOBB.', 2, 1);
-op.Hright = op.Hright + contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
+idx = 2:NChild+2;
+OpTemp    = contracttensors(mps, NChild+2, NChild+2, treeMPS.op.h1jOBB.', 2, 1);
+op.Hright = op.Hright + contracttensors(conj(mps), NChild+2, idx, OpTemp,NChild+2, idx);
 
 % 4. Contract h2jOBB which will interact with parent
 for m = 1:M
-	OpTemp = contracttensors(mps, NC+2, NC+2, op.h2jOBB{m,2,1}.', 2, 1);
-	op.Opright{m} = contracttensors(conj(mps), NC+2, idx, OpTemp,NC+2, idx);
+	OpTemp = contracttensors(mps, NChild+2, NChild+2, op.h2jOBB{m,2,1}.', 2, 1);
+	op.Opright{m} = contracttensors(conj(mps), NChild+2, idx, OpTemp,NChild+2, idx);
 end
 
 op.Hleft  = treeMPS.op.Hlrstorage{1};		% copy into temporary H/Opleft to allow overwriting in updateop.
 op.Opleft = treeMPS.op.Opstorage(:,1,1);
+end
+
+function op = H_Eff_TR_CP_NoSite(treeMPS,para)
+%% function op = H_Eff_TR_CP_NoSite(treeMPS,para)
+%
+%	Creates Hright for entering the parent = walking up the tree
+%	Applies if current node carries NO physical site, but serves to combine several nodes/leaves for entanglement renormalisation
+%	All children of this node couple to the parent, thus need to channel through treeMPS.child(:).op.Opstorage{:,2,1,:}
+%
+%	created by FS 30/08/2016
+
+NChild = treeMPS.degree;					% = nChildren for node
+NCoup = length(treeMPS.chainIdx);			% = number of coupling channels from children to parent node
+%	if child node hasSite -> chainIdx = min(child.chainIdx)
+%	elseif child ~hasSite -> chainIdx = [child.chainIdx]
+%	thus correctly counts the number of couplings through the ER-Node
+M  = treeMPS.M;
+d  = size(treeMPS.mps{1});					% numel(d) = NC+2 if hasSite; elseif ~hasSite: NC+1
+mps = treeMPS.mps{1};						% get handle, should not copy object!
+% MPS is only mps{1}: Dl x D1 x D2 x D3 x ... X D(NC) [x dk ]
+%   chain index in mps is shifted by 1 due to first left Bond
+op = treeMPS.op;							% only return op -> needs overwriting in function call
+op.Hright  = 0;								% contains effective H of node and all chains
+op.Opright = cell(M,NCoup);					% if no Site, then all chains from right must be channelled through to the left, thus need all coupling terms
+
+NCoupOffset = 0;							% necessary to correctly & easily fill op.Opright
+
+if treeMPS.isRoot
+	error('VMPS:H_Eff:NotSupported','This function shall only be used for non-root nodes');
+end
+
+for mc = 1:NChild
+	% mc: chain to contract with MPS to get into right basis of parent
+	
+	HStor   = treeMPS.child(mc).op.Hlrstorage{1};			% Hright of child
+	OpStor  = treeMPS.child(mc).op.Opstorage(:,2,1,:);		% Opright of child: (M,NCoup)
+	[MM,NN] = size(OpStor);
+	ratio   = (d(1)*d(mc+1))^2/prod(d);						% d(needed legs)/d(rest); Benefit from Isometry only if << 1
+	
+	% always make sure that Hlrstorage{1} and Opstorage{:,2,1} are up-to-date!
+	if para.tdvp.HEffSplitIsometry == 0 || ratio >= 1					% TODO: need to find optimal threshold
+		[idxA, idxB] = getIdxTensChain(NChild+1,mc+1,1);		
+		% contraction of mps with chain ops of mc will move its index to the end 
+		% -> generate idx pair for <mps|H|MPS>, where everything except 1 shall be contracted
+		
+		% 1. Contract to non-interacting parts -> Hright
+		OpTemp   = contracttensors(mps, NChild+1, mc+1, HStor.',2,1);
+		op.Hright = op.Hright + contracttensors(conj(mps),NChild+1, idxA, OpTemp, NChild+1, idxB);
+
+		% 2. Contract the other parts for the chain-parent interacting parts -> Opright
+		for n = 1:NN
+			for m = 1:MM
+				OpTemp   = contracttensors(mps, NChild+1, mc+1, OpStor{m,n}.',2,1);
+				op.Opright{m,n+NCoupOffset} = contracttensors(conj(mps),NChild+1, idxA, OpTemp, NChild+1, idxB);
+			end
+		end
+		NCoupOffset = NCoupOffset + NN;
+	else
+		% 1. Split-off isometry
+		%    but need D(mc), D(nc=1) in Atens! (no dk, since no Site)
+		[Atens,dOut] = tensShape(mps, 'unfoldiso', [1, mc+1], d);	% +1 for leading singleton
+		
+		[~, Atens] = qr(Atens,0);			% [Iso,R] = qr(A); Iso is isometry with all unused chains -> contracts to Iso'*Iso = eye
+		
+		% TODO: comment if not testing!!
+ 		%		[Iso2,A2,err]= rrQR(Atens, floor(0.1*prod(dOut(end-2:end))),0);		% low rank QR approximation
+ 		%		fprintf('H_eff: rank(A) = %d, dim(A,2) = %d, rrQR error = %g; %g\n', rank(Atens), prod(dOut(end-2:end)),norm(Atens - Iso2*A2), err);
+		
+		Atens = reshape(Atens,[size(Atens,1),dOut(end-1:end)]);		% D(1)*D(mc) x D(1) x D(mc)
+		idxA = [1, 3]; idxB = [1, 3];
+		% 2. Contract to non-interacting parts -> Hright
+		OpTemp    = contracttensors(Atens, 3, 3, HStor.',2,1);
+		op.Hright = op.Hright + contracttensors(conj(Atens),3, idxA, OpTemp, 3, idxB);
+		
+		% 3. Contract the other parts for the chain-parent interacting parts -> Opright
+		for n = 1:NN
+			for m = 1:MM
+				OpTemp   = contracttensors(Atens, 3, 3, OpStor{m,n}.',2,1);
+				op.Opright{m,n+NCoupOffset} = contracttensors(conj(Atens),3, idxA, OpTemp, 3, idxB);
+			end
+		end
+		NCoupOffset = NCoupOffset + NN;
+	end
+end
+assert(size(op.Opright,2) == NCoup, 'VMPS:H_Eff:H_EFF_TR_CP_NoSite:WrongNCOUP','The number of couplings was wrong, Opright grew! Please check chainIdx for each node for correctness!');
+
+op.Hleft  = treeMPS.op.Hlrstorage{1};		% copy into temporary H/Opleft to allow overwriting in updateop.
+op.Opleft = treeMPS.op.Opstorage(:,1,1,:);
 end
 
 function [idxA, idxB] = getIdxTensChain(N,m,n)

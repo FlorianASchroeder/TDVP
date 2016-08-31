@@ -35,7 +35,7 @@ DPMESInitialStates = {'TT','LE+', 'LE-', 'CT+', 'CT-'};					% Position of Name =
 %% Define validation functions for string expressions
 % para input parser
 p.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
-								{'SpinBoson','SpinBoson2C', 'DPMES5-7C','testTree'})));		% possible model inputs
+								{'SpinBoson','SpinBoson2C', 'DPMES5-7C', 'DPMES-Tree1','testTree'})));		% possible model inputs
 p.addParameter('s'				,1	,@isnumeric);
 p.addParameter('L'				,50	,@isnumeric);		% longest L between root and all leaves
 p.addParameter('alpha'			,0.1,@isnumeric);
@@ -237,13 +237,74 @@ if strfind(para.model,'DPMES5-7C')
 	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
 end
 
+%% Settings for DPMES Tree1
+if strfind(para.model,'DPMES-Tree1')
+ 	pDPMES.parse(varargin{:});
+	
+%% Setting Chain 1
+	para.nChains = 7;
+	para.systemStates				= load('DPMESdata_20160129/states.dat');					% [#state, E(eV)]
+	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states!
+	para.chain{1}.mapping			= 'LanczosTriDiag';
+	para.chain{1}.spectralDensity	= 'CoupDiscr';
+	para.chain{1}.Lambda            = 1;
+	para.chain{1}.initState		    = para.initChainState;
+	
+	para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20160129/W24-B1-17-highv2.dat'));
+	para.chain{1}.L					= min(length(para.chain{1}.dataPoints),para.L-1);
+	
+	%% chain 2 & more:
+	para.chain{2}					= para.chain{1};		% simple copy
+	para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-7-01.dat'));
+	para.chain{2}.L					= min(length(para.chain{2}.dataPoints),para.L-1);
+	para.chain{3}					= para.chain{2};
+	para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-10-x1.dat'));
+	para.chain{3}.L					= min(length(para.chain{3}.dataPoints),para.L-1);
+	para.chain{4}					= para.chain{2};
+	para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20160129/W23-B2-8-10.dat'));
+	para.chain{4}.L					= min(length(para.chain{4}.dataPoints),para.L-1);
+	para.chain{5}					= para.chain{2};
+	para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1x.dat'));
+	para.chain{5}.L					= min(length(para.chain{5}.dataPoints),para.L-1);
+	para.chain{6}					= para.chain{2};
+	para.chain{6}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1-x.dat'));
+	para.chain{6}.L					= min(length(para.chain{6}.dataPoints),para.L-1);
+	para.chain{7}					= para.chain{2};
+	para.chain{7}.dataPoints		= cmToeV(load('DPMESdata_20160129/W14-A2-10-highv2.dat'));
+	para.chain{7}.L					= min(length(para.chain{7}.dataPoints),para.L-1);
+	
+%% Setting TreeMPS structure
+	para.treeMPS.height    = 1;										% star structure, since only tree node + leaves
+	para.treeMPS.maxDegree = para.nChains;
+	leafTreeIdx = [1,1,1,0;											% the treeIdx for each leaf; Order 1-7 as defined in genh1h2term_onesite
+		           1,1,2,0;
+				   1,2,0,0;
+				   2,1,1,1;
+				   2,1,1,2;
+				   2,1,2,0;
+				   2,2,0,0];
+	para.treeMPS.leafIdx   = num2cell(leafTreeIdx+1);    			% maps from chain number to leaf index in para
+	nodeTreeIdx = [0,0,0,0;                                         % the treeIdx of each node; order as defined by occurrence sweep
+		           1,0,0,0;
+				   1,1,0,0;
+				   2,0,0,0;
+				   2,1,0,0;
+				   2,1,1,0];
+	para.treeMPS.nNodes    = size(nodeTreeIdx,1);
+	para.treeMPS.nodeIdx   = num2cell(nodeTreeIdx+1);				% maps from node number to nodeIdx
+	
+%% Set-up parameters for specific ground state preparation!
+%     Initial States:			TT		LE+		LE-		CT+		CT-
+% 			para.IntialState:	 1		  2		  3		  4		  5
+	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
+end
+
 %% Defaults to para
 para.loopmax		= 50;						% (minimizeE)
 para.increasedk		= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
 para.adjust			= 0;						% (minimizeE) Initialize as 0, no need the edit. To adjust D. Is set = 1 in minimizeE.m
 para.dimlock		= 0;						% (minimizeE) set to 0 will change D and d_dop adaptively
 para.minDimChange	= 0.01;						% (minimizeE) sets dimlock = 1 if relative dimension change < minDimChange. (larger makes less loops)
-para.version		= 'v73';
 para.timeslice      = 0;
 para.sitej          = 0;
 
@@ -277,7 +338,7 @@ para.relativeshift=zeros(para.nChains,para.L);
 para.relativeshiftprecision=0.01;				% When the relative shift is below this value then stop shifting
 % para = maxshift(para);						% TODO!
 
-para.version = 'v73';
+para.version = 'v74';
 
 if isstruct(para.tdvp)
 	%% Defaults to para for tdvp
@@ -451,7 +512,7 @@ for mc = para.treeMPS.nNodes:-1:1
 	nodes(mc).Vmat     = cell(1,L);
 	nodes(mc).L        = L;
 	nodes(mc).treeIdx  = [para.treeMPS.nodeIdx{mc,:}]-1;
-	nodes(mc).chainIdx = mc;
+% 	nodes(mc).chainIdx = mc;								% dummy  value?
 	nodes(mc).level    = nnz(nodes(mc).treeIdx)+1;
 % 	nodes(mc).D        = [ones(1,L)*D,1];					% assign after children
 % 	nodes(mc).d_opt    = ones(1,L)*d_opt;					% assign after genh1h2term_onesite, derive from H
@@ -495,16 +556,24 @@ for mc = para.treeMPS.nNodes:-1:1
 	%% Set parameters
 	nodes(mc).op       = genh1h2term_onesite(para,nodes(mc).treeIdx,1);
 	nodes(mc).degree   = currentChild-1;
-	nodes(mc).nChains  = nodes(mc).degree;
+	nodes(mc).chainIdx = [nodes(mc).child.chainIdx];					% min(chainIdx) is chainIdx of current node
+	nodes(mc).nChains  = length(nodes(mc).chainIdx);
 	nodes(mc).height   = max([nodes(mc).child.height])+1;
-	nodes(mc).chainIdx = min([nodes(mc).child.chainIdx]);
 	nodes(mc).L        = getTreeLength(nodes(mc));
 	nodes(mc).D        = ones(nodes(mc).degree+1,1)*D;
 	if nodes(mc).isRoot
 		nodes(mc).D(1) = 1;
 	end
-	nodes(mc).dk    = size(nodes(mc).op.h1term{1},1);
-	nodes(mc).d_opt = nodes(mc).dk;										% assume non-boson
+	if isempty(nodes(mc).op.h1term{1})
+		nodes(mc).hasSite = 0;
+		nodes(mc).dk    = 1;			% leads to singleton
+		nodes(mc).d_opt = 1;
+	else
+		nodes(mc).hasSite = 1;
+		nodes(mc).chainIdx = min(nodes(mc).chainIdx);					% collapse chain index to indicate, that node has only one coupling to right
+		nodes(mc).dk    = size(nodes(mc).op.h1term{1},1);
+		nodes(mc).d_opt = nodes(mc).dk;									% assume non-boson
+	end
 	
 	para.treeMPS.L(pIdx{:}) = 1;
 	para.shift{pIdx{:}}     = 0;
@@ -515,7 +584,8 @@ for mc = para.treeMPS.nNodes:-1:1
 	NC = nodes(mc).degree;
 	nodes(mc).mps{1}        = zeros([nodes(mc).D',d_opt]);
 	if ~nodes(mc).isRoot
-		nodes(mc).mps{1}(1,1,1) = 1;
+		idx = num2cell(ones(length(nodes(mc).D),1));            % indexes all left and child bonds;
+		nodes(mc).mps{1}(idx{:},1) = 1;                         % initially connect as product states
 	elseif any(strfind(para.model,'DPMES'))
 		idx = num2cell([ones(1,NC+1),para.InitialState]);			% start in second excited state!
 		nodes(mc).mps{1}(idx{:}) = 1;
@@ -554,9 +624,9 @@ treeMPS = nodes(1);
 		treeMPS.mps = {};
 		treeMPS.Vmat = {};
 		treeMPS.treeIdx = [];
-		treeMPS.chainIdx = 0;
+		treeMPS.chainIdx = 0;								% = [# chains connected to]
 		treeMPS.height = 0;									% this struct is a leaf
-		treeMPS.degree = 0;									% leaf
+		treeMPS.degree = 0;									% = n(children)
 		treeMPS.level = 1;									% = site number of first chain site if counted from the root node
 		treeMPS.child = [];									% contains all children nodes
 		treeMPS.currentChild = [];							% leaf: [], node: currentChain;
@@ -571,7 +641,7 @@ treeMPS = nodes(1);
 		treeMPS.useVtens = 0;
 		treeMPS.useStarMPS = 0;
 		treeMPS.useTreeMPS = 0;
-		treeMPS.nChains = 1;
+		treeMPS.nChains = 1;					% n(chains connected through node) = length(chainIdx) >= degree
 		treeMPS.sweepto = 'l';					% 'l' for initial preparation
 		treeMPS.spinposition = [];				% pure Boson Chain
 		treeMPS.sitej = 1;						% currently focused site
@@ -580,6 +650,8 @@ treeMPS = nodes(1);
 		treeMPS.tdvp = [];
 		treeMPS.op.h1term = {};
 		treeMPS.op.h2term = {};
+		treeMPS.hasSite   = 1;					% whether node has real site; no Site nodes need: op.h1term{1} = []
+		treeMPS.Amat_sv = {};					% Singular values for each bond within node/leaf
 	end
 
 	function L = getTreeLength(treeMPS)
@@ -628,16 +700,23 @@ treeMPS = nodes(1);
 		end
 	end
 
-	function dummy()
-		%% This function just contains cells which can be executed to quickly run a certain model!
-		
-		%% DPMES 5-7C
-		%	full chains, no truncation!
-		VMPS_TreeMPS('model','DPMES5-7C','evolveSysTrotter',1,'L',18,'tmax',10,'deltaT',0.1,'extractObsInterval',0.1,'InitialState','LE+','useDkExpand',1,'maxBondDim',[5,10],...
-			'Observables','.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.ss.');
-		% L: longest L of from root to all leaves
-		
-		%% SpinBoson2C
-		VMPS_TreeMPS('model','SpinBoson2C','evolveSysTrotter',0,'L',49,'deltaT',0.2,'wc',[1,5],'InitialState','-sx','extractObsInterval',0.2,'useDkExpand',1)
-	end
+end
+
+function dummy()
+	%% This function just contains cells which can be executed to quickly run a certain model!
+
+	%% DPMES 5-7C
+	%	full chains, no truncation!
+	VMPS_TreeMPS('model','DPMES5-7C','evolveSysTrotter',1,'L',18,'tmax',10,'deltaT',0.1,'extractObsInterval',0.1,'InitialState','LE+','useDkExpand',1,'maxBondDim',[5,10],...
+		'Observables','.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.ss.');
+	% L: longest L of from root to all leaves
+
+	%% DPMES Tree1
+	%	full chains, no truncation!
+	VMPS_TreeMPS('model','DPMES-Tree1','evolveSysTrotter',1,'L',18,'tmax',10,'deltaT',0.1,'extractObsInterval',0.1,'InitialState','LE+','useDkExpand',1,'maxBondDim',[10],...
+		'Observables','.n.dm.');
+	% L: longest L of from root to all leaves
+
+	%% SpinBoson2C
+	VMPS_TreeMPS('model','SpinBoson2C','evolveSysTrotter',0,'L',49,'deltaT',0.2,'wc',[1,5],'InitialState','-sx','extractObsInterval',0.2,'useDkExpand',1)
 end

@@ -80,23 +80,27 @@ end
 
 switch treeMPS.sweepto
 	case 'r'
-		% returns op of child
+		% treeMPS is current Node; returns op of child defined by treeMPS.currentChain
 		op = H_Eff(treeMPS, [], 'TR-CA', [], para);
 			% this saves new left eff. H into Hleft and old Hlr/Opstorage{1} into Hright
 			% to be accessed by tdvp_1site_evolveKn
 		op.Hlrstorage{1} = op.Hleft;
-		op.Opstorage(:,1,1) = op.Opleft;
+		op.Opstorage(:,1,1,:) = op.Opleft;
 	case 'l'
 		% returns op of current node
 		if treeMPS.isRoot
-			op = treeMPS.op;
+			op = treeMPS.op;			% there is no parent!
 			return;
 		end
 		op = H_Eff(treeMPS, [], 'TR-CP', [], para);
 			% this saves new right eff. H into H/Opright and old Hlr/Opstorage{1} into Hleft
 			% to be accessed by tdvp_1site_evolveKn
 		op.Hlrstorage{1} = op.Hright;
-		op.Opstorage(:,2,1) = op.Opright;
+		if treeMPS.hasSite
+			op.Opstorage(:,2,1) = op.Opright;		% (m,pos,sitej) <- (m)
+		else
+			op.Opstorage(:,2,1,:) = op.Opright;		% (m,pos,sitej,nChains) <- (m, nChains)
+		end
 end
 
 

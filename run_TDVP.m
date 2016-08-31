@@ -125,7 +125,7 @@ if loadedFromFile
 end
 
 %% Format Filename
-para.tdvp.version = 'v72';
+para.tdvp.version = 'v74';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!
