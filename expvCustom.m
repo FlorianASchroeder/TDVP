@@ -428,30 +428,38 @@ hump = hump / normv;
 		d = [para.D(:,1).',para.dk(1,1)];					% dim(A)
 		NC = para.degree;
 		
+		A1 = reshape(A,[],d(NC+2));							% good shape for 3)
 		A = reshape(A,d);
 		
 		% 1. on-site H1
 		w =	contracttensors(A, NC+2, NC+2, op.h1jOBB.', 2,1);
+		w = reshape(A1 * op.h1jOBB.',d);
+		
 		
 		NCoupOffset = 0;									% needed for child nodes being entanglement renormalisation tensors
 		% 2. iterate through children
 		for mc = 1:NC
-			% Order for permute after contraction
-% 			ord = [1:mc,NC+2,mc+1:NC+1];
-			Atemp = tensShape(A, 'unfold', mc+1, d);		% chain index to front
+			ordTo = [mc+1:NC+2,1:mc];
+			Atemp = permute(A,ordTo);
+			Atemp = reshape(Atemp,d(mc+1),[]);
 			% 2. non-interacting Hlrstorage (Hright)
-			OpTemp = para.child(mc).op.Hlrstorage{1} * Atemp;
-			w = w + tensShape(OpTemp,'fold',mc+1, d);
+			wTemp = para.child(mc).op.Hlrstorage{1} * Atemp;
 			
 			% 3. all interacting parts
 			NCoup = size(para.child(mc).op.Opstorage,4);
 			for nn = 1:NCoup								% iterate through chains of child
 				for mm = 1:para.M
-					OpTemp = para.child(mc).op.Opstorage{mm,2,1,nn} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
-					OpTemp = tensShape(OpTemp,'fold',mc+1, d);
-					w = w+ contracttensors(OpTemp, NC+2, NC+2, op.h2jOBB{mm,1,nn+NCoupOffset}.',2,1);
+					OpTemp = A1 * op.h2jOBB{mm,1,nn+NCoupOffset}.';
+					OpTemp = reshape(OpTemp,d);
+					OpTemp = permute(OpTemp,ordTo);
+					OpTemp = reshape(OpTemp,d(mc+1),[]);
+					wTemp  = wTemp + para.child(mc).op.Opstorage{mm,2,1,nn} * OpTemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
 				end
 			end
+			
+			wTemp = reshape(wTemp, d(ordTo));
+			w = w + permute(wTemp, [NC+3-mc:NC+2,1:NC+2-mc]);									% see tensShape 'fold' for details. here: i = mc+1, r = NC+1
+			
 			NCoupOffset = NCoupOffset + NCoup;
 		end
 		if ~para.isRoot
@@ -520,7 +528,9 @@ hump = hump / normv;
 		d  = para.D(:,1).';					% dim(A)
 		NC = para.degree;
 		
+		A1 = reshape(A,d(1),[]);			% good shape for 3)
 		A = reshape(A,d);
+		
 		
 		% 1. initialise w
 		w =	0;
@@ -528,28 +538,34 @@ hump = hump / normv;
 		NCoupOffset = 0;									% needed for child nodes being entanglement renormalisation tensors
 		% 2. iterate through children
 		for mc = 1:NC
-			% Order for permute after contraction
-% 			ord = [1:mc,NC+2,mc+1:NC+1];
-			Atemp = tensShape(A, 'unfold', mc+1, d);		% chain index to front
+			% Order for permute to contract with child mc
+			ordTo = [mc+1:NC+1,1:mc];
+			Atemp = permute(A,ordTo);
+			Atemp = reshape(Atemp,d(mc+1),[]);
 			% 2. non-interacting Hlrstorage (Hright)
-			OpTemp = para.child(mc).op.Hlrstorage{1} * Atemp;
-			w = w + tensShape(OpTemp,'fold',mc+1, d);
+			wTemp = para.child(mc).op.Hlrstorage{1} * Atemp;
 			
 			% 3. all interacting parts
 			NCoup = size(para.child(mc).op.Opstorage,4);
 			for nn = 1:NCoup								% iterate through chains of child
 				for mm = 1:para.M
-					OpTemp = para.child(mc).op.Opstorage{mm,2,1,nn} * Atemp;					% (m,2,1,n) should be the operator of child site 1, chain n in the effective right basis for node
-					OpTemp = tensShape(OpTemp,'fold',mc+1, d);
-					w = w + contracttensors(op.Opstorage{mm,1,1,nn+NCoupOffset},2,2, OpTemp, NC+1, 1);
+					OpTemp = op.Opstorage{mm,1,1,nn+NCoupOffset} * A1;
+					OpTemp = reshape(OpTemp,d);
+					OpTemp = permute(OpTemp, ordTo);
+					OpTemp = reshape(OpTemp, d(mc+1),[]);
+					wTemp  = wTemp + para.child(mc).op.Opstorage{mm,2,1,nn} * OpTemp;			% (m,2,1,n) should be the operator of child site 1, chain n in the effective right basis for node
 				end
 			end
+			% reshape wTemp back, bring into correct order and add to w
+			wTemp = reshape(wTemp, d(ordTo));
+			w = w + permute(wTemp, [NC+2-mc:NC+1,1:NC+1-mc]);									% see tensShape 'fold' for details. here: i = mc+1, r = NC+1
+			
 			NCoupOffset = NCoupOffset + NCoup;
 		end
 		
 		% also contract with non-interacting parent operator
 		% 1. Contract to non-interacting parts
-		w = w + contracttensors(op.Hlrstorage{1},2,2, A, NC+1, 1);								% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
+		w = w + reshape(op.Hlrstorage{1} * A1, d);												% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
 		
 		w = reshape(w, [numel(w),1]);
 	end

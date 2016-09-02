@@ -420,7 +420,9 @@ Nd = numel(d);
 mps = treeMPS.mps{1};					% get handle, should not copy object!
 % MPS is only mps{1}: Dl x D1 x D2 x D3 x ... X D(NC) x dk
 %   chain index in mps is shifted by 1 due to first left Bond
-NCoup = arrayfun(@(x) length(x.chainIdx),treeMPS.child);				% number of coupling terms in each child
+for i = 1:length(treeMPS.child)
+	NCoup(i) = length(treeMPS.child(i).chainIdx);																% much faster than  arrayfun()
+end
 op = treeMPS.child(nc).op;				% only return op -> needs overwriting in function call
 op.Hleft  = 0;							% contains effective H of all other chains
 op.Opleft = cell(M,NCoup(nc));			% contains only terms interacting with Chain #nc
@@ -441,26 +443,21 @@ for mc = 0:NC
 		elseif mc == 0 && ~treeMPS.isRoot				% Node-parent exists -> contract
 			idx = 1:Nd; idx(nc+1) = [];
 			% 1. Contract to non-interacting parts
-			OpTemp   = contracttensors(treeMPS.op.Hlrstorage{1},2,2, mps, Nd, 1);								% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
-			op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idx, OpTemp, Nd, idx);
+			w   = contracttensors(treeMPS.op.Hlrstorage{1},2,2, mps, Nd, 1);									% order unchanged, Focused on Node -> Hlrstorage{1} is Hleft of Node
 			
 			if treeMPS.hasSite
 				% 2. Contract the parent-local site interacting parts
 				for m = 1:M
 					OpTemp   = contracttensors(mps, Nd, Nd, treeMPS.op.h2jOBB{m,2,1}.',2,1);					% parent is 1st, node is 2nd position in H_int !!
-					OpTemp   = contracttensors(treeMPS.op.Opstorage{m,1,1},2,2, OpTemp, Nd, 1);					% (m,1,1) should be the operator of parent in the effective left basis for node site 1
-					op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idx, OpTemp, Nd, idx);					% 	build in H_Eff('TR-CA') for node, store in op.Hleft, copy with updateop
+					w   = w + contracttensors(treeMPS.op.Opstorage{m,1,1},2,2, OpTemp, Nd, 1);					% (m,1,1) should be the operator of parent in the effective left basis for node site 1
 				end
 			end
+			op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idx, w, Nd, idx);
 			continue
 		end
-		[idxA, idxB] = getIdxTensChain(Nd,mc+1,nc+1);		
-		% contraction of mps with chain ops of mc will move its index to the end 
-		% -> generate idx pair for <mps|H|MPS>, where everything except nc shall be contracted
 		
 		% 1. Contract to non-interacting parts -> Hleft
-		OpTemp   = contracttensors(mps, Nd, mc+1, treeMPS.child(mc).op.Hlrstorage{1}.',2,1);					%_(ni..,nk)
-		op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idxA, OpTemp, Nd, idxB);
+		w   = contracttensors(mps, Nd, mc+1, treeMPS.child(mc).op.Hlrstorage{1}.',2,1);					%_(ni..,nk)
 
 		% 2. Contract the other chain-system interacting parts -> Hleft
 		% NCoup(mc) indicates how many terms are needed: 1 for leaf/chain; more for ER-tensor
@@ -469,19 +466,21 @@ for mc = 0:NC
 			for nn = 1:NCoup(mc)
 				for m = 1:M
 					OpTemp   = contracttensors(mps   , Nd, Nd, treeMPS.op.h2jOBB{m,1,nn+NCoupOffset}.'    ,2,1);
-					OpTemp   = contracttensors(OpTemp, Nd, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1,nn}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
-					op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idxA, OpTemp, Nd, idxB);
+					w   = w + contracttensors(OpTemp, Nd, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1,nn}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
 				end
 			end
 		else % ~hasSite
 			for nn = 1:NCoup(mc)
 				for m = 1:M
 					OpTemp   = contracttensors(treeMPS.op.Opstorage{m,1,1, nn+NCoupOffset},2,2, mps   , Nd, 1);			% Take interaction from parent
-					OpTemp   = contracttensors(OpTemp, Nd, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1,nn}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
-					op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idxA, OpTemp, Nd, idxB);
+					w   = w + contracttensors(OpTemp, Nd, mc+1, treeMPS.child(mc).op.Opstorage{m,2,1,nn}.',2,1);		% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
 				end
 			end
 		end
+		[idxA, idxB] = getIdxTensChain(Nd,mc+1,nc+1);		
+		% contraction of mps with chain ops of mc moved its index to the end 
+		% -> generate idx pair for <mps|H|MPS>, where everything except nc shall be contracted
+		op.Hleft = op.Hleft + contracttensors(conj(mps),Nd, idxA, w, Nd, idxB);
 		
 	else
 		if mc == 0 && treeMPS.isRoot
