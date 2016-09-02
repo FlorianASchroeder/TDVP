@@ -605,20 +605,22 @@ classdef TDVPData
 					end
 					h.ylbl = '$\left<\sigma\right>$';
 				case 'calctime'
-					h.xdata  = obj.t(2:obj.lastIdx)*ts;
-					h.ydata  = obj.para.tdvp.calcTime(1:obj.lastIdx-1);
+					idx = find(obj.para.tdvp.calcTime,1,'last');
+					h.xdata  = obj.para.tdvp.t(2:idx+1)*ts;
+					h.ydata  = obj.para.tdvp.calcTime(1:idx);
 					h.leglbl = {obj.LegLabel};
 					h.ylbl   = 'CPU time/h';
 				case 'calctime-d'
 					% 1st derivative, in hours
-					h.xdata  = obj.t(2:obj.lastIdx-1)*ts;
+					h.xdata  = obj.para.tdvp.t(2:obj.lastIdx-1)*ts;
 					h.ydata  = diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1));
 					h.leglbl = {obj.LegLabel};
 					h.ylbl = 'CPU time/sweep/h';
 				case 'calctime-d-sec'
 					% 1st derivative, in seconds
-					h.xdata = obj.t(2:obj.lastIdx-1)*ts;
-					h.ydata = 3600*diff(obj.para.tdvp.calcTime(1:obj.lastIdx-1));
+					idx = find(obj.para.tdvp.calcTime,1,'last');
+					h.xdata = obj.para.tdvp.t(2:idx)*ts;
+					h.ydata = 3600*diff(obj.para.tdvp.calcTime(1:idx));
 					h.leglbl = {obj.LegLabel};
 					h.ylbl = 'CPU time/sweep/s';
 				case 'rhoii'

@@ -720,7 +720,7 @@ popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
 for pop = 1:5
 % for fwind = [1,2,4,6,8]
 f = figure(400+pop*10+fwind); clf;f.Name = sprintf('Population CWTft - %s',popName{pop});
-x = res(1); 
+% x = res(1); 
 h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
 h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
 h.data = TDVPData.movAvgRes(h.data,760/x.dt);
@@ -743,7 +743,7 @@ popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
 for pop = 1
 % for fwind = [1,2,4,6,8]
 f = figure(300+pop*10+fwind); clf;f.Name = sprintf('Population WSST - %s',popName{pop});
-x = res(1); 
+% x = res(1); 
 h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
 h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
 h.data = TDVPData.movAvgRes(h.data,760/x.dt);
@@ -5913,6 +5913,20 @@ for fignum = 1:size(defPlot,1)
 	drawnow
 end
 
+%% DPMES-Tree1 v74 TreeMPS Performance comparison - TDVPData						% LabBook 31/08/2016
+clear
+x(1) = TDVPData('20160829-1710-46-DPMES5-7C-Tree-v73-L18CT0LE+\results-Till5000Step0.1v73-OBBmax20-Dmax(5-10)-expvCustom700-1core-small.mat');					% this has corrected H_I
+x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(10-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. Chain dimension agree with Tree1, should be closer than (5-10)
+% x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(5-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. sys-chain D agrees with above, chain D with below
+x(3) = TDVPData('20160831-1344-17-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');				% from OE-Rugor
+x(4) = TDVPData('20160831-1258-02-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from OE-Rugor
+%x(5) = TDVPData('20160831-1519-09-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till10Step0.05v74-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');
+%x(6) = TDVPData('20160831-1500-13-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till10Step0.01v74-OBBmax20-Dmax(100-20)-expvCustom700-2core-small.mat');
+%x(7) = TDVPData('20160831-1544-08-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till100Step0.01v74-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');
+close all
+x.plot('rhoii','-fsev','-resetColorOrder',figure)
+x.plot('calctime-d-sec',figure)
+
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all
@@ -6652,7 +6666,8 @@ p2 = plot(a,((gamma(1-2.*a).*cos(pi.*a)).^(1./(2-2.*a))).*d.^(1./(1-a))); % this
 %% Plot NIBA ohmic SBM evolution
 figure(1); clf; hold all;
 % x = res{11}; para = x.para; tresults = x.tresults;
-a = para.chain{1}.alpha; d = 0.1; t = 0:0.1:180;
+% a = para.chain{1}.alpha; d = 0.1; t = 0:0.1:180;
+a = 0.01; d = 0.1; t = 0:0.1:180;
 % calculate the sum to eps precision
 summ  = 0;
 summP = inf;
@@ -6667,13 +6682,14 @@ p1 = plot(t,summ);
 plot(tresults.t, tresults.spin.sz);
 
 %% Plot iSBM multi-Chain Analytic
-t = 0:0.2:20;%para.tdvp.tmax;
+t = 0:0.2:200;%para.tdvp.tmax;
+para.nChains = 1; para.chain{1}.alpha = 0.1; para.chain{1}.s = 1;
 exponent = 0;
-w_cutoff = [1,5];
+w_cutoff = 1;
 for ii = 1:para.nChains
 	a = para.chain{ii}.alpha; s = para.chain{ii}.s; wc = w_cutoff(ii);
 	syms w
-	f = int(2.*a.* w.^(s-2).* wc.^(1-s) .*(1-cos(w.*t)),w,0,wc);
+	f = int(2.*a.* w.^(s-2).* wc.^(1-s).*(1-cos(w.*t)),w,0,wc);
 	exponent = exponent + vpa(f,3);
 end
 plot(t,exp(-exponent));
