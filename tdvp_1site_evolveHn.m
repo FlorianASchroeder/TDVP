@@ -260,9 +260,9 @@ else
 	[mpsNew,err] = expvCustom(- 1i*t, 'Hn',...
 		reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
 	Hn = [];		% dummy return value;
-	t1 = toc(tempT);
+	t3 = toc(tempT);
 	if para.tdvp.expvCustomTestAccuracy
-		results.tdvp.expvTime = [results.tdvp.expvTime; t1,0,0,0, BondDimLeft*BondDimRight*OBBDim];
+		results.tdvp.expvTime = [results.tdvp.expvTime; 0,0,t3,0, (BondDimLeft*BondDimRight*OBBDim)^2];
 	end
 end
 % results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;

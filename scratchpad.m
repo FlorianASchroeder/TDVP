@@ -5927,6 +5927,38 @@ close all
 x.plot('rhoii','-fsev','-resetColorOrder',figure)
 x.plot('calctime-d-sec',figure)
 
+%% DPMES-Tree1 v74 TreeMPS dt convergence - TDVPData								% LabBook 23/09/2016
+clear
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1-6: from LE+, L=2
+dirPat = '2016090.-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step0..*v74-OBBmax20-Dmax\(100-100\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT(?<CTshift>[0-9\-\.]*)LE','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.CTshift),tokens));
+matches = [matches; m(I)];
+
+res = TDVPData({matches.name});
+
+close all
+%% plot
+h = res.plot('rhoii','-fsev','-resetColorOrder',figure)
+f = figure(); hold all; ax = gca; f.Name = 'Tree1-dt-convergence2-D(100-100)';
+a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false)
+ax.XLabel = h(1).ax(1).XLabel;
+legend('0.1','0.05','0.02','0.01','0.005','0.002','0.001');
+set([a{:}],{'Color'},mat2cell(ax.ColorOrder,ones(1,7),3));
+ylabel('$\rho_{ii} (t)$');
+set(gca,'color','none');
+grid on
+
+% x.plot('calctime-d-sec',figure)
+
+
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all

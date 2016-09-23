@@ -774,13 +774,15 @@ end
 	treeMPS.tdvp.expvTol = para.tdvp.expvTol;		% replace para by treeMPS in expvCustom call for access to children operators
 	treeMPS.tdvp.expvM   = para.tdvp.expvM;
 	if para.tdvp.evolveSysTrotter == 0 
-		% old scheme, evolves system in one single step interacting with all chains at once
+		% Evolves system in one single step interacting with all chains at once
+		% better for nodes with < 3-4 children
 		[treeMPS.mps{1}, ~] = expvCustom(- 1i*t,'TREE-Hn1',...
 								reshape(treeMPS.mps{1},[numel(treeMPS.mps{1}),1]), treeMPS, treeMPS.op);
 
 		treeMPS.mps{1} = reshape(treeMPS.mps{1},d);
 	else
 		% newer scheme, trotterise in system-chain interactions to decrease complexity
+		% only for nodes which also have a local site
 		Atens = treeMPS.mps{1};
 		dIn = d;
 		for mc = 0:treeMPS.nChains
