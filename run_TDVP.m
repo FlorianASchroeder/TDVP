@@ -67,7 +67,7 @@ para.tdvp.serialize = 0;				% much faster I/O saving
 para.tdvp.logSV = 0;					% if 1 only log SV, if 0 only log vNE (saves mem) if -1 log none!
 para.tdvp.extractStarInterval = 10*para.tdvp.deltaT;	% in [t]; for calculating star occupation! Comment if not needed!
 para.tdvp.extractObsInterval  = 10*para.tdvp.deltaT;	% in [t]; mod(extractStarInterval, extractObsInterval) = 0 !! extractObsInterval = n*deltaT
-para.tdvp.Observables = '.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
+para.tdvp.Observables = '.n.dm.';%'.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
 	% n: occupation, j: current, s: spin,
 	% sn: star n, sx: star polaron,
 	% dm: rdm of site 1
@@ -79,8 +79,8 @@ para.tdvp.Observables = '.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 0;			% Trotter splitting in System evolution?
 para.tdvp.HEffSplitIsometry = 0;		% split mps{1} into isometry + relevant part
-para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300 System dependent, use benchmark!
-para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700 maxExpMDim < maxExpVDim
+para.tdvp.maxExpMDim = 300;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300; P40: 120 System dependent, use benchmark!
+para.tdvp.maxExpVDim = 700;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700; P40: 256 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;

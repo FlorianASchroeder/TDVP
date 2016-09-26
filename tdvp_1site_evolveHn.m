@@ -41,6 +41,10 @@ if para.tdvp.imagT
 	t = -1i*t;
 end
 
+if para.tdvp.expvCustomTestAccuracy
+	expvTime = [];						% (HAA: m,v,vcustom,construct, )
+end
+
 %% If using Vmat, evolve it first, only BOSON!
 if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bosonic site only!
     %% expand OBB in A and V by 50%
@@ -64,16 +68,15 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
     %% SVD to set focus on Vmat
     [Amat,V] = prepare_onesiteAmat(mps{sitej},para,sitej);              % left-normalize A, SVD in n.
     [BondDimLeft, BondDimRight, OBBDim]  = size(Amat);
-%	Vmat_focused = Vmat{sitej} * transpose(V);							% set focus on Vmat: V_(n,n~)
-	Vmat_focused = contracttensors(Vmat{sitej}, 2, 2, V, 2, 2);
-
+	Vmat_focused = Vmat{sitej} * V.';							% set focus on Vmat: V_(n,n~)
+	
     % Amat = MPS{sitej} left normalised;
 
 	%% if HAA or any other operators have size < 1GB, construct them explicitly.
 	% 16 bytes per complex number -> 2^26 = 6.7e7 elements in matrix.
-	if ((BondDimLeft * BondDimRight * OBBDim) > para.tdvp.maxExpVDim || (dk*OBBDim) > para.tdvp.maxExpVDim) && para.tdvp.expvCustom
-		% Largest Operator for matrix Exp. is Hn -> use as criterion
-		% use expvCustom for this entire site sweep!
+	if ((dk*OBBDim) > para.tdvp.maxExpVDim) && para.tdvp.expvCustom
+		% Largest Operator for matrix Exp. is A*H*A -> use as criterion
+		% use expvCustom for V and CV!
 		para.tdvp.expvCustomNow = 1;
 	else
 		para.tdvp.expvCustomNow = 0;
@@ -85,7 +88,9 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		% now: Construct
 		% HAA_(n',n~',n,n~) = H(n)_(l',r',n',l,r,n)*A*_(l',r',n~')*A_(l,r,n~)
 		% for: V(t+dt) = exp(-i HAA dt)_(n',n~',n,n~) * V(t)_(n,n~)
-
+		if para.tdvp.expvCustomTestAccuracy
+			tempT = tic;
+		end
 		HAA = 0;    % kron( zeros(OBBDim), zeros(dk))
 
 		%% non-interacting Hamiltonian terms: Hleft + Hmid + Hright
@@ -109,6 +114,10 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			% Opright_(n~',n~) = A*_(l,r',n~') [Opright_(r',r) * A_(l,r,n~)]_(r',l,n~)
 			HAA = HAA + kron(op.OprightA{m}, op.h2j{m,1});
 		end
+		
+		if para.tdvp.expvCustomTestAccuracy
+			expvTime(4) = toc(tempT);
+		end
 	end
     %% Take matrix exponential
     % V(t+dt) = exp(-i HAA dt)_(n',n~',n,n~) * V(t)_(n,n~)
@@ -119,14 +128,25 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		else
 			% Do approximation of exp(A)*v
 			if para.tdvp.expvCustomTestAccuracy
+				tempT = tic;
+				V1 = expm(- 1i .* HAA .*t) * reshape(Vmat_focused,[dk*OBBDim,1]);
+				expvTime(1) = toc(tempT);
+				
+				tempT = tic;
 				V1 = expvCustom(- 1i*t,'HAA',...
 					 reshape(Vmat_focused,[dk*OBBDim,1]), para, op);
+				expvTime(3) = toc(tempT);
 			end
+			tempT = tic;
 			[Vmat_focused,err] = expv(- 1i*t,HAA,...
 						   reshape(Vmat_focused,[dk*OBBDim,1]),...
 						   para.tdvp.expvTol, para.tdvp.expvM);
+			t2 = toc(tempT);
  			if para.tdvp.expvCustomTestAccuracyRMS
 				disp(rms(Vmat_focused-V1));
+			end
+			if para.tdvp.expvCustomTestAccuracy
+				expvTime(2) = t2;
 			end
 		end
 	else
@@ -163,27 +183,41 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 
 	if para.tdvp.expvCustomNow == 0
 		%%
+		tempT = tic;
+		
 		HAA = reshape(HAA,[dk,OBBDim,dk,OBBDim]);
 		HAV = contracttensors(conj(Vmat{sitej}),2,1, HAA,4,1);
 		HAV = contracttensors(HAV,4,3, Vmat{sitej},2,1);
 		HAV = permute(HAV,[1,2,4,3]);
 		[n1,n2,n3,n4] = size(HAV);
 		HAV = reshape(HAV, [n1*n2,n3*n4]);
+		
+		t8 = toc(tempT);
 		if size(HAV,1) <= para.tdvp.maxExpMDim
-% 			V = expm( 1i.* para.tdvp.deltaT./2.*HAV) * reshape(V,[numel(V),1]);
-			[V,err] = expv(+ 1i*t,HAV,...
-					reshape(V,[numel(V),1]),...
-					para.tdvp.expvTol, para.tdvp.expvM);
+			V = expm( 1i.* t.*HAV) * reshape(V,[numel(V),1]);			% This is actually faster than expv!
+% 			[V,err] = expv(+ 1i*t,HAV,...
+% 					reshape(V,[numel(V),1]),...
+% 					para.tdvp.expvTol, para.tdvp.expvM);
 		else
 			if para.tdvp.expvCustomTestAccuracy
-				V1 = expvCustom(+ 1i*t,'HAV',...
+				tempT = tic;
+				V1 = expm( 1i.* t.*HAV) * reshape(V,[numel(V),1]);
+				expvTime(5) = toc(tempT);
+				tempT = tic;
+				V2 = expvCustom(+ 1i*t,'HAV',...
 					reshape(V,[numel(V),1]), para,op);
+				expvTime(7) = toc(tempT);
 			end
+			tempT = tic;
 			[V,err] = expv(+ 1i*t,HAV,...
 					reshape(V,[numel(V),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
+			t6 = toc(tempT);
 			if para.tdvp.expvCustomTestAccuracyRMS
 				disp(rms(V-V1));
+			end
+			if para.tdvp.expvCustomTestAccuracy
+				expvTime([6,8]) = [t6,t8];
 			end
 		end
 	else
@@ -204,6 +238,14 @@ end
 % according to Haegeman 2014
 % For Hamiltonian use h1jOBB, h2jOBB
 
+if ((BondDimLeft * BondDimRight * OBBDim) > para.tdvp.maxExpVDim) && para.tdvp.expvCustom
+	% Largest Operator for matrix Exp. is Hn -> use as criterion
+	% use expvCustom for this entire site sweep!
+	para.tdvp.expvCustomNow = 1;
+else
+	para.tdvp.expvCustomNow = 0;
+end
+
 if para.tdvp.expvCustomNow == 0
 	if para.tdvp.expvCustomTestAccuracy
 		tempT = tic;
@@ -220,7 +262,7 @@ if para.tdvp.expvCustomNow == 0
 		Hn = Hn + kron(op.h2jOBB{m,1},kron(op.Opright{m},eye(BondDimLeft)));
 	end
 	if para.tdvp.expvCustomTestAccuracy
-		t4 = toc(tempT);
+		t12 = toc(tempT);
 	end
 end
 %% Take and apply Matrix exponential
@@ -236,23 +278,25 @@ if  para.tdvp.expvCustomNow == 0
 		if para.tdvp.expvCustomTestAccuracy									% debug
 			tempT = tic;
 			mpsNew1 = expm(- 1i .* Hn .*t) * reshape(mps{sitej},[numel(mps{sitej}),1]);
-			t1 = toc(tempT);
+			expvTime(9) = toc(tempT);
 
 			tempT = tic;
 			mpsNew2 = expvCustom(- 1i*t, 'Hn',...
 					  reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
-			t3 = toc(tempT);
+			expvTime(11) = toc(tempT);
 		end
 		tempT = tic;
 		[mpsNew,err] = expv(- 1i*t, Hn,...
 				 reshape(mps{sitej},[numel(mps{sitej}),1]),...
 				 para.tdvp.expvTol, para.tdvp.expvM);
-		t2 = toc(tempT);
+		t10 = toc(tempT);
 		if para.tdvp.expvCustomTestAccuracyRMS
 			disp(rms(mpsNew-mpsNew1));	% debug
 		end
 		if para.tdvp.expvCustomTestAccuracy
-			results.tdvp.expvTime = [results.tdvp.expvTime; t1, t2, t3, t4, numel(Hn)]; % times for [ expM, expV, exvCustom, Hn building]
+			expvTime([10,12]) = [t10,t12];
+			results.tdvp.expvTime = [results.tdvp.expvTime; expvTime, [0 0 0 0], BondDimLeft, BondDimRight, OBBDim, dk]; 
+			% times for [ expM, expV, exvCustom, Hn building] x 4 for each evolution step, then matrix dimensions
 		end
 	end
 else
@@ -262,7 +306,7 @@ else
 	Hn = [];		% dummy return value;
 	t3 = toc(tempT);
 	if para.tdvp.expvCustomTestAccuracy
-		results.tdvp.expvTime = [results.tdvp.expvTime; 0,0,t3,0, (BondDimLeft*BondDimRight*OBBDim)^2];
+		results.tdvp.expvTime(end+1,[3,17,18,19,20]) = [t3, BondDimLeft,BondDimRight,OBBDim,dk];
 	end
 end
 % results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;

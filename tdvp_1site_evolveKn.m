@@ -11,8 +11,9 @@ t = para.tdvp.deltaT./2;
 if para.tdvp.imagT
 	t = -1i*t;
 end
-if isempty(Hn)
-	para.tdvp.expvCustomNow = 1;		% in case, previous Hamiltonian became invalid (due to dimension changes)
+if isempty(Hn) || numel(Cn) > para.tdvp.maxExpMDim
+	% Benchmarks show that expV is never better than expvCustom! So directly switch to it!
+	para.tdvp.expvCustomNow = 1;		% in case, previous Hamiltonian became invalid (due to dimension changes), or expvCustom was used
 end
 writeResults = 0;
 if nargout == 4 && ~isempty(results)
@@ -40,6 +41,9 @@ switch para.sweepto
 			% through contraction with A(t+dt)
 			[BondDimALeft, BondDimARight, OBBDim] = size(mps{sitej});       % if no Vmat, then this = dk
 			assert(BondDimCLeft == BondDimARight);
+			if para.tdvp.expvCustomTestAccuracy
+				tempT = tic;
+			end
 
 			% K(n)_(rl',r',rl,r) = [A*_(l',rl',n') * H(n)_(l',r',n',l,r,n)]_(rl',r',l,r,n) * A_(l,rl,n)
 			Hn = reshape(Hn, [BondDimALeft, BondDimCRight, OBBDim, BondDimALeft, BondDimCRight, OBBDim]);
@@ -48,6 +52,10 @@ switch para.sweepto
 			Kn = contracttensors(Kn,5,[3 5], mps{sitej},3,[1 3]);                       % K(n)_(rl',r',r,rl)
 			Kn = permute(Kn,[1,2,4,3]);                                                 % K(n)_(rl',r',rl,r)
 			Kn = reshape(Kn,[BondDimCLeft*BondDimCRight, BondDimCLeft*BondDimCRight]);  % K(n)_(rl'r',rlr)
+			
+			if para.tdvp.expvCustomTestAccuracy
+				results.tdvp.expvTime(end,16) = toc(tempT);
+			end
 		end
         %% Take and apply Matrix exponential
         % C(n,t) = exp(+ i K(n) dt)_(rl'*r',rl*r) * C(n,t+dt)_(rl*r)
@@ -70,13 +78,23 @@ switch para.sweepto
 					reshape(Cn,[numel(Cn),1]), para,op);
 			else
 				if para.tdvp.expvCustomTestAccuracy				% debug
+					tempT = tic;
+					Cn1 = expm( 1i .* Kn .* t) * reshape(Cn,[numel(Cn),1]);			% Time expM
+					results.tdvp.expvTime(end,13) = toc(tempT);
+					
+					tempT = tic;
 					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
 					Cn1 = expvCustom(1i*t, 'Kn',...
-						reshape(Cn,[numel(Cn),1]), para,op);
+						reshape(Cn,[numel(Cn),1]), para,op);						% Time expvCustom
+					results.tdvp.expvTime(end,15) = toc(tempT);
+					tempT = tic;
 				end
 				[Cn,err] = expv(1i*t, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
-					para.tdvp.expvTol, para.tdvp.expvM);
+					para.tdvp.expvTol, para.tdvp.expvM);							% Time expV
+				if para.tdvp.expvCustomTestAccuracy
+					results.tdvp.expvTime(end,14) = toc(tempT);
+				end
 				if para.tdvp.expvCustomTestAccuracyRMS
 					disp(rms(Cn-Cn1));		% debug
 				end
@@ -115,11 +133,19 @@ switch para.sweepto
 			% through contraction with A(t+dt)
 			% H(n) still persistent from previous sweep
 			% K(n)_(l',lr',l,lr) = [A*_(lr',r',n') * H(n+1)_(l',r',n',l,r,n)]_(lr',l',l,r,n) * A_(lr,r,n)
+			if para.tdvp.expvCustomTestAccuracy
+				tempT = tic;
+			end
+			
 			Hn = reshape(Hn, [BondDimCLeft, BondDimARight, OBBDim, BondDimCLeft, BondDimARight, OBBDim]);
 			Kn = contracttensors(conj(mps{sitej+1}),3,[2 3], Hn,6,[2 3]);                   % K(n)_(lr',l',l,r,n)
 			Kn = contracttensors(Kn,5,[4 5], mps{sitej+1},3,[2 3]);                         % K(n)_(lr',l',l,lr)
 			Kn = permute(Kn,[2,1,3,4]);                                                     % K(n)_(l',lr',l,lr)
 			Kn = reshape(Kn,[BondDimCLeft*BondDimCRight, BondDimCLeft*BondDimCRight]);      % K(n)_(l'*lr',l*lr)
+			
+			if para.tdvp.expvCustomTestAccuracy
+				results.tdvp.expvTime(end,16) = toc(tempT);
+			end
 		end
 
         %% Take and apply Matrix exponential
@@ -130,13 +156,23 @@ switch para.sweepto
 				err = 0;
 			else
 				if para.tdvp.expvCustomTestAccuracy								% debug
+					tempT = tic;
+					Cn1 = expm( 1i .* Kn .* para.tdvp.deltaT./2) *reshape(Cn,[numel(Cn),1]);
+					results.tdvp.expvTime(end,13) = toc(tempT);
+					
+					tempT = tic;
 					[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
 					Cn1 = expvCustom(1i*t, 'Kn',...
 						reshape(Cn,[numel(Cn),1]), para,op);
+					results.tdvp.expvTime(end,15) = toc(tempT);
+					tempT = tic;
 				end
 				[Cn,err] = expv(1i*t, Kn,...
 					reshape(Cn,[numel(Cn),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
+				if para.tdvp.expvCustomTestAccuracy								% debug
+					results.tdvp.expvTime(end,14) = toc(tempT);
+				end
 				if para.tdvp.expvCustomTestAccuracyRMS
 					disp(rms(Cn-Cn1));		% debug
 				end

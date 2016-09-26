@@ -506,7 +506,7 @@ grid on;
 
 %% TDVP (2.3) RDM analysis DPMES joint plots
 plotOpt = {'-fsev'};
-x.plot('rho-dpmes-new',plotOpt{:});
+x.plot('rho-dpmes',plotOpt{:});
 f = gcf; f.Name = 'Rho of DPMES Overview';
 formatPlot(f,'twocolumn-single');
 % diff(rhoii) overlay: select upper plot first!
@@ -2270,23 +2270,108 @@ xlabel('t');
 ylabel('$<s_z>$');
 formatPlot(figN);
 
-%% TDVP (11) expvCustom Benchmarking
+%% TDVP (11.1) expvCustom Benchmarking: evolve V
 % [ expM, expV, exvCustom, Hn building, numel(Hn)]
 figure(9);clf;
 hold all
-% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,1),'+');
-scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,1)+results.tdvp.expvTime(:,4),'+');
-% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,2),'*');
-scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,4),'*');
-scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,3),'o');
-% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,4));
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),results.tdvp.expvTime(:,1)+results.tdvp.expvTime(:,4),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,4),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),results.tdvp.expvTime(:,3),'o','DisplayName','expvCustom');
 set(gca,'yscale','log')
 set(gca,'xscale','log')
 set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
-legend('expM','expV','expvCustom','Location','best')
+legend('Location','best')
 xlabel('Matrix dimension n')
 ylabel('Time/s')
 formatPlot(9,'twocolumn-single')
+%% TDVP (11.1.1) expvCustom Benchmarking 3D: evolve V
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(9);clf;
+hold all
+scatter3(results.tdvp.expvTime(:,19),results.tdvp.expvTime(:,20),results.tdvp.expvTime(:,1)+results.tdvp.expvTime(:,4),'+','DisplayName','expM');
+scatter3(results.tdvp.expvTime(:,19),results.tdvp.expvTime(:,20),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,4),'*','DisplayName','expV');
+scatter3(results.tdvp.expvTime(:,19),results.tdvp.expvTime(:,20),results.tdvp.expvTime(:,3),'o','DisplayName','expvCustom');
+set(gca,'zscale','log')
+% set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+axis tight
+formatPlot(9,'twocolumn-single')
+
+%% TDVP (11.2) expvCustom Benchmarking: evolve CV
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(10);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[19,19]),2),results.tdvp.expvTime(:,5)+results.tdvp.expvTime(:,8),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[19,19]),2),results.tdvp.expvTime(:,6)+results.tdvp.expvTime(:,8),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[19,19]),2),results.tdvp.expvTime(:,7),'o','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(10,'twocolumn-single')
+%% TDVP (11.3) expvCustom Benchmarking: evolve A
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(11);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[17,18,19]),2),results.tdvp.expvTime(:, 9)+results.tdvp.expvTime(:,12),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[17,18,19]),2),results.tdvp.expvTime(:,10)+results.tdvp.expvTime(:,12),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[17,18,19]),2),results.tdvp.expvTime(:,11),'o','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(11,'twocolumn-single')
+
+%% TDVP (11.4) expvCustom Benchmarking: evolve CA
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(12);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[17,18]),2),results.tdvp.expvTime(:,13)+results.tdvp.expvTime(:,16),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[17,18]),2),results.tdvp.expvTime(:,14)+results.tdvp.expvTime(:,16),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[17,18]),2),results.tdvp.expvTime(:,15),'o','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(12,'twocolumn-single')
+
+%% TDVP (11.5) expvCustom Benchmarking: evolve V+CV
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(15);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),sum(results.tdvp.expvTime(:,[1,4,5,8]),2),'.','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),sum(results.tdvp.expvTime(:,[2,4,6,8]),2),'.','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),sum(results.tdvp.expvTime(:,[3,7]),2),'.','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(15,'twocolumn-single')
+%% TDVP (11.6) expvCustom Benchmarking: evolve A+CA
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(16);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,17:19),2),sum(results.tdvp.expvTime(:,[1,4,5,8]+8),2),'.','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,17:19),2),sum(results.tdvp.expvTime(:,[2,4,6,8]+8),2),'.','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,17:19),2),sum(results.tdvp.expvTime(:,[3,7]+8),2),'.','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(16,'twocolumn-single')
 
 %% TDVP (12) expError analysis
 
