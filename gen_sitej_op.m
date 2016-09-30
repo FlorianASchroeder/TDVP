@@ -18,7 +18,7 @@ switch para.sweepto
         op.Hright = op.Hlrstorage{sitej + 1};				% H_r which is non-interacting with site j, In eff basis of current r_j
 
         % Rescale if wanted
-        if sitej>=3 && para.rescaling==1
+        if sitej >= 3 && isfield(para,'rescaling') && para.rescaling
             Lambda = para.chain{1}.Lambda;
             %old: op.Hleft =Lambda.^(sitej-2).*(op.Hlrstorage{sitej}-leftge(sitej).*eye(size(op.Hlrstorage{sitej})));
 

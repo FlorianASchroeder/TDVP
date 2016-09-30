@@ -46,6 +46,7 @@ function out = getObservable(type,mps,Vmat,para)
 % Modified:
 %	- 21/12/14 FS: replaced OBB contractions with faster matrix products.
 %	- 21/08/15 FS: added Multi-Chain Vmat / Vtens capability
+%	- 28/02/16 FS: added TreeMPS support
 switch type{1}
     case 'spin'
         % applicable for spin-boson model and for folded SBM2
@@ -53,7 +54,10 @@ switch type{1}
 
     case 'occupation'
         % applicable to all single stranded chains. Extensible to 2-chains
-		if para.foldedChain == 0
+		if para.useTreeMPS == 1
+			out = calBosonOcc_Tree(mps,para);			% (L x NC)
+			return;
+		elseif para.foldedChain == 0
 			if para.nChains == 1
 				out = calBosonOcc(mps,Vmat,para);
 			else										% Multi-chain with Vmat / V-tensor-network
@@ -64,7 +68,7 @@ switch type{1}
 			out(2,:) = calBosonOcc(mps,Vmat,para,2);
 		end
 		if size(out,1) > 1
-			out = out.';			% (L x NC) for compatibility with tresults
+			out = out.';								% (L x NC) for compatibility with tresults
 		end
 
     case 'shift'
@@ -79,7 +83,11 @@ switch type{1}
     case 'rdm'
         % applicable to all systems.
 		if type{2} <= para.L
-            out = calRDM(mps,Vmat,para,type{2});
+			if para.useTreeMPS
+				out = calRDM(mps.mps,mps.Vmat,para,1);	% only for site 1 for now.
+			else
+	            out = calRDM(mps,Vmat,para,type{2});
+			end
 		else
             out = [];
 		end
@@ -137,13 +145,21 @@ switch type{1}
 		% closely related to 'rdm_adiabatic'
 		% {'state',sitej}
 		if type{2} ~= 1
-			error('rdm_adiabatic only available for site 1');
+			error('VMPS:getObservable:state','state only available for site 1');
 		end
 		if para.nChains > 1
 			if para.useStarMPS
 				d = size(mps{1});
 				A = reshape(mps{1},[],d(end));		% ... x dk
 				[U,S,~] = svd2(A.');				% transpose to benefit from speedup in svd2
+			elseif para.useTreeMPS
+				d = size(mps.mps{1});
+				[~,V] = prepare_onesiteAmat(reshape(mps.mps{1},d(1),[],d(end)),para,1);		% A_(1,D(1)*..*D(NC),dOBB') * V_(dOBB',dk)
+				if diff(size(V)) ~= 0														% if dOBB < dk then expand
+					V(d(end),d(end)) = 0;
+				end
+				out = V';
+				return;
 			else
 				error('VMPS:getObservable:NotImplemented','Needs to be implemented!')
 			end
@@ -212,6 +228,47 @@ switch type{1}
 		% {'bath1correlators',obs,'adiabatic'}: projects onto adiabatic states
 		
 		NC = para.nChains;
+		
+		if para.useTreeMPS && isstruct(mps)
+			if length(type) == 2
+				out = calBath1SiteCorrelators_Tree(mps,para,type{2});		% L x NC
+			else
+				out = zeros(para.L, mps.dk(1), NC);
+				% One SVD to dk to separate diabatic or adiabatic basis!
+				% Assume, Vmat of node = eye; mps == treeMPS
+				assert(all(all(mps.Vmat{1} == eye(mps.dk(1)))),'Please implement for Vmat ~= eye, if this happens!');
+				d = size(mps.mps{1});
+				[A,V] = prepare_onesiteAmat(reshape(mps.mps{1},d(1),[],d(end)),para,1);		% A_(1,D(1)*..*D(NC),dOBB') * V_(dOBB',dk)
+				A = reshape(A,[],size(A,3));
+				% Now dOBB is adiabatic basis, dk is diabatic. V carries probabilities for each state, which will be removed later!
+				for kk = 1:mps.dk(1)
+					newV = zeros(size(V));
+					if strcmpi(type{3},'diabatic')
+					% Project onto root nodes' diabatic states
+						newV(:,kk) = V(:,kk);
+					elseif strcmpi(type{3},'adiabatic')
+					% Project onto root nodes' adiabatic states
+						newV(kk,:) = V(kk,:);
+					elseif strcmpi(type{3},'lettcoherence')		% get |TT><LE+| mode-mediated coherence terms
+						newV = V;
+						projOp = zeros(size(V,2));
+						projOp(1,2) = 1;% projOp(2,1) = 1;
+					end
+					if norm(newV) ~= 0
+						newV = newV./norm(newV);				% remove weight by /norm()
+					end
+					mps.mps{1} = reshape(A*newV,d);
+					if strcmpi(type{3},'lettcoherence')
+						out(:,kk,:) = calBath1SiteCorrelators_Tree(mps,para,type{2},projOp);		% projection needed for cross terms
+						break;																		% only do once!
+					else
+						out(:,kk,:) = calBath1SiteCorrelators_Tree(mps,para,type{2});				% no projection needed anymore inside calBath1SiteCorrelators
+					end
+				end
+			end
+			return;
+		end
+		
 		if length(type) == 3
 			out = zeros(para.L, para.dk(1,1), NC);
 		elseif length(type) == 2
@@ -219,7 +276,7 @@ switch type{1}
 		else
 			error('VMPS:getObservable:bath1correlators','Please call with correct input');
 		end
-			
+		
 		if para.useStarMPS
 			for mc = 1:NC
 				% extract MPS for each chain and calculate <anam> separately
@@ -508,6 +565,11 @@ if para.useVtens || para.useStarMPS               % only Quick Fix for Vtens cod
 	spin.sz = spinVal(3);
 	return;
 end
+if para.useTreeMPS
+	McOp = cell(1,1,3);        % L x NC x N
+	[McOp{1}, McOp{2}, McOp{3}] = spinop(para.spinbase);
+	error('VMPS:getObservable:NotImplementedYet','Please implement this feature!')
+end
 N=para.L;
 assert(N==length(mps) && N==length(Vmat));
 assert(~strcmp(para.model,'MLSpinBoson'),'not possible for MLSBM');
@@ -616,6 +678,55 @@ end
 % else
 	n = real(expectation_allsites_MC(McOp,mps,Vtens,para));  % (NC x L)
 % end
+
+end
+
+function n = calBosonOcc_Tree(treeMPS,para)
+%% calculate the boson occupation for treeMPS
+% Zero operator for spin site
+% calculate for all chains simultaneously
+%
+% Created by FS 28/02/2016
+%
+
+% L = para.L; NC = para.nChains;				% total number of site and chains
+
+% Implement recursively for now!
+if treeMPS.height == 0
+	% this is leaf / chain
+	% create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
+	Lc = treeMPS.L;							% length of chain
+	Op = cell(1,Lc);
+	for j = 1:Lc
+		if isempty(treeMPS.spinposition) || j ~= treeMPS.spinposition					% works with array
+			[~,~,Op{1,j}] = bosonop(treeMPS.dk(1,j),treeMPS.shift(1,j),para.parity);
+		else
+			Op{1,j} = zeros(treeMPS.dk(1,j));		% don't measure spin.
+		end
+	end
+
+	n = real(expectation_allsites(Op,treeMPS.mps,treeMPS.Vmat,treeMPS.BondCenter));		% (NC x L)
+	n = reshape(n,[],1);					% L x 1
+else
+	% this is node -> more recursive calls
+	% assume, Focused on MPS!
+	% save n into temp cell array, since total number of chains at this node is unknown
+	nc    = treeMPS.degree;										% number of subchains at node
+	nTemp = cell(1,nc);
+	Atemp = contracttensors(treeMPS.BondCenter,2,2,treeMPS.mps{1},nc+2,1);
+	for ii = 1:nc
+		treeMPS.child(ii).BondCenter = contracttensors(conj(treeMPS.mps{1}),nc+2,[1:ii,ii+2:nc+2],Atemp,nc+2,[1:ii,ii+2:nc+2]);	% contract all except D_(ii+1)
+		nTemp{ii}                    = calBosonOcc_Tree(treeMPS.child(ii),para);		% L x nc(child)
+	end
+	lengths = cellfun(@(x) size(x,1),nTemp);
+	nChains = cellfun(@(x) size(x,2),nTemp);
+	n  = zeros(max(lengths)+1,sum(nChains));											% L x nc_max
+	mc = 0;
+	for ii = 1:nc
+		n(1+(1:lengths(ii)),mc+(1:nChains(ii))) = nTemp{ii};							% copy all together
+		mc = mc + nChains(ii);
+	end
+end
 
 end
 
@@ -869,6 +980,78 @@ for j = 1:para.L
 		else
 			opContract{1,1} = bondProj;
 		end
+	end
+end
+
+end
+
+function An = calBath1SiteCorrelators_Tree(treeMPS,para,opSelect,projOp)
+% calculates the single-site expectation value
+% Zero operator for spin sites / nodes
+% output is matrix containing all values for all chains (L x nChains)
+% custom made solution for biggest speedup, exact solution!
+%	opSelect: ['bp'|'x'|'bp^2'|'x^2'|'n']
+%
+% Projection operator only applied to dk of root node!
+% supports only TreeMPS input!
+%
+% Created by FS 11/03/2016
+%
+
+% Implement recursively for now!
+if treeMPS.height == 0
+	% this is leaf / chain
+	% create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
+	Lc = treeMPS.L;							% length of chain
+	Op = cell(1,Lc);
+	for j = 1:Lc
+		if isempty(treeMPS.spinposition) || j ~= treeMPS.spinposition					% works with array
+			bp              = bosonop(treeMPS.dk(1,j),treeMPS.shift(1,j),para.parity);
+			switch opSelect
+				case 'bp'
+					Op{1,j} = bp;
+				case 'x'
+					Op{1,j} = (bp+bp')/2;
+				case 'bp^2'
+					Op{1,j} = bp^2;
+				case 'x^2'
+					Op{1,j} = (bp+bp')^2/4;
+				case 'n'
+					Op{1,j} = bp*bp';
+			end
+		else
+% 			if nargin > 3
+% 				Op{1,j} = projOp;						% use Projection operator if specified
+% 			else
+				Op{1,j} = zeros(treeMPS.dk(1,j));		% no projection
+% 			end
+		end
+	end
+
+	An = expectation_allsites(Op,treeMPS.mps,treeMPS.Vmat,treeMPS.BondCenter);			% (NC x L)
+	An = reshape(An,[],1);					% L x 1
+else
+	%% this is node -> more recursive calls
+	% assume, Focused on MPS!
+	% save n into temp cell array, since total number of chains at this node is unknown
+	nc    = treeMPS.degree;										% number of subchains at node
+	AnTemp = cell(1,nc);
+	Atemp = contracttensors(treeMPS.BondCenter,2,2,treeMPS.mps{1},nc+2,1);
+	if nargin > 3 && ~isempty(projOp)
+		Atemp = contracttensors(Atemp,nc+2,nc+2,projOp.',2,1);							% Apply projection to first site
+	end
+		
+	for ii = 1:nc
+		treeMPS.child(ii).BondCenter = contracttensors(conj(treeMPS.mps{1}),nc+2,[1:ii,ii+2:nc+2],Atemp,nc+2,[1:ii,ii+2:nc+2]);	% contract all except D_(ii+1)
+		AnTemp{ii}                   = calBath1SiteCorrelators_Tree(treeMPS.child(ii),para,opSelect);		% L x nc(child)
+	end
+	lengths = cellfun(@(x) size(x,1),AnTemp);
+	nChains = cellfun(@(x) size(x,2),AnTemp);
+	An  = zeros(max(lengths)+1,sum(nChains));											% L x nc_max
+	mc = 0;
+	for ii = 1:nc
+		An(1+(1:lengths(ii)),mc+(1:nChains(ii))) = AnTemp{ii};							% copy all together
+		mc = mc + nChains(ii);
 	end
 end
 

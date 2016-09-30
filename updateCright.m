@@ -1,4 +1,6 @@
 function [Cright] = updateCright(Cright, B, BUb, X, A, AUb)
+%% function [Cright] = updateCright(Cright, B, BUb, X, A, AUb)
+%
 % Computes contraction to put operator X in effective basis of B and A.
 % BUb and AUb are the V matrices to express A in optimal boson basis.
 % B and A are left and right MPS A-matrices

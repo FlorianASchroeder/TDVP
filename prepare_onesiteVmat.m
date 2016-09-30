@@ -8,8 +8,8 @@ function [Vmat, V, results, d_opt, sv] = prepare_onesiteVmat(Vmat,para,results,s
 err = 0;
 if dk>=d_opt
 	if para.parity=='n'
-		[Vmat, S, V] = svd2(Vmat);				% TODO: if nargin ==4 then SVD, store results else QR; only for 'n'
-		if norm(diag(S)) ~= 1
+		[Vmat, S, V] = svd2(Vmat);						% TODO: if nargin ==4 then SVD, store results else QR; only for 'n'
+		if norm(diag(S)) ~= 1 && ~all(diag(S) == 1)		% 2nd condition to maintain norm for already orthogonal Vmat (initial preparation)
 			S = S./norm(diag(S));						% normalisation necessary for thermal steps
 		end
 		sv = diag(S);
@@ -32,7 +32,7 @@ if dk>=d_opt
         sv=sv_odd+1i*sv_even;
         d_opt = size(S_odd, 1)+size(S_even,1);
         V = blkdiag(S_odd * V_odd,S_even*V_even);
-    end
+	end
 end
 if nargin >= 4 && ~isempty(results)
     results.Vmat_vNE(sitej) = Vmat_vNE;

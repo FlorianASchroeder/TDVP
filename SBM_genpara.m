@@ -36,7 +36,7 @@ if strcmp(chainpara.mapping,'OrthogonalPolynomials')
 	assert(isfield(chainpara,'L') && chainpara.L>1,'Please state required finite chain length!');
     assert(isfield(chainpara,'alpha'),'Please state para.alpha, the strength of coupling!');
 
-	[chainpara.epsilon, chainpara.t] = chainParams_OrthogonalPolynomials();
+	[chainpara.epsilon, chainpara.t] = chainParams_OrthogonalPolynomials();			% returns length L parameters to allow pure boson chains
 	return;
 end
 
@@ -54,7 +54,7 @@ if chainpara.Lambda > 1
 	bigL = ceil(floor(-1*log(realmin)/log(chainpara.Lambda))/2)
 	%Use a large enough start H to make sure the accuracy after transformed to Wilson chain
 elseif chainpara.Lambda == 1
-	assert(chainpara.L > 1,'You need to define a chain length > 1!');
+	assert(chainpara.L > 1 || strcmp(chainpara.spectralDensity,'CoupDiscr'),'You need to define a chain length > 1!');
 	% TODO: make sensible estimate!
 	bigL = 10*chainpara.L		% arbitrary now
 	if strcmp(chainpara.discrMethod,'Direct') && strcmp(chainpara.mapping,'Stieltjes')
@@ -182,7 +182,7 @@ end
         % No need for tridiagonalization since analytical result.
         % t(1) == sqrt(eta_0/pi)/2
 % 		wc = 1;     % cutoff is set to 1 always!
-        n = (0:chainpara.L-2)';
+        n = (0:chainpara.L-1)';
 		if ~isempty(strfind(chainpara.spectralDensity,'Leggett')) && strcmp(chainpara.discretization, 'None')
 			if ~isempty(strfind(chainpara.spectralDensity,'Hard'))
 				w = w_cutoff/2.*(1+ (s^2./((s+2.*n).*(2+s+2.*n))));                                     % w(1) = w(n=0)
@@ -219,13 +219,13 @@ end
 		if ~strcmp(chainpara.spectralDensity,'CoupDiscr')
 	        [epsilon,t]			= extroplate(epsilon,t,chainpara.L);              % extrapolate very small levels for higher precision
 		end
-        w = epsilon(1:chainpara.L-1);
-        t = t(1:chainpara.L-1);
+        w = epsilon(1:chainpara.L);
+        t = t(1:chainpara.L);
 		U = U(:,1:chainpara.L);
     end
 
     function [w, t] = chainParams_Stieltjes(xi, Gamma)
-        ab = stieltjes(chainpara.L-1,[xi,Gamma.^2]);
+        ab = stieltjes(chainpara.L,[xi,Gamma.^2]);
         w  = ab(:,1);
 		t  = ab(:,2);
 		t  = [sqrt(sum(Gamma.^2)); t];                             % put sqrt(eta_0/pi) = t(1) by hand in!

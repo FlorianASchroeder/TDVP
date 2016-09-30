@@ -19,6 +19,10 @@ switch lower(variant)
 		out = testRandomizedQR();
 	case 'rrqrsweep'
 		out = testRandomizedQRsweep();
+	case 'cellstructmps'
+		out = testCellStructMPS();
+	case 'copyonwrite'
+		out = testCopyOnWrite();
 end
 
 end
@@ -531,4 +535,219 @@ surf(errQR);
 
 end
 
+function out = testCellStructMPS()
+%% function out = testCellStructMPS()
+%	tests whether a struct MPS has any speed disadvantages compared to a cell-array MPS
+%	useful to assess suitability of struct MPS for TreeMPS implementation.
+
+% define test case as StarMPS
+% do star(center + 2 chains + star(center + 2 chains))
+Lchains = 5;
+D = 30;			% one BondDim for all edges
+Nruns = 300;
+tCell = zeros(Nruns,1);
+tStruct = zeros(Nruns,1);
+
+% Define ChainMPS
+chainMPS = cell(1,Lchains);
+for ii = 1:Lchains
+	if ii == Lchains
+		chainMPS{ii} = randn(D,1,D);			% end-of-chain -> Dr = 1
+	else
+		chainMPS{ii} = randn(D,D,D);
+	end
+end
+% Define inner StarMPS
+starMPS = cell(3,1);	% {center, chain1, chain2}
+starMPS{1} = randn(D,D,D,D);	% Dl, Dc1, Dc2, dk
+starMPS{2} = chainMPS;			% copy chainMPS
+starMPS{3} = chainMPS;			% copy chainMPS
+
+% Build Cell MPS
+cellMPS = [starMPS;{starMPS}];
+cellMPS{1} = reshape(cellMPS{1},[1,size(cellMPS{1})]);		% include Dl = 1
+
+% Build Struct MPS
+structChainMPS = struct();		% smallest subunit
+structChainMPS.mps = chainMPS;
+
+structStarMPS = struct();
+structStarMPS.mps = {starMPS{1};structChainMPS;structChainMPS};
+
+structMPS = struct();
+structMPS.mps = {cellMPS{1}; structChainMPS; structChainMPS; structStarMPS};
+
+%% Get Timings for contraction calls
+for ii = 1:Nruns
+	tic
+	calcCrightCell(cellMPS);
+	timing = toc;
+	tCell(ii,1) = timing;
+	
+	tic
+	calcCrightStruct(structMPS);
+	timing = toc;
+	tStruct(ii,1) = timing;
+end
+
+out = [tCell,tStruct];
+
+plot(out);
+legend('Cell','Struct')
+end
+
+function out = testCopyOnWrite()
+%% function out = testCopyOnWrite()
+%	tests whether an assignment followed by read only impairs speed
+
+% define test case
+% do star(center + 2 chains + star(center + 2 chains))
+NC = 3;
+D = 200;			% one BondDim for all edges
+Nruns = 30;
+tDirect = zeros(Nruns,1);
+tRead = zeros(Nruns,1);
+tWrite = zeros(Nruns,1);
+
+MPS = randn(ones(1,NC)*D);
+op = randn(D,D);
+
+%% Get Timings for contraction calls
+for ii = 1:Nruns
+	% Direct access
+	tic
+	B = contracttensors(op,2,2, MPS,NC,1);
+	timing = toc;
+	tDirect(ii,1) = timing;
+	
+	% Read only access
+	tic
+	Amat = MPS;				% pass on handle
+	B = contracttensors(op,2,2, MPS,NC,1);
+	timing = toc;
+	tRead(ii,1) = timing;
+	
+	% write inbetween
+	tic
+	Amat = MPS;				% pass on handle
+	Amat(1) = 2;			% arbitrary write access
+	B = contracttensors(op,2,2, Amat,NC,1);
+	timing = toc;
+	tWrite(ii,1) = timing;
+end
+
+out = [tDirect,tRead,tWrite];
+
+plot(out);
+legend('Direct','Read','Write')
+end
+
+function out = calcCright(MPS)
+%% calculates <MPS|MPS> into the left effective basis
+if isstruct(MPS)
+	% code for Struct MPS
+	MPS = MPS.mps;
+else
+	% code for Cell MPS
+end
+
+if size(MPS,1) ~= 1
+	%% get the Cright for each chain and contract with center
+	NC = size(MPS,1)-1;			% first element is Tree root
+% 	Cright = cell(NC,1);
+	Atens = shiftdim(MPS{1},1);		% already shift leading singleton to the end.
+	nd = ndims(MPS{1});
+	for ii = 2:NC+1
+		Cright = calcCright(MPS{ii});
+		Atens = contracttensors(Atens,nd,1,Cright.',2,1);
+	end
+	Atens = shiftdim(Atens,1);		% shift dk to the end
+	
+	out = contracttensors(conj(MPS{1}),nd,2:nd,Atens,nd,2:nd);
+else
+	%% iterate through chain and updateCright()
+	C = [];
+	L = size(MPS,2);
+	for ii = 1:L
+		C = updateCright(C,MPS{L-ii+1},[],[],MPS{L-ii+1},[]);
+	end
+	out = C;
+end
+
+end
+
+function out = calcCrightCell(MPS)
+%% calculates <MPS|MPS> into the left effective basis
+%	for Cell MPS
+if size(MPS,1) ~= 1
+	%% get the Cright for each chain and contract with center
+	NC = size(MPS,1)-1;			% first element is Tree root
+% 	Cright = cell(NC,1);
+	Atens = shiftdim(MPS{1},1);		% already shift leading singleton to the end.
+	nd = ndims(MPS{1});
+	for ii = 2:NC+1
+		Cright = calcCrightCell(MPS{ii});
+		Atens = contracttensors(Atens,nd,1,Cright.',2,1);
+	end
+	Atens = shiftdim(Atens,1);		% shift dk to the end
+	
+	out = contracttensors(conj(MPS{1}),nd,2:nd,Atens,nd,2:nd);
+else
+	%% iterate through chain and updateCright()
+	C = [];
+	L = size(MPS,2);
+	for ii = 1:L
+		C = updateCright(C,MPS{L-ii+1},[],[],MPS{L-ii+1},[]);
+	end
+	out = C;
+end
+
+end
+
+function out = calcCrightStruct(MPS)
+%% calculates <MPS|MPS> into the left effective basis
+%	for Struct MPS
+if size(MPS.mps,1) ~= 1
+	%% get the Cright for each chain and contract with center
+	NC = size(MPS.mps,1)-1;			% first element is Tree root
+% 	Cright = cell(NC,1);
+	Atens = shiftdim(MPS.mps{1},1);		% already shift leading singleton to the end.
+	nd = ndims(MPS.mps{1});
+	for ii = 2:NC+1
+		Cright = calcCrightStruct(MPS.mps{ii});
+		Atens = contracttensors(Atens,nd,1,Cright.',2,1);
+	end
+	Atens = shiftdim(Atens,1);		% shift dk to the end
+	
+	out = contracttensors(conj(MPS.mps{1}),nd,2:nd,Atens,nd,2:nd);
+else
+	%% iterate through chain and updateCright()
+	C = [];
+	L = size(MPS.mps,2);
+	for ii = 1:L
+		C = updateCright(C,MPS.mps{L-ii+1},[],[],MPS.mps{L-ii+1},[]);
+	end
+	out = C;
+end
+
+end
+
+function [outMPS] = moveFocus(mps,i,j)
+	% Moves the focus from site i to site j
+	% i needs to indicate the current state
+	if i > j
+		error('VMPS:tdvp_1site:NotYetImplemented','Moving Focus from right to left still needs to be implemented'),
+	end
+	outMPS = mps;
+	for k = i:j-1
+		d = size(outMPS{k});
+		A = permute(outMPS{k}, [3, 1, 2]);
+		A = reshape(A, d(3)*d(1), []);		% reshapes to (a1 d),a2
+		[A, S, U] = svd2(A);
+		A = reshape(A, d(3), d(1), []);
+		outMPS{k} = permute(A, [2, 3, 1]);
+		U = S * U;
+		outMPS{k+1} = contracttensors(U,2,2, outMPS{k+1},3,1);
+	end
+end
 %% How to replace tensor contraction with bsxfun
