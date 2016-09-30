@@ -486,6 +486,32 @@ set(gca,'ylim',[0,1]);
 xlabel('t');
 ylabel('$\sqrt{<s_x>^2+<s_y>^2+<s_z>^2}$');
 legend('Bloch length','Visibility');
+
+%% TDVP (2.3) RDM analysis separate plots
+plotOpt = {'-fsev'};
+f = figure(1); clf; hold all;
+x.plot('rhoii',plotOpt{:});
+formatPlot(f,'twocolumn-single')
+grid on;
+
+f = figure(2); clf; hold all;
+x.plot('rhoij-imag',plotOpt{:});
+formatPlot(f,'twocolumn-single')
+grid on;
+
+f = figure(3); clf; hold all;
+x.plot('rhoij-real',plotOpt{:});
+formatPlot(f,'twocolumn-single')
+grid on;
+
+%% TDVP (2.3) RDM analysis DPMES joint plots
+plotOpt = {'-fsev'};
+x.plot('rho-dpmes',plotOpt{:});
+f = gcf; f.Name = 'Rho of DPMES Overview';
+formatPlot(f,'twocolumn-single');
+% diff(rhoii) overlay: select upper plot first!
+% plot(x.t(1:x.lastIdx-1)*0.658,-25*diff(real(x.rho(1:x.lastIdx,1,1))),'-.','Color',[0.5,0.5,0.5],'LineWidth',1.5); % for LE+
+
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 0;		% 0: lin, 1: log
@@ -531,61 +557,7 @@ else
 end
 ax.CLim = ax.ZLim;
 % ax.YLim = [0,100];
-%% TDVP (3.1): Plot <n> CHAIN - MC Slider
-mode = 0;		% 0: lin, 1: log
-f=figure(313); clf; f.Name = 'Chain Occupation'; pos = f.Position;
-del = findobj(f,'Type','hgjavacomponent'); del.delete;	% get rid of old sliders
-hold all; ax = gca; ax.UserData = 1;
-hPl = handle(ax); hProp = findprop(hPl,'UserData');
-% x = res{9,1}; tresults = x.tresults; para = x.para;
-% x = res(9); tresults = x.tresults; para = x.para;
-if str2double(para.tdvp.version(2:end)) < 50
-	tresults.n = tresults.nx;
-end
-n = tresults.n;
-l = find(n(:,3,1),1,'last');
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-if mode
-	pl = surf(1:size(n,2),t(1:l),log10(abs(n(1:l,:,ax.UserData))));
-	hPl.addlistener(hProp, 'PostSet', @(src, event) set(pl, 'zdata', log10(abs(n(1:l, :, ax.UserData)))));
-% 	surf(1:size(n,2),t(1:l),log10(abs(real(n(1:l,:))-ones(l,1)*real(n(1,:)))));		% subtract intitial population
-	zlabel('$\log_{10}\left<n_k\right>$');
-else
-	pl = surf(1:size(n,2),t(1:l),real(n(1:l,:,ax.UserData)));
-	hPl.addlistener(hProp, 'PostSet', @(src, event) set(pl, 'zdata', real(n(1:l,:,ax.UserData))));
-% 	surf(1:size(n,2),t(1:l),real(n(1:l,:))-ones(l,1)*real(n(1,:)));			% subtract initial population
-	zlabel('$\left<n_k\right>$');
-end
-cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = ax.ZLabel.String;
-xlabel('Site $k$');
-ylabel('Time $\omega_c t$');
-% set(gca,'yscale','log');se
-% set(gca,'View',[0 42]);
-set(gca,'View',[0 90]);
-shading interp
-rotate3d on
-axis tight
-if mode
-% 	ax.ZLim = [-30, max(max(ax.Children.ZData))];
-% 	ax.ZLim = [-6, 0];
-else
-% 	ax.ZLim = [0.1,1].*10^-26;
-end
-% ax.CLim = ax.ZLim;
-% ax.YLim = [0,100];
-
-% slider definition for datasets:
-sld = javax.swing.JScrollBar(0,1,1,1,para.nChains+1);		%JScrollBar(int orientation, int value, int extent, int min, int max)
-javacomponent(sld, [pos(3)*0.65,5,200,15], gcf);
-sld.setUnitIncrement(1); sld.setBlockIncrement(3);
-hsld = handle(sld,'CallbackProperties');
-set(hsld,'AdjustmentValueChangedCallback',@(source,callbackdata) set(ax,'userdata',round(source.Value)));
-%% TDVP (3.1): Plot <n> CHAIN - TDVPData
+%% TDVP (3.1): 2D Plot <n> CHAIN - L x t - TDVPData
 mode = 0;		% 0: lin, 1: log
 f=figure(313); clf; f.Name = 'Chain Occupation';
 del = findobj(f,'Type','hgjavacomponent'); del.delete;	% get rid of old sliders
@@ -597,6 +569,321 @@ if mode
 	h = x.plotSld2D('chain-n','-log');
 else
 	h = x.plotSld2D('chain-n','-fsev');
+end
+%% TDVP (3.1): 1D Plot <n> Chain coherence - TDVPData
+f=figure(315);  f.Name = ''; clf; hold all; ax = gca;
+% x = res(6);
+pl = x.plotSld1D('chain-n-c-t','-fsev',f);
+leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+ylabel('$|TT\rangle\langle LE^+|\hat n_k$');
+grid on
+axis tight
+formatPlot(f,'twocolumn-single')
+
+%% TDVP (3.1): 1D Plot <n> Chain DFT - norm dist - TDVPData
+f=figure(315);  f.Name = ''; clf; hold all; ax = gca;
+x = res(4);
+h = x.plotSld1DFT('chain-n','-cmev','-norm','-dist','-smoothres',f);
+set(h.sld{2},'Value',20);	% start with 20 zero padding
+leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+ylabel('$|FT (n_2)|$');
+grid on
+axis tight
+[h.ax.XLim] = deal([0,2000]);
+formatPlot(f,'twocolumn-single')
+%% TDVP (3.1): 1D Plot <n> Chain DFT - dist - TDVPData
+f=figure(316);  f.Name = ''; clf; hold all; ax = gca;
+x = res(4);
+h = x.plotSld1DFT('chain-n','-cmev','-dist','-smoothres',f);
+set(h.sld{2},'Value',20);	% start with 20 zero padding
+set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+ylabel('$|FT (n_{RC})|$');
+[h.ax.XLim] = deal([0,2000]);
+formatPlot(f,'twocolumn-single')
+drawnow; h.controlPanel.delete;
+%% TDVP (3.1): 1D Plot <n> RC - diabatic all chains, grid - TDVPData
+% x = y(end);
+h = x.plot('chain-n-d-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Diabatic Occupation RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.8,0.85,sprintf('$\\langle n \\rangle_{max} \\approx %g$',h.f.Children(ii).YLim(end)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
+legend(popName{:});
+ax(end).Visible = 'off';
+t = title(x.folder); t.Units = 'norm'; t.Position = [0.5,-0.13,0];
+%% TDVP (3.1): 1D Plot <n> RC - adiabatic all chains, grid - TDVPData
+% x = y(1);
+h = x.plot('chain-n-a-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Occupation RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.8,0.85,sprintf('$\\langle n \\rangle_{max} \\approx %g$',h.f.Children(ii).YLim(end)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
+legend toggle;
+ax(end).Visible = 'off';
+t = title(x.folder); t.Units = 'norm'; t.Position = [0.5,-0.13,0];
+%% TDVP (3.1): 2D Plot <n> RC tFFT
+nc = 2;
+f = figure(310+nc+4); clf;f.Name = sprintf('Chain %d',nc);
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;			% convert from simulation timescale to cm
+h.data = real(squeeze(real(x.occC(1:h.m,2,nc))));		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,350/x.dt);
+h.tdata = x.t;
+h.Fs = 1/x.dt;
+h.nwind = 1024*6;
+%spectrogram(x     ,window        ,Nolap,NFFT/F,h.Fs,'yaxis','reassigned','power','MinThreshold',-40); 
+[h.S,h.F,h.T,h.P] = spectrogram(h.data,kaiser(h.nwind,5),h.nwind-2,[0:1600]*h.tTocm,h.Fs,'yaxis','reassigned','power','MinThreshold',-50);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,0:0.0001:0.04,h.Fs,'yaxis','reassigned','power','MinThreshold',-40);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,(h.m*7),h.Fs,'yaxis','reassigned','power','MinThreshold',-40);		% to zero padding across entire range!
+% ax=gca; ax.Children.YData = ax.Children.YData/0.658*4.135*8065.73*1e-3; ylim([0,2000]);
+% surf(h.T,h.F,10*log10(abs(h.P).^2))
+surf(h.T*0.658,h.F,mag2db(h.P))
+axis tight; shading interp; view([0,90]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
+
+ax=gca; ax.Children.YData = ax.Children.YData/h.tTocm; ylim([0,1600]); xlim([0,960]);
+%% TDVP (3.1): 2D Plot <n> RC WSST
+%	Wavelet Synchrosqueezed Transform
+% not optimal, since needs better scale resolution! padding is not controllable!
+nc = 3; fwind = 1;
+popName = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+for nc = [1:7]
+% for fwind = [1,2,4,6,8]
+f = figure(300+nc*10+fwind); clf;f.Name = sprintf('Chain WSST - %s',popName{nc});
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = real(squeeze(real(x.occC(1:h.m,2,nc))));		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t*h.tTocm; h.dt = x.dt*h.tTocm;
+h.f0 = 6/(2*pi);				% 5 for bump, 6 for morl
+% h.scales = helperCWTTimeFreqVector(30,1600,h.f0,h.dt,128)/h.dt;	%	(fmin, fmax, f0, dt, nVoices), returns s*dt and not pure scale
+h.scales = fliplr(h.f0/h.dt./(30:1600));
+[h.sst,h.f]=mywsst(double(h.data),1/h.dt,'VoicesPerOctave',128,'amor'); ylim([0,1.6]);
+% [h.sst,h.f] = mywsst(double(h.data),1/h.dt,'scales',h.scales,'amor'); h.f = fliplr(h.f0./h.scales./h.dt);% does not work! frequencies are stretched
+% [h.sst,h.f] = sswt(double(h.data),1/h.dt,'fmin',50,'fmax',1600,'plot','amp'); 
+%
+h.sstDB = mag2db(abs(h.sst)/max(max(abs(h.sst))));
+h.sstDB(h.sstDB<-90) = -inf;
+surf(x.t*0.658,h.f,h.sstDB);
+% surf(x.t*0.658,Freq,abs(h.sst));
+axis tight; shading interp; view([0,90]); ylim([0,10000]);xlim([0,987]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
+title(sprintf('Chain WSST - %s',popName{nc}));
+
+export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+close(f);
+% end
+end
+%% TDVP (3.1): 2D Plot rhoii tFFT
+pop = 1; fwind = 3;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for pop = 1:5
+for fwind = [1,2,4,6,8]
+f = figure(300+pop*10+fwind); clf;f.Name = sprintf('Population STFT - %s',popName{pop});
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,350/x.dt);
+h.tdata = x.t;
+h.Fs = 1/x.dt;
+h.nwind = 1024*fwind;
+%spectrogram(x     ,window        ,Nolap,NFFT/F,h.Fs,'yaxis','reassigned','power','MinThreshold',-40); 
+[h.S,h.F,h.T,h.P] = spectrogram(h.data,kaiser(h.nwind,5),h.nwind-2,[0:1600]*h.tTocm,h.Fs,'yaxis','reassigned','power','MinThreshold',-50);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,0:0.0001:0.04,h.Fs,'yaxis','reassigned','power','MinThreshold',-40);	% only calculate for specified points!
+%  spectrogram(h.data,kaiser(1024,5),1000,(h.m*7),h.Fs,'yaxis','reassigned','power','MinThreshold',-40);		% to zero padding across entire range!
+% ax=gca; ax.Children.YData = ax.Children.YData/0.658*4.135*8065.73*1e-3; ylim([0,2000]);
+% surf(h.T,h.F,10*log10(abs(h.P).^2))
+surf(h.T*0.658,h.F,mag2db(h.P))
+axis tight; shading interp; view([0,90]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
+title(sprintf('Population STFT - %s - Nwind %d',popName{pop}, h.nwind));
+
+ax=gca; ax.Children.YData = ax.Children.YData/h.tTocm; ylim([0,1600]); xlim([0,960]);
+% export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+close(f);
+end
+end
+
+%% TDVP (3.1): 2D Plot rhoii CWTft
+% not optimal since needs reassignment!
+pop = 3; fwind = 2;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for pop = 1:5
+% for fwind = [1,2,4,6,8]
+f = figure(400+pop*10+fwind); clf;f.Name = sprintf('Population CWTft - %s',popName{pop});
+% x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t*h.tTocm; h.dt = x.dt*h.tTocm;
+h.s0 = 2*h.dt;
+h.f0 = 5/(2*pi);				% 5 for bump, 6 for morl
+h.scales = helperCWTTimeFreqVector(30,1600,h.f0,h.dt,128);	%	(fmin, fmax, f0, dt, nVoices)
+% h.scales = fliplr(h.f0/h.dt./(30:1600));
+h.cwtdata = cwtft({h.data,h.dt},'wavelet','bump','scales',h.scales,'padmode','symw');
+helperCWTTimeFreqPlot((h.cwtdata.cfs),h.tdata/h.tTocm*0.658,h.cwtdata.frequencies,...
+    'surf',sprintf('Population CWTFT - %s',popName{pop}),'$t/fs$','$E/cm^{-1}$')
+% export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+% close(f);
+end
+%% TDVP (3.1): 2D Plot rhoii WSST
+%	Wavelet Synchrosqueezed Transform
+% not optimal, since needs better scale resolution! padding is not controllable!
+pop = 3; fwind = 1;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for pop = 1
+% for fwind = [1,2,4,6,8]
+f = figure(300+pop*10+fwind); clf;f.Name = sprintf('Population WSST - %s',popName{pop});
+% x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+h.data = abs(x.getData('rhoii')); h.data = h.data(:,pop);		% t x L x nChain
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t*h.tTocm; h.dt = max(diff(x.t))*h.tTocm;
+h.f0 = 6/(2*pi);				% 5 for bump, 6 for morl
+% h.scales = helperCWTTimeFreqVector(30,1600,h.f0,h.dt,128)/h.dt;	%	(fmin, fmax, f0, dt, nVoices), returns s*dt and not pure scale
+% h.scales = fliplr(h.f0/h.dt./(30:1600));
+% [h.sst,h.f]=mywsst(double(h.data),1/h.dt,'VoicesPerOctave',128,'amor'); %ylim([0,1.6]);
+% [h.sst,h.f] = mywsst(double(h.data),1/h.dt,'scales',h.scales,'amor'); h.f = fliplr(h.f0./h.scales./h.dt);% does not work! frequencies are stretched
+[h.sst,h.f,h.wopt,h.wt,h.wtf,h.ifr] = sswt(double(h.data),1/h.dt,'fmin',50,'fmax',1600,'plot','amp++-wr','Padding',0,'nv',256,'Wavelet','Morlet'); 
+
+% separate plot, if needed
+h.sstDB = mag2db(abs(h.sst)/max(max(abs(h.sst))));
+h.sstDB(h.sstDB<-90) = -inf;
+f = figure(300+pop*10+fwind); 
+surf(x.t(1:h.m)*0.658,h.f,h.sstDB); shading interp, view([0,90]), axis tight
+% surf(x.t*0.658,Freq,abs(h.sst));
+end
+%%
+for pop = 1:5
+figure(300+pop*10+fwind);
+axis tight; shading interp; view([0,90]); ylim([0,1600]);xlim([0,987]);
+ylabel('$E/cm^{-1}$');xlabel('$t/fs$');
+title(sprintf('Population WSST - %s',popName{pop}));
+
+export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+% close(f);
+% end
+end
+%% TDVP (3.1): 2D Plot rhoij-imag CWTft
+% not optimal since needs reassignment!
+pop = 4; fwind = 2;
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+% for pop = 1:5
+% for fwind = [1,2,4,6,8]
+f = figure(400+pop*10+fwind); clf;%f.Name = sprintf('Coherence CWTft - %s',popName{pop});
+% x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73;					% convert from simulation timescale to cm
+out = x.getData('rhoij'); h.data = imag(out{1}(:,pop));         % out: { t x coherences, state numbers}
+h.data = TDVPData.movAvgRes(h.data,760/x.dt);
+h.tdata = x.t(1:x.lastIdx)*h.tTocm; h.dt = x.dt*h.tTocm;
+h.s0 = 2*h.dt;
+h.f0 = 5/(2*pi);				% 5 for bump, 6 for morl
+h.scales = helperCWTTimeFreqVector(30,8000,h.f0,h.dt,128);	%	(fmin, fmax, f0, dt, nVoices)
+% h.scales = fliplr(h.f0/h.dt./(30:1600));
+h.cwtdata = cwtft({h.data,h.dt},'wavelet','bump','scales',h.scales,'padmode','symw');
+helperCWTTimeFreqPlot((h.cwtdata.cfs),h.tdata/h.tTocm*0.658,h.cwtdata.frequencies,...
+    'surf',sprintf('Coherence CWTFT - %s-%s',popName{out{2}(1,pop)},popName{out{2}(2,pop)}),'$t/fs$','$E/cm^{-1}$')
+% export_fig(sprintf('img/%d',get(gcf,'Number')),'-transparent','-png','-m3');
+% close(f);
+% end
+%% TDVP (3.1) Wavelet Coherence between states and <n> RC
+x = res(1); 
+h.m = x.lastIdx; h.tTocm = 0.658/4.135/8065.73; h.dt = max(diff(x.t))*h.tTocm;
+h.tdata = x.t(1:h.m);
+h.Odata = real(squeeze(real(x.occC(1:h.m,2,:)))); h.Odata = TDVPData.movAvgRes(h.Odata,760/x.dt);
+h.pdata = abs(x.getData('rhoii'));                h.pdata = TDVPData.movAvgRes(h.pdata,760/x.dt);
+%% state-RC coherences
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'}; chainName = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+[~,m] = size(h.pdata); [~,n] = size(h.Odata);
+hPl = TDVPData.plotGrid(m,n); hPl.f.Units = 'pixels';
+hPl.f.Position = [1,1,1920,1080]; hPl.f.Name = 'Wavelet Coherence state-RC';
+for kk = 1:m*n
+	[ii,jj] = ind2sub([m,n],kk);
+	axes(hPl.ax(kk));
+	wcoherence(h.pdata(:,ii),h.Odata(:,jj),1/h.dt,'VoicesPerOctave',32,'PhaseDisplayThreshold',0.5,'NumScalesToSmooth',10);
+	hPl.ax(kk).YLim(end) = 4;		% 2^4 = 16 kcm^-1
+	hPl.ax(kk).YTick = hPl.ax(kk).YLim(1):(hPl.ax(kk).YLim(end)-1);
+	title('');
+	if ii < m 
+		xlabel(''); 
+		hPl.ax(kk).XTickLabel = '';
+		if ii == 1
+			title(chainName{jj});
+		end
+	else
+		hPl.ax(kk).XTickLabel = strsplit(sprintf('%d ',round(hPl.ax(kk).XTick*10^-3/h.tTocm*0.658)));
+		xlabel('$t/fs$');
+	end
+	if jj > 1
+		ylabel(''); 
+		hPl.ax(kk).YTickLabel = '';
+		if jj == n
+			hPl.ax(kk).YAxisLocation = 'right';
+			ylabel(popName{ii});
+		end
+	else
+		ylabel('$E/(10^3 cm^{-1})$');
+	end
+	colorbar off
+	drawnow
+end
+
+%% inter-state coherences
+[m,n] = size(h.pdata);
+hPl = TDVPData.plotGrid(n-1,n-1); hPl.f.Units = 'pixels';
+hPl.f.Position = [1,1,1920,1080]; hPl.f.Name = 'Wavelet Coherence inter-state';
+hPl.ax = reshape(hPl.ax,n-1,n-1);
+for kk = 1:n*n
+	[ii,jj] = ind2sub([n,n],kk);
+	if ii >= jj
+		if all([ii,jj-1] > 0) && ii < n
+			hPl.ax(ii,jj-1).Visible = 'off';
+		end
+		continue;
+	end
+	axes(hPl.ax(ii,jj-1));
+	wcoherence(h.pdata(:,ii),h.pdata(:,jj),1/h.dt,'VoicesPerOctave',32,'PhaseDisplayThreshold',0.5,'NumScalesToSmooth',10);
+	hPl.ax(ii,jj-1).YLim(end) = 4;		% 2^4 = 16 kcm^-1
+	hPl.ax(ii,jj-1).YTick = hPl.ax(ii,jj-1).YLim(1):(hPl.ax(ii,jj-1).YLim(end)-1);
+	title('');
+	if ii < n 
+		if ii == 1
+			title(popName{jj});
+		end
+		xlabel(''); 
+		hPl.ax(ii,jj-1).XTickLabel = '';
+	end
+	if jj > 2
+		if jj ~= ii+1
+			ylabel(''); 
+			hPl.ax(ii,jj-1).YTickLabel = '';
+		end
+		if jj == n
+			hPl.ax(ii,jj-1).YAxisLocation = 'right';
+			ylabel(popName{ii});
+		end
+	end
+	if ii == jj-1 && ii ~= n-1
+		ylabel('$E/(10^3 cm^{-1})$');
+		hPl.ax(ii,jj-1).XTickLabel = strsplit(sprintf('%d ',round(hPl.ax(ii,jj-1).XTick*10^-3/h.tTocm*0.658)));
+		xlabel('$t/fs$');
+	end
+	if ii == n-1
+		hPl.ax(ii,jj-1).YTickLabel = '';
+		hPl.ax(ii,jj-1).XTickLabel = strsplit(sprintf('%d ',round(hPl.ax(ii,jj-1).XTick*10^-3/h.tTocm*0.658)));
+		xlabel('$t/fs$');
+	end
+	colorbar off
+	drawnow
 end
 
 %% TDVP (3.2): Plot <n> STAR
@@ -848,10 +1135,48 @@ formatPlot(gcf,'twocolumn-single')
 h = x.plotSld1D('chain-x-t','-fsev');
 formatPlot(gcf,'twocolumn-single')
 
-%% TDVP (3.8.3): 1D Plot <x> CHAIN - State avg - TDVPData
+%% TDVP (3.1): 1D Plot <x> RC - diabatic all chains, grid - TDVPData
+% x = y(1);
+h = x.plot('chain-x-d-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Diabatic Displacement RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
+legend(popName{:});
+ax(end).Visible = 'off';
+t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
+%% TDVP (3.1): 1D Plot <x> RC - adiabatic all chains, grid - TDVPData
+% x = y(1);
+h = x.plot('chain-x-a-rc','-fsev');
+h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Displacement RC';
+chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+for ii = 1:length(chainlbl)
+	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
+	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
+end
+ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
+legend toggle;
+ax(end).Visible = 'off';
+t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
+%% TDVP (3.8.3): 1D Plot <x> CHAIN - Diabatic - TDVPData
 % x = res(35);
-h = x.plotSld1D('chain-x-t-avg','-fsev');
-formatPlot(gcf,'twocolumn-single')
+h = x.plotSld1D('chain-x-d-t','-fsev');
+% formatPlot(gcf,'twocolumn-single')
+formatPlot(gcf);
+
+%% TDVP (3.8.4): 1D Plot <x> CHAIN - Coherence - TDVPData
+f=figure(381);  f.Name = ''; clf; hold all; ax = gca;
+% x = res(6);
+pl = x.plotSld1D('chain-x-c-t','-fsev',f);
+leg = legend('$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+ylabel('$|TT\rangle\langle LE^+|\hat x_k$');
+grid on
+axis tight
+formatPlot(f,'twocolumn-single')
 
 %% TDVP (3.8.1): Plot FT(<x>) CHAIN - TDVPData
 % x = res(35);
@@ -1252,6 +1577,7 @@ if mode
 	set(gca,'clim',get(gca,'zlim'));
 end
 % set(gca,'Xlim',[1,15]);
+
 %% TDVP (4) Bond Dimension Plots
 %% TDVP (4.1): Plot d_opt - per chain
 f=figure(411); clf; f.Name = 'OBB Dimension';
@@ -1560,82 +1886,47 @@ sld = uicontrol('Style', 'slider',...
         'Position', [1100 20 120 20],...
         'Callback', @(source,callbackdata) set(pl,'zdata',plotMatTime{round(source.Value)}));
 
-%% TDVP (7) MLSBM Wavefunction 2D surf
-mode = 0;		% 0: lin, 1: log
-f=figure(700); clf; f.Name = 'MLSBM Wave-Occupation';
-% x = res{15,1}; tresults = x.tresults; para = x.para;
-n = abs(tresults.PPCWavefunction);
-idx = tresults.lastIdx;
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-if mode
-	surf(1:size(n,2),t(1:idx),log10(abs(n(1:idx,:))));
-% 	surf(1:size(n,2),t(1:l),log10(abs(real(n(1:l,:))-ones(l,1)*real(n(1,:)))));		% subtract intitial population
-	zlabel('$\log_{10}|\rho_{k,k}|$');
-else
-	surf(1:size(n,2),t(1:idx),real(n(1:idx,:)));
-% 	surf(1:size(n,2),t(1:l),real(n(1:l,:))-ones(l,1)*real(n(1,:)));			% subtract initial population
-	zlabel('$|\rho_{k,k}|$');
-end
-ax = gca;
-cb = colorbar;cb.Title.Interpreter = 'latex';
-cb.Title.String = ax.ZLabel.String;
-xlabel('State $k$');
-ylabel('Time $t$');
-% set(gca,'yscale','log');se
-% set(gca,'View',[0 42]);
-set(gca,'View',[0 90]);
-shading interp
-rotate3d on
-axis tight
-if mode
-% 	ax.ZLim = [-30, max(max(ax.Children.ZData))];
-% 	ax.ZLim = [-4, 0];
-else
-% 	ax.ZLim = [0.1,1].*10^-26;
-end
-ax.CLim = ax.ZLim;
-% ax.YLim = [0,100];
+%% TDVP (7): System Density Matrix
 
-%% TDVP (7.1) MLSBM Wavefunction 1D
-f=figure(702);  f.Name = 'MLSBM Wave-Occupation'; hold all; ax = gca;
-% x = res{6,1}; tresults = x.tresults; para = x.para;
-n = abs(tresults.PPCWavefunction);
-idx = tresults.lastIdx;
-fil = 3;
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-for ii = 1:size(n,2)
-% 	plot(t(1:idx)*0.658,n(1:idx,ii))
-	plot(t(1:idx),(n(1:idx,ii)));
-end
-leg = legend('TT','LE+','CT+','CT-');
-% xlabel('t in fs')
-xlabel('t');
-grid on
-	%% TDVPData
-f=figure(704);  f.Name = 'MLSBM Wave-Occupation'; clf; hold all; ax = gca;
-% x = res(6);
-% pl = x.plot('rhoii'); xlabel('$t$');
-pl = x.plot('rhoii','-fsev'); xlabel('$t/fs$');
-% leg = legend('TT','LE+','CT+','CT-');
+%% TDVP (7.01): RDM Diagonal - TDVPData
+f=figure(701); clf; f.Name = 'RDM diagonal'; ax = gca;
+% x = res{15,1};
+% ph = x.plot('rhoii',f);
+ph = x.plot('rhoii','-fsev',f);
 leg = legend('TT','LE+','LE-','CT+','CT-');
-ylabel('$\rho_{ii}$');
-grid on
-axis tight
+grid on; axis tight;
 formatPlot(f,'twocolumn-single')
+%% TDVP (7.02): RDM Off-Diagonal imag - TDVPData
+f=figure(702); clf; f.Name = 'RDM off-diagonal imag'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rhoij-imag',f);
+legend toggle;
+% ax.YScale = 'log';
+%% TDVP (7.03): RDM Off-Diagonal real - TDVPData
+f=figure(703); clf; f.Name = 'RDM off-diagonal real'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rhoij-real',f);
+legend toggle;
+% ax.YScale = 'log';
+%% TDVP (7.04): RDM Off-Diagonal abs  - TDVPData
+f=figure(704); clf; f.Name = 'RDM off-diagonal abs'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rhoij-abs',f);
+legend toggle;
+% ax.YScale = 'log';
+%% TDVP (7.05): RDM DPMES Overview - TDVPData
+f=figure(705); clf; f.Name = 'RDM DPMES all'; ax = gca;
+% x = res{15,1}; tresults = x.tresults; para = x.para;
+ph = x.plot('rho-dpmes','-fsev',f);
+formatPlot(f,'twocolumn-single');
+
+%% TDVP (7.1): RDM Fourier Trafos
 	%% TDVPData: DFT
 f=figure(706);  f.Name = 'MLSBM Wave-Occupation DFT'; clf; hold all; ax = gca;
 % x = res(6);
 % pl = x.plot('rhoii'); xlabel('$t$');
-% pl = x.plot('rhoii-ft','-cmev'); xlabel('$E/cm^{-1}$');
-x.plotSld1DFT('rhoii-ft','-cmev'); ax = gca; f = gcf;
+% pl = x.plot('rhoii-ft','-cmev',f); xlabel('$E/cm^{-1}$');
+x.plotSld1DFT('rhoii-ft','-cmev',f);
 % leg = legend('TT','LE+','CT+','CT-');
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
@@ -1644,11 +1935,10 @@ axis tight
 % ax.XLim = [0,9000];ax.YLim = [0,2];
 ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
-	%% TDVPData: DFT residuals
+	%% TDVPData: DFT Fit residuals
 f=figure(707);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
-% 	a = x.getData('rhoii-osc-res');
-% x.plotSld1DFT('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
-x.plot('rhoii-osc-res','-cmev'); ax=gca; f=gcf;
+% x.plotSld1DFT('rhoii-osc-res','-cmev',f); ax=gca; f=gcf;
+ph=x.plot('rhoii-osc-res','-cmev',f); ax=gca; f=gcf;
 leg = legend('TT','LE+','LE-','CT+','CT-');
 ylabel('$|FT(\rho_{ii})|^2$');
 grid on
@@ -1656,27 +1946,70 @@ axis tight
 % ax.XLim = [0,9000];ax.YLim = [0,2];
 ax.XLim = [0,2000];ax.YLim = [0,200];
 formatPlot(f,'twocolumn-single')
-%% TDVP (7.2) MLSBM RHO 1D
-f=figure(702);  f.Name = 'MLSBM DM-Occupation'; hold all; ax = gca;
-% x = res{31,1}; tresults = x.tresults; para = x.para;
-n = abs(tresults.rho);
-idx = tresults.lastIdx;
-if isfield(tresults,'t')
-	t=tresults.t;		% for the new convention when extracting in intervals >= rev42
-else
-	t=para.tdvp.t;		% for the old files
-end
-for ii = [1:2]%:size(n,2)
-	plot(t(1:idx)*0.658,n(1:idx,ii,ii))
-% 	plot(t(1:idx),n(1:idx,ii,ii+1))
-end
-plot(t(1:idx)*0.658,n(1:idx,1,3))
-plot(t(1:idx)*0.658,n(1:idx,1,4))
-leg = legend('TT/LE+','LE+/CT+','TT/CT+');
-xlabel('t in fs')
-grid on
-% set(gca,'yscale','log')
 
+for kk = 1:numel(ph)
+	ph(kk).YData = ph(kk).YData./max(ph(kk).YData)+5-kk;
+	ax.YLim = [0,5];
+end
+
+	%% TDVPData: DFT Smooth residuals norm dist SLD
+f=figure(713);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+x = res(2);
+x.plotSld1DFT('rhoii','-cmev','-smoothres','-norm','-dist',f);
+leg = legend('TT','LE+','LE-','CT+','CT-');
+ylabel('$|FT(\rho_{ii})|^2$');
+grid on
+axis tight
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+ax.XLim = [0,2000];
+formatPlot(f,'twocolumn-single')
+
+	%% TDVPData: DFT Smooth residuals dist
+f=figure(714);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+x = res(2);
+h = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder','-dist',f); ax=gca; f=gcf;
+set(h.pl,{'Displayname'},{'TT','LE+','LE-','CT+','CT-'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+ylabel('$|FT(\rho_{ii})|^2$');
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+
+[h.ax.XLim] = deal([0,2000]);
+formatPlot(f,'twocolumn-single')
+
+	%% TDVPData: DFT Smooth residuals norm dist
+f=figure(714);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+% x = res(2);
+ph = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder','-norm','-dist',f); ax=gca; f=gcf;
+leg = legend('TT','LE+','LE-','CT+','CT-');
+ylabel('$|FT(\rho_{ii})|^2$');
+grid on
+axis tight
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+ax.XLim = [0,2000];
+formatPlot(f,'twocolumn-single')
+
+	%% TDVPData: DFT Smooth residuals norm 1272
+f=figure(711);  f.Name = 'Rhoii residual DFT'; clf;  hold all; ax = gca;
+% 	a = x.getData('rhoii-osc-res');
+% x.plotSld1DFT('rhoii-osc-res','-cmev',f);
+h = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder',f);
+ph = h.pl;
+if numel(ph) ~= length(ph)
+	set(ph(2,:),'LineStyle','-.');
+end
+% peak range:
+rng = find(ph(1).XData > 1260 &ph(1).XData < 1290);
+% for kk = 1:numel(ph)
+% 	ph(kk).YData = ph(kk).YData./max(ph(kk).YData(rng));
+% end
+% leg = legend('TT','LE+','LE-','CT+','CT-');
+ylabel('$|FT(\rho_{ii})|^2$');
+grid on
+axis tight
+% ax.XLim = [0,9000];ax.YLim = [0,2];
+ax.XLim = [0,2000];
+formatPlot(f,'twocolumn-single')
+	
 %% TDVP (7.3) MLSBM HsHi
 f=figure(732);  f.Name = 'DPMES HsHi'; clf; hold all; ax = gca;
 % x = res(6);
@@ -1937,23 +2270,108 @@ xlabel('t');
 ylabel('$<s_z>$');
 formatPlot(figN);
 
-%% TDVP (11) expvCustom Benchmarking
+%% TDVP (11.1) expvCustom Benchmarking: evolve V
 % [ expM, expV, exvCustom, Hn building, numel(Hn)]
 figure(9);clf;
 hold all
-% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,1),'+');
-scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,1)+results.tdvp.expvTime(:,4),'+');
-% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,2),'*');
-scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,4),'*');
-scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,3),'o');
-% scatter(sqrt(results.tdvp.expvTime(:,5)),results.tdvp.expvTime(:,4));
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),results.tdvp.expvTime(:,1)+results.tdvp.expvTime(:,4),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,4),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),results.tdvp.expvTime(:,3),'o','DisplayName','expvCustom');
 set(gca,'yscale','log')
 set(gca,'xscale','log')
 set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
-legend('expM','expV','expvCustom','Location','best')
+legend('Location','best')
 xlabel('Matrix dimension n')
 ylabel('Time/s')
 formatPlot(9,'twocolumn-single')
+%% TDVP (11.1.1) expvCustom Benchmarking 3D: evolve V
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(9);clf;
+hold all
+scatter3(results.tdvp.expvTime(:,19),results.tdvp.expvTime(:,20),results.tdvp.expvTime(:,1)+results.tdvp.expvTime(:,4),'+','DisplayName','expM');
+scatter3(results.tdvp.expvTime(:,19),results.tdvp.expvTime(:,20),results.tdvp.expvTime(:,2)+results.tdvp.expvTime(:,4),'*','DisplayName','expV');
+scatter3(results.tdvp.expvTime(:,19),results.tdvp.expvTime(:,20),results.tdvp.expvTime(:,3),'o','DisplayName','expvCustom');
+set(gca,'zscale','log')
+% set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+axis tight
+formatPlot(9,'twocolumn-single')
+
+%% TDVP (11.2) expvCustom Benchmarking: evolve CV
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(10);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[19,19]),2),results.tdvp.expvTime(:,5)+results.tdvp.expvTime(:,8),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[19,19]),2),results.tdvp.expvTime(:,6)+results.tdvp.expvTime(:,8),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[19,19]),2),results.tdvp.expvTime(:,7),'o','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(10,'twocolumn-single')
+%% TDVP (11.3) expvCustom Benchmarking: evolve A
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(11);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[17,18,19]),2),results.tdvp.expvTime(:, 9)+results.tdvp.expvTime(:,12),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[17,18,19]),2),results.tdvp.expvTime(:,10)+results.tdvp.expvTime(:,12),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[17,18,19]),2),results.tdvp.expvTime(:,11),'o','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(11,'twocolumn-single')
+
+%% TDVP (11.4) expvCustom Benchmarking: evolve CA
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(12);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[17,18]),2),results.tdvp.expvTime(:,13)+results.tdvp.expvTime(:,16),'+','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[17,18]),2),results.tdvp.expvTime(:,14)+results.tdvp.expvTime(:,16),'*','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[17,18]),2),results.tdvp.expvTime(:,15),'o','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(12,'twocolumn-single')
+
+%% TDVP (11.5) expvCustom Benchmarking: evolve V+CV
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(15);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),sum(results.tdvp.expvTime(:,[1,4,5,8]),2),'.','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),sum(results.tdvp.expvTime(:,[2,4,6,8]),2),'.','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,[19,20]),2),sum(results.tdvp.expvTime(:,[3,7]),2),'.','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(15,'twocolumn-single')
+%% TDVP (11.6) expvCustom Benchmarking: evolve A+CA
+% [ expM, expV, exvCustom, Hn building, numel(Hn)]
+figure(16);clf;
+hold all
+scatter(prod(results.tdvp.expvTime(:,17:19),2),sum(results.tdvp.expvTime(:,[1,4,5,8]+8),2),'.','DisplayName','expM');
+scatter(prod(results.tdvp.expvTime(:,17:19),2),sum(results.tdvp.expvTime(:,[2,4,6,8]+8),2),'.','DisplayName','expV');
+scatter(prod(results.tdvp.expvTime(:,17:19),2),sum(results.tdvp.expvTime(:,[3,7]+8),2),'.','DisplayName','expvCustom');
+set(gca,'yscale','log')
+set(gca,'xscale','log')
+% set(gca,'xlim',[3,1e4]); set(gca,'xtick',[1,10,100,1e3,1e4]);
+legend('Location','best')
+xlabel('Matrix dimension n')
+ylabel('Time/s')
+formatPlot(16,'twocolumn-single')
 
 %% TDVP (12) expError analysis
 
@@ -4987,13 +5405,14 @@ res((offset+1):end,1) = res(offset+I,1);
 
 %%
 for fignum = 1:size(defPlot,1)
-	f = figure(fignum); clf; hold all; ax = gca;
+	f = figure(fignum+10); clf; hold all; ax = gca;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
 % 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
 % 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
 	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+% 	ph = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
 	axis tight;
 % 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
 % 	legend boxoff
@@ -5004,7 +5423,7 @@ for fignum = 1:size(defPlot,1)
 % 	xlabel('$t$');
 	ylabel('$\rho_{ii} (t)$');
 	fs = 22;
-	formatPlot(fignum,'twocolumn-single');
+	formatPlot(fignum+10,'twocolumn-single');
 	set(gca,'color','none');
 	grid on
 	if fignum == 1
@@ -5014,6 +5433,36 @@ for fignum = 1:size(defPlot,1)
 	end
 	drawnow
 end
+%%	Plot each dynamics, and FT of residual of following spectra
+sets = [3,5,6,7,11,12,13];
+% sets = 3
+for fignum = 1:length(sets)
+	f = figure(fignum*10+1); clf; hold all; ax = gca;
+	pick = sets(fignum);
+	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	formatPlot(f.Number,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	
+	f = figure(fignum*10+2); clf; hold all; ax = gca;
+	[ph,res(pick)] = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	formatPlot(f.Number,'twocolumn-single');
+	set(gca,'color','none');
+	ax.XLim = [0,1600];
+	grid on
+
+	f = figure(fignum*10+3); clf; hold all; ax = gca;
+	ph = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	for kk = 1:numel(ph)
+		ph(kk).YData = ph(kk).YData./max(ph(kk).YData);
+	end
+	formatPlot(f.Number,'twocolumn-single');
+	set(gca,'color','none');
+	ax.XLim = [0,1600];
+	grid on
+
+end
+
 
 %% DPMES5-7C v72  StarMPS LinAbs - TDVPData											% LabBook 12/01/2016
 % See effect of CT shift on dynamics
@@ -5215,6 +5664,385 @@ end
 % plot time taken
 figure(fignum+1);clf; hold all;
 ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+
+%% DPMES5-7C v73  TreeMPS from LE+ & TT, L18, L2 CTshift - TDVPData						% LabBook 15/03/2016
+% See effect of CT shift on dynamics form LE+ and TT
+clear
+defPlot(1,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-LE-CTshift',		[ 1: 6], {'xlim',[0,1e3],'yscale','lin'}};
+% defPlot(2,:) = {'20160315-DPMES5-7C-v73-D5-20-5param-TT-CTshift',		[ 6: 9], {'xlim',[0,1e3],'yscale','lin'}};
+% defPlot(3,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-LE-CTshift',		[10:15], {'xlim',[0,3.3e3],'yscale','lin'}};
+% defPlot(4,:) = {'20160315-DPMES5-7C-v73-D5-L2-5param-TT-CTshift',		[16:19], {'xlim',[0,3.3e3],'yscale','lin'}};
+
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1: from LE+, L=18 CT up
+dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*LE.*';
+filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+matches = [matches; m(I)];
+
+% 
+% % 2: from TT, L=18
+% dirPat = '20160312-0432-5.-DPMES5-7C-Tree-v73TCMde9-L18CT.*TT.*';
+% filPat = 'results-Till1500Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
+
+% % 3: from LE, L=2
+% dirPat = '20160315-2359-07-DPMES5-7C-Tree-v73TCMde10-L2CT.*LE.*';
+% filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
+% 
+% % 4: from TT, L=2
+% dirPat = '20160315-2359-07-DPMES5-7C-Tree-v73TCMde10-L2CT.*TT.*';
+% filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax20-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
+
+% % 5: from LE, L=2, more observables dt=1
+% dirPat = '20160407-2035-50-DPMES5-7C-Tree-v73TCMde9-L2CT.*LE\+';
+% filPat = 'results-Till10000Step0.1v73-OBBmax60-Dmax\(5-20\)-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
+
+% 6: from TT, L=2, more observables dt=1
+% dirPat = '20160407-2035-4.-DPMES5-7C-Tree-v73TCMde10-L2CT.*TT';
+% filPat = 'results-Till10000Step0.1v73-OBBmax60-Dmax\(5-20\)-expvCustom700-1core-small.mat';
+% m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+% matches = [matches; m(I)];
+
+% 7: 1-6: from LE+, L=18 CT down
+dirPat = '20160516-2007-43-DPMES5-7C-Tree-v73TCMde11-L18CT.*LE.';
+filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax\(5-20\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT([-.0-9]*)','tokens');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x{1}),tokens));
+matches = [matches; m(I)];
+
+res = TDVPData({matches.name});
+%%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+% 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
+% 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
+% 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','LE-','CT+','CT-')
+	ph = res(pick).plot('rhoii','-fsev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+% 	ph = res(pick).plot('rhoii-osc-res','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	axis tight;
+% 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	ylabel('$\rho_{ii} (t)$');
+	fs = 22;
+% 	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	drawnow
+	if fignum == 2
+		ph = res(2).plot('rhoii','-fsev','-unicol','k.');
+	end
+end
+	%% Correlate FT of pop and occ
+	corrCT = zeros(5,7,5);				% states x chains x CT shifts
+for ii = 1:5
+	m        = res(ii).lastIdx;
+	dt       = res(ii).t(2);
+	t        = res(ii).t;
+	rhoii    = abs(res(ii).getData('rhoii'));
+	rhoiiAvg = TDVPData.movAvg(rhoii,170/dt);
+	rhoiiRes = rhoii-rhoiiAvg;
+	occRC    = squeeze(real(res(ii).occC(1:m,2,:))); % t x L x nChain
+	occRCAvg = TDVPData.movAvg(occRC,760/dt);
+	occRCRes = occRC-occRCAvg;
+	
+% 	f = figure(1);hold all; plot(t,rhoii); 	plot(t,rhoiiAvg);
+% 	f = figure(2);hold all; plot(t,occRC);	plot(t,occRCAvg);
+% 	
+	% FFT of residuals
+% 	window = hann(m,'periodic');
+	window = kaiser(m,2.5);
+	maxN = pow2(nextpow2(20*m));			% if > lastIdx -> zero padding
+	freq = (0:maxN-1)/dt/maxN;
+	freq = freq/0.658*4.135*8065.73;		% to cm
+	rhoiiFT = fft(rhoiiRes.*(window*ones(1,size(rhoiiRes,2))),maxN,1);
+	occRCFT = fft(occRCRes.*(window*ones(1,size(occRCRes,2))),maxN,1);
+	
+	f = figure(1);clf; hold all; plot(freq,abs(rhoiiFT)); set(gca,'xlim',[0,2000]);
+	f = figure(2);clf; hold all; plot(freq,abs(occRCFT)); set(gca,'xlim',[0,2000]);
+	
+	% plot correlation, normalised spectra
+	rhoiiFTnorm = bsxfun(@rdivide, abs(rhoiiFT), sqrt(sum(abs(rhoiiFT).^2)));
+	occRCFTnorm = bsxfun(@rdivide, abs(occRCFT), sqrt(sum(abs(occRCFT).^2)));
+	f = figure(3+ii); ax = gca;
+	maxFreq = 2000;
+	corr = abs(rhoiiFTnorm(freq<maxFreq,:))'*abs(occRCFTnorm(freq<maxFreq,:));
+	corrCT(:,:,ii) = corr;
+% 	pl = scatter3(reshape(repmat(1:5,1,7),[],1),reshape(repmat(1:7,5,1),[],1),reshape(corr,[],1),100,reshape(corr,[],1),'filled');
+	pl = scatter3(reshape(repmat(1:5,1,7),[],1),reshape(repmat(1:7,5,1),[],1),reshape(corr+repmat(0:6,5,1),[],1),100,reshape(corr,[],1),'filled');
+	view([0,0]);
+	title(res(ii).folder);
+	ax.XTick = 1:5; ax.XTickLabel = {'TT','LE^+','LE^-','CT^+','CT^-'};
+	ax.YTick = 1:7; ax.YTickLabel = {'A_{1,1}','A_{1,2}','A_2','B_1','B_{2,1}','B_{2,2}','B_{2,3}'};
+	ax.ZTick = (1:7); ax.ZTickLabel = {'A_{1,1}','A_{1,2}','A_2','B_1','B_{2,1}','B_{2,2}','B_{2,3}'};
+end
+%%
+states = {'TT','$LE^+$','$LE^-$','$CT^+$','$CT^-$'};
+for ii = 1:5
+	f = figure(10+ii); clf; hold all;
+	plot([-5,0,5,10,20],squeeze(corrCT(ii,:,:))')
+% 	legend('$A_{1,1}$','$A_{1,2}$','$A_2$','$B_1$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$');
+	xlabel('CT shift (\%)')
+	ylabel(['Correlation of $\langle n\rangle$ with ',states{ii}]);
+	formatPlot(f);
+	export_fig(sprintf('img/%d',f.Number),'-transparent','-png','-m3', f);
+end
+%% DPMES5-7C v73  TreeMPS from LE+, L18 - D sys chain sweep - TDVPData					% LabBook 25/03/2016
+% See effect of CT shift on dynamics form LE+ and TT
+clear
+defPlot(1,:) = {'20160325-DPMES5-7C-v73-D(5-10-5-60)-5param-LE',		[ 1: 9], {'xlim',[0,3.3e3],'yscale','lin'}};
+defPlot(2,:) = {'20160325-DPMES5-7C-v73-D(5-(10-60))-5param-LE',		[ 1: 3], {'xlim',[0,3.3e3],'yscale','lin'}};
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1: from LE+, L=18
+dirPat = '20160325-123.-..-DPMES5-7C-Tree-v73TCMde.*-L18CT0LE\+';
+filPat = 'results-Till5000Step0.1v73-OBBmax60-Dmax\(.*-.*\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax.(?<Dsys>[0-9]*)-(?<Dchain>[0-9]*).-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.Dchain),tokens));
+m = m(I)
+tokens = regexp({m.name},'Dmax.(?<Dsys>[0-9]*)-(?<Dchain>[0-9]*).-','names');			% second sorting
+[y,I] = sort(cellfun(@(x) str2double(x.Dsys),tokens));
+
+matches = [matches; m(I)];
+
+res = TDVPData({matches.name});
+%% Legend Labels
+legLab = cellfun(@(x) sprintf('D%s-%s',x.Dsys,x.Dchain),tokens(I),'UniformOutput',false)
+%%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	
+	[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+	set(ph(1:end,1),{'Displayname'},legLab(pick)');
+	legend('TT','LE+','LE-','CT+','CT-')
+% 	ph = res(pick).plot('rhoii-osc-res-med','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	axis tight;
+% 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	ylabel('$\rho_{ii} (t)$');
+	fs = 22;
+	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	drawnow
+end
+%% Compare Dchain for Dsys=5
+f=figure(11); clf; hold all; ax = gca; f.Name = 'DPMES Convergence for Dsys5';
+pick = [1:3];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dchain for Dsys=7
+f=figure(12); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dsys7';
+pick = [4:6];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dchain for Dsys=10
+f=figure(13); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dsys10';
+pick = [7:9];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dsys for Dchain=5
+f=figure(14); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain5';
+pick = [1,4,7];
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dsys for Dchain=20
+f=figure(15); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain20';
+pick = [1,4,7]+1;
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% Compare Dsys for Dchain=60
+f=figure(16); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain60';
+pick = [1,4,7]+2;
+[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+%% CPU Time
+f=figure(17); clf; hold all; ax = gca;f.Name = 'DPMES Convergence for Dchain Dsys - CPU time';
+pick = 1:9;
+[h,ph] = res(pick).plot('calctime-d','-fsev',f); ylim([0,5])
+% set(ph(2,1:end),{'Color'},{[1 1 1]*0.4});
+% set(ph(1,1:end),{'Color'},{[1 1 1]*0.7});
+leg = legend(ph(:,1),legLab(pick));
+title('')
+set(gca,'color','none');
+grid on
+	
+
+%% DPMES5-7C v73  TreeMPS from LE+ & TT, L2 CTshift 5ps - TDVPData					% LabBook 25/03/2016
+% See effect of CT shift on dynamics form LE+ and TT
+clear
+defPlot(1,:) = {'20160407-DPMES5-7C-v73-L2-5param-LE-CTshift',		[ 1: 6], {'xlim',[0,6.6e3],'yscale','lin'}};
+defPlot(2,:) = {'20160407-DPMES5-7C-v73-L2-5param-TT-CTshift',		[ 7:12], {'xlim',[0,6.6e3],'yscale','lin'}};
+%%To update library:
+%TDVPfolds = TDVPData.getTDVPLib();save('TDVPLib.mat','TDVPfolds');
+%
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1-6: from LE+, L=2
+dirPat = '20160407-2035-50-DPMES5-7C-Tree-v73TCMde9-L2CT.*LE\+';
+filPat = 'results-Till10000Step0.1v73-OBBmax60-Dmax\(5-20\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT(?<CTshift>[0-9\-\.]*)LE','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.CTshift),tokens));
+matches = [matches; m(I)];
+
+% 7-12: from TT, L=2
+dirPat = '20160407-2035-4.-DPMES5-7C-Tree-v73TCMde10-L2CT.*TT';
+filPat = 'results-Till10000Step0.1v73-OBBmax60-Dmax\(5-20\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT(?<CTshift>[0-9\-\.]*)TT','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.CTshift),tokens));
+matches = [matches; m(I)];
+
+res = TDVPData({matches.name});
+%% Legend Labels
+legLab = cellfun(@(x) sprintf('CT %s',x.CTshift),tokens(I),'UniformOutput',false)
+%%
+for fignum = 1:size(defPlot,1)
+	f = figure(fignum); clf; hold all; ax = gca;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	
+	[h,ph] = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
+	set(ph(1:end,1),{'Displayname'},legLab');
+	legend('TT','LE+','LE-','CT+','CT-')
+% 	ph = res(pick).plot('rhoii-osc-res-med','-cmev','-resetColorOrder');legend('TT','LE+','LE-','CT+','CT-')
+	axis tight;
+% 	leg = legend(ph(:,1),res(pick).LegLabel,'location','Northwest');		% leg for each series
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+	set(ax,defPlot{fignum,3}{:});
+	ylabel('$\rho_{ii} (t)$');
+	fs = 22;
+	formatPlot(fignum,'twocolumn-single');
+	set(gca,'color','none');
+	grid on
+	drawnow
+end
+
+%% DPMES-Tree1 v74 TreeMPS Performance comparison - TDVPData						% LabBook 31/08/2016
+clear
+x(1) = TDVPData('20160829-1710-46-DPMES5-7C-Tree-v73-L18CT0LE+\results-Till5000Step0.1v73-OBBmax20-Dmax(5-10)-expvCustom700-1core-small.mat');					% this has corrected H_I
+x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(10-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. Chain dimension agree with Tree1, should be closer than (5-10)
+% x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(5-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. sys-chain D agrees with above, chain D with below
+x(3) = TDVPData('20160831-1344-17-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');				% from OE-Rugor
+x(4) = TDVPData('20160831-1258-02-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from OE-Rugor
+%x(5) = TDVPData('20160831-1519-09-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till10Step0.05v74-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');
+%x(6) = TDVPData('20160831-1500-13-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till10Step0.01v74-OBBmax20-Dmax(100-20)-expvCustom700-2core-small.mat');
+%x(7) = TDVPData('20160831-1544-08-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till100Step0.01v74-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');
+close all
+x.plot('rhoii','-fsev','-resetColorOrder',figure)
+x.plot('calctime-d-sec',figure)
+
+%% DPMES-Tree1 v74 TreeMPS dt convergence - TDVPData								% LabBook 23/09/2016
+clear
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1-6: from LE+, L=2
+dirPat = '2016090.-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step0..*v74-OBBmax20-Dmax\(100-100\)-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'CT(?<CTshift>[0-9\-\.]*)LE','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.CTshift),tokens));
+matches = [matches; m(I)];
+
+res = TDVPData({matches.name});
+
+close all
+%% plot
+h = res.plot('rhoii','-fsev','-resetColorOrder',figure)
+f = figure(); hold all; ax = gca; f.Name = 'Tree1-dt-convergence2-D(100-100)';
+a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false)
+ax.XLabel = h(1).ax(1).XLabel;
+legend('0.1','0.05','0.02','0.01','0.005','0.002','0.001');
+set([a{:}],{'Color'},mat2cell(ax.ColorOrder,ones(1,7),3));
+ylabel('$\rho_{ii} (t)$');
+set(gca,'color','none');
+grid on
+
+% x.plot('calctime-d-sec',figure)
+
 
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
@@ -6032,7 +6860,8 @@ p2 = plot(a,((gamma(1-2.*a).*cos(pi.*a)).^(1./(2-2.*a))).*d.^(1./(1-a))); % this
 %% Plot NIBA ohmic SBM evolution
 figure(1); clf; hold all;
 % x = res{11}; para = x.para; tresults = x.tresults;
-a = para.chain{1}.alpha; d = 0.1; t = 0:0.1:180;
+% a = para.chain{1}.alpha; d = 0.1; t = 0:0.1:180;
+a = 0.01; d = 0.1; t = 0:0.1:180;
 % calculate the sum to eps precision
 summ  = 0;
 summP = inf;
@@ -6047,16 +6876,30 @@ p1 = plot(t,summ);
 plot(tresults.t, tresults.spin.sz);
 
 %% Plot iSBM multi-Chain Analytic
-t = 0:0.1:30;%para.tdvp.tmax;
+t = 0:0.2:200;%para.tdvp.tmax;
+para.nChains = 1; para.chain{1}.alpha = 0.1; para.chain{1}.s = 1;
 exponent = 0;
-w_cutoff = [1,5];
+w_cutoff = 1;
 for ii = 1:para.nChains
 	a = para.chain{ii}.alpha; s = para.chain{ii}.s; wc = w_cutoff(ii);
 	syms w
-	f = int(2.*a.* w.^(s-2).* wc.^(1-s) .*(1-cos(w.*t)),w,0,wc);
+	f = int(2.*a.* w.^(s-2).* wc.^(1-s).*(1-cos(w.*t)),w,0,wc);
 	exponent = exponent + vpa(f,3);
 end
 plot(t,exp(-exponent));
+%%
+plot(t,exponent./t)
+
+%% Plot iSBM pure dephasing decoherence
+t = 0:0.2:200;
+a = 0.1; s=1; wc=1; wcut=inf;
+Jsmooth = @(w) 2.*a.* w.^(s-2).* wc.^(1-s).*exp(-w/wc);
+Jhard = @(w) 2.*a.* w.^(s-2).* wc.^(1-s);
+exponent = integral(@(w) Jhard(w).*(1-cos(w.*t)),0,wc,'ArrayValued',true);
+
+figure(2); clf; hold all;
+plot(t,exp(-exponent));
+plot(t(2:end),diff(exponent)./t(2))
 %% Create ideal 2D <n> for Thermal cooling
 n = para.L; beta = 40; dt = 0.1;
 sigmaZ= [1,-1]; ii = 1; Aocc = zeros(n,n,2);
@@ -6085,10 +6928,216 @@ x = tresults.t; x = reshape(x,numel(x),1);
 y = tresults.spin.visibility; y = reshape(y,numel(y),1);
 csvwrite('visibility02.dat',[x,y]);
 
+%% Plot series of figures and save
+%% rhoii-osc-res-med
+% f = figure;
+for ii = [1]
+% 	res(ii).lastIdx = 5001;
+% h=res(ii).plot('rhoii-osc-res-med','-cmev','-dist','-norm','-resetcolororder',f);
+h=res(ii).plot('rhoii-osc-res-med','-cmev','-dist','-norm');
+% h.f.Visible = 'off';
+% [h.ax.Units] = deal('pixels');
+% [h.ax.ActivePositionProperty] = deal('outerposition');
+% h.ax(end).ActivePositionProperty = 'outerposition';
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+if length(h.ax) > 1
+	arrayfun(@(x) set(x,'YTick',[0,x.YTick(end)/2,x.YTick(end)]),h.ax);
+else
+	h.ax.YTick = 0:5;
+end
+[h.ax.XLim] = deal([0,1999]);
+[h.ax.Color] = deal('none');
+set(h.pl,{'Displayname'},{'TT','LE+','LE-','CT+','CT-'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+
+formatPlot(h.f,'twocolumn-single');
+% h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+% export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+%% chain-n-site2-ft
+f = figure;
+for ii = [4:5]
+h = res(ii).plot('chain-n-site2-ft','-cmev','-dist','-norm','-resetcolororder',f);
+% h = res(ii).plot('chain-n-site2-ft','-cmev','-dist','-norm');
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+if length(h.ax) > 1
+	arrayfun(@(x) set(x,'YTick',[0,x.YTick(end)/2,x.YTick(end)]),h.ax);
+else
+	h.ax.YTick = 0:7;
+end
+ylabel('$|FT (n_2)|$');
+[h.ax.XLim] = deal([0,1999]);
+[h.ax.Color] = deal('none');
+% formatPlot(h.f);
+drawnow;
+formatPlot(h.f,'twocolumn-single');
+% h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+% export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+%% chain-x-site2-ft
+for ii = [1:1]
+h = res(ii).plot('chain-x-site2-ft','-cmev','-dist','-norm');
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+if length(h.ax) > 1
+	arrayfun(@(x) set(x,'YTick',[0,x.YTick(end)/2,x.YTick(end)]),h.ax);
+else
+	h.ax.YTick = 0:7;
+end
+ylabel('$|FT (x_2)|$');
+[h.ax.XLim] = deal([0,1999]);
+[h.ax.Color] = deal('none');
+% formatPlot(h.f);
+drawnow;
+formatPlot(h.f,'twocolumn-single');
+% h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+% export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+%% chain-x2-site2-ft
+for ii = [1:1]
+h = res(ii).plot('chain-x2-site2-ft','-cmev','-dist','-norm');
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+if length(h.ax) > 1
+	arrayfun(@(x) set(x,'YTick',[0,x.YTick(end)/2,x.YTick(end)]),h.ax);
+else
+	h.ax.YTick = 0:7;
+end
+ylabel('$|FT (x^2_2)|$');
+[h.ax.XLim] = deal([0,1999]);
+[h.ax.Color] = deal('none');
+% formatPlot(h.f);
+drawnow;
+formatPlot(h.f,'twocolumn-single');
+% h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+% export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+%% rhoij-imag
+for ii = [1]
+h = res(ii).plotSld1DFT('rhoij-imag','-cmev','-dist');
+% h.f.Units = 'centimeters'; h.f.Position(3) = h.f.Position(3)*0.66; h.f.Units = 'pixels';
+% set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) legend(x,'boxoff'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+ylabel('$|FT Im(\rho_{ij})|$');
+[h.ax.XLim] = deal([0,15000]);
+[h.ax.Color] = deal('none');
+% formatPlot(h.f);
+drawnow;
+formatPlot(h.f,'twocolumn-single');
+% h.f.Units = 'centimeters'; h.f.Position(3) = 2.5*h.f.Position(4); h.f.Units = 'pixels';
+% export_fig(sprintf('img/%d',h.f.Number),'-transparent','-png','-m2', h.f);
+end
+
+%% add stems into norm dist reaction coord plot - L18
+x = res(1);
+% figure
+hold all
+for nc = 1:7
+% 	stem(x.para.chain{nc}.dataPoints(:,1)*8065.6,nc-1+abs(x.para.chain{nc}.dataPoints(:,2))/max(abs(x.para.chain{nc}.dataPoints(:,2))),'BaseValue',nc-1);
+% or:
+	dat = abs(x.para.chain{nc}.dataPoints);
+	dat(:,1) = dat(:,1)*8065.6;							% ev to cm
+	dat(:,2) = dat(:,2)/max(dat(:,2));					% normalise
+	for ii = 1:size(dat,1)
+		line([1 1]*dat(ii,1),[0,1]*dat(ii,2)-nc+7,'color',[0 0 0],'linewidth',2);
+	end
+end
+%% add stems into norm dist reaction coord plot - L2
+x = res(1);
+% figure
+hold all
+for nc = 1:7
+% 	stem(x.para.chain{nc}.dataPoints(:,1)*8065.6,nc-1+abs(x.para.chain{nc}.dataPoints(:,2))/max(abs(x.para.chain{nc}.dataPoints(:,2))),'BaseValue',nc-1);
+% or:
+	dat = [x.para.chain{nc}.epsilon(1)*8065.6, 1];
+	line([1 1]*dat(1),[0,1]-nc+7,'color',[0 0 0],'linewidth',2);
+end
+
+%%
+h=res(1).plotSld1D('chain-n-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-n-d-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+legend('$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$')
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x-d-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+legend('$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$')
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x2-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+%%
+h=res(1).plotSld1D('chain-x2-d-t','-fsev');
+formatPlot(h.f);
+h.sld{1}.setValue(2);
+legend('$TT$','$LE^+$','$LE^-$','$CT^+$','$CT^-$')
+for ii = 1:7
+	h.sld{2}.setValue(ii);
+	export_fig(sprintf('img/%s-%d',get(gcf,'Name'),ii),'-transparent','-png',h.ax);
+end
+
+%% Analyse TreeMPS node for inter-chain entanglement
+% which could be reduced by chain combination
+%x = TDVPData('H:\Documents\Theory\schroederflorian-vmps-tdvp\TDVP-Git\Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat');
+load('Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat','treeMPS','para')
+%% Get vNE for each partition
+% lower vNE: lower entanglement!
+res = getTensorVNE(squeeze(treeMPS.mps{1}));
+%% [5,9] and [6,7] SV:
+A = treeMPS.mps{1}; dA = size(A);
+[B, dB] = tensShape(A,'unfoldiso', [5,9],dA);
+[~,S,~] = svd2(B);
+
 %% Save all currently opend figures
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
-	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
+% 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
+	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m4', f_handles(ii));
+% 	figure(f_handles(ii));
+% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end
 
 %% Deserialise all Variables

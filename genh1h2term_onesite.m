@@ -1,4 +1,6 @@
 function op = genh1h2term_onesite(para,op,s)
+%% function op = genh1h2term_onesite(para,op,s)
+%
 %Define the hamiltonian
 % op.h2term{i,j,k,l}:
 %	l is chain number (only used in SpinBosonMC)
@@ -14,6 +16,10 @@ function op = genh1h2term_onesite(para,op,s)
 % If Model changed, modify also:
 %   VMPS_SBM1.m:    para.dk(1) gives dimension of first site;
 %   calspin.m:      sx,sy,sz defines spin measure operator. Change if dim(site1) changes!
+
+if (isfield(para,'useTreeMPS') && para.useTreeMPS) || ~isa(op,'struct')
+	op = genh1h2term_onesite_tree(para,op,s);			% put into separate sub-function, op = treeIdx
+else
 switch para.model
     case 'SpinBoson'
         %%%%%%%%%%%%%%%%%%%Spin-boson Model%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -738,6 +744,270 @@ switch para.model
 		error('VMPS:genh1h2term_onesite:ModelNotFound','Could not find specified para.model')
 end
 end
+end
+
+function op = genh1h2term_onesite_tree(para,treeIdx,s)
+%% function op = genh1h2term_onesite_tree(para,treeIdx,s)
+%
+%	Generates Hamiltonian terms for a treeMPS
+%
+%	treeIdx: 1 x N_levels array with tree-Index of node/leaf
+%	s:       # site in leaf
+%
+% returns for treeIdx = node of tree
+%	op.h1term: 1 x 1 cell
+%	op.h2term: M x 2 x N_edges cell
+%			op.h2term(#term,#position in term,#edge to couple to)
+% returns for treeIdx = leaf of tree = chain, only single-site terms
+%	op.h1term: 1 x 1 cell
+%	op.h2term: M x 2 cell
+%			op.h2term(#term,#position in term)
+%
+% #position in term:
+%		1	couples to the right
+%		2	couples to the left
+%
+% created 22/02/2016 by F.S.
+%
+switch para.model
+	case 'SpinBoson'
+		%%%%%%%%%%%%%%%%%%% Spin-boson Model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+        switch s
+            case 1                                                  % first chain pos = all spin sites!
+                [sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+                zm_spin			  = zeros(2);
+                op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+                op.h2term{1,1}	  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+                op.h2term{2,1}    = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2} = zm_spin;
+            case para.L                                             % last chain pos: only one coupling?
+                [bp,bm,n]		  = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
+                zm				  = sparse(size(bp,1),size(bp,1));
+                op.h1term{1}	  = para.chain{1}.epsilon(para.L-1).*n;
+                op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+                op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+            otherwise
+                [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+                op.h1term{1}	  = para.chain{1}.epsilon(s-1).*n;									% e(1) == w(0)
+                op.h2term{1,1}    = para.chain{1}.t(s).*bp; op.h2term{1,2} = bm;					% t(2) == t(n=0)
+                op.h2term{2,1}    = para.chain{1}.t(s).*bm; op.h2term{2,2} = bp;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+	case 'SpinBoson2C'
+		%%%%%%%%%%%%%%%%%%% Spin-boson Model 2-chains %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%
+		% working
+		% Created 03/16 by FS
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		if treeIdx == 0
+			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+			zm_spin			  = zeros(2);
+			op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+			op.h2term{1,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
+			op.h2term{1,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{1,2,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{2,2,2} = zm_spin;
+			
+		else
+			mc  = treeIdx;					% number of edge == chain number
+			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s
+				case para.chain{mc}.L											% last chain pos: only coupling to left
+					zm				  = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+	case 'DPMES5-7C'
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%
+		% working?
+		% Created 22/02/16 by F.S.
+		%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		if treeIdx == 0
+			% is the pentacene system!
+			[H0,H1]               = DPMES_Operators('5-7C',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+
+		else
+			mc  = treeIdx;					% number of edge == chain number
+			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+	case 'DPMES-Tree1'
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain Tree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%	Initial try to map DPMES5-7C onto an entanglement renormalisation tree
+		%	Channel interaction terms through nodes without Hamiltonian terms/sites
+		%   ChainIdx is numbered according to tree structure, while Number in tree diagram corresponds to number as returned by DPMES_Operators('5-7C')
+		%	Structure:
+		%
+		%							treeIdx		Node Idx	ChainIdx		
+		%	Excitons				[0,0,0,0]	1
+		%	  |- Node  			    [1,0,0,0]	2
+		%     | |- Node             [1,1,0,0]	3
+		%     | | |- Chain 4        [1,1,1,0]				1		
+		%	  | | \- Chain 1        [1,1,2,0]				2
+		%	  | \- Chain 2			[1,2,0,0]				3
+		%	  \- Node  				[2,0,0,0]	4
+		%		|- Node  			[2,1,0,0]	5
+		%       | |- Node           [2,1,1,0]	6
+		%       | | |- Chain 5      [2,1,1,1]				4
+		%       | | \- Chain 6      [2,1,1,2]				5
+		%	    | \- Chain 7        [2,1,2,0]				6
+		%		\- Chain 3			[2,2,0,0]				7
+		%
+		% Created 29/08/16 by F.S.
+		%
+		idx      = num2cell(treeIdx+1);                       % index in para.*
+		mc       = para.treeMPS.chainIdx{idx{:}};             % index of chain
+% 		leafPos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+% 		nodePos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+		
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		
+		% First: list all nodes which carry a physical Hamiltonian site
+		if treeIdx == [0,0,0,0]
+			% is the pentacene system!
+			[H0,H1]               = DPMES_Operators('Tree1',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+% 		elseif
+% 			idx = num2cell(treeIdx+1);
+		% Second: list all chains
+		elseif ~isempty(mc)
+			if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		% Third: all nodes without site, only combining chains
+		else
+			% Do nothing! return empty, since this node only combines chain and has no Hamiltonian site!
+			op.h1term = {[]};																		% put empty array to avoid errors
+		end
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+	case 'testTree'
+		%%%%%%%%%%%%%%%%%%% testTree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%	This is a test tree with uniform boson chains.
+		%
+		%	Equivalent to 2 coupled spins, each coupled to 2 chains
+		%
+		%	Structure:
+		%
+		%							treeIdx
+		%	spin					0
+		%	  |- chain 1			1
+		%	  |- chain 2			2
+		%	  \- spin				3
+		%		|- chain 3			[3,1]
+		%		\- chain 4			[3,2]
+		%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		if treeIdx == 0
+			% spin 1
+			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+			zm_spin			  = zeros(2);
+			op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+			op.h2term{1,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,1}  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2,1} = zm_spin;
+			op.h2term{1,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{1,2,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,2}  = para.chain{2}.t(1).*sigmaZ./2; op.h2term{2,2,2} = zm_spin;
+			op.h2term{1,1,3}  = para.alpha.*sigmaZ; op.h2term{1,2,3} = zm_spin;
+			op.h2term{2,1,3}  = para.alpha.*sigmaX; op.h2term{2,2,3} = zm_spin;
+		elseif nonzeros(treeIdx) == 3
+			% spin 2
+			%	op.h2term{:,2,1} couples to root node!
+			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+			zm_spin			  = zeros(2);
+			op.h1term{1}	  = -para.hx./2.*sigmaZ-para.hz./2.*sigmaX;
+			op.h2term{1,1,1}  = para.chain{3}.t(1).*sigmaZ./2; op.h2term{1,2,1} = sigmaZ;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,1}  = para.chain{3}.t(1).*sigmaZ./2; op.h2term{2,2,1} = sigmaX;
+			op.h2term{1,1,2}  = para.chain{4}.t(1).*sigmaZ./2; op.h2term{1,2,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)
+			op.h2term{2,1,2}  = para.chain{4}.t(1).*sigmaZ./2; op.h2term{2,2,2} = zm_spin;
+		else
+			idx = num2cell(treeIdx+1);														% index in para.*
+			mc  = para.treeMPS.chainIdx{idx{:}};						% chain number from linear index in para
+			switch s
+				case para.chain{mc}.L											% last chain pos: only coupling to left
+					[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+					zm				  = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+				otherwise
+					[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+					op.h1term{1}	  = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1}    = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+end
+end
 
 function [H0, H1] = MLSB_Operators(para)
 % calculates Energy levels H0 and couplings to bath HI
@@ -808,7 +1078,7 @@ switch nModel
 		H1 = cell(7,1);								% one for each chain!
 		H1{1} = eye(n);   H1{1}(1,1) = 0;									% A1: TT/rest = 0
 		H1{2} = eye(n);   H1{2}(1,1) = 2;									% A1: TT/rest = 2
-		H1{3} = zeros(n); H1{3}(1,4) = 1;          H1{4}(4,1) = 1;			% A2, W14
+		H1{3} = zeros(n); H1{3}(1,4) = 1;          H1{3}(4,1) = 1;			% A2, W14
 		H1{4} = zeros(n); H1{4}(2,4) = 1;          H1{4}(4,2) = 1;	        % B1, W24
 						  H1{4}(1,5) = -sqrt(3)/2; H1{4}(5,1) = -sqrt(3)/2;	%	, W15
 						  H1{4}(3,5) = -1;         H1{4}(5,3) = -1;			%   , W35
@@ -823,7 +1093,25 @@ switch nModel
 % 		para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20160129/W24-B1-17-highv2.dat'));
 % 		para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20160129/W23-B2-8-10.dat'));
 % 		para.chain{6}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1x.dat'));
-% 		para.chain{7}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1-x.dat'));
+% 		para.chain{7}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1-x.dat'));		
+	case 'Tree1'
+		% TT, LE+, LE-, CT+, CT- with 4 chains
+		% chain order: 1-2: A1(1,2); 3: A2, 4: B1, 5-7: B2
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		H1{1} = zeros(n); H1{1}(2,4) = 1;          H1{1}(4,2) = 1;	        % B1, W24
+						  H1{1}(1,5) = -sqrt(3)/2; H1{1}(5,1) = -sqrt(3)/2;	%	, W15
+						  H1{1}(3,5) = -1;         H1{1}(5,3) = -1;			%   , W35
+		H1{2} = eye(n);   H1{2}(1,1) = 0;									% A1: TT/rest = 0
+		H1{3} = eye(n);   H1{3}(1,1) = 2;									% A1: TT/rest = 2
+		H1{4} = zeros(n); H1{4}(2,3) = 1;          H1{4}(3,2) = 1;			% B2, W23
+		H1{5} = zeros(n); H1{5}(4,5) = 1;          H1{5}(5,4) = 1;			% B2, W45
+						  H1{5}(2,3) = 1.3;        H1{5}(3,2) = 1.3;		%   , W23
+		H1{6} = zeros(n); H1{6}(4,5) = 1;          H1{6}(5,4) = 1;			% B2, W45
+						  H1{6}(2,3) = -1.5;       H1{6}(3,2) = -1.5;		%   , W23
+		H1{7} = zeros(n); H1{7}(1,4) = 1;          H1{7}(4,1) = 1;			% A2, W14
+		
 end
 
 end

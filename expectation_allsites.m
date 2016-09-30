@@ -1,4 +1,4 @@
-function [n] = expectation_allsites(n_op,mps,Vmat)
+function [n] = expectation_allsites(n_op,mps,Vmat,Cleft)
 % Calculate the expectation value of the 1-site local operator "n_op" for all sites.
 % performs 2*3*N contractions
 % assumes precise right-normalization
@@ -20,6 +20,9 @@ function [n] = expectation_allsites(n_op,mps,Vmat)
 n = zeros(M,L);
 
 Cl = [];						% contains left part in effective j-basis
+if nargin == 4
+	Cl = Cleft;
+end
 
 for j = 1:L
 	% j == 1 -> Cl = [];

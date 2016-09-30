@@ -13,31 +13,36 @@ else
 end
 
 
-out=0;
+out  = 0;		% output of form Dl x Dr x d
+out2 = 0;		% output of form (Dl * d) x Dr
 
 % collect non-interacting parts of Hamiltonian:
-outHl = contracttensors(op.Hleft,2,2,inA,3,1);				% out += Hleft_(l',l) * A_(l,r,n) * 1_(r',r) *1_(n',n)
-outHr = contracttensors(inA,3,2,op.Hright,2,2);				% ()_(l',n',r') = A_(l,r,n) * Hright_(r',r) * 1_(l',l) *1_(n',n)
-outHr = permute(outHr,[1,3,2]);								% += ()_(l',r',n')
-out   = out+outHr+outHl;
-if ~isempty(op.h1jOBB)
-    out = out+contracttensors(inA,3,3,op.h1jOBB,2,2);
-end
+out   = reshape(op.Hleft*reshape(inA,Dl,[]),[Dl,Dr,d]);
+Atemp = reshape(permute(inA,[1,3,2]),[],Dr);					% (Dl * d) x Dr
+out2  = Atemp * op.Hright.';
 
+	% from now: contract local operators first -> bring inA into suitable form
+inA = reshape(inA,[],d);										% (Dl * Dr) x d
+
+if ~isempty(op.h1jOBB)
+    out = out + reshape(inA * op.h1jOBB.', [Dl,Dr,d]);
+end
 
 % collect interacting parts:
 for m=1:M
-	outSl = 0; outSr = 0;
 	if ~isempty(op.h2jOBB{m,2}) && ~isempty(op.Opleft{m})
-		outSl = contracttensors(op.Opleft{m},2,2,inA,3,1);
-		outSl = contracttensors(outSl,3,3,op.h2jOBB{m,2},2,2);
+		Atemp = inA * op.h2jOBB{m,2}.';
+		Atemp = op.Opleft{m} * reshape(Atemp,Dl,[]);
+		out   = out + reshape(Atemp, [Dl,Dr,d]);
 	end
 	if ~isempty(op.h2jOBB{m,1}) && ~isempty(op.Opright{m})
-		outSr = contracttensors(inA,3,2,op.Opright{m},2,2);
-		outSr = contracttensors(outSr,3,2,op.h2jOBB{m,1},2,2);
+		Atemp = inA * op.h2jOBB{m,1}.';
+		Atemp = reshape(permute(reshape(Atemp, [Dl,Dr,d]),[1,3,2]),[],Dr);
+		out2  = out2 + Atemp * op.Opright{m}.';
 	end
-    out = out+outSr+outSl;
 end
+
+out = out + permute(reshape(out2,[Dl,d,Dr]),[1,3,2]);
 
 
 if parity~='n'

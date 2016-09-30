@@ -1,7 +1,7 @@
 function out = getObservable(type,mps,Vmat,para)
 %% Calculates the following Observables:
 %	SBM:    'spin', 'occupation', 'current', 'shift', 'rdm', 'staroccupation', 'starpolaron',
-%			'energy', 'bath1correlators', 'bath2correlators'
+%			'energy', 'displacement', 'bath2correlators'
 %   MLSBM:  'participation', 'tunnelenergy', 'staroccupation', 'starpolaron', 'energy'
 %
 %   Use as: first argument is cell, with descriptor as type{1}
@@ -12,7 +12,7 @@ function out = getObservable(type,mps,Vmat,para)
 %           getObservable({'shift'}					,mps,Vmat,para)
 %           getObservable({'rdm',2}					,mps,Vmat,para)
 %           getObservable({'tunnelenergy',op}		,mps,Vmat,para)
-%           getObservable({'bath1correlators'}		,mps,Vmat,para)
+%           getObservable({'displacement'}			,mps,Vmat,para)
 %           getObservable({'bath2correlators'}		,mps,Vmat,para)
 %           getObservable({'starpolaron'}			,mps,Vmat,para)
 %           getObservable({'staroccupation',AnAm}	,mps,Vmat,para)
@@ -29,7 +29,7 @@ function out = getObservable(type,mps,Vmat,para)
 %       'rdm':              matrix
 %       'participation':    number
 %       'tunnelenergy':     number
-%		'bath1correlators':	vector	(L x 1)
+%		'displacement':		vector	(L x 1)
 %		'bath2correlators':	matrix	(L x L x NC)
 %		'staroccupation':	array	(3 x X x NC)
 %		'current':			array	(NC x L-1)
@@ -46,6 +46,7 @@ function out = getObservable(type,mps,Vmat,para)
 % Modified:
 %	- 21/12/14 FS: replaced OBB contractions with faster matrix products.
 %	- 21/08/15 FS: added Multi-Chain Vmat / Vtens capability
+%	- 28/02/16 FS: added TreeMPS support
 switch type{1}
     case 'spin'
         % applicable for spin-boson model and for folded SBM2
@@ -53,7 +54,10 @@ switch type{1}
 
     case 'occupation'
         % applicable to all single stranded chains. Extensible to 2-chains
-		if para.foldedChain == 0
+		if para.useTreeMPS == 1
+			out = calBosonOcc_Tree(mps,para);			% (L x NC)
+			return;
+		elseif para.foldedChain == 0
 			if para.nChains == 1
 				out = calBosonOcc(mps,Vmat,para);
 			else										% Multi-chain with Vmat / V-tensor-network
@@ -64,7 +68,7 @@ switch type{1}
 			out(2,:) = calBosonOcc(mps,Vmat,para,2);
 		end
 		if size(out,1) > 1
-			out = out.';			% (L x NC) for compatibility with tresults
+			out = out.';								% (L x NC) for compatibility with tresults
 		end
 
     case 'shift'
@@ -79,7 +83,11 @@ switch type{1}
     case 'rdm'
         % applicable to all systems.
 		if type{2} <= para.L
-            out = calRDM(mps,Vmat,para,type{2});
+			if para.useTreeMPS
+				out = calRDM(mps.mps,mps.Vmat,para,1);	% only for site 1 for now.
+			else
+	            out = calRDM(mps,Vmat,para,type{2});
+			end
 		else
             out = [];
 		end
@@ -137,13 +145,21 @@ switch type{1}
 		% closely related to 'rdm_adiabatic'
 		% {'state',sitej}
 		if type{2} ~= 1
-			error('rdm_adiabatic only available for site 1');
+			error('VMPS:getObservable:state','state only available for site 1');
 		end
 		if para.nChains > 1
 			if para.useStarMPS
 				d = size(mps{1});
 				A = reshape(mps{1},[],d(end));		% ... x dk
 				[U,S,~] = svd2(A.');				% transpose to benefit from speedup in svd2
+			elseif para.useTreeMPS
+				d = size(mps.mps{1});
+				[~,V] = prepare_onesiteAmat(reshape(mps.mps{1},d(1),[],d(end)),para,1);		% A_(1,D(1)*..*D(NC),dOBB') * V_(dOBB',dk)
+				if diff(size(V)) ~= 0														% if dOBB < dk then expand
+					V(d(end),d(end)) = 0;
+				end
+				out = V';
+				return;
 			else
 				error('VMPS:getObservable:NotImplemented','Needs to be implemented!')
 			end
@@ -198,6 +214,121 @@ switch type{1}
             out = calTunnelingEnergy(mps,Vmat,para,type{2});
 		else
             out = calTunnelingEnergy(mps,Vmat,para);
+		end
+
+	case 'bath1correlators'
+		% = [state projected] chain observable
+		% returns a L [x dk(1,1)] x nChains Vector
+		%
+		%	obs: ['bp'|'x'|'bp^2'|'x^2'|'n']	selects observable to calculate
+		%
+		% by default:
+		% {'bath1correlators',obs}            : no projection - TODO!
+		% {'bath1correlators',obs,'diabatic'} : projects onto diabatic states
+		% {'bath1correlators',obs,'adiabatic'}: projects onto adiabatic states
+		
+		NC = para.nChains;
+		
+		if para.useTreeMPS && isstruct(mps)
+			if length(type) == 2
+				out = calBath1SiteCorrelators_Tree(mps,para,type{2});		% L x NC
+			else
+				out = zeros(para.L, mps.dk(1), NC);
+				% One SVD to dk to separate diabatic or adiabatic basis!
+				% Assume, Vmat of node = eye; mps == treeMPS
+				assert(all(all(mps.Vmat{1} == eye(mps.dk(1)))),'Please implement for Vmat ~= eye, if this happens!');
+				d = size(mps.mps{1});
+				[A,V] = prepare_onesiteAmat(reshape(mps.mps{1},d(1),[],d(end)),para,1);		% A_(1,D(1)*..*D(NC),dOBB') * V_(dOBB',dk)
+				A = reshape(A,[],size(A,3));
+				% Now dOBB is adiabatic basis, dk is diabatic. V carries probabilities for each state, which will be removed later!
+				for kk = 1:mps.dk(1)
+					newV = zeros(size(V));
+					if strcmpi(type{3},'diabatic')
+					% Project onto root nodes' diabatic states
+						newV(:,kk) = V(:,kk);
+					elseif strcmpi(type{3},'adiabatic')
+					% Project onto root nodes' adiabatic states
+						newV(kk,:) = V(kk,:);
+					elseif strcmpi(type{3},'lettcoherence')		% get |TT><LE+| mode-mediated coherence terms
+						newV = V;
+						projOp = zeros(size(V,2));
+						projOp(1,2) = 1;% projOp(2,1) = 1;
+					end
+					if norm(newV) ~= 0
+						newV = newV./norm(newV);				% remove weight by /norm()
+					end
+					mps.mps{1} = reshape(A*newV,d);
+					if strcmpi(type{3},'lettcoherence')
+						out(:,kk,:) = calBath1SiteCorrelators_Tree(mps,para,type{2},projOp);		% projection needed for cross terms
+						break;																		% only do once!
+					else
+						out(:,kk,:) = calBath1SiteCorrelators_Tree(mps,para,type{2});				% no projection needed anymore inside calBath1SiteCorrelators
+					end
+				end
+			end
+			return;
+		end
+		
+		if length(type) == 3
+			out = zeros(para.L, para.dk(1,1), NC);
+		elseif length(type) == 2
+			out = zeros(para.L,NC);
+		else
+			error('VMPS:getObservable:bath1correlators','Please call with correct input');
+		end
+		
+		if para.useStarMPS
+			for mc = 1:NC
+				% extract MPS for each chain and calculate <anam> separately
+				cL = para.chain{mc}.L;
+				mpsC  = [mps{1}, cellfun(@(x) x{mc},mps(2:cL),'UniformOutput',false)];
+				VmatC = [Vmat{1}, cellfun(@(x) x{mc},Vmat(2:cL),'UniformOutput',false)];
+				mpsC{1} = permute(mpsC{1}, [1:mc,mc+2:NC+1, mc+1, NC+2]);
+				mpsC{1} = reshape(mpsC{1}, [],para.D(mc,1),para.dk(1,1));
+
+				paraC = para;
+				paraC.nChains = 1; paraC.L = para.chain{mc}.L;
+				paraC.dk = para.dk(mc,:); paraC.dk(1) = para.dk(1,1);	% need to preserve system dk
+				paraC.shift = para.shift(mc,:);
+				% calculate <anam>
+				if length(type) == 2
+					out(1:paraC.L,mc) = calBath1SiteCorrelatorsProject(mpsC,VmatC,paraC,type{2},[],[]);
+				elseif strcmpi(type{3},'diabatic')
+					% diabatic projections (H0 eigenstates)
+					for kk = 1:paraC.dk(1,1)
+						stateProj = zeros(paraC.dk(1,1)); stateProj(kk,kk) = 1;
+						bondProj  = [];
+						out(1:paraC.L,kk,mc) = calBath1SiteCorrelatorsProject(mpsC,VmatC,paraC,type{2},stateProj,bondProj);
+					end
+				elseif strcmpi(type{3},'adiabatic')
+					% adiabatic states
+					for kk = 1:para.D(mc,1)
+						stateProj = [];
+						bondProj  = zeros(para.D(mc,1)); bondProj(kk,kk) = 1;
+						out(1:paraC.L,kk,mc) = calBath1SiteCorrelatorsProject(mpsC,VmatC,paraC,type{2},stateProj,bondProj);
+					end
+				end
+			end
+		else
+			if length(type) == 2
+				out(1:para.L,:) = calBath1SiteCorrelatorsProject(mps,Vmat,para,type{2},[],[]);
+			elseif strcmpi(type{3},'diabatic')
+				% diabatic projections (H0 eigenstates)
+				for kk = 1:para.dk(1,1)
+					stateProj = zeros(para.dk(1,1)); stateProj(kk,kk) = 1;
+					bondProj  = [];
+					out(1:para.L,kk,:) = calBath1SiteCorrelatorsProject(mps,Vmat,para,type{2},stateProj,bondProj);
+				end
+			elseif strcmpi(type{3},'adiabatic')
+				% adiabatic states
+				for kk = 1:para.dk(1,1)
+					stateProj = [];
+					bondProj  = zeros(para.dk(1,1)); bondProj(kk,kk) = 1;
+					out(1:para.L,kk,:) = calBath1SiteCorrelatorsProject(mps,Vmat,para,type{2},stateProj,bondProj);
+				end
+			end
+% 			out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[1,0;0,0]);	% spin up
+% 			out(:,2,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[0,0;0,1]);	% spin down
 		end
 
 	case 'bath2correlators'
@@ -263,14 +394,15 @@ switch type{1}
 			out(:,mc) = (para.chain{mc}.t.*diag(AmAn(1:end-1,2:end,mc)));		% t(n)*a(n)*a(n+1)^+
 		end
 
-	case 'bath1correlators'
+	case 'displacement'
 		% = state projected chain polaron
 		% needed for mapping from chain to star, starpolaron
 		% returns a L x dk(1,1) x nChains Vector
 		%
 		% by default:
-		% {'bath1correlators'}            : projects onto diabatic states
-		% {'bath1correlators','adiabatic'}: projects onto adiabatic states
+		% {'displacement'}            : no projection - TODO!
+		% {'displacement','diabatic'} : projects onto diabatic states
+		% {'displacement','adiabatic'}: projects onto adiabatic states
 		
 		NC = para.nChains;
 		out = zeros(para.L, para.dk(1,1), NC);
@@ -294,14 +426,14 @@ switch type{1}
 					for kk = 1:paraC.dk(1,1)
 						stateProj = zeros(paraC.dk(1,1)); stateProj(kk,kk) = 1;
 						bondProj  = [];
-						out(1:paraC.L,kk,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,stateProj,bondProj);
+						out(1:paraC.L,kk,mc) = calBath1SiteCorrelatorsProject(mpsC,VmatC,paraC,'x',stateProj,bondProj);
 					end
 				elseif strcmpi(type{2},'adiabatic')
 					% adiabatic states
 					for kk = 1:para.D(mc,1)
 						stateProj = [];
 						bondProj  = zeros(para.D(mc,1)); bondProj(kk,kk) = 1;
-						out(1:paraC.L,kk,mc) = calBath1SiteCorrelators_MC(mpsC,VmatC,paraC,stateProj,bondProj);
+						out(1:paraC.L,kk,mc) = calBath1SiteCorrelatorsProject(mpsC,VmatC,paraC,'x',stateProj,bondProj);
 					end
 				end
 			end
@@ -311,14 +443,14 @@ switch type{1}
 				for kk = 1:para.dk(1,1)
 					stateProj = zeros(para.dk(1,1)); stateProj(kk,kk) = 1;
 					bondProj  = [];
-					out(1:para.L,kk,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj,bondProj);
+					out(1:para.L,kk,:) = calBath1SiteCorrelatorsProject(mps,Vmat,para,'x',stateProj,bondProj);
 				end
 			elseif strcmpi(type{2},'adiabatic')
 				% adiabatic states
 				for kk = 1:para.dk(1,1)
 					stateProj = [];
 					bondProj  = zeros(para.dk(1,1)); bondProj(kk,kk) = 1;
-					out(1:para.L,kk,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,stateProj,bondProj);
+					out(1:para.L,kk,:) = calBath1SiteCorrelatorsProject(mps,Vmat,para,'x',stateProj,bondProj);
 				end
 			end
 % 			out(:,1,:) = calBath1SiteCorrelators_MC(mps,Vmat,para,[1,0;0,0]);	% spin up
@@ -327,7 +459,7 @@ switch type{1}
 
 	case 'starpolaron'
 		%% does mapping chain -> star
-		% uses bath1correlators
+		% uses displacement
 		% x stands for continuous variable (momentum k)
 		% Does state projection!
 		% Works with Single and Multi Chain Vmat / Vtens
@@ -337,9 +469,9 @@ switch type{1}
 		NC = para.nChains;
 		% Get correlators
 		if length(type) == 1 || strcmpi(type{2},'diabatic')
-			An = real(getObservable({'bath1correlators'},mps,Vmat,para));		% L x states x nChains
+			An = real(getObservable({'displacement','diabatic'},mps,Vmat,para));		% L x states x nChains
 		elseif strcmpi(type{2},'adiabatic')
-			An = real(getObservable({'bath1correlators','adiabatic'},mps,Vmat,para));		% L x states x nChains
+			An = real(getObservable({'displacement','adiabatic'},mps,Vmat,para));		% L x states x nChains
 		end
 % 		AnUp   = real(calBath1SiteCorrelators_MC(mps,Vmat,para,1));			% L x nChains
 % 		AnDown = real(calBath1SiteCorrelators_MC(mps,Vmat,para,-1));		% L x nChains
@@ -352,8 +484,8 @@ switch type{1}
 				result = 2.* pxn * An(:,:,mc);	% pxn == U map -> no need for hsquared
 				out(:,1:length(x),mc) = [x,result(2:end,:)].';
 			else
-% 				out(:,:,mc) = [x, 2.*h.*(pxn*An(:,1,mc)),2.*h.*(pxn*An(:,2,mc))]';
-				out(:,:,mc) = [x, 2.*(h*ones(1,size(An,2))).*(pxn*An(:,:,mc))]';
+% 				out(:,:,mc) = [x, h.*(pxn*An(:,1,mc)),h.*(pxn*An(:,2,mc))]';
+				out(:,:,mc) = [x, (h*ones(1,size(An,2))).*(pxn*An(:,:,mc))]';
 			end
 
 		end
@@ -432,6 +564,11 @@ if para.useVtens || para.useStarMPS               % only Quick Fix for Vtens cod
 	spin.sy = spinVal(2);
 	spin.sz = spinVal(3);
 	return;
+end
+if para.useTreeMPS
+	McOp = cell(1,1,3);        % L x NC x N
+	[McOp{1}, McOp{2}, McOp{3}] = spinop(para.spinbase);
+	error('VMPS:getObservable:NotImplementedYet','Please implement this feature!')
 end
 N=para.L;
 assert(N==length(mps) && N==length(Vmat));
@@ -541,6 +678,55 @@ end
 % else
 	n = real(expectation_allsites_MC(McOp,mps,Vtens,para));  % (NC x L)
 % end
+
+end
+
+function n = calBosonOcc_Tree(treeMPS,para)
+%% calculate the boson occupation for treeMPS
+% Zero operator for spin site
+% calculate for all chains simultaneously
+%
+% Created by FS 28/02/2016
+%
+
+% L = para.L; NC = para.nChains;				% total number of site and chains
+
+% Implement recursively for now!
+if treeMPS.height == 0
+	% this is leaf / chain
+	% create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
+	Lc = treeMPS.L;							% length of chain
+	Op = cell(1,Lc);
+	for j = 1:Lc
+		if isempty(treeMPS.spinposition) || j ~= treeMPS.spinposition					% works with array
+			[~,~,Op{1,j}] = bosonop(treeMPS.dk(1,j),treeMPS.shift(1,j),para.parity);
+		else
+			Op{1,j} = zeros(treeMPS.dk(1,j));		% don't measure spin.
+		end
+	end
+
+	n = real(expectation_allsites(Op,treeMPS.mps,treeMPS.Vmat,treeMPS.BondCenter));		% (NC x L)
+	n = reshape(n,[],1);					% L x 1
+else
+	% this is node -> more recursive calls
+	% assume, Focused on MPS!
+	% save n into temp cell array, since total number of chains at this node is unknown
+	nc    = treeMPS.degree;										% number of subchains at node
+	nTemp = cell(1,nc);
+	Atemp = contracttensors(treeMPS.BondCenter,2,2,treeMPS.mps{1},nc+2,1);
+	for ii = 1:nc
+		treeMPS.child(ii).BondCenter = contracttensors(conj(treeMPS.mps{1}),nc+2,[1:ii,ii+2:nc+2],Atemp,nc+2,[1:ii,ii+2:nc+2]);	% contract all except D_(ii+1)
+		nTemp{ii}                    = calBosonOcc_Tree(treeMPS.child(ii),para);		% L x nc(child)
+	end
+	lengths = cellfun(@(x) size(x,1),nTemp);
+	nChains = cellfun(@(x) size(x,2),nTemp);
+	n  = zeros(max(lengths)+1,sum(nChains));											% L x nc_max
+	mc = 0;
+	for ii = 1:nc
+		n(1+(1:lengths(ii)),mc+(1:nChains(ii))) = nTemp{ii};							% copy all together
+		mc = mc + nChains(ii);
+	end
+end
 
 end
 
@@ -721,47 +907,164 @@ tunnelE = expectationvalue(HI,mps,Vmat,mps,Vmat);
 
 end
 
-function An = calBath1SiteCorrelators(mps,Vmat,para,spinProj)  % DEPRECATED. Use calBath1SiteCorrelators_MC instead!
-% calculates Re<(1+-sz)/4 * a_n^+>.
-% output is matrix containing all values.
-% Only calculate Re, since Im is not needed! -> saves space!
+function An = calBath1SiteCorrelatorsProject(mps,Vmat,para,opSelect,stateProj,bondProj)
+% calculates the (projected) single-site expectation value
+% output is matrix containing all values for all chains (L x nChains)
 % custom made solution for biggest speedup, exact solution!
-% spinProj = +-1 to select up/down projection.
+%	opSelect: ['bp'|'x'|'bp^2'|'x^2'|'n']
+% 	stateProj: equals state-projection operator, normalised!
+%				[]: no selection, take all
+%	bondProj:  equals bond-projection operator, normalised!
+%				[]: no selection, take entire bond
+%
+% supports Multi-Chain with Vmat and Vtens, Works with single chain!
+%  does NOT support StarMPS or TreeMPS input! This needs pre-processing
 
-An = zeros(para.L,1);						% initialize results array
-bp = cell(1,para.L);						% containing all necessary operators
-%% generate all operators:
-for j=1:para.L
-    if prod(j~=para.spinposition)
-        if para.foldedChain == 1
-            %% not supported yet
-			error('This feature is not yet supported');
-        elseif para.foldedChain == 0
-            [bp{1,j},~,~] = bosonop(para.dk(j),para.shift(j),para.parity);
-        end
-	else
-		[~,~,sz]=spinop(para.spinbase);
-        bp{1,j} = (eye(2)+spinProj*sz)/4;			% additional 1/2 for displacement
-    end
+assert(para.foldedChain == 0, 'Please use single-chain code for folded Chains');
+
+An     = zeros(para.L, para.nChains);									% initialize results array
+op_OBB = cell( para.L, para.nChains);
+%% generate all operators & contract with OBB Vmat / Vtens:
+for j = 1:para.L
+	para.sitej = j;
+	for mc = 1:para.nChains
+		op = cell(1, para.nChains);						            % containing single-site, single-chain operator
+		if j ~= para.spinposition
+			switch opSelect
+				case 'bp'
+					op{mc}        = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
+				case 'x'
+					bp            = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
+					op{mc}        = (bp+bp')/2;
+				case 'bp^2'
+					bp            = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
+					op{mc}        = bp^2;
+				case 'x^2'
+					bp            = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
+					op{mc}        = (bp+bp')^2/4;
+				case 'n'
+					[~,~,op{mc}]  = bosonop(para.dk(mc,j),para.shift(mc,j),para.parity);
+			end
+			op_OBB{j, mc} = contractMultiChainOBB(Vmat{j}, op, para);
+		else	% Spin & Multi-Level System
+			if ~isempty(stateProj)
+				op_OBB{j,mc} = Vmat{j}' * stateProj * Vmat{j};					% Spin-site Vmat, project onto system state!
+			else
+				op_OBB{j,mc} = Vmat{j}' * Vmat{j};
+			end
+		end
+	end
+end
+
+if isempty(stateProj) && ~isempty(bondProj)
+	% do SVD from site 1 to 2 in order to get projections onto the dominant system states!
+	%	otherwise have projection onto dominant Bath states (from previous sweep to left)
+	A = mps{1};
+	[D1, D2, d] = size(A);				% d is site dimension
+	A = permute(A, [3, 1, 2]);
+    A = reshape(A, [d * D1, D2]);		% reshapes to (a1 d),a2
+    [B, S, U] = svd2(A);				% Could also use QR decomposition if nargin !=5
+	
+	DB = size(S, 1);					% new a2 dimension of B should == d
+	B = reshape(B, [d, D1, DB]);
+	mps{1} = permute(B, [2, 3, 1]);		% not used anymore!
+	% do not contract S into mps{2}, to avoid the displacement to be contaminated with the state amplitude!
+	mps{2} = contracttensors(U,2,2, mps{2},3,1);
 end
 
 %% compute all partial contractions
 % such that (1+sz/4) gets updated to the right in row 1;
 % Trace(contraction for result) = Am(j)
-bpContract = cell(1,para.L);
+opContract = cell(para.L, 1);										% same for all chains! since only 1 common MPS backbone
 for j = 1:para.L
-% 	fprintf('%g-',j);
-	if j ~= 1
-		An(j,1) = trace(updateCleft(bpContract{1,j-1},mps{j},Vmat{j},bp{1,j},mps{j},Vmat{j}));	% this is the result!
+	for mc = 1:para.nChains
+		if j ~= 1
+			An(j,mc)    = trace(updateCleft(opContract{j-1,1},mps{j},[],op_OBB{j,mc},mps{j},[]));	% this is the result!
+		end
 	end
 
 	if j ~=1
-		bpContract{1,j} = updateCleft(bpContract{1,j-1},mps{j},Vmat{j},[],mps{j},Vmat{j});
+		opContract{j,1} = updateCleft(opContract{j-1,1},mps{j},[],[],mps{j},[]);				% Vmat is normalised -> leave out!
 	else % j == 1
-		bpContract{1,1} = updateCleft([],mps{j},Vmat{j},bp{1,j},mps{j},Vmat{j});                % for spin-projection
+		if isempty(bondProj)
+			opContract{1,1} = updateCleft([],mps{j},[],op_OBB{j,1},mps{j},[]);					% for state-projection; = (r',r)
+		else
+			opContract{1,1} = bondProj;
+		end
 	end
 end
-% fprintf('\n');
+
+end
+
+function An = calBath1SiteCorrelators_Tree(treeMPS,para,opSelect,projOp)
+% calculates the single-site expectation value
+% Zero operator for spin sites / nodes
+% output is matrix containing all values for all chains (L x nChains)
+% custom made solution for biggest speedup, exact solution!
+%	opSelect: ['bp'|'x'|'bp^2'|'x^2'|'n']
+%
+% Projection operator only applied to dk of root node!
+% supports only TreeMPS input!
+%
+% Created by FS 11/03/2016
+%
+
+% Implement recursively for now!
+if treeMPS.height == 0
+	% this is leaf / chain
+	% create Operator for expectationvalue: need nc^2 each (i,:,j) is one operator [] x [] x n x [] x []
+	Lc = treeMPS.L;							% length of chain
+	Op = cell(1,Lc);
+	for j = 1:Lc
+		if isempty(treeMPS.spinposition) || j ~= treeMPS.spinposition					% works with array
+			bp              = bosonop(treeMPS.dk(1,j),treeMPS.shift(1,j),para.parity);
+			switch opSelect
+				case 'bp'
+					Op{1,j} = bp;
+				case 'x'
+					Op{1,j} = (bp+bp')/2;
+				case 'bp^2'
+					Op{1,j} = bp^2;
+				case 'x^2'
+					Op{1,j} = (bp+bp')^2/4;
+				case 'n'
+					Op{1,j} = bp*bp';
+			end
+		else
+% 			if nargin > 3
+% 				Op{1,j} = projOp;						% use Projection operator if specified
+% 			else
+				Op{1,j} = zeros(treeMPS.dk(1,j));		% no projection
+% 			end
+		end
+	end
+
+	An = expectation_allsites(Op,treeMPS.mps,treeMPS.Vmat,treeMPS.BondCenter);			% (NC x L)
+	An = reshape(An,[],1);					% L x 1
+else
+	%% this is node -> more recursive calls
+	% assume, Focused on MPS!
+	% save n into temp cell array, since total number of chains at this node is unknown
+	nc    = treeMPS.degree;										% number of subchains at node
+	AnTemp = cell(1,nc);
+	Atemp = contracttensors(treeMPS.BondCenter,2,2,treeMPS.mps{1},nc+2,1);
+	if nargin > 3 && ~isempty(projOp)
+		Atemp = contracttensors(Atemp,nc+2,nc+2,projOp.',2,1);							% Apply projection to first site
+	end
+		
+	for ii = 1:nc
+		treeMPS.child(ii).BondCenter = contracttensors(conj(treeMPS.mps{1}),nc+2,[1:ii,ii+2:nc+2],Atemp,nc+2,[1:ii,ii+2:nc+2]);	% contract all except D_(ii+1)
+		AnTemp{ii}                   = calBath1SiteCorrelators_Tree(treeMPS.child(ii),para,opSelect);		% L x nc(child)
+	end
+	lengths = cellfun(@(x) size(x,1),AnTemp);
+	nChains = cellfun(@(x) size(x,2),AnTemp);
+	An  = zeros(max(lengths)+1,sum(nChains));											% L x nc_max
+	mc = 0;
+	for ii = 1:nc
+		An(1+(1:lengths(ii)),mc+(1:nChains(ii))) = AnTemp{ii};							% copy all together
+		mc = mc + nChains(ii);
+	end
+end
 
 end
 
@@ -833,102 +1136,6 @@ for j = 1:para.L
 			bpContract{1,1} = updateCleft([],mps{j},[],bp_OBB{j,1},mps{j},[]);					% for state-projection; = (r',r)
 		else
 			bpContract{1,1} = bondProj/2;														% 1/2 since f = (a + a^+)/2
-		end
-	end
-end
-
-end
-
-function AmAn = calBath2SiteCorrelators(mps,Vmat,para) % DEPRECATED. Use calBath2SiteCorrelators_MC instead!
-% calculates <a_m^+ a_n> for any combination, where n>m.
-% output is matrix containing all values.
-% Only calculate Re, since Im is not needed! -> saves space!
-% custom made solution for biggest speedup, exact solution!
-
-AmAn = zeros(para.L);						% initialize results array
-bpbm = cell(2,para.L);						% containing all necessary operators
-%% generate all operators:
-for j=1:para.L
-    if prod(j~=para.spinposition)
-        if para.foldedChain == 1
-            %% not supported yet
-			error('This feature is not yet supported');
-		elseif para.nChains > 1
-			error('This feature is not yet supported');
-        elseif para.foldedChain == 0
-            [bp,bm,~] = bosonop(para.dk(j),para.shift(j),para.parity);
-            bpbm{1,j} = bp;
-			bpbm{2,j} = bm;
-        end
-    else
-        bpbm{1,j} = zeros(para.dk(j));			% zero operators for spin sites
-        bpbm{2,j} = zeros(para.dk(j));
-    end
-end
-
-%% compute all partial contractions
-% such that <m n> is meeting in the middle -> reduce overhead!
-bpContract = cell(para.L);
-for j = 1:para.L-1
-	fprintf('%g-',j);
-	for i = 1:j+2
-		if (i < j) && (j <= floor( (para.L+i)/2))
-			bpContract{i,j} = updateCleft(bpContract{i,j-1},mps{j},Vmat{j},[],mps{j},Vmat{j});
-		elseif i == j % contruct <leftDM * a+
-			if j ~=1
-				bpContract{i,i} = updateCleft(bpContract{i,j-1},mps{j},Vmat{j},bpbm{1,j},mps{j},Vmat{j});
-			else
-				bpContract{i,i} = updateCleft(       []        ,mps{j},Vmat{j},bpbm{1,j},mps{j},Vmat{j});
-			end
-		elseif i == j+1 % construct left-effective DM
-			if j ~= 1
-				bpContract{i,j} = updateCleft(bpContract{i-1,j-1},mps{j},Vmat{j},[],mps{j},Vmat{j});
-			else
-				bpContract{i,j} = updateCleft(        []         ,mps{j},Vmat{j},[],mps{j},Vmat{j});
-			end
-		elseif i == j+2 % a^+ a of same site
-			if j ~= 1
-				bpContract{i,j} = trace(updateCleft(bpContract{i-2,j-1},mps{j},Vmat{j},bpbm{1,j}*bpbm{2,j},mps{j},Vmat{j}));
-			else
-				bpContract{i,j} = trace(updateCleft(        []         ,mps{j},Vmat{j},bpbm{1,j}*bpbm{2,j},mps{j},Vmat{j}));
-			end
-		end
-	end
-end
-L=para.L;
-% The last occupation:
-bpContract{L+2,L} = trace(updateCleft(bpContract{L,L-1},mps{L},Vmat{L},bpbm{1,L}*bpbm{2,L},mps{L},Vmat{L}));
-fprintf('\n');
-
-bmContract = cell(para.L);
-for j = para.L:-1:2
-	fprintf('%g-',j);
-	for i = para.L:-1:j-1
-		if (i > j) && (j > ceil( i/2 ) )
-			bmContract{i,j} = updateCright(bmContract{i,j+1},mps{j},Vmat{j},[],mps{j},Vmat{j});
-		elseif i == j
-			if j ~= para.L
-				bmContract{i,i} = updateCright(bmContract{i,j+1},mps{j},Vmat{j},bpbm{2,j},mps{j},Vmat{j});
-			else
-				bmContract{i,i} = updateCright(        []       ,mps{j},Vmat{j},bpbm{2,j},mps{j},Vmat{j});
-			end
-		elseif i == j-1
-			if j ~= para.L
-				bmContract{i,j} = updateCright(bmContract{i+1,j+1},mps{j},Vmat{j},[],mps{j},Vmat{j});
-			else
-				bmContract{i,j} = updateCright(        []         ,mps{j},Vmat{j},[],mps{j},Vmat{j});
-			end
-		end
-	end
-end
-
-for j = 1:para.L
-	for i = 1:j
-		midPoint = floor((j+i)/2);
-		if  i ~= j
-			AmAn(i,j) = trace(bpContract{i,midPoint} * bmContract{j,midPoint+1}.');
-		else
-			AmAn(i,j) = bpContract{i+2,j};
 		end
 	end
 end

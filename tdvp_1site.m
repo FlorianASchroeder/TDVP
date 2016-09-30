@@ -264,19 +264,21 @@ for timeslice = para.tdvp.slices
 	%% Output matrix dimensions if changed:
 	if para.tdvp.truncateExpandBonds
 		fprintf('\npara.D:\n');
-		out = strrep(mat2str(para.D),';','\n');
-		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(find(x,1,'last')),results.Amat_sv),2);
-		fprintf([out(2:end-1),'\n']);
+		out = num2str(para.D,'%-4u');
+		fprintf('%s\n-log10(minSV):\n',out);
+		out = num2str(cellfun(@(x) -log10(x(find(x,1,'last'))),results.Amat_sv),'%-4.2g');
+		fprintf('%s\n',out);
 	end
 	if para.tdvp.expandOBB
 		fprintf('para.d_opt:\n');
-		out = strrep(mat2str(para.d_opt),';','\n');
-		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv(end,:)))),2);
-		fprintf([out(2:end-1),'\n']);
+% 		out = strrep(mat2str(para.d_opt),';','\n'); fprintf([out(2:end-1),'\n']);
+		out = num2str(para.d_opt,'%-4u');
+		fprintf('%s\n-log10(minSV):\n',out);
+		out = num2str(cellfun(@(x) -log10(x(end)),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv(end,:)))),'%-4.2g');
+		fprintf('    %s\n',out);
 	end
-
+	fprintf('\n\n');  % for better text alignment
+	
     %% SWEEP l <- r:
     para.sweepto = 'l';
     % now Hn = H(L)_(l'*r'*n',l*r*n)
@@ -411,18 +413,19 @@ for timeslice = para.tdvp.slices
 	end
 	%% Output matrix dimensions if changed:
 	if para.tdvp.truncateExpandBonds
-		fprintf('para.D:\n');
-		out = strrep(mat2str(para.D),';','\n');
-		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(find(x,1,'last')),results.Amat_sv),2);
-		fprintf([out(2:end-1),'\n']);
+		fprintf('\npara.D:\n');
+		out = num2str(para.D,'%-4u');
+		fprintf('%s\n-log10(minSV):\n',out);
+		out = num2str(cellfun(@(x) -log10(x(find(x,1,'last'))),results.Amat_sv),'%-4.2g');
+		fprintf('%s\n',out);
 	end
 	if para.tdvp.expandOBB
 		fprintf('para.d_opt:\n');
-		out = strrep(mat2str(para.d_opt),';','\n');
-		fprintf([out(2:end-1),'\n']);
-		out = mat2str(cellfun(@(x) x(end),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv(end,:)))),2);
-		fprintf([out(2:end-1),'\n']);
+% 		out = strrep(mat2str(para.d_opt),';','\n'); fprintf([out(2:end-1),'\n']);
+		out = num2str(para.d_opt,'%-4u');
+		fprintf('%s\n-log10(minSV):\n',out);
+		out = num2str(cellfun(@(x) -log10(x(end)),results.Vmat_sv(end,~cellfun('isempty',results.Vmat_sv(end,:)))),'%-4.2g');
+		fprintf('    %s\n',out);      % need spaces for empty system
 	end
 	fprintf('\n')
 	%% Additional saving
