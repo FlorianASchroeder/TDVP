@@ -38,7 +38,7 @@ rho = reshape(rho,dr(1)*dr(2),[]);		%rho_(l',n~'),(l,n~)
 
 % Truncate D and take root
 D = real(diag(D));						% rho self-adjoint (hermitian), even positive definite
-keepdims = abs(D)>para.svmintol;		% safe threshold?
+keepdims = abs(D)>para.svmintol;		% safe threshold? TODO!! need para.svmintol^2 since D = SV^2
 if sum(keepdims) == 1
 	keepdims(2) = 1;
 end
