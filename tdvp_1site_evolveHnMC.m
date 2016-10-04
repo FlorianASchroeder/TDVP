@@ -83,8 +83,7 @@ for mc = 1:NC
 
 		%% Take matrix exponential V{i}
 		% V{i}(t+dt) = exp(-i HAS_i dt)_(n',n~',n,n~) * V{i}(t)_(n,n~)
-		[Vtens{mc}, err] = expvCustom(- 1i*t,'MC-HAS',...
-			reshape(Vtens{mc},[dk*dOBB,1]), para, op);
+		[Vtens{mc}, err] = expvCustom(- 1i*t,'MC-HAS',Vtens{mc}, para, op);
 		Vtens{mc} = reshape(Vtens{mc}, [dk,dOBB]);
 		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
 	end
@@ -110,8 +109,7 @@ for mc = 1:NC
 
 		%% Take matrix exponential CV{i}
 		% CV{i}(t) = exp(+i HAVS dt) * CV{i}(t+dt)
-		[CV, err] = expvCustom(+ 1i*t,'MC-HASV',...
-			reshape(CV,[numel(CV),1]), para, op);
+		[CV, err] = expvCustom(+ 1i*t,'MC-HASV',CV, para, op);
 		CV = reshape(CV,[n1,n2]);
 		results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
 	end
@@ -124,8 +122,7 @@ end
 n = size(Vtens{end});
 %% Take matrix exponential VS
 % VS(t+dt) = exp(-i HAV dt) * VS(t)
-[Vtens{end}, err] = expvCustom(- 1i*t,'MC-HAV',...
-	reshape(Vtens{end},[numel(Vtens{end}),1]), para, op);
+[Vtens{end}, err] = expvCustom(- 1i*t,'MC-HAV',Vtens{end}, para, op);
 Vtens{end} = reshape(Vtens{end}, [prod(n(1:end-1)),n(end)]);                % 2D reshape to take focus away
 results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
 
@@ -148,8 +145,7 @@ n = size(CVS);
 
 %% Take matrix exponential CVS
 % CVS(t) = exp(+i HAVS dt) * CVS(t+dt)
-[CVS, err] = expvCustom(+ 1i*t,'MC-HAVS',...
-	reshape(CVS,[numel(CVS),1]), para, op);
+[CVS, err] = expvCustom(+ 1i*t,'MC-HAVS',CVS, para, op);
 CVS = reshape(CVS,n);
 results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
 
@@ -159,8 +155,7 @@ mps{sitej} = contracttensors(Amat, 3, 3, CVS, 2, 2);
 %% Take and apply Matrix exponential
 % A(t+dt) = exp(-i Hn dt)_(l',r',n',l,r,n) * A(t)_(l,r,n)
 
-[mpsNew,err] = expvCustom(- 1i*t, 'Hn',...
-	reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
+[mpsNew,err] = expvCustom(- 1i*t, 'Hn',mps{sitej}, para,op);
 Hn = [];		% dummy return value;
 mps{sitej} = reshape(mpsNew,[BondDimLeft,BondDimRight,OBBDim]);
 results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);

@@ -133,8 +133,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 				expvTime(1) = toc(tempT);
 				
 				tempT = tic;
-				V1 = expvCustom(- 1i*t,'HAA',...
-					 reshape(Vmat_focused,[dk*OBBDim,1]), para, op);
+				V1 = expvCustom(- 1i*t,'HAA',Vmat_focused, para, op);
 				expvTime(3) = toc(tempT);
 			end
 			tempT = tic;
@@ -150,8 +149,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
-		[Vmat_focused, err] = expvCustom(- 1i*t,'HAA',...
-					   reshape(Vmat_focused,[dk*OBBDim,1]), para, op);
+		[Vmat_focused, err] = expvCustom(- 1i*t,'HAA',Vmat_focused, para, op);						% tensor in, vector out
 	end
 % 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
@@ -204,8 +202,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 				V1 = expm( 1i.* t.*HAV) * reshape(V,[numel(V),1]);
 				expvTime(5) = toc(tempT);
 				tempT = tic;
-				V2 = expvCustom(+ 1i*t,'HAV',...
-					reshape(V,[numel(V),1]), para,op);
+				V2 = expvCustom(+ 1i*t,'HAV',V, para,op);
 				expvTime(7) = toc(tempT);
 			end
 			tempT = tic;
@@ -221,8 +218,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
-		[V,err] = expvCustom(+ 1i*t,'HAV',...
-				reshape(V,[numel(V),1]), para,op);
+		[V,err] = expvCustom(+ 1i*t,'HAV',V, para,op);
 	end
 % 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
@@ -281,8 +277,7 @@ if  para.tdvp.expvCustomNow == 0
 			expvTime(9) = toc(tempT);
 
 			tempT = tic;
-			mpsNew2 = expvCustom(- 1i*t, 'Hn',...
-					  reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
+			mpsNew2 = expvCustom(- 1i*t, 'Hn',mps{sitej}, para,op);
 			expvTime(11) = toc(tempT);
 		end
 		tempT = tic;
@@ -301,8 +296,7 @@ if  para.tdvp.expvCustomNow == 0
 	end
 else
 	tempT = tic;
-	[mpsNew,err] = expvCustom(- 1i*t, 'Hn',...
-		reshape(mps{sitej},[numel(mps{sitej}),1]), para,op);
+	[mpsNew,err] = expvCustom(- 1i*t, 'Hn',mps{sitej}, para,op);
 	Hn = [];		% dummy return value;
 	t3 = toc(tempT);
 	if para.tdvp.expvCustomTestAccuracy

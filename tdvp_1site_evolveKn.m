@@ -74,8 +74,7 @@ switch para.sweepto
 					op.h2jAV   = op.chain(para.currentChain).Opleft;
 					% make sure H/Opright is correct
 				end
-				[Cn,err] = expvCustom(1i*t, 'Kn',...
-					reshape(Cn,[numel(Cn),1]), para,op);
+				[Cn,err] = expvCustom(1i*t, 'Kn',Cn, para,op);
 			else
 				if para.tdvp.expvCustomTestAccuracy				% debug
 					tempT = tic;
@@ -84,8 +83,7 @@ switch para.sweepto
 					
 					tempT = tic;
 					[op] = H_Eff(mps{sitej}, []  , 'CA', op, para);
-					Cn1 = expvCustom(1i*t, 'Kn',...
-						reshape(Cn,[numel(Cn),1]), para,op);						% Time expvCustom
+					Cn1 = expvCustom(1i*t, 'Kn',Cn, para,op);						% Time expvCustom
 					results.tdvp.expvTime(end,15) = toc(tempT);
 					tempT = tic;
 				end
@@ -162,8 +160,7 @@ switch para.sweepto
 					
 					tempT = tic;
 					[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);
-					Cn1 = expvCustom(1i*t, 'Kn',...
-						reshape(Cn,[numel(Cn),1]), para,op);
+					Cn1 = expvCustom(1i*t, 'Kn',Cn, para,op);
 					results.tdvp.expvTime(end,15) = toc(tempT);
 					tempT = tic;
 				end
@@ -184,8 +181,7 @@ switch para.sweepto
 			else
 				[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);	% could be replaced if updateop called before
 			end
-			[Cn,err] = expvCustom(1i*t, 'Kn',...
-				reshape(Cn,[numel(Cn),1]), para,op);
+			[Cn,err] = expvCustom(1i*t, 'Kn',Cn, para,op);
 		end
 		if writeResults
 % 			results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;

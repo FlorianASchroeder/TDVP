@@ -8,18 +8,26 @@ function [w, err, hump, E] = expvCustom( t, A, v, para, op)
 %  Vmat contans V-tensor if v ~=Vmat
 %    v3= {[],      [],     Vmat{j},  [] }
 
+dv = size(v);					% Dimensions of input tensor 
 n = numel(v);
 tol = para.tdvp.expvTol;
 m   = min(n,para.tdvp.expvM);
+M = para.M;
 
 %% set Function handle
 switch A
 	case 'HAA'
 		AFUN = @HAAmultV;		% also works with Multi-Chain
 	case 'HAV'
+		% copy OBB into h1j, h2j to match HmultVmat behaviour. This is only called for Bosons, so is fine!
+		% needed to use HmultVmat for CV
+		op.h1j = op.h1jOBB;
+		op.h2j = op.h2jOBB;
+
 		AFUN = @HAVmultCV;
 	case 'Hn'
 		AFUN = @HnmultA;
+% 		AFUN = @(x) HmultA(x, op, dv(1), dv(2), dv(3), M,para.parity,[]);		% execution speed comparable to nested function above! has approx. 10% overhead
 	case 'Kn'
 		AFUN = @KnmultCA;
 	case 'MC-HAS'               % multi-chain HOSVD exponentials
@@ -47,8 +55,6 @@ switch A
 	
 end
 
-M = para.M;
-
 %%
 % anorm, rndoff are estimated using norm(H) later
 mxrej = 10;  btol  = 1.0e-7;
@@ -58,8 +64,8 @@ nstep = 0; t_new   = 0;
 t_now = 0; s_error = 0;
 
 k1 = 2; xm = 1/m;
-w = reshape(v,[n,1]);
-normv = norm(w); beta = normv;				% reshape since v = tensor
+w = reshape(v,[n,1]);										% reshape since v = tensor
+normv = norm(w); beta = normv;
 fact = (((m+1)/exp(1))^(m+1))*sqrt(2*pi*(m+1));
 t_new = t_out-t_now;
 % t_new = (1/anorm)*((fact*tol)/(4*beta*anorm))^xm;			% properly approximated using norm(H)
@@ -138,6 +144,7 @@ while t_now < t_out
 	 elseif ireject == mxrej,
 	   error('The requested tolerance is too high.');
 	 else
+		warning('expvCustom needs smaller t_step, error too large');
 		t_step = gamma * t_step * (t_step*tol/err_loc)^xm;
         s = 10^(floor(log10(t_step))-1);
         t_step = ceil(t_step/s) * s;
@@ -166,20 +173,15 @@ if nargout == 4
 	E = w'*AFUN(w)/(w'*w);
 end
 %%	Nested functions
-%
+%	used to have shared workspace for dv, op, para etc.
+%	at least faster than anonymous functions
 %
 	function w = HAAmultV(V)
 		%% HAAmultV(V)
 		% Needs previous calculation of op.HrightA, op.HleftA, op.OprightA, op.OpleftA
 		% works with multi-chain model!
-		[OBBDim,~]  = size(op.HleftA);
-		if iscell(op.h1j)
-			dk = prod(cell2mat(cellfun(@(x) size(x,1),op.h1j, 'UniformOutput',false)));		% = dk for multi-chain Hamiltonians
-		else
-			dk = size(op.h1j,1);
-		end
-
-		w = HmultVmat(V, op, dk,OBBDim, M,para.parity);
+		
+		w = HmultVmat(V, op, dv(1),dv(2), M,para.parity);
 	end
 
 	function w = HAVmultCV(CV)
@@ -188,18 +190,11 @@ end
 		%   w(n^',n~') = HAV_(n^',n~',n^,n~) * CV_(n^,n~)
 		% expects h1j, h2j in OBB
 		% Vmat = Vmat_(n,n^); since focus is taken to CV_(n^,n~)
-		[newOBBDim,~] = size(op.h1jOBB);
-		[OBBDim,~]    = size(op.HleftA);
-% 		CV = reshape(CV,[newOBBDim, OBBDim]);
 
-		% copy OBB into h1j, h2j to match HmultVmat behaviour. This is only
-		% calles for Bosons, so is fine!
-		% needed to use HmultVmat for CV
-		op.h1j = op.h1jOBB;
-		op.h2j = op.h2jOBB;
-
+		% CV = reshape(CV,dv);
+		
 		% reuse HmultVmat. Save all temp-results in w to save memory!
-		w = HmultVmat(CV, op, newOBBDim,OBBDim, M,para.parity);
+		w = HmultVmat(CV, op, dv(1),dv(2), M,para.parity);
 
 	end
 
@@ -209,13 +204,9 @@ end
 		%	parity = 'n'
 		%	expect op.h1j, op.h2j transformed to OBB if para.useVmat = 1
 		%   since para should not be passed to here.
-
-		% input A is always vectorized -> reshape
-		[~,BondDimRight] = size(op.Hright);
-		[~,BondDimLeft]  = size(op.Hleft);
-		[~,OBBDim]		 = size(op.h1jOBB);
-
-		w = HmultA(A, op, BondDimLeft, BondDimRight, OBBDim, M,para.parity,[]);
+		
+		w = HmultA(A, op, dv(1), dv(2), dv(3), M,para.parity,[]);
+		
 
 	end
 
@@ -226,11 +217,9 @@ end
 		% A_(l,r^,n) in mps as tensor.
 		w = 0;
 		NC = size(op.h2jAV,2);		% for multiple chain-channels through bond
-
+		CA = reshape(CA, dv);
 		switch para.sweepto
 			case 'r'
-				[~,BondDimRight] = size(op.Hright);
-				CA = reshape(CA, [],BondDimRight);
 				w = w + op.HleftAV * CA + CA * op.Hright.';
 				for l = 1:NC
 					for k = 1:M
@@ -240,8 +229,6 @@ end
 					end
 				end
 			case 'l'
-				[~,BondDimLeft]  = size(op.Hleft);
-				CA = reshape(CA, BondDimLeft,[]);
 				w = w + op.Hleft * CA + CA * op.HrightAV.';
 				for l = 1:NC
 					for k = 1:M
@@ -264,7 +251,7 @@ end
 		iM      = 1:para.M;
 		iM(ceil(iM/nTerms) ~= nc) = [];                       % could be moved to the top!
 
-		V = reshape(V, [size(op.h1j{nc},2), size(op.HnonInt,2)]);
+		V = reshape(V, dv);
 
 		w = V * op.HnonInt.' + op.h1j{nc} * V;                % V_(n,n~) * HnonInt_(n~',n~)
 		for k = iM
@@ -283,7 +270,7 @@ end
 		iM      = 1:para.M;
 		iM(ceil(iM/nTerms) ~= nc) = [];                       % could be moved to the top!
 
-		CV = reshape(CV, [size(op.h1jMCOBB{nc},2), size(op.HnonInt,2)]);
+		CV = reshape(CV, dv);
 
 		w = CV * op.HnonInt.' + op.h1jMCOBB{nc} * CV;         % CV_(n,n~) * HnonInt_(n~',n~)
 		for k = iM
@@ -296,11 +283,11 @@ end
 	function w = MCmultVSOld(VS)
 		%% w = MCmultVS(VS)
 		% called by 'MC-HAV'
-		d = para.d_opt(:,para.sitej).';                       % these are the dimensions of VS
+		d = dv;													% these are the dimensions of VS
 		NC = para.nChains;
 		vs = reshape(VS,[prod(d(1:end-1)), d(end)]);
 		w = vs * (op.HleftA.' + op.HrightA.');
-		w = reshape(w,d);                                     % store w as fully ordered tensor
+		w = reshape(w,d);										% store w as fully ordered tensor
 
 		VS = reshape(VS,d);
 		for k = 1:NC
@@ -320,12 +307,12 @@ end
 	function w = MCmultVS(VS)
 		%% w = MCmultVS(VS)
 		% called by 'MC-HAV'
-		d = para.d_opt(:,para.sitej).';                       % these are the dimensions of VS
+		d = dv;												% these are the dimensions of VS
 		nTerms = para.M/para.nChains;
 		NC = para.nChains;
 		vs = reshape(VS,[prod(d(1:end-1)), d(end)]);
 		w = vs * (op.HleftA.' + op.HrightA.');
-		w = reshape(w,d);                                     % store w as fully ordered tensor
+		w = reshape(w,d);                                   % store w as fully ordered tensor
 
 		VS = reshape(VS,d);
 		for k = 1:NC
@@ -357,7 +344,7 @@ end
 	function w = STARmultA(A)
 		%% w = STARmultA(A)
 		% called by 'STAR-Hn1'
-		d = [1,para.D(:,1).',para.dk(1,1)];					% dim(A)
+		d = dv;												% size(A)
 		NC = para.nChains;
 		nTerms = para.M/NC;
 
@@ -397,8 +384,7 @@ end
 		% Trotter splitting in chains
 		% called by 'STAR-Hn1Trotter'
 		mc = para.currentChain;																% chain to be evolved
-		d = [1,para.D(:,1).',para.dk(1,1)];													% original dim(A)
-		dA = [min(d(mc+1)*d(end), numel(A)/(d(mc+1)*d(end))), d(mc+1), d(end)];				% current shape of A, need min in case D(rest)<D*dk
+		dA = dv;																			% current shape of A
 		NC = para.nChains;
 		nTerms = para.M/NC;
 
@@ -429,7 +415,7 @@ end
 		% called by 'TREE-Hn1'
 		% for node which hasSite
 		% para == treeMPS
-		d = [para.D(:,1).',para.dk(1,1)];					% dim(A)
+		d = dv;												% size(A)
 		NC = para.degree;
 		
 		A1 = reshape(A,[],d(NC+2));							% good shape for 3)
@@ -485,8 +471,7 @@ end
 		% Trotter splitting in chains
 		% called by 'TREE-Hn1Trotter'
 		mc = para.currentChain;								% chain to be evolved; 0: parent
-		d = [para.D(:,1).',para.dk(1,1)];					% original dim(A)
-		dA = [d(mc+1)*d(end), d(mc+1), d(end)];				% current shape of A
+		dA = dv;											% current shape of A
 		NC = para.degree;
 		if ~para.isRoot
 			NC = NC+1;		% divide by 1 more due to additional evolution step
@@ -529,7 +514,7 @@ end
 		% called by 'TREE-Hn1'
 		% for node which ~hasSite; allow only non-root nodes to have no sites
 		% para == treeMPS
-		d  = para.D(:,1).';					% dim(A)
+		d  = dv;							% size(A)
 		NC = para.degree;
 		
 		A1 = reshape(A,d(1),[]);			% good shape for 3)
