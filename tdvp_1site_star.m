@@ -700,8 +700,7 @@ d = size(mps{1});
 % A (t+dt) = exp(-i ?? dt) * A(t)
 if para.tdvp.evolveSysTrotter == 0
 	% old scheme, evolves system in one single step interacting with all chains at once
-	[mps{1}, err] = expvCustom(- 1i*t,'STAR-Hn1',...
-		reshape(mps{1},[numel(mps{1}),1]), para, op);
+	[mps{1}, err] = expvCustom(- 1i*t,'STAR-Hn1',mps{1}, para, op);
 
 	mps{1} = reshape(mps{1},d);
 else
@@ -726,9 +725,8 @@ else
 
 
 		% evolve simplified mps matrix
-		[A, err] = expvCustom(- 1i*t,'STAR-Hn1Trotter',...
-			reshape(A,[numel(A),1]), para, op);
-		A = reshape(A, prod(dOut(end-1:end)),[]);			% D*dk x D*dk
+		[A, err] = expvCustom(- 1i*t,'STAR-Hn1Trotter',A, para, op);
+		A = reshape(A, [], prod(dOut(end-1:end)));			% D*dk x D*dk or D(rest) x D*dk if D(rest)<D*dk
 		% contract back together
 		Atens = Iso * A;
 

@@ -776,8 +776,7 @@ end
 	if para.tdvp.evolveSysTrotter == 0 
 		% Evolves system in one single step interacting with all chains at once
 		% better for nodes with < 3-4 children
-		[treeMPS.mps{1}, ~] = expvCustom(- 1i*t,'TREE-Hn1',...
-								reshape(treeMPS.mps{1},[numel(treeMPS.mps{1}),1]), treeMPS, treeMPS.op);
+		[treeMPS.mps{1}, ~] = expvCustom(- 1i*t,'TREE-Hn1',treeMPS.mps{1}, treeMPS, treeMPS.op);
 
 		treeMPS.mps{1} = reshape(treeMPS.mps{1},d);
 	else
@@ -807,8 +806,7 @@ end
 				warning('VMPS:tdvp_1site_tree:tdvp_1site_evolveNode:BadDimensions','Matrix has wrong shape for trotter splitting. If error occurs please use para.tdvp.evolveSysTrotter = 1.');
 			end
 			% evolve simplified mps matrix
-			[A, err] = expvCustom(- 1i*t,'TREE-Hn1Trotter',...
-				reshape(A,[numel(A),1]), treeMPS, treeMPS.op);
+			[A, err] = expvCustom(- 1i*t,'TREE-Hn1Trotter',A, treeMPS, treeMPS.op);
 			A = reshape(A, prod(dOut(end-1:end)),[]);			% D*dk x D*dk
 			% contract back together
 			Atens = Iso * A;
