@@ -1,4 +1,4 @@
-function [w, err, hump] = expvCustom( t, A, v, para, op)
+function [w, err, hump, E] = expvCustom( t, A, v, para, op)
 %% A is string telling the operator to construct:
 %    A = {'Hn',   'HAA',  'HAV',   'Kn'}
 %  v contains the tensor to evolve in time:
@@ -161,6 +161,10 @@ end;
 err = s_error;
 hump = hump / normv;
 
+if nargout == 4
+	% mainly useful for imaginary time evolution to monitor convergence.
+	E = w'*AFUN(w)/(w'*w);
+end
 %%	Nested functions
 %
 %
@@ -392,27 +396,27 @@ hump = hump / normv;
 		%% w = STARmultATrotter(A)
 		% Trotter splitting in chains
 		% called by 'STAR-Hn1Trotter'
-		mc = para.currentChain;								% chain to be evolved
-		d = [1,para.D(:,1).',para.dk(1,1)];					% original dim(A)
-		dA = [d(mc+1)*d(end), d(mc+1), d(end)];				% current shape of A
+		mc = para.currentChain;																% chain to be evolved
+		d = [1,para.D(:,1).',para.dk(1,1)];													% original dim(A)
+		dA = [min(d(mc+1)*d(end), numel(A)/(d(mc+1)*d(end))), d(mc+1), d(end)];				% current shape of A, need min in case D(rest)<D*dk
 		NC = para.nChains;
 		nTerms = para.M/NC;
 
 		A = reshape(A,dA);
 
 		% 1. on-site H1
-		w =	contracttensors(A, 3, 3, (op.h1jOBB.')./NC, 2,1);		% Symmetrically divide h1jOBB onto each chain
+		w =	contracttensors(A, 3, 3, (op.h1jOBB.')./NC, 2,1);								% Symmetrically divide h1jOBB onto each chain
 
-		Atemp = tensShape(A, 'unfold', 2, dA);		% chain index to front
+		Atemp = tensShape(A, 'unfold', 2, dA);												% chain index to front
 		% 2. non-interacting Hlrstorage (Hright)
 		OpTemp = op.chain(mc).Hlrstorage{1} * Atemp;
 		w = w + tensShape(OpTemp,'fold',2, dA);
 
 		% 3. all interacting parts
 		for mm = 1:nTerms
-			systemM = nTerms*(mc-1) + mm;				% position in op.h2j
+			systemM = nTerms*(mc-1) + mm;													% position in op.h2j
 
-			OpTemp = op.chain(mc).Opstorage{mm,2,1} * Atemp;					% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
+			OpTemp = op.chain(mc).Opstorage{mm,2,1} * Atemp;								% (m,2,1) should be the operator of site 2 in the effective left basis for system site 1
 			OpTemp = tensShape(OpTemp,'fold',2, dA);
 			w = w + contracttensors(OpTemp, 3, 3, op.h2jOBB{systemM,1}.',2,1);
 		end

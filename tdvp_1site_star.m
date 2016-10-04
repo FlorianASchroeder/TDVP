@@ -728,7 +728,7 @@ else
 		% evolve simplified mps matrix
 		[A, err] = expvCustom(- 1i*t,'STAR-Hn1Trotter',...
 			reshape(A,[numel(A),1]), para, op);
-		A = reshape(A, prod(dOut(end-1:end)),[]);			% D*dk x D*dk
+		A = reshape(A, [], prod(dOut(end-1:end)));			% D*dk x D*dk or D(rest) x D*dk if D(rest)<D*dk
 		% contract back together
 		Atens = Iso * A;
 
