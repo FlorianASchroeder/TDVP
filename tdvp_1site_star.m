@@ -722,7 +722,8 @@ else
 		% TODO: comment if not testing!!
 % 		[Iso2,A2]= rrQR(Atens, floor(0.6*prod(dOut(end-1:end))),0);		% low rank QR approximation
 % 		fprintf('evolve: rank(A) = %d, dim(A,2) = %d, rrQR error = %g\n', rank(Atens), prod(dOut(end-1:end)),norm(Atens - Iso2*A2));
-
+		
+		A = reshape(A, [], dOut(end-1), dOut(end));
 
 		% evolve simplified mps matrix
 		[A, err] = expvCustom(- 1i*t,'STAR-Hn1Trotter',A, para, op);

@@ -10,7 +10,7 @@ function [op] = initstorage(mps, Vmat,op,para)
 %                    to remove redundancy
 %                  - moved separate treatment of L into for-loop
 
-if para.useTreeMPS == 1
+if (isfield(para,'useTreeMPS') && para.useTreeMPS)
 	op = initstorage_Tree_MPS(mps,para);		% recursive sub-function call
 	return;
 end

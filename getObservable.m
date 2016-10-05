@@ -58,7 +58,7 @@ switch type{1}
 			out = calBosonOcc_Tree(mps,para);			% (L x NC)
 			return;
 		elseif para.foldedChain == 0
-			if para.nChains == 1
+			if para.nChains == 1 && ~para.useStarMPS
 				out = calBosonOcc(mps,Vmat,para);
 			else										% Multi-chain with Vmat / V-tensor-network
 				out = calBosonOcc_MC(mps,Vmat,para);	% (NC x L)
