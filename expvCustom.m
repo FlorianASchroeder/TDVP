@@ -111,7 +111,7 @@ while t_now < t_out
 	  W(1,1) = 1;
 	  theta = eps;						% TODO: replace anorm
 	  psi   = eps;						% TODO: replace anorm
-	  ALPHA = zeros(m+1,1);
+	  ALPHA = zeros(m+2,1);
 	  BETA  = zeros(m+1,1);
 	  BETA(1) = beta;
 	  for j = 1:m
@@ -123,7 +123,7 @@ while t_now < t_out
 		 p = p - ALPHA(j)*V(:,j);		% r_(j+1) = r_(j+1) - alpha_j * v_j
 		 
 		 s = norm(p);
-		 if s < btol 
+		 if s < btol							% first short cut
 			k1 = 0;
 			mb = j;
 			t_step = t_out-t_now;
@@ -133,34 +133,42 @@ while t_now < t_out
 		 BETA(j+1) = s;
 		 
 		 % update measure of loss of orthogonality
+		 theta = eps*(BETA(2:end) + BETA(j+1));		%.*randn(m,1)*0.3;			% randn takes too much time
 		 if j == 1
 			 W(j+1,1)     = BETA(2)*W(j,2);
 		 else
 			 W(j+1,1)     = BETA(2)*W(j,2) + (ALPHA(1)-ALPHA(j))*W(j,1) - BETA(j)*W(j-1,1);
 		 end
-		 W(j+1,1) = W(j+1,1)/BETA(j+1) + eps*(BETA(2) + BETA(j+1))*randn(1)*0.3;
-		 for i = 2:j-1
-			 theta = eps*(BETA(i+1) + BETA(j+1))*randn(1)*0.3; 
-			 W(j+1,i) = BETA(i+1)*W(j,i+1) + (ALPHA(i)-ALPHA(j))*W(j,i) - BETA(i)*W(j,i-1) - BETA(j)*W(j-1,i);
-			 W(j+1,i) = W(j+1,i)/BETA(j+1) + theta;
+		 W(j+1,1) = W(j+1,1)/BETA(j+1) + theta(1);
+		 
+		 if j > 2
+			 idx = 2:j-1;
+			 W(j+1,idx) = (BETA(idx+1).'.*W(j,idx+1) + (ALPHA(idx)-ALPHA(j)).'.*W(j,idx) - BETA(idx).'.*W(j,idx-1) - BETA(j)*W(j-1,idx))/BETA(j+1) + theta(idx)';
 		 end
-		 psi = eps*randn(1)*0.6*BETA(2)/BETA(j+1)*n;							% psi_(j+1)
-		 W(j+1,j) = psi;			
-		 W(j+1,j+1) = 1;
+		 psi = eps*BETA(2)/BETA(j+1)*n;		%*randn(1)*0.6;							% psi_(j+1)
+		 W(j+1,[j,j+1]) = [psi,1];
 		 
 		 % reorthogonalise if needed:
-		 nonOrth = abs(W(j+1,1:j)) > 10^-8 & ~(abs(W(j+1,1:j)) == inf);
+		 nonOrth = abs(W(j+1,1:j)) > 10^-6;
 		 if any(nonOrth)
-			 nonOrth = find(nonOrth);
+			 %nonOrth = logical(conv(single(nonOrth),[1,1,1],'same'));						% extend re-orth region
+			 nonOrth = abs(W(j+1,1:j)) > 10^-9;
 			 p = p - V(:,nonOrth)*(V(:,nonOrth)' * p);
 			 W(j+1,nonOrth) = eps;
 		 end
 		 
+		 s = norm(p);
+		 if s < btol 							% second short cut
+			k1 = 0;
+			mb = j;
+			t_step = t_out-t_now;
+			break;
+		 end
 		 
-		BETA(j+1) = s;					% beta_(j+1)
+		 BETA(j+1) = s;					% beta_(j+1)
 		 V(:,j+1) = p/s;
 	  end
-	  H = sparse(2:m+1, 1:m, BETA(2:end), m+1, m+1);
+	  H = sparse(2:m+1, 1:m, BETA(2:end), m+2, m+2);
 	  H = H + H.'+diag(ALPHA);
   end
   if nstep == 1				% was moved down from initial variable definitions
