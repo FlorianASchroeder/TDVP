@@ -11,7 +11,7 @@ t = para.tdvp.deltaT./2;
 if para.tdvp.imagT
 	t = -1i*t;
 end
-if isempty(Hn) || numel(Cn) > para.tdvp.maxExpMDim
+if isempty(Hn) || numel(Cn) > para.tdvp.maxExpMDim && ~para.tdvp.expvCustomTestAccuracy
 	% Benchmarks show that expV is never better than expvCustom! So directly switch to it!
 	para.tdvp.expvCustomNow = 1;		% in case, previous Hamiltonian became invalid (due to dimension changes), or expvCustom was used
 end
@@ -74,7 +74,12 @@ switch para.sweepto
 					op.h2jAV   = op.chain(para.currentChain).Opleft;
 					% make sure H/Opright is correct
 				end
+				tempT = tic;
 				[Cn,err] = expvCustom(1i*t, 'Kn',Cn, para,op);
+				t15 = toc(tempT);
+				if para.tdvp.expvCustomTestAccuracy								% debug
+					results.tdvp.expvTime(end,15) = t15;
+				end
 			else
 				if para.tdvp.expvCustomTestAccuracy				% debug
 					tempT = tic;
@@ -181,7 +186,12 @@ switch para.sweepto
 			else
 				[op] = H_Eff(mps{sitej+1}, []  , 'CA', op, para);	% could be replaced if updateop called before
 			end
+			tempT = tic;
 			[Cn,err] = expvCustom(1i*t, 'Kn',Cn, para,op);
+			t15 = toc(tempT);
+			if para.tdvp.expvCustomTestAccuracy								% debug
+				results.tdvp.expvTime(end,15) = t15;
+			end
 		end
 		if writeResults
 % 			results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;

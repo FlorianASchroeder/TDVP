@@ -41,9 +41,9 @@ if para.tdvp.imagT
 	t = -1i*t;
 end
 
-if para.tdvp.expvCustomTestAccuracy
-	expvTime = [];						% (HAA: m,v,vcustom,construct, )
-end
+% if para.tdvp.expvCustomTestAccuracy
+	expvTime = zeros(1,16);						% (HAA: m,v,vcustom,construct, ) used for benchmarking mainly in expvCustomTestAccuracy
+% end
 
 %% If using Vmat, evolve it first, only BOSON!
 if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bosonic site only!
@@ -149,7 +149,9 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			end
 		end
 	else
+		tempT = tic;
 		[Vmat_focused, err] = expvCustom(- 1i*t,'HAA',Vmat_focused, para, op);						% tensor in, vector out
+		expvTime(3) = toc(tempT);
 	end
 % 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
@@ -190,7 +192,7 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 		[n1,n2,n3,n4] = size(HAV);
 		HAV = reshape(HAV, [n1*n2,n3*n4]);
 		
-		t8 = toc(tempT);
+		expvTime(8) = toc(tempT);
 		if size(HAV,1) <= para.tdvp.maxExpMDim
 			V = expm( 1i.* t.*HAV) * reshape(V,[numel(V),1]);			% This is actually faster than expv!
 % 			[V,err] = expv(+ 1i*t,HAV,...
@@ -209,16 +211,15 @@ if para.useVmat == 1 && prod(sitej ~= para.spinposition)                % if bos
 			[V,err] = expv(+ 1i*t,HAV,...
 					reshape(V,[numel(V),1]),...
 					para.tdvp.expvTol, para.tdvp.expvM);
-			t6 = toc(tempT);
+			expvTime(6) = toc(tempT);
 			if para.tdvp.expvCustomTestAccuracyRMS
 				disp(rms(V-V1));
 			end
-			if para.tdvp.expvCustomTestAccuracy
-				expvTime([6,8]) = [t6,t8];
-			end
 		end
 	else
+		tempT = tic;
 		[V,err] = expvCustom(+ 1i*t,'HAV',V, para,op);
+		expvTime(7) = toc(tempT);
 	end
 % 	results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 	results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
@@ -243,10 +244,8 @@ else
 end
 
 if para.tdvp.expvCustomNow == 0
-	if para.tdvp.expvCustomTestAccuracy
-		tempT = tic;
-	end
-
+	tempT = tic;
+	
 % Construct Hn explicitly
 	Hn=0;       % Hn = kron(eye(OBBDim),kron(eye(BondDimRight),eye(BondDimLeft)))
 	% all terms:
@@ -257,9 +256,7 @@ if para.tdvp.expvCustomNow == 0
 		Hn = Hn + kron(op.h2jOBB{m,2},kron(eye(BondDimRight),op.Opleft{m}));
 		Hn = Hn + kron(op.h2jOBB{m,1},kron(op.Opright{m},eye(BondDimLeft)));
 	end
-	if para.tdvp.expvCustomTestAccuracy
-		t12 = toc(tempT);
-	end
+	expvTime(12) = toc(tempT);
 end
 %% Take and apply Matrix exponential
 % A(t+dt) = exp(-i Hn dt)_(l',r',n',l,r,n) * A(t)_(l,r,n)
@@ -284,24 +281,20 @@ if  para.tdvp.expvCustomNow == 0
 		[mpsNew,err] = expv(- 1i*t, Hn,...
 				 reshape(mps{sitej},[numel(mps{sitej}),1]),...
 				 para.tdvp.expvTol, para.tdvp.expvM);
-		t10 = toc(tempT);
+		expvTime(10) = toc(tempT);
 		if para.tdvp.expvCustomTestAccuracyRMS
 			disp(rms(mpsNew-mpsNew1));	% debug
-		end
-		if para.tdvp.expvCustomTestAccuracy
-			expvTime([10,12]) = [t10,t12];
-			results.tdvp.expvTime = [results.tdvp.expvTime; expvTime, [0 0 0 0], BondDimLeft, BondDimRight, OBBDim, dk]; 
-			% times for [ expM, expV, exvCustom, Hn building] x 4 for each evolution step, then matrix dimensions
 		end
 	end
 else
 	tempT = tic;
 	[mpsNew,err] = expvCustom(- 1i*t, 'Hn',mps{sitej}, para,op);
+	expvTime(11) = toc(tempT);
 	Hn = [];		% dummy return value;
-	t3 = toc(tempT);
-	if para.tdvp.expvCustomTestAccuracy
-		results.tdvp.expvTime(end+1,[3,17,18,19,20]) = [t3, BondDimLeft,BondDimRight,OBBDim,dk];
-	end
+end
+if para.tdvp.expvCustomTestAccuracy
+	results.tdvp.expvTime = [results.tdvp.expvTime; expvTime, BondDimLeft, BondDimRight, OBBDim, dk]; 
+	% times for [ expM, expV, exvCustom, Hn building] x 4 for each evolution step, then matrix dimensions
 end
 % results.tdvp.expError(para.timeslice,para.expErrorI) = err; para.expErrorI = para.expErrorI+1;
 results.tdvp.expError(para.timeslice,1) = max(results.tdvp.expError(para.timeslice,1),err);
