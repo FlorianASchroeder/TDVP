@@ -152,7 +152,7 @@ while t_now < t_out
 		 nonOrth = abs(W(j+1,1:j)) > 10^-6;
 		 if any(nonOrth)
 			 %nonOrth = logical(conv(single(nonOrth),[1,1,1],'same'));						% extend re-orth region
-			 nonOrth = find(abs(W(j+1,1:j)) > 10^-9);
+			 nonOrth = find(abs(W(j+1,1:j)) > 10^-10);
 			 for i = nonOrth
 				 p = p - V(:,i)*(V(:,i)' * p);
 			 end
