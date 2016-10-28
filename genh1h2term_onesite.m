@@ -947,6 +947,76 @@ switch para.model
 		end
 		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		
+	case 'DPMES-Tree2'
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain Tree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%	Initial try to map DPMES5-7C onto an entanglement renormalisation tree
+		%	Channel interaction terms through nodes without Hamiltonian terms/sites
+		%   ChainIdx is numbered according to tree structure, while Number in tree diagram corresponds to number as returned by DPMES_Operators('5-7C')
+		%	Structure:
+		%
+		%							treeIdx		Node Idx	ChainIdx		
+		%	Excitons				[0,0,0,0]	1
+		%	  |- Chain 1		    [1,0,0,0]				1
+		%     \- Node               [2,0,0,0]	2
+		%	    |- Node				[2,1,0,0]	3
+		%		| |- Chain 2		[2,1,1,0]				2
+		%		| \- Chain 3		[2,1,2,0]				3
+		%		\- Node		        [2,2,0,0]	4
+		%		  |- Node			[2,2,1,0]	5
+		%		  | |- Chain 4		[2,2,1,1]				4
+		%		  | \- Chain 5		[2,2,1,2]				5
+		%		  \- Node			[2,2,2,0]	6
+		%		    |- Chain 6		[2,2,2,1]				6
+		%		    \- Chain 7		[2,2,2,2]				7
+		%
+		% Created 29/08/16 by F.S.
+		%
+		idx      = num2cell(treeIdx+1);                       % index in para.*
+		mc       = para.treeMPS.chainIdx{idx{:}};             % index of chain
+% 		leafPos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+% 		nodePos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+		
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		
+		% First: list all nodes which carry a physical Hamiltonian site
+		if treeIdx == [0,0,0,0]
+			% is the pentacene system!
+			[H0,H1]               = DPMES_Operators('Tree1',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+		% Second: list all chains
+		elseif ~isempty(mc)
+			if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		% Third: all nodes without site, only combining chains
+		else
+			% Do nothing! return empty, since this node only combines chain and has no Hamiltonian site!
+			op.h1term = {[]};																		% put empty array to avoid errors
+		end
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
 	case 'testTree'
 		%%%%%%%%%%%%%%%%%%% testTree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		%	This is a test tree with uniform boson chains.
@@ -1110,6 +1180,23 @@ switch nModel
 		H1{6} = zeros(n); H1{6}(4,5) = 1;          H1{6}(5,4) = 1;			% B2, W45
 						  H1{6}(2,3) = -1.5;       H1{6}(3,2) = -1.5;		%   , W23
 		H1{7} = zeros(n); H1{7}(1,4) = 1;          H1{7}(4,1) = 1;			% A2, W14
+	case 'Tree2'
+		% TT, LE+, LE-, CT+, CT- with 4 chains
+		% 1: B1, 2: A11, 3: A12, 4: B21, 5: B22, 6: B23, 7: A2
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		H1{1} = zeros(n); H1{1}(2,4) = 1;          H1{1}(4,2) = 1;	        % B1, W24
+						  H1{1}(1,5) = -sqrt(3)/2; H1{1}(5,1) = -sqrt(3)/2;	%	 , W15
+						  H1{1}(3,5) = -1;         H1{1}(5,3) = -1;			%    , W35
+		H1{2} = eye(n);   H1{2}(1,1) = 0;									% A11: TT/rest = 0
+		H1{3} = eye(n);   H1{3}(1,1) = 2;									% A12: TT/rest = 2
+		H1{4} = zeros(n); H1{4}(2,3) = 1;          H1{4}(3,2) = 1;			% B21, W23
+		H1{5} = zeros(n); H1{5}(4,5) = 1;          H1{5}(5,4) = 1;			% B22, W45
+						  H1{5}(2,3) = 1.3;        H1{5}(3,2) = 1.3;		%    , W23
+		H1{6} = zeros(n); H1{6}(4,5) = 1;          H1{6}(5,4) = 1;			% B23, W45
+						  H1{6}(2,3) = -1.5;       H1{6}(3,2) = -1.5;		%    , W23
+		H1{7} = zeros(n); H1{7}(1,4) = 1;          H1{7}(4,1) = 1;			% A2 , W14
 		
 end
 

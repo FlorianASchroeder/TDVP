@@ -506,7 +506,7 @@ grid on;
 
 %% TDVP (2.3) RDM analysis DPMES joint plots
 plotOpt = {'-fsev'};
-x.plot('rho-dpmes',plotOpt{:});
+x(2).plot('rho-dpmes',plotOpt{:});
 f = gcf; f.Name = 'Rho of DPMES Overview';
 formatPlot(f,'twocolumn-single');
 % diff(rhoii) overlay: select upper plot first!
@@ -2371,7 +2371,7 @@ set(gca,'xscale','log')
 legend('Location','best')
 xlabel('Matrix dimension n')
 ylabel('Time/s')
-formatPlot(16,'twocolumn-single')
+% formatPlot(16,'twocolumn-single')
 
 %% TDVP (12) expError analysis
 
@@ -6003,11 +6003,12 @@ clear
 x(1) = TDVPData('20160829-1710-46-DPMES5-7C-Tree-v73-L18CT0LE+\results-Till5000Step0.1v73-OBBmax20-Dmax(5-10)-expvCustom700-1core-small.mat');					% this has corrected H_I
 x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(10-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. Chain dimension agree with Tree1, should be closer than (5-10)
 % x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(5-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. sys-chain D agrees with above, chain D with below
-x(3) = TDVPData('20160831-1344-17-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');				% from OE-Rugor
-x(4) = TDVPData('20160831-1258-02-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from OE-Rugor
-%x(5) = TDVPData('20160831-1519-09-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till10Step0.05v74-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');
-%x(6) = TDVPData('20160831-1500-13-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till10Step0.01v74-OBBmax20-Dmax(100-20)-expvCustom700-2core-small.mat');
-%x(7) = TDVPData('20160831-1544-08-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till100Step0.01v74-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');
+x(3) = TDVPData('20160831-1344-17-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, too small node Dim
+x(4) = TDVPData('20160831-1258-02-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, big timestep, yet good!
+% x(5) = TDVPData('20160929-1744-01-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till1000Step0.01v74-OBBmax20-Dmax(100-20)-expvCustom256-1core-small.mat');				% OE-Rugor, good timestep, too slow!
+% x(6) = TDVPData('20160929-1745-52-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till1000Step0.01v74-OBBmax20-Dmax(100-50)-expvCustom256-1core-small.mat');				% OE-Rugor, Bigger chain Dmax, no difference
+x(5) = TDVPData('20161028-1350-50-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! old order
+x(6) = TDVPData('20161028-1320-01-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-100)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! new order: B22,B21
 close all
 x.plot('rhoii','-fsev','-resetColorOrder',figure)
 x.plot('calctime-d-sec',figure)
@@ -6041,6 +6042,95 @@ ylabel('$\rho_{ii} (t)$');
 set(gca,'color','none');
 grid on
 
+% x.plot('calctime-d-sec',figure)
+%% DPMES-Tree1 v74 TreeMPS dt convergence finer - TDVPData								% LabBook 27/09/2016
+clear
+defPlot(1,:) = {'20160927-DPMES-Tree1-v73-dt-convergence1',						[ 1: 6], {'xlim',[0,2]}};
+defPlot(2,:) = {'20160927-DPMES-Tree1-v74-dt-convergence2',						[ 7:12], {'xlim',[0,2]}};
+defPlot(3,:) = {'20160927-DPMES-Tree1-v74-dt-convergence3-[120,257]',			[13:31], {'xlim',[0,2]}};
+defPlot(4,:) = {'20160927-DPMES-Tree1-v74-dt-convergence4-[0,256]',				[32:50], {'xlim',[0,2]}};
+defPlot(5,:) = {'20160927-DPMES-Tree1-v74-dt-convergence5-[0,0]',				[51:69], {'xlim',[0,2]}};
+defPlot(6,:) = {'20160928-DPMES-Tree1-v74-dt-convergence6-[120,256]-[6,6.5]',	[70:88], {'xlim',[0,2]}};
+defPlot(7,:) = {'20160928-DPMES-Tree1-v74-dt-convergence7-[120,257]-[7,9]',		[89:107], {'xlim',[0,2]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1-6: old
+dirPat = '20160926-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step0.*v74-OBBmax20-Dmax\(100-100\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Step(?<dt>[0-9\-\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.dt),tokens));
+matches = [matches; m(I)];
+
+% 7-12: old, should be v74 actually!
+dirPat = '20160926-.*-DPMES-Tree1-Tree-v73-L18CT0LE\+';
+filPat = 'results-Till3Step0.*v73-OBBmax20-Dmax\(50-100\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Step(?<dt>[0-9\-\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.dt),tokens));
+matches = [matches; m(I)];
+
+% 13-31: done with [120,257]
+dirPat = '20160927-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step.*v74-OBBmax20-Dmax\(50-100\)-expvCustom257-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Step(?<dt>[0-9\-\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.dt),tokens));
+matches = [matches; m(I)];
+
+% 32-50: done with [0,256]
+dirPat = '20160927-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step.*v74-OBBmax20-Dmax\(50-100\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Step(?<dt>[0-9\-\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.dt),tokens));
+matches = [matches; m(I)];
+
+% 51-69: done with [0,0] ->  expvCustom only
+dirPat = '20160927-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step.*v74-OBBmax20-Dmax\(50-100\)-expvCustom0-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Step(?<dt>[0-9\-\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.dt),tokens));
+matches = [matches; m(I)];
+
+% 70-88: done with [120,256], SV: [6,6.5]
+dirPat = '20160928-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step.*v74-OBBmax20-Dmax\(50-100\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Step(?<dt>[0-9\-\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.dt),tokens));
+matches = [matches; m(I)];
+
+% 89-107: done with [120,257], SV: [7,9]
+dirPat = '20160928-.*-DPMES-Tree1-Tree-v74-L18CT0LE\+';
+filPat = 'results-Till3Step.*v74-OBBmax20-Dmax\(50-100\)-expvCustom257-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Step(?<dt>[0-9\-\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.dt),tokens));
+matches = [matches; m(I)];
+
+res = TDVPData({matches.name});
+%% plot
+for ii = 1:size(defPlot,1)
+	f = figure(); hold all; ax = gca; f.Name = defPlot{ii,1};
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder',figure);
+	a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+	legs = strsplit(sprintf('%.3g ',[res(pick).dt]));
+	legend(legs{1:end-1});
+	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+	[a.LineStyle] = deal(linestyles{1:length(a)});
+	ylabel('$\rho_{ii} (t)$');
+	set(gca,'color','none');
+	grid on
+end
 % x.plot('calctime-d-sec',figure)
 
 

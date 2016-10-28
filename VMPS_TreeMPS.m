@@ -35,7 +35,7 @@ DPMESInitialStates = {'TT','LE+', 'LE-', 'CT+', 'CT-'};					% Position of Name =
 %% Define validation functions for string expressions
 % para input parser
 p.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
-								{'SpinBoson','SpinBoson2C', 'DPMES5-7C', 'DPMES-Tree1','testTree'})));		% possible model inputs
+								{'SpinBoson','SpinBoson2C', 'DPMES5-7C', 'DPMES-Tree1','DPMES-Tree2','testTree'})));		% possible model inputs
 p.addParameter('s'				,1	,@isnumeric);
 p.addParameter('L'				,50	,@isnumeric);		% longest L between root and all leaves
 p.addParameter('alpha'			,0.1,@isnumeric);
@@ -290,6 +290,53 @@ if strfind(para.model,'DPMES-Tree1')
 				   2,0,0,0;
 				   2,1,0,0;
 				   2,1,1,0];
+	para.treeMPS.nNodes    = size(nodeTreeIdx,1);
+	para.treeMPS.nodeIdx   = num2cell(nodeTreeIdx+1);				% maps from node number to nodeIdx
+	
+%% Set-up parameters for specific ground state preparation!
+%     Initial States:			TT		LE+		LE-		CT+		CT-
+% 			para.IntialState:	 1		  2		  3		  4		  5
+	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
+end
+
+if strfind(para.model,'DPMES-Tree2')
+ 	pDPMES.parse(varargin{:});
+	
+%% Setting Chain 1
+	para.nChains = 7;
+	para.systemStates				= load('DPMESdata_20160129/states.dat');					% [#state, E(eV)]
+	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states!
+	para.chain{1}.mapping			= 'LanczosTriDiag';
+	para.chain{1}.spectralDensity	= 'CoupDiscr';
+	para.chain{1}.Lambda            = 1;
+	para.chain{1}.initState		    = para.initChainState;
+	
+	% Chains:			1				2				3				4			5				6				7
+	ChainFiles = {'W24-B1-17-highv2','W44-A1-7-01','W44-A1-10-x1','W23-B2-8-10','W45-B2-9-1x','W45-B2-9-1-x','W14-A2-10-highv2'}
+	%					B1				A11				A12				B21			B22				B23				A2
+	for ii = 1:length(ChainFiles)
+		para.chain{ii}					= para.chain{1};
+		para.chain{ii}.dataPoints		= cmToeV(load(sprintf('DPMESdata_20160129/%s.dat',ChainFiles{ii})));
+		para.chain{ii}.L				= min(length(para.chain{ii}.dataPoints),para.L-1);
+	end
+	
+%% Setting TreeMPS structure
+	para.treeMPS.height    = 1;										% star structure, since only tree node + leaves
+	para.treeMPS.maxDegree = para.nChains;
+	leafTreeIdx = [1,0,0,0;											% the treeIdx for each leaf; Order 1-7 as defined in genh1h2term_onesite
+		           2,1,1,0;
+				   2,1,2,0;
+				   2,2,1,1;
+				   2,2,1,2;
+				   2,2,2,1;
+				   2,2,2,2];
+	para.treeMPS.leafIdx   = num2cell(leafTreeIdx+1);    			% maps from chain number to leaf index in para
+	nodeTreeIdx = [0,0,0,0;                                         % the treeIdx of each node; order as defined by occurrence sweep
+		           2,0,0,0;
+				   2,1,0,0;
+				   2,2,0,0;
+				   2,2,1,0;
+				   2,2,2,0];
 	para.treeMPS.nNodes    = size(nodeTreeIdx,1);
 	para.treeMPS.nodeIdx   = num2cell(nodeTreeIdx+1);				% maps from node number to nodeIdx
 	
