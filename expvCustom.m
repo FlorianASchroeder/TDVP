@@ -13,6 +13,7 @@ n = numel(v);
 tol = para.tdvp.expvTol;
 m   = min(n,para.tdvp.expvM);
 M = para.M;
+method = 1;						% 0: Arnoldi; 1: Lanczos with part. orth.
 
 %% set Function handle
 switch A
@@ -81,31 +82,97 @@ while t_now < t_out
 
 % Start finding Krylov subspace using v_n = A v_n-1
   V(:,1) = (1/beta)*w;
-  for j = 1:m
-		p = AFUN(V(:,j));			% AFUN is handle to specific function
-%		pt = p; normp = norm(p);
-%      p = A*V(:,j);
-     for i = 1:j					% Modified Gram-Schmidt orthogonalisation
-        H(i,j) = V(:,i)'*p;
-        p = p-H(i,j)*V(:,i);
-     end;
-	% Reorthogonalize to ensure orthogonal V-matrix. This is time consuming and might not be essential to the algorithm
-	% Nevertheless, without it, V can deviate quite strongly!
-% 		nonOrthRest = V(:,1:j)' * p;	% vectorised Modified Gram-Schmidt orthogonalisation, based on orthogonal V(:,1:j), slower than for-loop!
-% 		while norm(nonOrthRest) > btol
-% 			p = p - V(:,1:j)*nonOrthRest;
-% 			nonOrthRest = V(:,1:j)' * p;
-% 		end
-     s = norm(p);
-     if s < btol,					% if residual orthogonal vector shorter than btol -> invariant subspace -> step out
-        k1 = 0;
-        mb = j;
-        t_step = t_out-t_now;
-        break;
-     end;
-     H(j+1,j) = s;
-     V(:,j+1) = (1/s)*p;
-  end;
+  if method == 0						% Arnoldi Iteration for general Operator A
+	  for j = 1:m
+		 p = AFUN(V(:,j));				% AFUN is handle to specific function
+		 for i = 1:j					% Modified Gram-Schmidt orthogonalisation
+			H(i,j) = V(:,i)'*p;
+			p = p-H(i,j)*V(:,i);
+		 end;
+		% Reorthogonalize to ensure orthogonal V-matrix. This is time consuming and might not be essential to the algorithm
+		% Nevertheless, without it, V can deviate quite strongly!
+	% 		nonOrthRest = V(:,1:j)' * p;	% vectorised Modified Gram-Schmidt orthogonalisation, based on orthogonal V(:,1:j), slower than for-loop!
+	% 		while norm(nonOrthRest) > btol
+	% 			p = p - V(:,1:j)*nonOrthRest;
+	% 			nonOrthRest = V(:,1:j)' * p;
+	% 		end
+		 s = norm(p);
+		 if s < btol,					% if residual orthogonal vector shorter than btol -> invariant subspace -> step out
+			k1 = 0;
+			mb = j;
+			t_step = t_out-t_now;
+			break;
+		 end;
+		 H(j+1,j) = s;
+		 V(:,j+1) = (1/s)*p;
+	  end;
+  elseif method == 1					% Lanczos Iteration with partial orthogonalisation
+	  W = zeros(m,m);					% measure of orthogonality
+	  W(1,1) = 1;
+	  theta = eps;						% TODO: replace anorm
+	  psi   = eps;						% TODO: replace anorm
+	  ALPHA = zeros(m+2,1);
+	  BETA  = zeros(m+1,1);
+	  BETA(1) = beta;
+	  for j = 1:m
+		 p = AFUN(V(:,j));				% r_(j+1)
+		 if j > 1						% V(:,0) = 0
+			 p = p - BETA(j)*V(:,j-1);  % r_(j+1) = r_(j+1) - beta_j * v_j
+		 end
+		 ALPHA(j) = V(:,j)'*p;			% alpha_j
+		 p = p - ALPHA(j)*V(:,j);		% r_(j+1) = r_(j+1) - alpha_j * v_j
+		 
+		 s = norm(p);
+		 if s < btol							% first short cut
+			k1 = 0;
+			mb = j;
+			t_step = t_out-t_now;
+			break;
+		 end
+		 
+		 BETA(j+1) = s;
+		 
+		 % update measure of loss of orthogonality
+		 theta = eps*(BETA(2:end) + BETA(j+1));		%.*randn(m,1)*0.3;			% randn takes too much time
+		 if j == 1
+			 W(j+1,1)     = BETA(2)*W(j,2);
+		 else
+			 W(j+1,1)     = BETA(2)*W(j,2) + (ALPHA(1)-ALPHA(j))*W(j,1) - BETA(j)*W(j-1,1);
+		 end
+		 W(j+1,1) = W(j+1,1)/BETA(j+1) + theta(1);
+		 
+		 if j > 2
+			 idx = 2:j-1;
+			 W(j+1,idx) = (BETA(idx+1).'.*W(j,idx+1) + (ALPHA(idx)-ALPHA(j)).'.*W(j,idx) - BETA(idx).'.*W(j,idx-1) - BETA(j)*W(j-1,idx))/BETA(j+1) + theta(idx)';
+		 end
+		 psi = eps*BETA(2)/BETA(j+1)*n;		%*randn(1)*0.6;							% psi_(j+1)
+		 W(j+1,[j,j+1]) = [psi,1];
+		 
+		 % reorthogonalise if needed:
+		 nonOrth = abs(W(j+1,1:j)) > 10^-6;
+		 if any(nonOrth)
+			 %nonOrth = logical(conv(single(nonOrth),[1,1,1],'same'));						% extend re-orth region
+			 nonOrth = find(abs(W(j+1,1:j)) > 10^-10);
+			 for i = nonOrth
+				 p = p - V(:,i)*(V(:,i)' * p);
+			 end
+			 W(j+1,nonOrth) = eps;
+		 end
+		 
+		 s = norm(p);
+		 if s < btol 							% second short cut
+			k1 = 0;
+			mb = j;
+			t_step = t_out-t_now;
+			break;
+		 end
+		 
+		 BETA(j+1) = s;					% beta_(j+1)
+		 V(:,j+1) = p/s;
+	  end
+	  H = sparse(2:m+1, 1:m, BETA(2:end), m+2, m+2);
+	  H = H + H.'+diag(ALPHA);
+  end
   if nstep == 1				% was moved down from initial variable definitions
 	  anorm = norm(H);
 	  t_new = (1/anorm)*((fact*tol)/(4*beta*anorm))^xm;
