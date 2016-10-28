@@ -49,8 +49,8 @@ p.addParameter('M'				,2	,@isnumeric);
 p.addParameter('useDkExpand'	,0	,@isnumeric);
 p.addParameter('dkmax'			,1e3,@isnumeric);
 p.addParameter('Dmin'			,2	,@isnumeric);
-p.addParameter('svmaxtol'	,1e-4	,@isnumeric);
-p.addParameter('svmintol'	,10^-4.5,@isnumeric);
+p.addParameter('svmaxtol'	,1e-6	,@isnumeric);
+p.addParameter('svmintol'	,10^-8,@isnumeric);
 p.addParameter('logging'		,0	,@isnumeric);
 p.addParameter('rescaling'		,0	,@isnumeric);
 p.addParameter('complex'		,0	,@isnumeric);
@@ -89,7 +89,7 @@ pt.addParameter('storeMPS'			,0	,@isnumeric);
 pt.addParameter('evolveSysTrotter'	,1	,@isnumeric);
 pt.addParameter('HEffSplitIsometry'	,1	,@isnumeric);
 pt.addParameter('maxExpMDim'		,120,@isnumeric);
-pt.addParameter('maxExpVDim'		,256,@isnumeric);
+pt.addParameter('maxExpVDim'		,200,@isnumeric);
 pt.addParameter('expvCustom'		,1	,@isnumeric);
 pt.addParameter('useDkExpand'		,0	,@isnumeric);
 pt.addParameter('expandOBB'			,1	,@isnumeric);
@@ -385,7 +385,7 @@ para.relativeshift=zeros(para.nChains,para.L);
 para.relativeshiftprecision=0.01;				% When the relative shift is below this value then stop shifting
 % para = maxshift(para);						% TODO!
 
-para.version = 'v75';
+para.version = 'v76';
 
 if isstruct(para.tdvp)
 	%% Defaults to para for tdvp

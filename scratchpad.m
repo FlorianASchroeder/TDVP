@@ -6000,15 +6000,17 @@ end
 
 %% DPMES-Tree1 v74 TreeMPS Performance comparison - TDVPData						% LabBook 31/08/2016
 clear
-x(1) = TDVPData('20160829-1710-46-DPMES5-7C-Tree-v73-L18CT0LE+\results-Till5000Step0.1v73-OBBmax20-Dmax(5-10)-expvCustom700-1core-small.mat');					% this has corrected H_I
-x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(10-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. Chain dimension agree with Tree1, should be closer than (5-10)
+% x(1) = TDVPData('20160829-1710-46-DPMES5-7C-Tree-v73-L18CT0LE+\results-Till5000Step0.1v73-OBBmax20-Dmax(5-10)-expvCustom700-1core-small.mat');					% this has corrected H_I
+x(1) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(10-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. Chain dimension agree with Tree1, should be closer than (5-10)
 % x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(5-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. sys-chain D agrees with above, chain D with below
-x(3) = TDVPData('20160831-1344-17-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, too small node Dim
-x(4) = TDVPData('20160831-1258-02-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, big timestep, yet good!
+% x(3) = TDVPData('20160831-1344-17-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, too small node Dim
+x(2) = TDVPData('20160831-1258-02-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, big timestep, yet good!
 % x(5) = TDVPData('20160929-1744-01-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till1000Step0.01v74-OBBmax20-Dmax(100-20)-expvCustom256-1core-small.mat');				% OE-Rugor, good timestep, too slow!
 % x(6) = TDVPData('20160929-1745-52-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till1000Step0.01v74-OBBmax20-Dmax(100-50)-expvCustom256-1core-small.mat');				% OE-Rugor, Bigger chain Dmax, no difference
-x(5) = TDVPData('20161028-1350-50-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! old order
-x(6) = TDVPData('20161028-1320-01-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-100)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! new order: B22,B21
+%x(5) = TDVPData('20161028-1350-50-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! old order
+x(3) = TDVPData('20161028-1320-01-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-100)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! new order: B22,B21
+x(4) = TDVPData('20161028-1404-41-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till100Step0.1v75-OBBmax20-Dmax(100-20)-expvCustom200-1core-small.mat');				% from Flop40, with Tree2! old order, Lanczos, SV[6,8]
+x(5) = TDVPData('20161028-1404-58-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till100Step0.1v75-OBBmax20-Dmax(50-20)-expvCustom200-1core-small.mat');				% from Flop40, with Tree2! old order, Lanczos, SV[6,8]
 close all
 x.plot('rhoii','-fsev','-resetColorOrder',figure)
 x.plot('calctime-d-sec',figure)

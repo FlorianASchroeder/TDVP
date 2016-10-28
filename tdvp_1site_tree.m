@@ -851,6 +851,9 @@ function treeMPS = tdvp_1site_evolveChain(treeMPS,para)
 copyPara();
 results = initresults(para);		% TODO: change later!
 results = initresultsTDVP(para, results);
+% Quick dirty fix: want chain to node dimension == maxBondDim(2)
+maxBondDim = para.tdvp.maxBondDim;
+para.tdvp.maxBondDim = para.tdvp.maxBondDim(end);
 
 idx = num2cell(treeMPS.treeIdx + 1);		% get idx in para to print chain number
 fprintf('\nChain %d:\n',para.treeMPS.chainIdx{idx{:}});
@@ -998,7 +1001,7 @@ treeMPS.Amat_sv    = {sv,results.Amat_sv{:}};
 % can be omitted:
 % results.Amat_sv{1,1}  = sv;
 % results.Amat_vNE(1,1) = vNE;		% from last prepare_onesite_truncate
-
+para.tdvp.maxBondDim = maxBondDim;		% quick fix: rest bonddim
 
 	function copyPara()
 		% Copy relevant fields from treeMPS to para
