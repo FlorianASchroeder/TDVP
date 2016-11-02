@@ -281,6 +281,12 @@ classdef TDVPData
 		end
 		
 		function obj = setLegLabel(obj,entry)
+			if iscell(entry)
+				for i = 1:length(obj)
+					obj(i) = obj(i).setLegLabel(entry{i});
+				end
+				return;
+			end
 			if ~isa(entry,'string')
 				obj.LegLabel = num2str(entry);
 			else
@@ -816,7 +822,15 @@ classdef TDVPData
 					h.ylbl = '$S_{vNE}(t)$';
 				case 'chain-n-rc'
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.ydata = zeros(obj.lastIdx,size(obj.occC,3));
+					if isfield(obj.para,'useTreeMPS') && obj.para.useTreeMPS
+						for ii = 1:size(obj.occC,3)
+							pos = find(obj.occC(2,:,ii),1,'first');					% find pos of rc in chain ii
+							h.ydata(:,ii) = real(obj.occC(1:obj.lastIdx,pos,ii));
+						end
+					else
+						h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					end
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\langle n \rangle$';
 				case 'chain-n-d-rc'

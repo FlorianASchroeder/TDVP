@@ -6001,20 +6001,27 @@ end
 %% DPMES-Tree1 v74 TreeMPS Performance comparison - TDVPData						% LabBook 31/08/2016
 clear
 % x(1) = TDVPData('20160829-1710-46-DPMES5-7C-Tree-v73-L18CT0LE+\results-Till5000Step0.1v73-OBBmax20-Dmax(5-10)-expvCustom700-1core-small.mat');					% this has corrected H_I
-x(1) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(10-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. Chain dimension agree with Tree1, should be closer than (5-10)
-% x(2) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(5-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. sys-chain D agrees with above, chain D with below
+% x(1) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(10-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. Chain dimension agree with Tree1, should be closer than (5-10)
+x(1) = TDVPData('Data\20160325-1238-25-DPMES5-7C-Tree-v73TCMde10-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(5-20)-expvCustom700-1core-small.mat');		% this has still wrong H_I. sys-chain D agrees with above, chain D with below
 % x(3) = TDVPData('20160831-1344-17-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(10-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, too small node Dim
 x(2) = TDVPData('20160831-1258-02-DPMES-Tree1-Tree-v73-L18CT0LE+\results-Till1000Step0.1v73-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from OE-Rugor, big timestep, yet good!
 % x(5) = TDVPData('20160929-1744-01-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till1000Step0.01v74-OBBmax20-Dmax(100-20)-expvCustom256-1core-small.mat');				% OE-Rugor, good timestep, too slow!
 % x(6) = TDVPData('20160929-1745-52-DPMES-Tree1-Tree-v74-L18CT0LE+\results-Till1000Step0.01v74-OBBmax20-Dmax(100-50)-expvCustom256-1core-small.mat');				% OE-Rugor, Bigger chain Dmax, no difference
 %x(5) = TDVPData('20161028-1350-50-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-20)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! old order
-x(3) = TDVPData('20161028-1320-01-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-100)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! new order: B22,B21
-x(4) = TDVPData('20161028-1404-41-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till100Step0.1v75-OBBmax20-Dmax(100-20)-expvCustom200-1core-small.mat');				% from Flop40, with Tree2! old order, Lanczos, SV[6,8]
-x(5) = TDVPData('20161028-1404-58-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till100Step0.1v75-OBBmax20-Dmax(50-20)-expvCustom200-1core-small.mat');				% from Flop40, with Tree2! old order, Lanczos, SV[6,8]
+% x(3) = TDVPData('20161028-1320-01-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-100)-expvCustom700-1core-small.mat');				% from Flop40, with Tree2! new order: B22,B21
+% x(4) = TDVPData('20161028-1404-41-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till100Step0.1v75-OBBmax20-Dmax(100-20)-expvCustom200-1core-small.mat');				% from Flop40, with Tree2! old order, Lanczos, SV[6,8]
+% x(5) = TDVPData('20161028-1404-58-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till100Step0.1v75-OBBmax20-Dmax(50-20)-expvCustom200-1core-small.mat');				% from Flop40, with Tree2! old order, Lanczos, SV[6,8]
+x(3) = TDVPData('20161031-1428-04-DPMES-Tree2-Tree-v76TCMde11-L18CT0LE+\results-Till5000Step0.5v76-OBBmax60-Dmax(70-20)-expvCustom270-1core-small.mat');		% from node11, with Tree2! SV[6,8], expvM = 5
 close all
 x.plot('rhoii','-fsev','-resetColorOrder',figure)
 x.plot('calctime-d-sec',figure)
-
+%%
+x(1) = TDVPData('20161023-1556-43-DPMES-Tree1-Tree-v75-L18CT0LE+\results-Till40Step0.1v75-OBBmax20-Dmax(100-100)-expvCustom256-1core-small.mat');				% from Flop40, standard
+x(2) = TDVPData('20161102-1814-31-DPMES-Tree1-Tree-v76-L18CT0LE+\results-Till40Step0.1v76-OBBmax20-Dmax(100-100)-expvCustom200-1core-small.mat');				% from Flop40, with expvM = 5
+x(3) = TDVPData('20161028-1404-58-DPMES-Tree2-Tree-v75-L18CT0LE+\results-Till100Step0.1v75-OBBmax20-Dmax(50-20)-expvCustom200-1core-small.mat');				% from Flop40, with Tree2! old order, Lanczos, SV[6,8]
+close all
+x.plot('rhoii','-fsev','-resetColorOrder',figure)
+x.plot('calctime-d-sec',figure)
 %% DPMES-Tree1 v74 TreeMPS dt convergence - TDVPData								% LabBook 23/09/2016
 clear
 load('TDVPLib.mat');
@@ -6135,6 +6142,84 @@ for ii = 1:size(defPlot,1)
 end
 % x.plot('calctime-d-sec',figure)
 
+%% DPMES-Tree2 v76 TreeMPS dt convergence finer - TDVPData								% LabBook 27/09/2016
+clear
+defPlot(1,:) = {'20161101-DPMES-Tree2-v76-dt0.1-BondConvergence1',						[ 1: 6], {'xlim',[0,1000]}};
+defPlot(2,:) = {'20161101-DPMES-Tree2-v76-dt0.5-BondConvergence2',						[ 7:12], {'xlim',[0,1000]}};
+defPlot(3,:) = {'20161101-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-6: dt 0.1
+dirPat = '20161031-1427-3.-DPMES-Tree2-Tree-v76TCMde11-L18CT0LE\+';
+filPat = 'results-Till5000Step0.1v76-OBBmax60-Dmax\(.*-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 7-12: dt 0.5
+dirPat = '20161031-1428-0.-DPMES-Tree2-Tree-v76TCMde11-L18CT0LE\+';
+filPat = 'results-Till5000Step0.5v76-OBBmax60-Dmax\(.*-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 13: Tree1 dt 0.1 for reference
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+%% plot CT convergence
+for ii = 1:size(defPlot,1)
+	f = figure(); hold all; ax = gca; f.Name = defPlot{ii,1};
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder',figure);
+	a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+	legend({res(pick).LegLabel});
+	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+	[a.LineStyle] = deal(linestyles{1:length(a)});
+	ylabel('$\rho_{ii} (t)$');
+	set(gca,'color','none');
+	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+%% plot full dynamics in grid
+close all
+for ii = 1:2%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid',[2,3]);
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:length(ax)
+		title(ax(kk),sprintf('$D_{node}=%s, \\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+% 	a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+% 	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+% 	legend({res(pick).LegLabel});
+% 	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+% 	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+% 	[a.LineStyle] = deal(linestyles{1:length(a)});
+% 	ylabel('$\rho_{ii} (t)$');
+% 	set(gca,'color','none');
+% 	grid on
+end
+% x.plot('calctime-d-sec',figure)
 
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
