@@ -111,7 +111,8 @@ elseif any(strcmp(chainpara.discrMethod,{'Direct','Numeric'}))
 % 			J = @J_PointsInterp;   Do not do that!
             J = @(w,i) interp1(w_i, j_i, w,'spline')./(w.^i).*ceil(heaviside(w_cutoff-w));
         case 'CoupBroad'
-            J = @(w,i) interp1(w_i, j_i, w,'pchip')./(w.^i).*ceil(heaviside(w_cutoff-w));
+%             J = @(w,i) interp1(w_i, j_i, w,'pchip')./(w.^i).*ceil(heaviside(w_cutoff-w));
+			J = @(w,i) interp1(w_i, j_i, w,'pchip')./(w.^i).*(w_cutoff>=w);
 		otherwise
 			error('VMPS:SBM_genpara:UnknownSpectralDensity',...
 				  'cannot not find J_%s(w,i); Please define para.spectralDensity properly!',chainpara.spectralDensity);
@@ -139,13 +140,13 @@ elseif any(strcmp(chainpara.discrMethod,{'Direct','Numeric'}))
 			xi(j)	  = intJ/intJoverW;							% bath energy levels
 			Gamma(j)  = sqrt(intJ);								% bath couplings.
 		end
-		figure(1);plot(xi,Gamma);
+% 		figure(1);plot(xi,Gamma);
 	elseif strcmp(chainpara.discrMethod,'Direct')
 		xi    = flipud(w_limits.');								% flip necessary to make vectorised code work
 		difXi = diff(xi);										% width of each interval
 		xi    = xi(1:end-1)+difXi./2;							% take middle of each interval
 		Gamma = sqrt(J(xi,0).*difXi./pi);						% need to calc sqrt(area)
-        figure(1);plot(xi,Gamma);
+%         figure(1);plot(xi,Gamma);
 	else
 		error('VMPS:SBM_genpara:WrongDiscrMethod','Please choose discrMethod = [Direct | Numeric]');
 	end
@@ -342,8 +343,8 @@ end
 		y = 0;									% the final broadened J(w)
 
 		for ii = 1:length(w_i)
-			A = 1/(integral(@(w) normpdf(w,w_i(ii),sigma)./w, 0,inf)*w_i(ii));		% normalization constant to keep constant reorganisation Energy
-			y = y + A .* j_i(ii) .*normpdf(omega,w_i(ii),sigma);
+			A = 1/(integral(@(w) cauchypdf(w,w_i(ii),sigma)./w, 1e-5,w_cutoff)*w_i(ii));		% normalization constant to keep constant reorganisation Energy
+			y = y + A .* j_i(ii) .*cauchypdf(omega,w_i(ii),sigma);
 		end
 
 		% overwrite interpolation points for use above

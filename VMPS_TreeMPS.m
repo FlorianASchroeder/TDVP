@@ -108,6 +108,8 @@ pSBM.addParameter('InitialState'	,'sx',@(x) any(validatestring(x,SBMInitialState
 
 pDPMES.addParameter('InitialState'	,'LE+',@(x) any(validatestring(x,DPMESInitialStates)));		% Initial States
 pDPMES.addParameter('CTShift'		,0	,@isnumeric);
+pDPMES.addParameter('BroadenChain'  ,zeros(1,7),@isnumeric);									% logic, indicate which chains shall be broadened
+pDPMES.addParameter('PeakWidth'     ,cmToeV(20),@isnumeric);									% width of 20 cm^-1 as standard?
 
 %%
 p.parse(varargin{:});
@@ -305,19 +307,28 @@ if strfind(para.model,'DPMES-Tree2')
 %% Setting Chain 1
 	para.nChains = 7;
 	para.systemStates				= load('DPMESdata_20160129/states.dat');					% [#state, E(eV)]
-	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states!
-	para.chain{1}.mapping			= 'LanczosTriDiag';
-	para.chain{1}.spectralDensity	= 'CoupDiscr';
-	para.chain{1}.Lambda            = 1;
-	para.chain{1}.initState		    = para.initChainState;
+	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states
 	
 	% Chains:			1				2				3				4			5				6				7
 	ChainFiles = {'W24-B1-17-highv2','W44-A1-7-01','W44-A1-10-x1','W23-B2-8-10','W45-B2-9-1x','W45-B2-9-1-x','W14-A2-10-highv2'}
 	%					B1				A11				A12				B21			B22				B23				A2
 	for ii = 1:length(ChainFiles)
-		para.chain{ii}					= para.chain{1};
+		para.chain{ii}.mapping			= 'LanczosTriDiag';
+		para.chain{ii}.spectralDensity	= 'CoupDiscr';
+		para.chain{ii}.Lambda           = 1;
+		para.chain{ii}.initState		= para.initChainState;
 		para.chain{ii}.dataPoints		= cmToeV(load(sprintf('DPMESdata_20160129/%s.dat',ChainFiles{ii})));
 		para.chain{ii}.L				= min(length(para.chain{ii}.dataPoints),para.L-1);
+		if pDPMES.Results.BroadenChain(ii)
+			% allows individual broadening of each chain
+			para.chain{ii}.spectralDensity	= 'CoupBroad';
+			para.chain{ii}.discrMethod		= 'Direct';
+			para.chain{ii}.discretization	= 'Linear';
+			para.chain{ii}.mapping			= 'Stieltjes';
+			para.chain{ii}.L				= max(length(para.chain{ii}.dataPoints),para.L-1);
+			para.chain{ii}.peakWidth		= pDPMES.Results.PeakWidth;
+			para.chain{ii}.w_cutoff			= max(para.chain{ii}.dataPoints(:,1))+pDPMES.Results.PeakWidth*10;			% 10*width above highest mode to be safe?
+		end
 	end
 	
 %% Setting TreeMPS structure
