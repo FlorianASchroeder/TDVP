@@ -15,7 +15,8 @@ If you intend to use this code, please cite the following pupblications which th
 - Fully **dynamic** bond dimensions
 - Ground state calculations
 - Time-evolution with **TDVP**
-- Compuation of Memory Kernel/Transfer Tensors
+- Supports Open Quantum Systems with **arbitrary** bosonic environments
+- Extraction of Memory Kernel/Transfer Tensors (weak coupling
 - Transfer Tensor Method (TTM) for rapid extrapolation to **long times**
 
 
