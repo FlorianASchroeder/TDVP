@@ -837,7 +837,8 @@ classdef TDVPData
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
-						h.ydata = squeeze(real(obj.occCd(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						rcCol = find(~all(squeeze(obj.occCd(1:obj.lastIdx,:,1,h.chain))==0),1);
+						h.ydata = squeeze(real(obj.occCd(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
 						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						h.ylbl = '$\langle n \rangle$';
 						h.tlbl = 'Diabatic Occupation';
@@ -853,7 +854,8 @@ classdef TDVPData
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
-						h.ydata = squeeze(real(obj.occCa(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						rcCol = find(~all(squeeze(obj.occCa(1:obj.lastIdx,:,1,h.chain))==0),1);
+						h.ydata = squeeze(real(obj.occCa(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
 						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						h.ylbl = '$\langle n \rangle$';
 						h.tlbl = 'Adiabatic Occupation';
@@ -914,14 +916,25 @@ classdef TDVPData
 					h.tlbl = 'Chain Occupation Site 2 Fourier';
 				case 'chain-x-rc'
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ydata = squeeze(real(obj.xC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					h.ydata = zeros(obj.lastIdx,size(obj.xC,3));
+					if isfield(obj.para,'useTreeMPS') && obj.para.useTreeMPS
+						for ii = 1:size(obj.xC,3)
+							pos = find(obj.xC(2,:,ii),1,'first');					% find pos of rc in chain ii
+							h.ydata(:,ii) = real(obj.xC(1:obj.lastIdx,pos,ii));
+						end
+					else
+						h.ydata = squeeze(real(obj.xC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					end
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
-					h.ylbl = '$\langle n \rangle$';
+					h.ylbl = '$\langle x \rangle$';
+					
 				case 'chain-x-d-rc'
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
-						h.ydata = squeeze(real(obj.xCd(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						% find first non-zero column == RC
+						rcCol = find(~all(squeeze(obj.xCd(1:obj.lastIdx,:,1,h.chain))==0),1);
+						h.ydata = squeeze(real(obj.xCd(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
 						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						h.ylbl = '$\langle x \rangle$';
 						h.tlbl = 'Diabatic Displacement';
@@ -937,7 +950,8 @@ classdef TDVPData
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
-						h.ydata = squeeze(real(obj.xCa(1:obj.lastIdx,2,:,h.chain)));		% t x L x state x nChain
+						rcCol = find(~all(squeeze(obj.xCa(1:obj.lastIdx,:,1,h.chain))==0),1);
+						h.ydata = squeeze(real(obj.xCa(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
 						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						h.ylbl = '$\langle x \rangle$';
 						h.tlbl = 'Adiabatic Displacement';
