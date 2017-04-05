@@ -297,18 +297,33 @@ end
 %% Plot Chain epsilon-t
 f = figure(3)
 f.Name = 'Chain hopping and site energies';
-subplot(1,2,1)
-pl = plot(cell2mat(cellfun(@(x) x.t, para.chain, 'UniformOutput',false)));
+subplot(1,2,1); hold all
+% pl = plot(cell2mat(cellfun(@(x) x.t, para.chain, 'UniformOutput',false)));
+pl = cellfun(@(x) plot(x.t), para.chain, 'UniformOutput',false);
 % set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$t_k$')
 axis tight
 legend(strsplit(sprintf('%d,', 1:length(para.chain)),','))
-subplot(1,2,2)
-pl = plot(cell2mat(cellfun(@(x) x.epsilon, para.chain, 'UniformOutput',false)));
+subplot(1,2,2); hold all;
+pl = cellfun(@(x) plot(x.epsilon), para.chain, 'UniformOutput',false);
 % set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$\epsilon_k$')
+
+%% Plot RC coupling over energy
+% to estimate reorg. Energy
+f = figure(4);
+f.Name = 'RC reorganisation energies';
+subplot(1,2,1);
+pl = plot(cellfun(@(x) x.t(1)/x.epsilon(1), para.chain));
+xlabel('Chain k');
+ylabel('$\lambda/\omega$');
+
+subplot(1,2,2);
+pl = plot(cellfun(@(x) x.t(1)^2/4/x.epsilon(1), para.chain));
+xlabel('Chain k');
+ylabel('$\lambda^2/4\omega$');
 
 % formatPlot(2)
 
@@ -6052,7 +6067,7 @@ set(gca,'color','none');
 grid on
 
 % x.plot('calctime-d-sec',figure)
-%% DPMES-Tree1 v74 TreeMPS dt convergence finer - TDVPData								% LabBook 27/09/2016
+%% DPMES-Tree1 v74 TreeMPS dt convergence finer 5fs - TDVPData								% LabBook 27/09/2016
 clear
 defPlot(1,:) = {'20160927-DPMES-Tree1-v73-dt-convergence1',						[ 1: 6], {'xlim',[0,2]}};
 defPlot(2,:) = {'20160927-DPMES-Tree1-v74-dt-convergence2',						[ 7:12], {'xlim',[0,2]}};
@@ -6142,11 +6157,74 @@ for ii = 1:size(defPlot,1)
 end
 % x.plot('calctime-d-sec',figure)
 
-%% DPMES-Tree2 v76 TreeMPS dt convergence finer - TDVPData								% LabBook 27/09/2016
+%% DPMES-Tree1 v76 TreeMPS dt convergence and Dnode - TDVPData								% LabBook 10/11/2016
 clear
-defPlot(1,:) = {'20161101-DPMES-Tree2-v76-dt0.1-BondConvergence1',						[ 1: 6], {'xlim',[0,1000]}};
-defPlot(2,:) = {'20161101-DPMES-Tree2-v76-dt0.5-BondConvergence2',						[ 7:12], {'xlim',[0,1000]}};
-defPlot(3,:) = {'20161101-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+defPlot(1,:) = {'20161112-DPMES-Tree1-v76-dt0.5-BondConvergence-Dchain20',				[ 1: 6], {'xlim',[0,3300]}};
+defPlot(2,:) = {'20161112-DPMES-Tree1-v76-dt0.5-BondConvergence-Dchain40',				[ 7: 9], {'xlim',[0,3300]}};
+% defPlot(3,:) = {'20161112-DPMES-Tree1-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-6: Dchain 20
+dirPat = '20161111-1701-4.-DPMES-Tree1-Tree-v76TCMde10-L18CT0LE\+';
+filPat = 'results-Till5000Step0.5v76-OBBmax40-Dmax\(.*-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 7-9: Dchain 40
+dirPat = '20161111-1701-4.-DPMES-Tree1-Tree-v76TCMde10-L18CT0LE\+';
+filPat = 'results-Till5000Step0.5v76-OBBmax40-Dmax\(.*-40\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 13: Tree1 dt 0.1 for reference
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+
+	%% plot full dynamics in grid
+close all
+for ii = 1:2%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid',[2,ceil(length(pick)/2)]);
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:length(ax)
+		title(ax(kk),sprintf('$D_{node}=%s, \\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+% 	a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+% 	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+% 	legend({res(pick).LegLabel});
+% 	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+% 	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+% 	[a.LineStyle] = deal(linestyles{1:length(a)});
+% 	ylabel('$\rho_{ii} (t)$');
+% 	set(gca,'color','none');
+% 	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+%% DPMES-Tree2 v76 TreeMPS dt convergence and Dnode - TDVPData								% LabBook 10/11/2016
+clear
+defPlot(1,:) = {'20161101-DPMES-Tree2-v76-dt0.1-BondConvergence1',						[ 1: 6], {'xlim',[0,3300]}};
+defPlot(2,:) = {'20161101-DPMES-Tree2-v76-dt0.5-BondConvergence2',						[ 7:12], {'xlim',[0,3300]}};
+% defPlot(3,:) = {'20161101-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
 
 load('TDVPLib.mat');
 %
@@ -6176,7 +6254,7 @@ legLabels = [legLabels, y];
 
 res = TDVPData({matches.name});
 res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
-%% plot CT convergence
+	%% plot CT convergence
 for ii = 1:size(defPlot,1)
 	f = figure(); hold all; ax = gca; f.Name = defPlot{ii,1};
 	pick = defPlot{ii,2};
@@ -6193,8 +6271,8 @@ for ii = 1:size(defPlot,1)
 end
 % x.plot('calctime-d-sec',figure)
 
-%% plot full dynamics in grid
-close all
+	%% plot full dynamics in grid
+%close all
 for ii = 1:2%size(defPlot,1)
 	
 	pick = defPlot{ii,2};
@@ -6218,6 +6296,58 @@ for ii = 1:2%size(defPlot,1)
 % 	ylabel('$\rho_{ii} (t)$');
 % 	set(gca,'color','none');
 % 	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+%% DPMES-Tree2 v76 TreeMPS Broad 20cm vs L - TDVPData								% LabBook 10/11/2016
+clear
+defPlot(1,:) = {'20161112-DPMES-Tree2-v76-dt0.5-A1-broad-vs-L',							[ 1: 4], {'xlim',[0,1500]}};
+defPlot(2,:) = {'20161112-DPMES-Tree2-v76-dt0.5-All-broad-vs-L',						[ 5: 8], {'xlim',[0,1100]}};
+% defPlot(3,:) = {'20161112-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-4: broad A1 only
+dirPat = '20161111-1551-43-DPMES-Tree2-Tree-v76TCMde9-L.*CT0LE\+';
+filPat = 'results-Till5000Step0.5v76-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'L(?<L>[0-9\.]*)CT','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.L),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 5-8: broad all
+dirPat = '20161111-1551-52-DPMES-Tree2-Tree-v76TCMde9-L.*CT0LE\+';
+filPat = 'results-Till5000Step0.5v76-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'L(?<L>[0-9\.]*)CT','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.L),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+	%% plot full dynamics in grid
+close all
+for ii = 1:2%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid',[2,2]);
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:length(ax)
+		title(ax(kk),sprintf('$L=%s, \\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
 end
 % x.plot('calctime-d-sec',figure)
 
@@ -7234,8 +7364,8 @@ A = treeMPS.mps{1}; dA = size(A);
 %% Save all currently opend figures
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
-% 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
-	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m4', f_handles(ii));
+	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
+% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m4', f_handles(ii));
 % 	figure(f_handles(ii));
 % 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end
