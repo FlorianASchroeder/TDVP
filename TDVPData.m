@@ -2267,6 +2267,19 @@ classdef TDVPData
 				obj.spin(:,3,ii) = real(squeeze(h.rho(1:obj.lastIdx,:,ii))*h.sigmaZ);
 			end
 		end
+		
+		function out = getRDMDiff(obj, obj2)
+			%% out = getRDMDiff(obj, obj2)
+			% calculates the norm difference between two t-RDM
+			% helpful for giving convergence estimates
+			%
+			assert(all(size(obj.rho) == size(obj2.rho)),'Please use comparable simulations with same length and timesteps');
+			d = size(obj.rho);
+% 			out = reshape(obj.rho,d(1),[]) - reshape(obj2.rho,d(1),[]);		% t x dk*dk
+% 			out = 1 - reshape(obj2.rho,d(1),[])./reshape(obj.rho,d(1),[]);		% t x dk*dk
+			out = diff(reshape(obj.rho,d(1),[])) - diff(reshape(obj2.rho,d(1),[]));		% t x dk*dk
+			out = sqrt(sum(out.*conj(out)./d(2)^2,2));
+		end
 	end
 	
 	% Static methods are functions that do not require 'obj' but are
@@ -2481,6 +2494,28 @@ classdef TDVPData
 				h.ydata = pxx;
 			end
 			
+		end
+		
+		function out = printSvNETreeMPS(treeMPS)
+			% this function can only be applied to treeMPS to obtain the SvNE along each bond
+			
+			% 1. retrieve SvNE to parent or system
+			out = sprintf('SvNE([%s]):',num2str(treeMPS.treeIdx,'%-4u'));
+			if treeMPS.level == 1
+				% get from svd on MPS matrix
+				A = reshape(treeMPS.mps{1},[],treeMPS.dk);
+				[~,s,~] = svd2(A);
+			else
+				s = diag(treeMPS.Amat_sv{1});
+			end
+			out = sprintf('%s %.2f\n',out,vonNeumannEntropy(s));
+			
+			% 2. concatenate results from children
+			if treeMPS.degree > 0
+				for ii = 1:treeMPS.degree
+					out = [out, TDVPData.printSvNETreeMPS(treeMPS.child(ii))];
+				end
+			end
 		end
 	end
 	
