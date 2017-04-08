@@ -873,6 +873,49 @@ switch para.model
 					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
 			end
 		end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		
+	case 'DPMESclust7-1'
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%
+		% working?
+		% Created 08/04/17 by F.S.
+		%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		if treeIdx == 0
+			% is the pentacene system!
+			[H0,H1]               = DPMES_Operators('clust7-1',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+
+		else
+			mc  = treeIdx;					% number of edge == chain number
+			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
 		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	case 'DPMES-Tree1'
@@ -1134,11 +1177,6 @@ switch nModel
 						  H1{3}(1,4) = -sqrt(3)/2; H1{3}(4,1) = -sqrt(3)/2;	%	, W15
 		H1{4} = zeros(n); H1{4}(1,3) = 1;          H1{4}(3,1) = 1;			% A2, W14
 		H1{5} = zeros(n); H1{5}(3,4) = 1;          H1{5}(4,3) = 1;			% B2, W45
-% 		para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-7-01.dat'));
-% 		para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20151123/W44-A1-10-x1.dat'));
-% 		para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20151123/W24-B1-highv2.dat'));
-% 		para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20151123/W14-A2-highv2.dat'));
-% 		para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20151123/W45-B2-all.dat'));
 	case '5-7C'
 		% TT, LE+, LE-, CT+, CT- with 4 chains
 		% chain order: 1-2: A1(1,2); 3: A2, 4: B1, 5-7: B2
@@ -1156,13 +1194,16 @@ switch nModel
 						  H1{6}(2,3) = 1.3;        H1{6}(3,2) = 1.3;		%   , W23
 		H1{7} = zeros(n); H1{7}(4,5) = 1;          H1{7}(5,4) = 1;			% B2, W45
 						  H1{7}(2,3) = -1.5;       H1{7}(3,2) = -1.5;		%   , W23
-% 		para.chain{1}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-7-01.dat'));
-% 		para.chain{2}.dataPoints		= cmToeV(load('DPMESdata_20160129/W44-A1-10-x1.dat'));
-% 		para.chain{3}.dataPoints		= cmToeV(load('DPMESdata_20160129/W14-A2-10-highv2.dat'));
-% 		para.chain{4}.dataPoints		= cmToeV(load('DPMESdata_20160129/W24-B1-17-highv2.dat'));
-% 		para.chain{5}.dataPoints		= cmToeV(load('DPMESdata_20160129/W23-B2-8-10.dat'));
-% 		para.chain{6}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1x.dat'));
-% 		para.chain{7}.dataPoints		= cmToeV(load('DPMESdata_20160129/W45-B2-9-1-x.dat'));		
+	case 'clust7-1'
+		% TT, LE+, LE-, CT+, CT- with 7 chains
+		% order: {	'B11',	'B12',	'A11',	'A12',	'B22',  'B23',	'A2'};
+		% H1 can be loaded directly from para.chain{ii}.H1
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		for ii = 1:7
+			H1{ii} = para.chain{ii}.H1;
+		end
 	case 'Tree1'
 		% TT, LE+, LE-, CT+, CT- with 4 chains
 		% chain order: 1-2: A1(1,2); 3: A2, 4: B1, 5-7: B2
