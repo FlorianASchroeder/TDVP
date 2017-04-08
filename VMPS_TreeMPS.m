@@ -260,7 +260,7 @@ if strfind(para.model,'DPMESclust7-1')
 		para.chain{ii}.Lambda           = 1;
 		para.chain{ii}.initState		= para.initChainState;
 		para.chain{ii}.dataPoints		= cmToeV(load(sprintf('DPMESdata_20170408/Modes-%s.dat',ChainFiles{ii})));
-		para.chain{ii}.H1				= cmToeV(load(sprintf('DPMESdata_20170408/H1-%s.dat',ChainFiles{ii})));
+		para.chain{ii}.H1				= load(sprintf('DPMESdata_20170408/H1-%s.dat',ChainFiles{ii}));
 		para.chain{ii}.L				= min(length(para.chain{ii}.dataPoints),para.L-1);
 		if pDPMES.Results.BroadenChain(ii)
 			% allows individual broadening of each chain
