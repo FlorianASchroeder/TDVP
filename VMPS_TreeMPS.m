@@ -35,7 +35,8 @@ DPMESInitialStates = {'TT','LE+', 'LE-', 'CT+', 'CT-'};					% Position of Name =
 %% Define validation functions for string expressions
 % para input parser
 p.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
-								{'SpinBoson','SpinBoson2C', 'DPMES5-7C', 'DPMESclust7-1', 'DPMES-Tree1','DPMES-Tree2','testTree'})));		% possible model inputs
+								{'SpinBoson','SpinBoson2C', 'DPMES5-7C', 'DPMESclust7-1', 'DPMES-Tree1','DPMES-Tree2',...
+								 'DPMES-Tree3','DPMES-Tree4','testTree'})));		% possible model inputs
 p.addParameter('s'				,1	,@isnumeric);
 p.addParameter('L'				,50	,@isnumeric);		% longest L between root and all leaves
 p.addParameter('alpha'			,0.1,@isnumeric);
@@ -247,7 +248,7 @@ if strfind(para.model,'DPMESclust7-1')
 	
 %% Setting Chain for SBM
 	para.nChains = 7;
-	para.systemStates				= load('DPMESdata_20160129/states.dat');					% [#state, E(eV)]
+	para.systemStates				= load('DPMESdata_20170408/states.dat');					% [#state, E(eV)]
 	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states!
 	para.BroadenChain				= pDPMES.Results.BroadenChain;								% save for reference
 	
@@ -406,6 +407,125 @@ if strfind(para.model,'DPMES-Tree2')
 	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
 end
 
+if strfind(para.model,'DPMES-Tree3')
+	% This is star-model obtained using fkmeans from 08/04/2017
+	% clusters under weighting by coupling strength only!
+ 	pDPMES.parse(varargin{:});
+	
+%% Setting Chain for SBM
+	para.nChains = 7;
+	para.systemStates				= load('DPMESdata_20170408/states.dat');					% [#state, E(eV)]
+	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states!
+	para.BroadenChain				= pDPMES.Results.BroadenChain;								% save for reference
+	
+	% Chains:		1		2		3		4		5		6		7
+	ChainFiles = {	'A2',	'A11',	'A12',	'B11',	'B12',	'B22',  'B23'	};	% order similar to Tree2 since this is more likely to be optimal
+	
+	for ii = 1:length(ChainFiles)
+		para.chain{ii}.mapping			= 'LanczosTriDiag';
+		para.chain{ii}.spectralDensity	= 'CoupDiscr';
+		para.chain{ii}.Lambda           = 1;
+		para.chain{ii}.initState		= para.initChainState;
+		para.chain{ii}.dataPoints		= cmToeV(load(sprintf('DPMESdata_20170408/Modes-%s.dat',ChainFiles{ii})));
+		para.chain{ii}.H1				= load(sprintf('DPMESdata_20170408/H1-%s.dat',ChainFiles{ii}));
+		para.chain{ii}.L				= min(length(para.chain{ii}.dataPoints),para.L-1);
+		if pDPMES.Results.BroadenChain(ii)
+			% allows individual broadening of each chain
+			para.chain{ii}.spectralDensity	= 'CoupBroad';
+			para.chain{ii}.discrMethod		= 'Direct';
+			para.chain{ii}.discretization	= 'Linear';
+			para.chain{ii}.mapping			= 'Stieltjes';
+			para.chain{ii}.L				= max(length(para.chain{ii}.dataPoints),para.L-1);
+			para.chain{ii}.peakWidth		= pDPMES.Results.PeakWidth;
+			para.chain{ii}.w_cutoff			= max(para.chain{ii}.dataPoints(:,1))+pDPMES.Results.PeakWidth*10;			% 10*width above highest mode to be safe?
+		end
+	end
+	
+%% Setting TreeMPS structure
+	para.treeMPS.height    = 1;										% star structure, since only tree node + leaves
+	para.treeMPS.maxDegree = para.nChains;
+	leafTreeIdx = [1,0,0,0;											% the treeIdx for each leaf; Order 1-7 as defined in genh1h2term_onesite
+		           2,1,1,0;
+				   2,1,2,0;
+				   2,2,1,1;
+				   2,2,1,2;
+				   2,2,2,1;
+				   2,2,2,2];
+	para.treeMPS.leafIdx   = num2cell(leafTreeIdx+1);    			% maps from chain number to leaf index in para
+	nodeTreeIdx = [0,0,0,0;                                         % the treeIdx of each node; order as defined by occurrence sweep
+		           2,0,0,0;
+				   2,1,0,0;
+				   2,2,0,0;
+				   2,2,1,0;
+				   2,2,2,0];
+	para.treeMPS.nNodes    = size(nodeTreeIdx,1);
+	para.treeMPS.nodeIdx   = num2cell(nodeTreeIdx+1);				% maps from node number to nodeIdx
+	
+%% Set-up parameters for specific ground state preparation!
+%     Initial States:			TT		LE+		LE-		CT+		CT-
+% 			para.IntialState:	 1		  2		  3		  4		  5
+	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
+end
+
+if strfind(para.model,'DPMES-Tree4')
+	% This is star-model obtained using fkmeans from 08/04/2017
+	% clusters under weighting by coupling strength only!
+ 	pDPMES.parse(varargin{:});
+	
+%% Setting Chain for SBM
+	para.nChains = 7;
+	para.systemStates				= load('DPMESdata_20170408/states.dat');					% [#state, E(eV)]
+	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDPMES.Results.CTShift);	% use delta as percentual shift of CT states!
+	para.BroadenChain				= pDPMES.Results.BroadenChain;								% save for reference
+	
+	% Chains:		1		2		3		4		5		6		7
+	ChainFiles = {	'B11',	'B12',	'A11',	'A12',	'A2',	'B22',  'B23'	};
+	
+	for ii = 1:length(ChainFiles)
+		para.chain{ii}.mapping			= 'LanczosTriDiag';
+		para.chain{ii}.spectralDensity	= 'CoupDiscr';
+		para.chain{ii}.Lambda           = 1;
+		para.chain{ii}.initState		= para.initChainState;
+		para.chain{ii}.dataPoints		= cmToeV(load(sprintf('DPMESdata_20170408/Modes-%s.dat',ChainFiles{ii})));
+		para.chain{ii}.H1				= load(sprintf('DPMESdata_20170408/H1-%s.dat',ChainFiles{ii}));
+		para.chain{ii}.L				= min(length(para.chain{ii}.dataPoints),para.L-1);
+		if pDPMES.Results.BroadenChain(ii)
+			% allows individual broadening of each chain
+			para.chain{ii}.spectralDensity	= 'CoupBroad';
+			para.chain{ii}.discrMethod		= 'Direct';
+			para.chain{ii}.discretization	= 'Linear';
+			para.chain{ii}.mapping			= 'Stieltjes';
+			para.chain{ii}.L				= max(length(para.chain{ii}.dataPoints),para.L-1);
+			para.chain{ii}.peakWidth		= pDPMES.Results.PeakWidth;
+			para.chain{ii}.w_cutoff			= max(para.chain{ii}.dataPoints(:,1))+pDPMES.Results.PeakWidth*10;			% 10*width above highest mode to be safe?
+		end
+	end
+	
+%% Setting TreeMPS structure
+	para.treeMPS.height    = 1;										% star structure, since only tree node + leaves
+	para.treeMPS.maxDegree = para.nChains;
+	leafTreeIdx = [1,0,0,0,0;										% the treeIdx for each leaf; Order 1-7 as defined in genh1h2term_onesite
+		           2,1,0,0,0;
+				   2,2,1,1,1;
+				   2,2,1,1,2;
+				   2,2,1,2,0;
+				   2,2,2,1,0;
+				   2,2,2,2,0];
+	para.treeMPS.leafIdx   = num2cell(leafTreeIdx+1);    			% maps from chain number to leaf index in para
+	nodeTreeIdx = [0,0,0,0,0;                                        % the treeIdx of each node; order as defined by occurrence sweep
+		           2,0,0,0,0;
+				   2,2,0,0,0;
+				   2,2,1,0,0;
+				   2,2,1,1,0;
+				   2,2,2,0,0];
+	para.treeMPS.nNodes    = size(nodeTreeIdx,1);
+	para.treeMPS.nodeIdx   = num2cell(nodeTreeIdx+1);				% maps from node number to nodeIdx
+	
+%% Set-up parameters for specific ground state preparation!
+%     Initial States:			TT		LE+		LE-		CT+		CT-
+% 			para.IntialState:	 1		  2		  3		  4		  5
+	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
+end
 %% Defaults to para
 para.loopmax		= 50;						% (minimizeE)
 para.increasedk		= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
@@ -445,7 +565,7 @@ para.relativeshift=zeros(para.nChains,para.L);
 para.relativeshiftprecision=0.01;				% When the relative shift is below this value then stop shifting
 % para = maxshift(para);						% TODO!
 
-para.version = 'v76';
+para.version = 'v77';
 
 if isstruct(para.tdvp)
 	%% Defaults to para for tdvp

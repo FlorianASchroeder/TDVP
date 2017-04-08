@@ -1025,7 +1025,7 @@ switch para.model
 		% First: list all nodes which carry a physical Hamiltonian site
 		if treeIdx == [0,0,0,0]
 			% is the pentacene system!
-			[H0,H1]               = DPMES_Operators('Tree1',para);
+			[H0,H1]               = DPMES_Operators('Tree1',para);		% equals Tree2 operators, so no problem
 			zm                    = zeros(size(H0,1));
 			op.h1term{1}          = H0;
 			for mc = 1:length(H1)
@@ -1060,6 +1060,153 @@ switch para.model
 		end
 		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		
+	case 'DPMES-Tree3'
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain Tree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%	First entanglement renormalisation Tree for DPMESclust7-1 parameter set.
+		%	It is the best partition if the first partition is into 2 subsystems: [Sys,1,2,3] [4,5,6,7]
+		%	Channel interaction terms through nodes without Hamiltonian terms/sites
+		%   ChainIdx is numbered according to tree structure
+		%	Structure:
+		%
+		%							treeIdx		Node Idx	ChainIdx		
+		%	Excitons				[0,0,0,0]	1
+		%	  |- Chain 1		    [1,0,0,0]				1
+		%     \- Node               [2,0,0,0]	2
+		%	    |- Node				[2,1,0,0]	3
+		%		| |- Chain 2		[2,1,1,0]				2
+		%		| \- Chain 3		[2,1,2,0]				3
+		%		\- Node		        [2,2,0,0]	4
+		%		  |- Node			[2,2,1,0]	5
+		%		  | |- Chain 4		[2,2,1,1]				4
+		%		  | \- Chain 5		[2,2,1,2]				5
+		%		  \- Node			[2,2,2,0]	6
+		%		    |- Chain 6		[2,2,2,1]				6
+		%		    \- Chain 7		[2,2,2,2]				7
+		%
+		% Created 29/08/16 by F.S.
+		%
+		idx      = num2cell(treeIdx+1);                       % index in para.*
+		mc       = para.treeMPS.chainIdx{idx{:}};             % index of chain
+% 		leafPos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+% 		nodePos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+		
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		
+		% First: list all nodes which carry a physical Hamiltonian site
+		if treeIdx == [0,0,0,0]
+			% is the pentacene system!
+			[H0,H1]               = DPMES_Operators('Tree3',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				% Interaction terms carry 1/sqrt(2) since Davids parameters are made for x = (a+a^+)/sqrt(2)
+				% Thus only relevant for DPMES!
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+		% Second: list all chains
+		elseif ~isempty(mc)
+			if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		% Third: all nodes without site, only combining chains
+		else
+			% Do nothing! return empty, since this node only combines chain and has no Hamiltonian site!
+			op.h1term = {[]};																		% put empty array to avoid errors
+		end
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	case 'DPMES-Tree4'
+		%%%%%%%%%%%%%%%%%%% DP-MES Model - 7-Chain Tree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%	Second entanglement renormalisation Tree for DPMESclust7-1 parameter set.
+		%	It is the best partition if the first partition is into 3 subsystems: [Sys,B11,B12] [A11,A12,A2] [B22,B23]
+		%	Channel interaction terms through nodes without Hamiltonian terms/sites
+		%   ChainIdx is numbered according to tree structure
+		%	This code is fairly generic and can be applied to almost any tree strucures! Perhaps refactor into separate function?
+		%	Structure:
+		%
+		%							treeIdx		Node Idx	ChainIdx		
+		%	Excitons				[0,0,0,0,0]	1
+		%	  |- Chain 1		    [1,0,0,0,0]				1
+		%     \- Node2              [2,0,0,0,0]	2
+		%	    |- Chain 2			[2,1,0,0,0]				2
+		%		\- Node3	        [2,2,0,0,0]	3
+		%		  |- Node4			[2,2,1,0,0]	4
+		%		  | |- Node5		[2,2,1,1,0]	5
+		%		  | | |- Chain 3	[2,2,1,1,1]				3
+		%		  | | \- Chain 4	[2,2,1,1,2]				4
+		%		  | \- Chain 5		[2,2,1,2,0]				5
+		%		  \- Node6			[2,2,2,0,0]	6
+		%		    |- Chain 6		[2,2,2,1,0]				6
+		%		    \- Chain 7		[2,2,2,2,0]				7
+		%
+		% Created 09/04/17 by F.S.
+		%
+		idx      = num2cell(treeIdx+1);                       % index in para.*
+		mc       = para.treeMPS.chainIdx{idx{:}};             % index of chain
+% 		leafPos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+% 		nodePos  = find(all(bsxfun(@eq,leafIndices,idx),2));
+		
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		
+		% First: list all nodes which carry a physical Hamiltonian site
+		if treeIdx == [0,0,0,0,0]
+			% is the pentacene system!
+			[H0,H1]               = DPMES_Operators('Tree4',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				% Interaction terms carry 1/sqrt(2) since Davids parameters are made for x = (a+a^+)/sqrt(2)
+				% Thus only relevant for DPMES!
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+		% Second: list all chains
+		elseif ~isempty(mc)
+			if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx{:}}(s),para.shift{idx{:}}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		% Third: all nodes without site, only combining chains
+		else
+			% Do nothing! return empty, since this node only combines chain and has no Hamiltonian site!
+			op.h1term = {[]};																		% put empty array to avoid errors
+		end
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
 	case 'testTree'
 		%%%%%%%%%%%%%%%%%%% testTree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		%	This is a test tree with uniform boson chains.
@@ -1238,6 +1385,26 @@ switch nModel
 		H1{6} = zeros(n); H1{6}(4,5) = 1;          H1{6}(5,4) = 1;			% B23, W45
 						  H1{6}(2,3) = -1.5;       H1{6}(3,2) = -1.5;		%    , W23
 		H1{7} = zeros(n); H1{7}(1,4) = 1;          H1{7}(4,1) = 1;			% A2 , W14
+	case 'Tree3'
+		% TT, LE+, LE-, CT+, CT- with 7 chains
+		% order: {	'A2',	'A11',	'A12',	'B11',	'B12',	'B22',  'B23'};
+		% H1 can be loaded directly from para.chain{ii}.H1
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		for ii = 1:7
+			H1{ii} = para.chain{ii}.H1;
+		end
+	case 'Tree4'
+		% TT, LE+, LE-, CT+, CT- with 7 chains
+		% order: {	'A2',	'A11',	'A12',	'B11',	'B12',	'B22',  'B23'};
+		% H1 can be loaded directly from para.chain{ii}.H1
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		for ii = 1:7
+			H1{ii} = para.chain{ii}.H1;
+		end
 		
 end
 

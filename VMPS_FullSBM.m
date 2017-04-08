@@ -497,7 +497,7 @@ para=maxshift(para);
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 [~, name] = system('hostname');
 para.hostname = strtrim(name);						% save hostname for later reference
-para.version = 'v76';
+para.version = 'v77';
 Descr = para.version;
 if ~strcmp(computer,'PCWIN64')
 	Descr = sprintf('%sTCM%s',para.version,para.hostname(3:end));

@@ -97,6 +97,8 @@ classdef TDVPData
 			if isfield(temp, 'para') && isfield(temp,'tresults')
 				obj.para = temp.para;
 				obj.tresults = temp.tresults;
+			else
+				return
 			end
 			if isfield(obj.para.tdvp,'version')
 				obj.version = str2double(obj.para.tdvp.version(2:end));
@@ -819,7 +821,7 @@ classdef TDVPData
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = obj.getData('vne');				% t x 1
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
-					h.ylbl = '$S_{vNE}(t)$';
+					h.ylbl = '$S_{vNE}$';
 				case 'chain-n-rc'
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = zeros(obj.lastIdx,size(obj.occC,3));
@@ -2328,12 +2330,21 @@ classdef TDVPData
 			B = bsxfun(@minus,A,mean(A,1));
 		end
 		
-		function h = plotGrid(rows,cols,f)
+		function h = plotGrid(rows,cols,varargin)
 			%% function h = plotGrid(rows,cols)
 			%	creates a grid of axes
-			%	onto a 8.5 cm x 6.4 cm figure
-			if nargin >= 3
-				h.f = f;
+			%	onto a 8.5 cm x 6.4 cm figure suitable for 2-column format.
+			%	if different 'rowwidth' is defined, the figure width will be adjusted.
+			p = inputParser;
+			addRequired(p,'rows',@isnumeric);
+			addRequired(p,'cols',@isnumeric);
+			addOptional(p,'f',[],@(x) isa(x,'matlab.ui.Figure'));	%||isa(x,'matlab.graphics.axis.Axes')); would be nice to include for substacking
+			addParameter(p,'rowheight',1.0,@isnumeric);
+			addParameter(p,'rowwidth' ,7.2,@isnumeric);
+			parse(p,rows,cols,varargin{:});
+			
+			if ~isempty(p.Results.f)
+				h.f = p.Results.f;
 				figure(h.f);
 				clf;
 			else
@@ -2344,11 +2355,12 @@ classdef TDVPData
 			
 			% important measures:
 				% 2016a: ax.Position = [1.1041   0.70432   6.5822   5.2184]   for only left and bottom axis label
-			h.axW = 7.2/h.cols; h.axH = 1; h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
+			h.axW = p.Results.rowwidth/h.cols; h.axH = p.Results.rowheight; 
+			h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
 			h.axX = 1.1; h.axY = 0.9;		% spacing bottom left for ticks and labels
 			
 			% Pre-process axes
-			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [8.5,1+h.axH*h.rows];
+			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [1.3+p.Results.rowwidth,1+h.axH*h.rows];
 			% f.Renderer = 'painters';
 			set(h.f,'DefaultAxesFontSize', 8,...
 					'DefaultLineLineWidth',1);
@@ -2374,24 +2386,37 @@ classdef TDVPData
 			[h.ax.Units] = deal('norm');
 		end
 		
-		function h = plotRowGroups(rows,f)
-			%% function h = plotRowGroups(rows[,f])
+		function h = plotRowGroups(rows,varargin)
+			%% function h = plotRowGroups(rows[,f,varargin])
 			%	creates rows of axes
 			%	onto a 8.5 cm x ? cm figure
 			%	rows = [5,7]
 			%		gives 2 groups of rows
-			if nargin >= 2
-				h.f = f;
+			%	rows = [1,2,3]
+			%		give 3 groups of rows
+			% Name-Value Pair arguments:
+			%	'rowheight'		1x1 real
+			
+			p = inputParser;
+			addRequired(p,'rows',@isnumeric);
+			addOptional(p,'f',[],@(x) isa(x,'matlab.ui.Figure'));	%||isa(x,'matlab.graphics.axis.Axes')); would be nice to include for substacking
+			addParameter(p,'rowheight',1.0,@isnumeric);
+			addParameter(p,'rowwidth' ,7.2,@isnumeric);
+			parse(p,rows,varargin{:});
+			
+			if ~isempty(p.Results.f)
+				h.f = p.Results.f;
 				figure(h.f);
 				clf;
 			else
 				h.f = figure();
 			end
+			
 			h.rows = rows;
-			h.split = rows(1:end-1);	% which axes have to be shifted upwards for the split
+			h.split = cumsum(rows); h.split = h.split(1:end-1);	% which axes have to be shifted upwards for the split
 			% important measures:
 				% 2016a: ax.Position = [1.1041   0.70432   6.5822   5.2184]   for only left and bottom axis label
-			h.axW = 7.2; h.axH = 1; h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
+			h.axW = p.Results.rowwidth; h.axH = p.Results.rowheight; h.axdX = 0; h.axdY = 0; h.axdYgroup = 0.3;	% maximum sizes and default paddings between axes
 			
 			% Pre-process axes
 			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [8.5,1+h.axH*sum(h.rows)+h.axdYgroup*(length(h.rows)-1)];

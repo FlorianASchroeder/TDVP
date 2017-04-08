@@ -6351,6 +6351,118 @@ for ii = 1:2%size(defPlot,1)
 end
 % x.plot('calctime-d-sec',figure)
 
+%% DPMESclust7-1 Star model															% LabBook 09/04/2016
+clear
+defPlot(1,:) = {'20170409-DPMESclust7-1-Star-v77-dt0.5-vs-D',					[ 1: 4], {'xlim',[0,670]}};
+defPlot(2,:) = {'20170409-DPMESclust7-1-Star-v77-dt2-vs-D',						[ 6: 9], {'xlim',[0,670]}};
+% defPlot(3,:) = {'20161112-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-5: dt = 0.5
+dirPat = '20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT0LE\+';
+filPat = 'results-Till1000Step0.5v77-OBBmax40-Dmax\(5-.*\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax.5-(?<D>[0-9]*)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.D),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 6-9: dt = 2
+dirPat = '20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT0LE\+';
+filPat = 'results-Till1000Step2v77-OBBmax40-Dmax\(5-.*\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax.5-(?<D>[0-9]*)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.D),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+	%% plot full dynamics in grid
+close all
+for ii = 1:2%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid',[2,2]);
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:min(length(ax),length(pick))
+		title(ax(kk),sprintf('$D=%s, \\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+end
+
+%% DPMES-Tree3/4 Comparison															% LabBook 09/04/2016
+clear
+defPlot(1,:) = {'20170409-DPMES-Tree3-v77-dt0.5',					[ 1: 2], {'xlim',[0,170]}};
+defPlot(2,:) = {'20170409-DPMES-Tree4-v77-dt0.5',					[ 3: 4], {'xlim',[0,170]}};
+% defPlot(3,:) = {'20161112-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1: Tree3 no broadening
+dirPat = '20170409-1735-52-DPMES-Tree3-Tree-v77TCMde11-L100CT0LE\+';
+filPat = 'results-Till5000Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+matches = [matches; m];
+legLabels = [legLabels, {'Tree3'}];
+
+% 2: Tree3 with 20cm broadening
+dirPat = '20170409-1736-02-DPMES-Tree3-Tree-v77TCMde11-L100CT0LE\+';
+filPat = 'results-Till5000Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+matches = [matches; m];
+legLabels = [legLabels, {'Tree3 broad'}];
+
+% 1: Tree3 no broadening
+dirPat = '20170409-1735-52-DPMES-Tree4-Tree-v77TCMde11-L100CT0LE\+';
+filPat = 'results-Till5000Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+matches = [matches; m];
+legLabels = [legLabels, {'Tree4'}];
+
+% 2: Tree3 with 20cm broadening
+dirPat = '20170409-1736-02-DPMES-Tree4-Tree-v77TCMde11-L100CT0LE\+';
+filPat = 'results-Till5000Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+matches = [matches; m];
+legLabels = [legLabels, {'Tree4 broad'}];
+
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+%% plot full dynamics in grid
+close all
+for ii = 1:2%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid',[1,2]);
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:min(length(ax),length(pick))
+		title(ax(kk),sprintf('%s, $\\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+end
+
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
 pick = [1:length(res)];			% plot all
@@ -7352,7 +7464,8 @@ end
 %% Analyse TreeMPS node for inter-chain entanglement
 % which could be reduced by chain combination
 %x = TDVPData('H:\Documents\Theory\schroederflorian-vmps-tdvp\TDVP-Git\Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat');
-load('Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat','treeMPS','para')
+% load('Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat','treeMPS','para'); % used for ER-Tree2
+load('20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT0LE+\results-Till1000Step0.5v77-OBBmax40-Dmax(5-7)-expvCustom270-1core.mat','treeMPS','para')
 %% Get vNE for each partition
 % lower vNE: lower entanglement!
 res = getTensorVNE(squeeze(treeMPS.mps{1}));
