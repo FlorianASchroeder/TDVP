@@ -805,6 +805,7 @@ end
 			if size(A,2) ~= size(A,1)
 				warning('VMPS:tdvp_1site_tree:tdvp_1site_evolveNode:BadDimensions','Matrix has wrong shape for trotter splitting. If error occurs please use para.tdvp.evolveSysTrotter = 1.');
 			end
+			A = reshape(A,[],dOut(end-1),dOut(end));
 			% evolve simplified mps matrix
 			[A, err] = expvCustom(- 1i*t,'TREE-Hn1Trotter',A, treeMPS, treeMPS.op);
 			A = reshape(A, prod(dOut(end-1:end)),[]);			% D*dk x D*dk
