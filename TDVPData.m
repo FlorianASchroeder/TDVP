@@ -41,6 +41,7 @@ classdef TDVPData
 		rhoOscRes;	% residual of populations after exponential fit
 		stateProj;	% state projection amplitude
 		sysState;	% state of system
+		Heff;		% effective potential for system
         mps;        % MPS and Vmat of sites 1&2
         Vmat;
 		LegLabel;	%
@@ -255,6 +256,10 @@ classdef TDVPData
 			
 			if isfield(obj.tresults,'stateProjection')
 				obj.stateProj = obj.tresults.stateProjection;
+			end
+			
+			if isfield(obj.tresults,'Heff')
+				obj.Heff = obj.tresults.Heff;
 			end
 			
 			if isfield(obj.tresults,'mps')
@@ -512,6 +517,7 @@ classdef TDVPData
 			h.pl = [];					% plot handle
 			pl = [];					% old plot handle;
 			h.chain = [];				% chain number needed for (a)diabatic n and x plots
+			h.state = [];				% state number needed for heff plots
 			
 			ts = 1;						% scale time axis
 			eScale = 0;					% energy units used for DFT: 0 = none, 1 = eV, 2 = cm (wavenumber)
@@ -567,6 +573,9 @@ classdef TDVPData
 					case '-chain'
 						h.chain = varargin{m+1};
 						[varargin{[m,m+1]}] = deal([]);
+					case '-state'
+						h.state = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
 					otherwise
 						% pass through as direct plot options!
 						plotOpt = [plotOpt, varargin(m)];
@@ -596,7 +605,7 @@ classdef TDVPData
 				idx = h.ax.ColorOrderIndex;
 			end
 			
-			switch lower(type)
+			switch lower(type)						% all the plot types
 				case 'sz'
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = obj.tresults.spin.sz(1:obj.lastIdx);
@@ -1029,6 +1038,121 @@ classdef TDVPData
 % 					pl = plot(f, [real(linAbs),imag(linAbs),abs(linAbs)]);
 					pl = plot(f, real(linAbs));
 					h.ylbl = 'Linear Absorption';
+				case 'pot-dyn'
+					% Plots the Potential landscape as experienced by the wavepakets over time
+					% highly experimental and only works with hand-defined hamiltonian
+					if strcmp(obj.para.model,'SpinBoson')
+						%%
+						[sigmaX,~,sigmaZ] = spinop(obj.para.spinbase);			% gives XYZ operators with respect to specific main base
+						H = @(x,n) - obj.para.hx./2.*sigmaX - obj.para.hz./2.*sigmaZ + obj.para.chain{1}.t(1).*sigmaZ./2 *x*sqrt(2) + eye(2)*obj.para.chain{1}.epsilon(1) *x^2;
+					end
+					%%
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+% 					rcCol = find(~all(squeeze(obj.occCa(1:obj.lastIdx,:,1,h.chain))==0),1);
+					displ = squeeze(real(obj.xCa(1:obj.lastIdx,2,:,1)));		% t x L x state x nChain
+					occ = squeeze(real(obj.occCa(1:obj.lastIdx,2,:,1)));		% t x L x state x nChain
+					temp = arrayfun(@(i) eig(H(displ(i,2),occ(i,1)))',(1:obj.lastIdx)','UniformOutput',false);
+					h.ydata = cell2mat(temp);
+				case 'heff'
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					if ~isempty(h.state)
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						h.ydata = real(cell2mat(arrayfun(@(i) sort(eig(squeeze(obj.Heff(i,h.state,:,h.state,:))))',[1:obj.lastIdx]','UniformOutput',false)));
+						
+						h.ylbl = sprintf('$E_{eff}(%d)$',h.state);
+					else
+						% this is the first call to generate grid plot!
+						nn = ceil(sqrt(size(obj.Heff,2)));				% count the number of adiabatic states to derive grid
+						htemp = TDVPData.plotGrid(nn,nn,h.f);
+						for ii = 1:size(obj.Heff,2)
+							obj.plot('heff',varargin{:},htemp.ax(ii),'-state',ii);
+						end
+						return;				% exit here!
+					end
+				case 'heff-pop'
+					% heff, but with additional thickness according to population of given potential surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					if ~isempty(h.state)
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+						D = real(cell2mat(D'))';
+						[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+						V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+						% V{i}: dk x D_eig
+						% obj.sysState(i,:,:): dk x D
+						tempState = permute(obj.sysState,[2,1,3]);			% t x dk x D -> dk x t x D
+						pop = arrayfun(@(i) V{i}'*tempState(:,i,h.state),[1:obj.lastIdx]','UniformOutput',false);	% gives amplitudes on the potentials
+						pop = cellfun(@(x) (x.*conj(x))',pop,'UniformOutput',false);						% gives population on the potentials
+						pop = cell2mat(pop);
+						for ii = 1:size(pop,2)
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii),[min(D(:)),max(D(:))],h.ax);
+						end
+						
+						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
+						h.ylbl = sprintf('$E_{eff}(%d)$',h.state);
+						return;
+					else
+						% this is the first call to generate grid plot!
+						nPlots = size(obj.Heff,2);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f);
+						for ii = 1:size(obj.Heff,2)
+							obj.plot('heff-pop',varargin{:},htemp.ax(ii),'-state',ii);
+						end
+						return;				% exit here!
+					end
+				case 'heff-pop-diab'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					if ~isempty(h.state)
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+						D = real(cell2mat(D'))';
+						[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+						V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+						% V{i}: dk x D_eig
+						Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+						Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+						Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+						
+						% obj.sysState: t x dk x D
+						tempState = permute(obj.sysState(:,:,h.state),[1,3,2]);				% t x 1 x dk
+						pop = sum(Vtemp .* tempState,3);
+						pop = pop.*conj(pop);												% t x D_eig x 1
+						
+						pop = (Vtemp.*conj(Vtemp)).*pop;									% t x D_eig x dk
+						pop = permute(pop,[1,3,2]);											% t x dk x D_eig
+						
+						for ii = 1:size(pop,2)
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2),[min(D(:)),max(D(:))],h.ax,'subshades',pop(:,:,ii),'thickness',0.05);
+						end
+						
+						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
+						h.ylbl = sprintf('$E_{eff}(%d)$',h.state);
+						return;
+					else
+						% this is the first call to generate grid plot!
+						nPlots = size(obj.Heff,2);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f);
+						for ii = 1:size(obj.Heff,2)
+							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii);
+						end
+						return;				% exit here!
+					end
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
 			end
@@ -1815,7 +1939,7 @@ classdef TDVPData
 % 				end
 			end
 			
-			switch lower(type)
+			switch lower(type)											% all the plot choices
 				case 'chain-n'
 					h.zdata = real(obj.occC(1:obj.lastIdx,:,:));		% t x L x chain
 					h.zlbl = '$\left< n_k \right>$';
@@ -1912,7 +2036,13 @@ classdef TDVPData
 					h.sldlbl = {'State','Chain'};
 					h.tlbl = 'Star Displacement';
 				case 'state-adiab'
-					h.zdata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
+					if ~isempty(obj.sysState)
+						h.zdata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
+					else
+						error('Not available, need to extract Observable ss');
+						close(h.f);
+						return;
+					end
 					h.zlbl = '$|\Psi_k|^2$';
 					h.xlbl = 'Diabatic States';
 					h.xdata = (1:size(obj.sysState,2)).';
@@ -1921,6 +2051,8 @@ classdef TDVPData
 					h.sldlbl = {'Bond State'};
 					
 			end
+			
+			
 			h.f.Name = h.tlbl;
 			
 			if h.logZ
@@ -2282,6 +2414,7 @@ classdef TDVPData
 			out = diff(reshape(obj.rho,d(1),[])) - diff(reshape(obj2.rho,d(1),[]));		% t x dk*dk
 			out = sqrt(sum(out.*conj(out)./d(2)^2,2));
 		end
+		
 	end
 	
 	% Static methods are functions that do not require 'obj' but are
@@ -2540,6 +2673,76 @@ classdef TDVPData
 				for ii = 1:treeMPS.degree
 					out = [out, TDVPData.printSvNETreeMPS(treeMPS.child(ii))];
 				end
+			end
+		end
+		
+		function pl = plotVariance(x,y,std,ylim,ax,varargin)
+			% plot a line defined by x,y with shaded variance given by std
+			% plot into axes given in ax
+			% need to give expected ylim = [min,max] in order to determine correct line thickness
+			% if giving subshades then: sum(subshades,2) = std
+			
+			colOrder = get(0,'DefaultaxesColorOrder');	% only used if std ~= n by 1
+			
+			% process varargin with parser
+			p = inputParser;
+			addParameter(p,'thickness',0.02,@isnumeric);
+			addParameter(p,'alpha' ,0.5,@isnumeric);
+			addParameter(p,'subshades',[],@isnumeric);		% t x n array for n subshades to plot
+			parse(p,varargin{:});
+			
+			max_thickness = p.Results.thickness;						% now: 2% of yrange should be maximum std thickness
+			fill_alpha = p.Results.alpha;
+			
+			% make all row vectors
+			x   = reshape(x,1,[]); 
+			y   = reshape(y,1,[]);
+			std = reshape(std,1,[]);
+			upper = y + diff(ylim)*std/2 * max_thickness;
+			lower = y - diff(ylim)*std/2 * max_thickness;
+			
+			pl(1) = plot(ax, x,y);		% first plot the mean
+			if isempty(p.Results.subshades)
+				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
+				uistack(pl(2), 'down');
+				set(pl(2),'EdgeColor','none')
+				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+			else
+				std = p.Results.subshades';			% n x t
+				for ii = 1:size(std,1)
+					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
+					pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+					uistack(pl(ii+1),'down');
+					set(pl(ii+1),'EdgeColor','none')
+					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+					lower = upper;
+				end
+			end
+		end
+		
+		function [m,n] = bestGrid(nPlots)
+			% find the best grid m x n to display n plots
+			% require n>=m
+			nAx = nPlots;
+			
+			% Simple stupid approach
+			if nPlots == 1
+				m = 1; n = 1;
+				return
+			elseif nPlots == 2
+				m = 1; n = 2;
+				return
+			elseif nPlots <= 4
+				m = 2; n = 2;
+				return
+			elseif nPlots <= 6
+				m = 2; n = 3;
+				return
+			elseif nPlots <= 8
+				m = 2; n = 4;
+				return
+			elseif nPlots <= 9
+				m = 3; n = 3;
 			end
 		end
 	end
