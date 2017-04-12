@@ -254,11 +254,6 @@ for timeslice = para.tdvp.slices
 		% only calculate the current slice
 		tresults = calTimeObservables(treeMPS,[],para,tresults);
 	end
-
-	if true
-		% quick and dirty to save the effective Hamiltonian to obtain the adiabatic potential surfaces for every timestep.
-		tresults = saveHeff(treeMPS,para,tresults);
-	end
 	
 	
 	%% Additional saving
