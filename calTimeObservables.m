@@ -632,6 +632,15 @@ if strContains(para.tdvp.Observables,'.ss.')					% ss for system state
 	tresults.system.state(i,:,:) = single(getObservable({'state',1},treeMPS,[],para));
 end
 
+if strContains(para.tdvp.Observables,'.heff.')
+	if isNew
+		tresults.Heff			= zeros([totalN,[1,1,1,1]*treeMPS.dk(1)],'single');
+		tresults.system.state	= zeros([totalN,    [1,1]*treeMPS.dk(1)],'single');
+	end
+	temp = getObservable({'sysheff'},treeMPS,[],para);
+	tresults.Heff(i,:,:,:,:)    = single(temp{1});
+	tresults.system.state(i,:,:)= single(temp{2});
+end
 %% TTM Extraction
 
 

@@ -19,6 +19,7 @@ function out = getObservable(type,mps,Vmat,para)
 %           getObservable({'energy',op}				,mps,Vmat,para)
 %           getObservable({'hshi',op}				,mps,Vmat,para)		% op is optional
 %			getObservable({'stateproject',i,j}      ,mps,Vmat,para)		% i,j optional
+%			getObservable({'sysheff',i}				,mps,Vmat,para)		% i optional; possibly only TreeMPS operational
 %
 % In 'current' and 'staroccupation': AnAm optional!
 %
@@ -539,6 +540,20 @@ switch type{1}
 		
 		out = calStateProject(mps,Vmat,para,systemState,envState);
 		
+	case 'sysheff'
+		% Calculates the effective Hamiltonian representing the adiabatic potential surfaces 
+		% on which the system evolves.
+		% For now: optimised for treeMPS
+		%
+		% {'sysheff'}				: returns (dk x dk)^2 operator and C
+		% {'sysheff',i}				: returns (dk x i)^2, operator with the i strongest adiabats
+		% out = {Heff,sysState}		returns the effective hamiltonian together with |psi> mapping from diabatic to the adiabatic basis
+		out = cell(1,2);
+		if para.useTreeMPS
+			[out{1},out{2}] = calSysHeff(mps,para);
+		else
+			error('Needs to be implemented');
+		end
 end
 
 end
@@ -1521,3 +1536,78 @@ for mc = para.nChains:-1:1
 end
 
 end
+
+function [Heff, C] = calSysHeff(treeMPS,para,n)
+	if nargin == 2
+		n = [];
+	end
+	if strcmp(para.model,'SpinBoson')
+		% shortcut for simpler code
+		OBBDim = treeMPS.d_opt;
+		BondDimRight = treeMPS.D(2);	% works only for single chain models now! e.g. SBM
+		
+		% Heff_(r',n',r,n) = kron(OBB,BondRight); this follows convention in tdvp_1site_evolveHn
+		temp = 0;
+		temp = temp + kron(treeMPS.op.h1jOBB,eye(BondDimRight));
+		temp = temp + kron(eye(OBBDim),treeMPS.child(1).op.Hlrstorage{1});
+		for mm = 1:para.M
+			temp = temp + kron(treeMPS.op.h2jOBB{mm,1,1},treeMPS.child(1).op.Opstorage{mm,2,1,1});
+		end
+		C = squeeze(treeMPS.mps{1})';		% dk x d_opt
+	else
+		% try to write general approach for treeMPS; Copied from expvCustom/TreeMultA
+		% 1. split off center to obtain isometry from chains to adiabatic system state
+		d = size(treeMPS.mps{1});							% 1 x D1...Dn x dk
+		OBBDim = d(end);
+		BondDimRight = d(end);
+		
+		para.sweepto = 'l';
+		
+		Atens = reshape(treeMPS.mps{1},1,[],d(end));	%  1 x prod(D) x dk
+		Atens = permute(Atens,[3,2,1]);					% dk x prod(D) x  1
+		[A,C] = prepare_onesite(Atens,para);			% C: dk x dk maps diabatic to adiabatic states; A: dk x prod(D) x 1
+		A = permute(A,[3,2,1]);							%  1 x prod(D) x dk
+		A = reshape(A,d);								% 1 x D1...Dn x dk; now only isometry to map into systems diabatic states.
+		
+		NC = treeMPS.degree;
+		
+		temp = 0;				% takes kron(diabatic,adiabatic=BondDimRight)
+		
+		% 1. on-site H1
+		temp = temp + kron(treeMPS.op.h1jOBB,eye(BondDimRight));
+		
+		NCoupOffset = 0;									% needed for child nodes being entanglement renormalisation tensors
+		% 2. iterate through children
+		for mc = 1:NC
+			ordTo = [mc+1:NC+2,1:mc];
+			A1 = permute(A,ordTo);
+			A1 = reshape(A1,d(mc+1),[]);				% D_mc x ( ... dk x 1 x ... x D_{mc-1}); Useful for 3) as well
+			
+			% 2. non-interacting Hlrstorage (Hright)
+			OpTemp = treeMPS.child(mc).op.Hlrstorage{1} * A1;
+			OpTemp = reshape(OpTemp, d(ordTo));
+			OpTemp = permute(OpTemp, [NC+3-mc:NC+2,1:NC+2-mc]);	% 1 x D1...Dn x dk
+			OpTemp = contracttensors(conj(A),NC+2,1:NC+1, OpTemp, NC+2, 1:NC+1);
+			temp = temp + kron(eye(OBBDim),OpTemp);
+			
+			% 3. all interacting parts
+			NCoup = size(treeMPS.child(mc).op.Opstorage,4);
+			for nn = 1:NCoup								% iterate through chains of child
+				for mm = 1:para.M
+					OpTemp = treeMPS.child(mc).op.Opstorage{mm,2,1,nn} * A1;
+					OpTemp = reshape(OpTemp, d(ordTo));
+					OpTemp = permute(OpTemp, [NC+3-mc:NC+2,1:NC+2-mc]);	% 1 x D1...Dn x dk
+					OpTemp = contracttensors(conj(A),NC+2,1:NC+1, OpTemp, NC+2, 1:NC+1);
+					
+					temp = temp + kron(treeMPS.op.h2jOBB{mm,1,nn+NCoupOffset}, OpTemp);
+				end
+			end
+		end
+	end
+	Heff = reshape(temp,[BondDimRight,OBBDim,BondDimRight,OBBDim]);
+	if ~isempty(n)
+		Heff = Heff(1:n,:,1:n,:);
+		C = C(:,1:n);
+	end
+end
+
