@@ -33,7 +33,7 @@ eval(sprintf('init_%s()',chainpara.spectralDensity));
 
 % first: OrthPol, analytic from recurrence relation.
 if strcmp(chainpara.mapping,'OrthogonalPolynomials')
-	assert(isfield(chainpara,'L') && chainpara.L>1,'Please state required finite chain length!');
+	assert(isfield(chainpara,'L') && chainpara.L>=1,'Please state required finite chain length!');
     assert(isfield(chainpara,'alpha'),'Please state para.alpha, the strength of coupling!');
 
 	[chainpara.epsilon, chainpara.t] = chainParams_OrthogonalPolynomials();			% returns length L parameters to allow pure boson chains

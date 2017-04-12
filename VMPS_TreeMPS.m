@@ -817,6 +817,7 @@ for mc = para.treeMPS.nNodes:-1:1
 		idx = num2cell([ones(1,NC+1),para.InitialState]);			% start in second excited state!
 		nodes(mc).mps{1}(idx{:}) = 1;
 	elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+		d_opt = 2;
 		if strcmp(para.SpinBoson.InitialState, 'sz')
 			%% prepare +Sz eigenstate
 			idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states

@@ -147,7 +147,7 @@ switch type{1}
 		if type{2} ~= 1
 			error('VMPS:getObservable:state','state only available for site 1');
 		end
-		if para.nChains > 1
+		if para.nChains > 1 || para.useTreeMPS
 			if para.useStarMPS
 				d = size(mps{1});
 				A = reshape(mps{1},[],d(end));		% ... x dk
