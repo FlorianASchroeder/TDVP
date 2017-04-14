@@ -1172,6 +1172,45 @@ classdef TDVPData
 						end
 						return;				% exit here!
 					end
+				case 'heff-pop-diab-swap'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					% Additionally finds discontinuities arising from switching adiabatic states and swaps accordingly to get smoother dynamics (experimental!)
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					
+					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D'))';
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					% V{i}: dk x D_eig
+					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+
+					% obj.sysState: t x dk x D
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+					pop = pop.*conj(pop);															% t x D_eig x 1
+
+					pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x D_eig x dk
+					pop = permute(pop,[1,3,2]);														% t x dk x D_eig
+
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+
+					% find discontinuities in D and swap!
+					derivs = diff(D,1,1);
+					[mIdx,nIdx]    = find(abs(derivs)>10^-1);
+					
+					obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim);
+					return;
+					
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
 			end
