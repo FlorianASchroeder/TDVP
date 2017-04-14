@@ -459,6 +459,9 @@ classdef TDVPData
 			%
 			% additional options ,Name,Value, pair:
 			%	'-grid',[m n]		:	Use with object array: plots into specified grid m x n; can specify figure
+			%   '-chain',m			:   for which chain to plot certain observables (mostly RC plots)
+			%   '-state',m			:	for which adiabatic state to plot heff-pop
+			%	'-ylim',[m n]		:	pre-define ylim for heff-pop-diab to obtain correct area sizes
 			
 			% initialise modifiers
 			% plot(...,ax_handle)	Plots into the axes/figure given by handle
@@ -575,6 +578,9 @@ classdef TDVPData
 						[varargin{[m,m+1]}] = deal([]);
 					case '-state'
 						h.state = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-ylim'
+						h.ylim = varargin{m+1};
 						[varargin{[m,m+1]}] = deal([]);
 					otherwise
 						% pass through as direct plot options!
@@ -1129,19 +1135,24 @@ classdef TDVPData
 						Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
 						
 						% obj.sysState: t x dk x D
-						tempState = permute(obj.sysState(:,:,h.state),[1,3,2]);				% t x 1 x dk
-						pop = sum(Vtemp .* tempState,3);
-						pop = pop.*conj(pop);												% t x D_eig x 1
+						tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+						pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+						pop = pop.*conj(pop);															% t x D_eig x 1
 						
-						pop = (Vtemp.*conj(Vtemp)).*pop;									% t x D_eig x dk
-						pop = permute(pop,[1,3,2]);											% t x dk x D_eig
+						pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x D_eig x dk
+						pop = permute(pop,[1,3,2]);														% t x dk x D_eig
 						
+						if isempty(h.ylim)
+							h.ylim = [min(D(:)),max(D(:))];
+						end
 						for ii = 1:size(pop,2)
-							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2),[min(D(:)),max(D(:))],h.ax,'subshades',pop(:,:,ii),'thickness',0.05);
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',0.2);
 						end
 						
 						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
-						h.ylbl = sprintf('$E_{eff}(%d)$',h.state);
+						h.t = title(sprintf('$E_{eff}(%d)$',h.state));
+						h.t.Units  = 'normalized';
+						h.t.Position = [0.5,0.9];
 						return;
 					else
 						% this is the first call to generate grid plot!
@@ -1149,7 +1160,7 @@ classdef TDVPData
 						[mm,nn] = TDVPData.bestGrid(nPlots);
 						htemp = TDVPData.plotGrid(mm,nn,h.f);
 						for ii = 1:size(obj.Heff,2)
-							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii);
+							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii,'-ylim',h.ylim);
 						end
 						return;				% exit here!
 					end
@@ -2704,7 +2715,7 @@ classdef TDVPData
 			pl(1) = plot(ax, x,y);		% first plot the mean
 			if isempty(p.Results.subshades)
 				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
-				uistack(pl(2), 'down');
+				uistack(pl(2), 'bottom');
 				set(pl(2),'EdgeColor','none')
 				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
 			else
