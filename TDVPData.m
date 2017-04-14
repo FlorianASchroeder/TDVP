@@ -1173,6 +1173,7 @@ classdef TDVPData
 						return;				% exit here!
 					end
 				case 'heff-pop-diab-swap'
+					% NOT WORKING YET!
 					% heff, but with additional thickness according to population of given potential surface
 					% this plots the thickness according to population of diabatic states on each surface
 					% Additionally finds discontinuities arising from switching adiabatic states and swaps accordingly to get smoother dynamics (experimental!)
@@ -1185,13 +1186,25 @@ classdef TDVPData
 					% {[1,t(1); 2,t(2); 3,t(3);2,t(2);], [], [], [], []}
 					% each entry in cell describes the sections for a particular continuous adiabatic state
 					% the matrix carries information: [pos in D; from time]
+					
+					% want to rearrange obj.Heff t x D x dk x D x dk, and obj.sysState: t x dk x D
 					obj2 = obj;		% copy obj.
 					if ~iscell(h.state)
 						error('for this, h.state has to be a cell array');
 					end
 					for ii = 1:length(h.state)
 						% iterate through continuous D-states
-						
+						permMat = h.state{ii};
+						start = 1;										% first index within this cut
+						for jj = 1:size(permMat,1)-1
+							% iterate through different cuts
+							stop = min(obj.lastIdx,permMat(jj+1,2)-1);	% stop is the last index within this cut
+							obj2.sysState(start:stop,:,ii) = obj.sysState(start:stop,:,permMat(jj,1));
+							start = stop+1;
+						end
+						if start ~= obj.lastIdx
+							obj2.sysState(start:obj.lastIdx,:,ii) = obj.sysState(start:obj.lastIdx,:,permMat(jj+1,1));
+						end
 					end
 					
 					
@@ -2796,7 +2809,7 @@ classdef TDVPData
 				for ii = 1:size(std,1)
 					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
 					pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
-					uistack(pl(ii+1),'down');
+					uistack(pl(ii+1),'bottom');
 					set(pl(ii+1),'EdgeColor','none')
 					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
 					lower = upper;
