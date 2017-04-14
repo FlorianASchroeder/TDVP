@@ -1181,8 +1181,34 @@ classdef TDVPData
 						close(h.f);
 						return;
 					end
+					% if given jumps as cell array in h.state:
+					% {[1,t(1); 2,t(2); 3,t(3);2,t(2);], [], [], [], []}
+					% each entry in cell describes the sections for a particular continuous adiabatic state
+					% the matrix carries information: [pos in D; from time]
+					obj2 = obj;		% copy obj.
+					if ~iscell(h.state)
+						error('for this, h.state has to be a cell array');
+					end
+					for ii = 1:length(h.state)
+						% iterate through continuous D-states
+						
+					end
 					
 					
+					%%
+					% Can detect discontinuities in obj.sysState
+					% Convert into probabilities to avoid complex numbers
+					tempProb = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));		% t x dk x D
+					
+					thresh = 10^-1.4;
+					derivs = diff(tempProb,1,1);						% derivative along time
+					jumps = derivs.* ((derivs < (-thresh)) | (derivs>thresh));
+					
+					[m,n,o] = find(jumps);
+					tSorted = sortrows([m,n,o],1);
+					[I,J] = ind2sub([5,5],tSorted(:,2));
+					tSorted = [tSorted(:,1),I,J,tSorted(:,3)];
+					%%
 					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
 					D = real(cell2mat(D'))';
 					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
