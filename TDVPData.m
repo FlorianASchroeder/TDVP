@@ -517,6 +517,7 @@ classdef TDVPData
 			h.leglbl = {};
 			h.xdata = [];
 			h.ydata = [];
+			h.ylim = [];
 			h.pl = [];					% plot handle
 			pl = [];					% old plot handle;
 			h.chain = [];				% chain number needed for (a)diabatic n and x plots
@@ -905,9 +906,16 @@ classdef TDVPData
 				case 'chain-n-rc-ft'
 					% applies DFT to the occupation of site 2
 					DFTplot = 1;
-					h.data = real(squeeze(real(obj.occC(1:obj.lastIdx,2,:))));		% t x L x nChain
-					h.data = TDVPData.meanRes(h.data);
-% 					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
+					if isfield(obj.para,'useTreeMPS') && obj.para.useTreeMPS
+						for ii = 1:size(obj.occC,3)
+							pos = find(obj.occC(2,:,ii),1,'first');					% find pos of rc in chain ii
+							h.data(:,ii) = real(obj.occC(1:obj.lastIdx,pos,ii));
+						end
+					else
+						h.data = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					end
+% 					h.data = TDVPData.meanRes(h.data);
+					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
 					h.tdata = obj.t(1:obj.lastIdx);
 					h.Fs = 1/diff(obj.t(1:2));
 					h.window = 'kaiser';
