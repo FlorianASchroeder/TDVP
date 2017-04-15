@@ -532,6 +532,9 @@ classdef TDVPData
 			DFTshift = 0;				% shift the fft results
 			h.normalise = 0;				% normalise to maximum peak (for FFT especially)
 			h.distribute = 0;			% distribute plot lines along y; only use if h.normalise = 1, otherwise gets messy
+			h.rowheight  = 1;			% defaults for grid
+			h.rowwidth  = 7.2;			% defaults for grid
+			h.patchthickness = 0.2;		% in % of total ylim
 			
 			h.f  = [];
 			h.ax = [];
@@ -582,6 +585,15 @@ classdef TDVPData
 						[varargin{[m,m+1]}] = deal([]);
 					case '-ylim'
 						h.ylim = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-rowheight'
+						h.rowheight = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-rowwidth'
+						h.rowwidth = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-patchthickness'
+						h.patchthickness = varargin{m+1};
 						[varargin{[m,m+1]}] = deal([]);
 					otherwise
 						% pass through as direct plot options!
@@ -1154,7 +1166,7 @@ classdef TDVPData
 							h.ylim = [min(D(:)),max(D(:))];
 						end
 						for ii = 1:size(pop,2)
-							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',0.2);
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
 						end
 						
 						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
@@ -1166,11 +1178,11 @@ classdef TDVPData
 						% this is the first call to generate grid plot!
 						nPlots = size(obj.Heff,2);
 						[mm,nn] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',4,'rowwidth',16.5);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
 						% for good screen, use: ,'rowheight',12,'rowwidth',45
 						% for two-column spanning pubFig use 'rowheight',4,'rowwidth',16.5
 						for ii = 1:size(obj.Heff,2)
-							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii,'-ylim',h.ylim);
+							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii,'-ylim',h.ylim,'-patchthickness',h.patchthickness);
 						end
 						set(htemp.f.Children,{'YLim'},{h.ylim});
 						h = htemp;
@@ -1223,51 +1235,51 @@ classdef TDVPData
 						obj2.Heff(start:stop,:,:,:,:) = permute(temp,[1,4,2,5,3]);						% t x D x dk x D x dk
 					end
 					
-					h = obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim);
+					h = obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim,'-rowwidth',h.rowwidth,'-rowheight',h.rowheight,'-patchthickness',h.patchthickness);
 					h.obj = obj2;																		% return object for further processing
 					return;
 					
 					%%
 					% Can detect discontinuities in obj.sysState
 					% Convert into probabilities to avoid complex numbers
-					tempProb = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));		% t x dk x D
-					
-					thresh = 10^-1.4;
-					derivs = diff(tempProb,1,1);						% derivative along time
-					jumps = derivs.* ((derivs < (-thresh)) | (derivs>thresh));
-					
-					[m,n,o] = find(jumps);
-					tSorted = sortrows([m,n,o],1);
-					[I,J] = ind2sub([5,5],tSorted(:,2));
-					tSorted = [tSorted(:,1),I,J,tSorted(:,3)];
-					%%
-					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
-					D = real(cell2mat(D'))';
-					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
-					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
-					% V{i}: dk x D_eig
-					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
-					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
-					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
-
-					% obj.sysState: t x dk x D
-					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
-					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
-					pop = pop.*conj(pop);															% t x D_eig x 1
-
-					pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x D_eig x dk
-					pop = permute(pop,[1,3,2]);														% t x dk x D_eig
-
-					if isempty(h.ylim)
-						h.ylim = [min(D(:)),max(D(:))];
-					end
-
-					% find discontinuities in D and swap!
-					derivs = diff(D,1,1);
-					[mIdx,nIdx]    = find(abs(derivs)>10^-1);
-					
-					obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim);
-					return;
+% 					tempProb = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));		% t x dk x D
+% 					
+% 					thresh = 10^-1.4;
+% 					derivs = diff(tempProb,1,1);						% derivative along time
+% 					jumps = derivs.* ((derivs < (-thresh)) | (derivs>thresh));
+% 					
+% 					[m,n,o] = find(jumps);
+% 					tSorted = sortrows([m,n,o],1);
+% 					[I,J] = ind2sub([5,5],tSorted(:,2));
+% 					tSorted = [tSorted(:,1),I,J,tSorted(:,3)];
+% 					%%
+% 					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+% 					D = real(cell2mat(D'))';
+% 					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+% 					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+% 					% V{i}: dk x D_eig
+% 					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+% 					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+% 					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+% 
+% 					% obj.sysState: t x dk x D
+% 					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+% 					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+% 					pop = pop.*conj(pop);															% t x D_eig x 1
+% 
+% 					pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x D_eig x dk
+% 					pop = permute(pop,[1,3,2]);														% t x dk x D_eig
+% 
+% 					if isempty(h.ylim)
+% 						h.ylim = [min(D(:)),max(D(:))];
+% 					end
+% 
+% 					% find discontinuities in D and swap!
+% 					derivs = diff(D,1,1);
+% 					[mIdx,nIdx]    = find(abs(derivs)>10^-1);
+% 					
+% 					obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim);
+% 					return;
 					
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
