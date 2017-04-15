@@ -1166,7 +1166,8 @@ classdef TDVPData
 							h.ylim = [min(D(:)),max(D(:))];
 						end
 						for ii = 1:size(pop,2)
-							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+% 							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
 						end
 						
 						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
@@ -2912,15 +2913,12 @@ classdef TDVPData
 				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
 			else
 				std = p.Results.subshades';			% n x t
-				jj = 3;
 				for ii = 1:size(std,1)
 					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
-					pl(jj)   = plot(x,lower, 'Color',colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
-					pl(jj+1) = plot(x,upper, 'Color',colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
-					uistack(pl([jj,jj+1]),'bottom');
-					ax.ColorOrderIndex = ax.ColorOrderIndex-2;
+					pl(ii+1) = plot([x,x(end:-1:1)], [upper,lower(end:-1:1)], 'Color', colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+					uistack(pl(ii+1),'bottom');
+					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
 					lower = upper;
-					jj = jj+2;
 				end
 			end
 		end
