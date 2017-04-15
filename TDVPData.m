@@ -1166,10 +1166,14 @@ classdef TDVPData
 						% this is the first call to generate grid plot!
 						nPlots = size(obj.Heff,2);
 						[mm,nn] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(mm,nn,h.f);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',4,'rowwidth',16.5);
+						% for good screen, use: ,'rowheight',12,'rowwidth',45
+						% for two-column spanning pubFig use 'rowheight',4,'rowwidth',16.5
 						for ii = 1:size(obj.Heff,2)
 							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii,'-ylim',h.ylim);
 						end
+						set(htemp.f.Children,{'YLim'},{h.ylim});
+						h = htemp;
 						return;				% exit here!
 					end
 				case 'heff-pop-diab-swap'
@@ -1188,25 +1192,40 @@ classdef TDVPData
 					% the matrix carries information: [pos in D; from time]
 					
 					% want to rearrange obj.Heff t x D x dk x D x dk, and obj.sysState: t x dk x D
+					close(h.f);
 					obj2 = obj;		% copy obj.
-					if ~iscell(h.state)
-						error('for this, h.state has to be a cell array');
+					if ~ismatrix(h.state)
+						error('for this, h.state has to be a matrix defining: [tIdx, n1, n2], which D states have to be swapped');
 					end
-					for ii = 1:length(h.state)
-						% iterate through continuous D-states
-						permMat = h.state{ii};
-						start = 1;										% first index within this cut
-						for jj = 1:size(permMat,1)-1
-							% iterate through different cuts
-							stop = min(obj.lastIdx,permMat(jj+1,2)-1);	% stop is the last index within this cut
-							obj2.sysState(start:stop,:,ii) = obj.sysState(start:stop,:,permMat(jj,1));
+					D = size(obj.sysState,3);
+					for ii = 0:size(h.state,1)
+						if ii == 0
+							start = 1;
+							stop = h.state(1,1)-1;
+							thisPerm = eye(D);										% start off with identity matrix
+						else
 							start = stop+1;
+							if ii < size(h.state,1)
+								stop  = h.state(ii+1,1)-1;												% last index within this cut, should always be < obj.lastIdx
+							else
+								stop = obj.lastIdx;
+							end
+							newPerm = eye(D);
+							newPerm([h.state(ii,2),h.state(ii,3)],:) = newPerm([h.state(ii,3),h.state(ii,2)],:);
+							thisPerm = thisPerm*newPerm;
 						end
-						if start ~= obj.lastIdx
-							obj2.sysState(start:obj.lastIdx,:,ii) = obj.sysState(start:obj.lastIdx,:,permMat(jj+1,1));
-						end
+					
+						% apply permutation
+						obj2.sysState(start:stop,:,:) = contracttensors(obj.sysState(start:stop,:,:),3,3, thisPerm,2,1);
+						
+						temp = contracttensors(obj.Heff(start:stop,:,:,:,:),5,2, thisPerm,2,1);			% t x dk x D x dk x D,
+						temp = contracttensors(temp, 5,3, thisPerm,2,1);								% t x dk x dk x D x D,
+						obj2.Heff(start:stop,:,:,:,:) = permute(temp,[1,4,2,5,3]);						% t x D x dk x D x dk
 					end
 					
+					h = obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim);
+					h.obj = obj2;																		% return object for further processing
+					return;
 					
 					%%
 					% Can detect discontinuities in obj.sysState
