@@ -2879,6 +2879,52 @@ classdef TDVPData
 			end
 		end
 		
+		function pl = plotVarianceLines(x,y,std,ylim,ax,varargin)
+			% plot a line defined by x,y with shaded variance given by std
+			% plot into axes given in ax
+			% need to give expected ylim = [min,max] in order to determine correct line thickness
+			% if giving subshades then: sum(subshades,2) = std
+			
+			colOrder = get(0,'DefaultaxesColorOrder');	% only used if std ~= n by 1
+			
+			% process varargin with parser
+			p = inputParser;
+			addParameter(p,'thickness',0.02,@isnumeric);
+			addParameter(p,'alpha' ,0.5,@isnumeric);
+			addParameter(p,'subshades',[],@isnumeric);		% t x n array for n subshades to plot
+			parse(p,varargin{:});
+			
+			max_thickness = p.Results.thickness;						% now: 2% of yrange should be maximum std thickness
+			fill_alpha = p.Results.alpha;
+			
+			% make all row vectors
+			x   = reshape(x,1,[]); 
+			y   = reshape(y,1,[]);
+			std = reshape(std,1,[]);
+			upper = y + diff(ylim)*std/2 * max_thickness;
+			lower = y - diff(ylim)*std/2 * max_thickness;
+			
+			pl(1) = plot(ax, x,y);		% first plot the mean
+			if isempty(p.Results.subshades)
+				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
+				uistack(pl(2), 'bottom');
+				set(pl(2),'EdgeColor','none')
+				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+			else
+				std = p.Results.subshades';			% n x t
+				jj = 3;
+				for ii = 1:size(std,1)
+					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
+					pl(jj)   = plot(x,lower, 'Color',colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+					pl(jj+1) = plot(x,upper, 'Color',colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+					uistack(pl([jj,jj+1]),'bottom');
+					ax.ColorOrderIndex = ax.ColorOrderIndex-2;
+					lower = upper;
+					jj = jj+2;
+				end
+			end
+		end
+		
 		function [m,n] = bestGrid(nPlots)
 			% find the best grid m x n to display n plots
 			% require n>=m
