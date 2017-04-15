@@ -2591,6 +2591,37 @@ classdef TDVPData
 			B = bsxfun(@minus,A,mean(A,1));
 		end
 		
+		function y = medianFilter(x,windowWidth)
+            % function imOut = medianFilter(imIn,windowWidth)
+            %
+			% Applies Median filter to 2D Matrices only
+			% windowWidth is [m n] indicating widths in both directions
+            % The original code was posted on matlab central file exchange.
+            % I'm unable to find the original to give proper credits.
+            % This version was slightly modified by Florian Schroeder, April 2017.
+            
+            if mod(windowWidth, 2 ) == 0
+                disp('Window has even size');
+                return
+			end
+			
+			d = size(x);
+            y = x;
+            
+            windowBreadth = (windowWidth - 1)/2;
+            
+            for m = 1:d(1)
+                for n = 1:d(2)
+                    r1 = max(m-windowBreadth(1),1):min(m+windowBreadth(1),d(1));
+                    r2 = max(n-windowBreadth(2),1):min(n+windowBreadth(2),d(2));
+                    t1 = x(r1,r2);
+                    t2 = median(t1(:));
+                    y(m,n) = t2;
+                end
+            end
+            
+		end
+		
 		function h = plotGrid(rows,cols,varargin)
 			%% function h = plotGrid(rows,cols)
 			%	creates a grid of axes
