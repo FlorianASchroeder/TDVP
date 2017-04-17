@@ -424,7 +424,13 @@ classdef TDVPData
 					out = obj.getSysEnvObs('n');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
                     full = 1;
 				case 'spin'
-					
+				case 'heff-e'
+					% calculate energy from heff & sysState
+					d = size(obj.Heff);																% t x D x dk x D x dk
+					obj.Heff = permute(reshape(obj.Heff, [d(1),d(2)*d(3), d(4)*d(5)]), [2,3,1]);	% (D * dk) x (D * dk) x t
+					obj.sysState = reshape(permute(obj.sysState, [3,2,1]), [d(2)*d(3),d(1)]);		% (D * dk) x t
+					out = arrayfun(@(i) (obj.sysState(:,i)'*obj.Heff(:,:,i)*obj.sysState(:,i))/(obj.sysState(:,i)'*obj.sysState(:,i)),1:obj.lastIdx);
+					out = real(out);
 			end
 			
 			if ~full
