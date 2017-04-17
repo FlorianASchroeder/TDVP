@@ -1602,6 +1602,7 @@ function [Heff, C, E] = calSysHeff(treeMPS,para,n)
 					temp = temp + kron(treeMPS.op.h2jOBB{mm,1,nn+NCoupOffset}, OpTemp);
 				end
 			end
+			NCoupOffset = NCoupOffset + NCoup;
 		end
 	end
 	Heff = reshape(temp,[BondDimRight,OBBDim,BondDimRight,OBBDim]);
