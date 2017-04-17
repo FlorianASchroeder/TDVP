@@ -548,9 +548,9 @@ switch type{1}
 		% {'sysheff'}				: returns (dk x dk)^2 operator and C
 		% {'sysheff',i}				: returns (dk x i)^2, operator with the i strongest adiabats
 		% out = {Heff,sysState}		returns the effective hamiltonian together with |psi> mapping from diabatic to the adiabatic basis
-		out = cell(1,2);
+		out = cell(1,3);
 		if para.useTreeMPS
-			[out{1},out{2}] = calSysHeff(mps,para);
+			[out{1},out{2},out{3}] = calSysHeff(mps,para);
 		else
 			error('Needs to be implemented');
 		end
@@ -1537,7 +1537,7 @@ end
 
 end
 
-function [Heff, C] = calSysHeff(treeMPS,para,n)
+function [Heff, C, E] = calSysHeff(treeMPS,para,n)
 	if nargin == 2
 		n = [];
 	end
@@ -1553,7 +1553,7 @@ function [Heff, C] = calSysHeff(treeMPS,para,n)
 		for mm = 1:para.M
 			temp = temp + kron(treeMPS.op.h2jOBB{mm,1,1},treeMPS.child(1).op.Opstorage{mm,2,1,1});
 		end
-		C = squeeze(treeMPS.mps{1})';		% dk x d_opt
+		C = squeeze(treeMPS.mps{1}).';					% dk x D
 	else
 		% try to write general approach for treeMPS; Copied from expvCustom/TreeMultA
 		% 1. split off center to obtain isometry from chains to adiabatic system state
@@ -1605,6 +1605,11 @@ function [Heff, C] = calSysHeff(treeMPS,para,n)
 		end
 	end
 	Heff = reshape(temp,[BondDimRight,OBBDim,BondDimRight,OBBDim]);
+	
+	% also get energy
+	E = contracttensors(Heff,4,[3,4], C,2,[2,1]);
+	E = real(contracttensors(E,2,[1,2], conj(C),2,[2,1]));
+	
 	if ~isempty(n)
 		Heff = Heff(1:n,:,1:n,:);
 		C = C(:,1:n);
