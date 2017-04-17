@@ -1191,12 +1191,14 @@ classdef TDVPData
 						for ii = 1:size(obj.Heff,2)
 							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii,'-ylim',h.ylim,'-patchthickness',h.patchthickness);
 						end
-						set(htemp.f.Children,{'YLim'},{h.ylim});
+						if ~isempty(h.ylim)
+							set(htemp.f.Children,{'YLim'},{h.ylim});
+						end
 						h = htemp;
 						return;				% exit here!
 					end
 				case 'heff-pop-diab-swap'
-					% NOT WORKING YET!
+					% Partly working!
 					% heff, but with additional thickness according to population of given potential surface
 					% this plots the thickness according to population of diabatic states on each surface
 					% Additionally finds discontinuities arising from switching adiabatic states and swaps accordingly to get smoother dynamics (experimental!)
