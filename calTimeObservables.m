@@ -442,6 +442,7 @@ function tresults = calTimeObservables_Tree(treeMPS,para,tresults)
 %		.ac.	autocorrelation
 %		.ses.	system-environment state
 %		.ss.	system state
+%		.heff.  adiabatic potential energy surfaces + system state
 %
 %
 %	Created by FS 26/02/2016
