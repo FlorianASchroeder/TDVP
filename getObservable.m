@@ -1617,3 +1617,40 @@ function [Heff, C, E] = calSysHeff(treeMPS,para,n)
 	end
 end
 
+function [Heff, C, E] = calSysPES(treeMPS,para)
+	% New approach, trying to remove kinetic energy contributions from the aadiabatic potentials
+	
+	%% 1. Traverse tree and remove kinetic terms from h1term
+	
+	
+	% update everything based on modified h1term,h2term
+	treeMPS = initstorage(treeMPS,[],[],para);		% new call pattern for treeMPS
+	
+	Heff = 0;
+	C	 = 0;
+	E    = 0;
+	
+	function treeMPS = setPotOp(treeMPS)
+		% set the potential operator by removing kinetic terms
+		% now only works for harmonic modes with omega*n inside h1term!
+		% h1term{2,2} contains omega for shift == 0
+		
+		idx      = num2cell(treeMPS.treeIdx+1);                       % index in para.*
+		
+		if treeMPS.height == 0
+			for ii = 1:treeMPS.L
+				treeMPS.op.h1j = []; treeMPS.op.h1jOBB = [];
+% 				temp = genh1h2term_onesite(para,treeMPS.treeIdx,ii);		% would be better way
+				[bp,bm,n]		  = bosonop(para.dk{idx{:}}(ii),para.shift{idx{:}}(ii),para.parity);
+				treeMPS.op.h1term{ii}     = treeMPS.op.h1term{ii}(2,2)./2*(bp+bm)*(bp+bm);
+			end
+		else
+			%% for now nodes don't have to be changed since they don't carry Harmonic Modes
+			treeMPS.op.h1j = []; treeMPS.op.h1jOBB = [];
+			for mc = 1:treeMPS.degree
+				treeMPS.child(mc) = setPotOp(treeMPS.child(mc));
+			end
+		end
+		
+	end
+end
