@@ -321,14 +321,7 @@ classdef TDVPData
 			full = 0;		% truncate to simulated time - tresults.lastIdx
 			idxOffset = 0;
 			out = 0;
-			
-			for m = 1:nargin-2
-				switch lower(varargin{m})
-					case '-full'
-						full = 1;
-				end
-			end
-			
+						
 			% Parse additional inputs
 			p = inputParser;
 			addParameter(p,'state',0,@isnumeric);		% used in heff
@@ -482,9 +475,43 @@ classdef TDVPData
 					out = {};
 					out{1} = D;								% t x dk_eig
 					out{2} = pop;							% t x dk x dk_eig
+				case 'heff-swap'
+					% swaps Bond states according to matrix defined in 'state':
+					% h.state has to be a matrix defining: [tIdx, n1, n2], which pair of D states n1, n2 have to be swapped.
+					h.state = p.Results.state;
+					if ~ismatrix(h.state)
+						error('for this, h.state has to be a matrix defining: [tIdx, n1, n2], which D states have to be swapped');
+					end
+					obj2 = obj;		% copy obj.
+					D = size(obj.sysState,3);
+					for ii = 0:size(h.state,1)
+						if ii == 0
+							start = 1;
+							stop = h.state(1,1)-1;
+							thisPerm = eye(D);										% start off with identity matrix
+						else
+							start = stop+1;
+							if ii < size(h.state,1)
+								stop  = h.state(ii+1,1)-1;												% last index within this cut, should always be < obj.lastIdx
+							else
+								stop = obj.lastIdx;
+							end
+							newPerm = eye(D);
+							newPerm([h.state(ii,2),h.state(ii,3)],:) = newPerm([h.state(ii,3),h.state(ii,2)],:);
+							thisPerm = thisPerm*newPerm;
+						end
+					
+						% apply permutation
+						obj2.sysState(start:stop,:,:) = contracttensors(obj.sysState(start:stop,:,:),3,3, thisPerm,2,1);
+						
+						temp = contracttensors(obj.Heff(start:stop,:,:,:,:),5,2, thisPerm,2,1);			% t x dk x D x dk x D,
+						temp = contracttensors(temp, 5,3, thisPerm,2,1);								% t x dk x dk x D x D,
+						obj2.Heff(start:stop,:,:,:,:) = permute(temp,[1,4,2,5,3]);						% t x D x dk x D x dk
+					end
+					out = obj2;
 			end
 			
-			if ~full && ~iscell(out)
+			if ~full && ~iscell(out) && ~isobject(out)
 				out = out(1:obj.tresults.lastIdx-idxOffset);	% truncate if wanted
 			end
 		end
