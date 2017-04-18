@@ -554,6 +554,14 @@ switch type{1}
 		else
 			error('Needs to be implemented');
 		end
+		
+	case 'syspes'
+		out = cell(1,3);
+		if para.useTreeMPS
+			[out{1},out{2},out{3}] = calSysPES(mps,para);
+		else
+			error('Needs to be implemented');
+		end
 end
 
 end
@@ -1621,14 +1629,12 @@ function [Heff, C, E] = calSysPES(treeMPS,para)
 	% New approach, trying to remove kinetic energy contributions from the aadiabatic potentials
 	
 	%% 1. Traverse tree and remove kinetic terms from h1term
-	
+	treeMPSPot = setPotOp(treeMPS);
 	
 	% update everything based on modified h1term,h2term
-	treeMPS = initstorage(treeMPS,[],[],para);		% new call pattern for treeMPS
+	treeMPSPot = initstorage(treeMPSPot,[],[],para);		% new call pattern for treeMPS
+	[Heff, C, E] = calSysHeff(treeMPS,para);
 	
-	Heff = 0;
-	C	 = 0;
-	E    = 0;
 	
 	function treeMPS = setPotOp(treeMPS)
 		% set the potential operator by removing kinetic terms
@@ -1642,7 +1648,7 @@ function [Heff, C, E] = calSysPES(treeMPS,para)
 				treeMPS.op.h1j = []; treeMPS.op.h1jOBB = [];
 % 				temp = genh1h2term_onesite(para,treeMPS.treeIdx,ii);		% would be better way
 				[bp,bm,n]		  = bosonop(para.dk{idx{:}}(ii),para.shift{idx{:}}(ii),para.parity);
-				treeMPS.op.h1term{ii}     = treeMPS.op.h1term{ii}(2,2)./2*(bp+bm)*(bp+bm);
+				treeMPS.op.h1term{ii}     = treeMPS.op.h1term{ii}(2,2)./2*(bp+bm)*(bp+bm)/2;				% Since have x = (bp+bm)/sqrt(2)
 			end
 		else
 			%% for now nodes don't have to be changed since they don't carry Harmonic Modes
