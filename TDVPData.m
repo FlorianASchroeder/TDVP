@@ -1165,18 +1165,16 @@ classdef TDVPData
 					end
 					if ~isempty(h.state)
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
-						[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
-						D = real(cell2mat(D'))';
-						[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
-						V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
-						% V{i}: dk x D_eig
-						% obj.sysState(i,:,:): dk x D
-						tempState = permute(obj.sysState,[2,1,3]);			% t x dk x D -> dk x t x D
-						pop = arrayfun(@(i) V{i}'*tempState(:,i,h.state),[1:obj.lastIdx]','UniformOutput',false);	% gives amplitudes on the potentials
-						pop = cellfun(@(x) (x.*conj(x))',pop,'UniformOutput',false);						% gives population on the potentials
-						pop = cell2mat(pop);
+						
+						out = obj.getData('heff-pop','state',h.state);
+						D = out{1};								% t x dk_eig
+						pop = out{2};							% t x dk_eig
+						
+						if isempty(h.ylim)
+							h.ylim = [min(D(:)),max(D(:))];
+						end
 						for ii = 1:size(pop,2)
-							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii),[min(D(:)),max(D(:))],h.ax);
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii),h.ylim, h.ax,'thickness',h.patchthickness);
 						end
 						
 						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
