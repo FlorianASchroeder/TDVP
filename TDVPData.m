@@ -2916,10 +2916,13 @@ classdef TDVPData
 				std = p.Results.subshades';			% n x t
 				for ii = 1:size(std,1)
 					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
-					pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
-					uistack(pl(ii+1),'bottom');
-					set(pl(ii+1),'EdgeColor','none')
-					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+					if max(std(ii,:)) > 5e-3
+						% Only plot if max patch height > 1%
+						pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+						uistack(pl(ii+1),'bottom');
+						set(pl(ii+1),'EdgeColor','none')
+						ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+					end
 					lower = upper;
 				end
 			end
@@ -2960,9 +2963,12 @@ classdef TDVPData
 				std = p.Results.subshades';			% n x t
 				for ii = 1:size(std,1)
 					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
-					pl(ii+1) = plot([x,x(end:-1:1)], [upper,lower(end:-1:1)], 'Color', colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
-					uistack(pl(ii+1),'bottom');
-					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+					if max(std(ii,:)) > 5e-3
+						% Only plot if max patch height > 1%
+						pl(ii+1) = plot([x,x(end:-1:1)], [upper,lower(end:-1:1)], 'Color', colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+						uistack(pl(ii+1),'bottom');
+						ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+					end
 					lower = upper;
 				end
 			end
