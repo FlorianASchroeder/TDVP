@@ -1200,29 +1200,17 @@ classdef TDVPData
 					end
 					if ~isempty(h.state)
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
-						[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
-						D = real(cell2mat(D'))';
-						[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
-						V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
-						% V{i}: dk x D_eig
-						Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
-						Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
-						Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
 						
-						% obj.sysState: t x dk x D
-						tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
-						pop = sum(bsxfun(@times,Vtemp ,tempState),3);
-						pop = pop.*conj(pop);															% t x D_eig x 1
-						
-						pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x D_eig x dk
-						pop = permute(pop,[1,3,2]);														% t x dk x D_eig
+						out = obj.getData('heff-pop-diab','state',h.state);
+						D = out{1};									% t x dk_eig
+						pop = out{2};								% t x dk x dk_eig
 						
 						if isempty(h.ylim)
 							h.ylim = [min(D(:)),max(D(:))];
 						end
 						for ii = 1:size(pop,2)
-% 							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
-							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+% 							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
 						end
 						
 						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
