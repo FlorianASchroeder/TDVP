@@ -329,6 +329,12 @@ classdef TDVPData
 				end
 			end
 			
+			% Parse additional inputs
+			p = inputParser;
+			addParameter(p,'state',0,@isnumeric);		% used in heff
+			addParameter(p,'full' ,0,@islogical);
+			parse(p,varargin{:});
+			
 			switch lower(type)
 				case 'calctime'
 					out = obj.para.tdvp.calcTime;
@@ -431,9 +437,54 @@ classdef TDVPData
 					obj.sysState = reshape(permute(obj.sysState, [3,2,1]), [d(2)*d(3),d(1)]);		% (D * dk) x t
 					out = arrayfun(@(i) (obj.sysState(:,i)'*obj.Heff(:,:,i)*obj.sysState(:,i))/(obj.sysState(:,i)'*obj.sysState(:,i)),1:obj.lastIdx);
 					out = real(out);
+				case 'heff'
+					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
+					h.state = p.Results.state;
+					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D'))';
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					out = {};
+					out{1} = D;																		% t x dk_eig
+					out{2} = V;																		% t x dk x dk_eig
+				case 'heff-pop'
+					h.state = p.Results.state;
+					temp = obj.getData('heff','state',h.state);
+					D = temp{1}; V = temp{2};
+					% V{i}: dk x D_eig
+					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+
+					% obj.sysState: t x dk x D
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+					pop = pop.*conj(pop);															% t x dk_eig x 1
+					out = {};
+					out{1} = D;																		% t x dk_eig
+					out{2} = pop;																	% t x dk_eig
+				case 'heff-pop-diab'
+					h.state = p.Results.state;
+					temp = obj.getData('heff','state',h.state);
+					D = temp{1}; V = temp{2};
+					% V{i}: dk x D_eig
+					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+
+					% obj.sysState: t x dk x D
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+					pop = pop.*conj(pop);															% t x dk_eig x 1
+
+					pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x dk_eig x dk
+					pop = permute(pop,[1,3,2]);
+					out = {};
+					out{1} = D;								% t x dk_eig
+					out{2} = pop;							% t x dk x dk_eig
 			end
 			
-			if ~full
+			if ~full && ~iscell(out)
 				out = out(1:obj.tresults.lastIdx-idxOffset);	% truncate if wanted
 			end
 		end
