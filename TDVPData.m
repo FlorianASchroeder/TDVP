@@ -1240,7 +1240,6 @@ classdef TDVPData
 % 							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
 						end
 						
-						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
 						h.t = title(sprintf('$E_{eff}(%d)$',h.state));
 						h.t.Units  = 'normalized';
 						h.t.Position = [0.5,0.9];
@@ -1271,42 +1270,12 @@ classdef TDVPData
 						close(h.f);
 						return;
 					end
-					% if given jumps as cell array in h.state:
-					% {[1,t(1); 2,t(2); 3,t(3);2,t(2);], [], [], [], []}
-					% each entry in cell describes the sections for a particular continuous adiabatic state
-					% the matrix carries information: [pos in D; from time]
-					
 					% want to rearrange obj.Heff t x D x dk x D x dk, and obj.sysState: t x dk x D
 					close(h.f);
-					obj2 = obj;		% copy obj.
 					if ~ismatrix(h.state)
 						error('for this, h.state has to be a matrix defining: [tIdx, n1, n2], which D states have to be swapped');
 					end
-					D = size(obj.sysState,3);
-					for ii = 0:size(h.state,1)
-						if ii == 0
-							start = 1;
-							stop = h.state(1,1)-1;
-							thisPerm = eye(D);										% start off with identity matrix
-						else
-							start = stop+1;
-							if ii < size(h.state,1)
-								stop  = h.state(ii+1,1)-1;												% last index within this cut, should always be < obj.lastIdx
-							else
-								stop = obj.lastIdx;
-							end
-							newPerm = eye(D);
-							newPerm([h.state(ii,2),h.state(ii,3)],:) = newPerm([h.state(ii,3),h.state(ii,2)],:);
-							thisPerm = thisPerm*newPerm;
-						end
-					
-						% apply permutation
-						obj2.sysState(start:stop,:,:) = contracttensors(obj.sysState(start:stop,:,:),3,3, thisPerm,2,1);
-						
-						temp = contracttensors(obj.Heff(start:stop,:,:,:,:),5,2, thisPerm,2,1);			% t x dk x D x dk x D,
-						temp = contracttensors(temp, 5,3, thisPerm,2,1);								% t x dk x dk x D x D,
-						obj2.Heff(start:stop,:,:,:,:) = permute(temp,[1,4,2,5,3]);						% t x D x dk x D x dk
-					end
+					obj2 = obj.getData('heff-swap','state',h.state);
 					
 					h = obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim,'-rowwidth',h.rowwidth,'-rowheight',h.rowheight,'-patchthickness',h.patchthickness);
 					h.obj = obj2;																		% return object for further processing
