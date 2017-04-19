@@ -1633,7 +1633,7 @@ function [Heff, C, E] = calSysPES(treeMPS,para)
 	
 	% update everything based on modified h1term,h2term
 	treeMPSPot = initstorage(treeMPSPot,[],[],para);		% new call pattern for treeMPS
-	[Heff, C, E] = calSysHeff(treeMPS,para);
+	[Heff, C, E] = calSysHeff(treeMPSPot,para);
 	
 	
 	function treeMPS = setPotOp(treeMPS)
@@ -1647,8 +1647,9 @@ function [Heff, C, E] = calSysPES(treeMPS,para)
 			for ii = 1:treeMPS.L
 				treeMPS.op.h1j = []; treeMPS.op.h1jOBB = [];
 % 				temp = genh1h2term_onesite(para,treeMPS.treeIdx,ii);		% would be better way
-				[bp,bm,n]		  = bosonop(para.dk{idx{:}}(ii),para.shift{idx{:}}(ii),para.parity);
-				treeMPS.op.h1term{ii}     = treeMPS.op.h1term{ii}(2,2)./2*(bp+bm)*(bp+bm)/2;				% Since have x = (bp+bm)/sqrt(2)
+				[bp,bm,n]		  = bosonop(treeMPS.dk(ii),treeMPS.shift(ii),para.parity);
+				% need: w/2*(x^2-1/2)
+				treeMPS.op.h1term{ii}     = treeMPS.op.h1term{ii}(2,2)./2*((bp+bm)*(bp+bm)/2-eye(treeMPS.dk(ii))/2);				% Since have x = (bp+bm)/sqrt(2)
 			end
 		else
 			%% for now nodes don't have to be changed since they don't carry Harmonic Modes
