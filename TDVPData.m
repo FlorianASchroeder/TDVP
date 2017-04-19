@@ -958,7 +958,10 @@ classdef TDVPData
 						h.tlbl = 'Diabatic Occupation';
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
+						nPlots = size(obj.occCd,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						
 						for ii = 1:size(obj.occCd,4)
 							obj.plot('chain-n-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
@@ -975,7 +978,11 @@ classdef TDVPData
 						h.tlbl = 'Adiabatic Occupation';
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
+						
+						nPlots = size(obj.occCd,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						
 						for ii = 1:size(obj.occCd,4)
 							obj.plot('chain-n-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
@@ -1061,8 +1068,10 @@ classdef TDVPData
 						h.tlbl = 'Diabatic Displacement';
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
-						for ii = 1:size(obj.occCd,4)
+						nPlots = size(obj.xCd,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						for ii = 1:size(obj.xCd,4)
 							obj.plot('chain-x-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
 						return;				% exit here!
@@ -1078,8 +1087,10 @@ classdef TDVPData
 						h.tlbl = 'Adiabatic Displacement';
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
-						for ii = 1:size(obj.occCd,4)
+						nPlots = size(obj.xCa,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						for ii = 1:size(obj.xCa,4)
 							obj.plot('chain-x-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
 						return;				% exit here!
