@@ -58,7 +58,7 @@ elseif chainpara.Lambda == 1
 	% TODO: make sensible estimate!
 	bigL = 10*chainpara.L		% arbitrary now
 	if strcmp(chainpara.discrMethod,'Direct') && strcmp(chainpara.mapping,'Stieltjes')
-		bigL = 1000*bigL;							% can deal with much more!
+		bigL = 100*bigL;							% can deal with much more!
 	end
 else
 	error('VMPS:SBM_genpara','Please define Lambda >= 1 for discretization!');
