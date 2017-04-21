@@ -602,6 +602,7 @@ classdef TDVPData
 			h.xdata = [];
 			h.ydata = [];
 			h.ylim = [];
+			h.xlim = [];
 			h.pl = [];					% plot handle
 			pl = [];					% old plot handle;
 			h.chain = [];				% chain number needed for (a)diabatic n and x plots
@@ -666,6 +667,9 @@ classdef TDVPData
 						[varargin{[m,m+1]}] = deal([]);
 					case '-state'
 						h.state = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-xlim'
+						h.xlim = varargin{m+1};
 						[varargin{[m,m+1]}] = deal([]);
 					case '-ylim'
 						h.ylim = varargin{m+1};
@@ -1268,6 +1272,9 @@ classdef TDVPData
 						if ~isempty(h.ylim)
 							set(htemp.f.Children,{'YLim'},{h.ylim});
 						end
+						if ~isempty(h.xlim)
+							set(htemp.f.Children,{'XLim'},{h.xlim});
+						end
 						h = htemp;
 						return;				% exit here!
 					end
@@ -1288,7 +1295,7 @@ classdef TDVPData
 					end
 					obj2 = obj.getData('heff-swap','state',h.state);
 					
-					h = obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim,'-rowwidth',h.rowwidth,'-rowheight',h.rowheight,'-patchthickness',h.patchthickness);
+					h = obj2.plot('heff-pop-diab',varargin{:},'-xlim',h.xlim,'-ylim',h.ylim,'-rowwidth',h.rowwidth,'-rowheight',h.rowheight,'-patchthickness',h.patchthickness);
 					h.obj = obj2;																		% return object for further processing
 					return;
 					
