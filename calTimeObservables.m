@@ -635,11 +635,12 @@ end
 
 if strContains(para.tdvp.Observables,'.heff.')
 	if isNew
-		tresults.Heff			= zeros([totalN,[1,1,1,1]*treeMPS.dk(1)],'single');
-		tresults.system.state	= zeros([totalN,    [1,1]*treeMPS.dk(1)],'single');
+		D = treeMPS.D(2); dk = treeMPS.dk(1);
+		tresults.Heff			= zeros([totalN, D, dk, D, dk],'single');
+		tresults.system.state	= zeros([totalN, dk, D],'single');
 		tresults.E				= zeros([totalN,1],'single');
 	end
-	temp = getObservable({'syspes'},treeMPS,[],para);
+	temp = getObservable({'syspes',size(tresults.Heff,2)},treeMPS,[],para);
 	tresults.Heff(i,:,:,:,:)    = single(temp{1});			% t x D' x dk' x D x dk
 	tresults.system.state(i,:,:)= single(temp{2});			% t x dk x D
 	tresults.E(i)				= single(temp{3});
