@@ -558,7 +558,7 @@ switch type{1}
 	case 'syspes'
 		out = cell(1,3);
 		if para.useTreeMPS
-			[out{1},out{2},out{3}] = calSysPES(mps,para);
+			[out{1},out{2},out{3}] = calSysPES(mps,para,type{2});
 		else
 			error('Needs to be implemented');
 		end
@@ -1625,7 +1625,7 @@ function [Heff, C, E] = calSysHeff(treeMPS,para,n)
 	end
 end
 
-function [Heff, C, E] = calSysPES(treeMPS,para)
+function [Heff, C, E] = calSysPES(treeMPS,para,Dmax)
 	% New approach, trying to remove kinetic energy contributions from the aadiabatic potentials
 	
 	%% 1. Traverse tree and remove kinetic terms from h1term
@@ -1633,7 +1633,7 @@ function [Heff, C, E] = calSysPES(treeMPS,para)
 	
 	% update everything based on modified h1term,h2term
 	treeMPSPot = initstorage(treeMPSPot,[],[],para);		% new call pattern for treeMPS
-	[Heff, C, E] = calSysHeff(treeMPSPot,para);
+	[Heff, C, E] = calSysHeff(treeMPSPot,para,Dmax);
 	
 	
 	function treeMPS = setPotOp(treeMPS)
