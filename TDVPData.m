@@ -3013,6 +3013,90 @@ classdef TDVPData
 				m = 3; n = 3;
 			end
 		end
+		
+		function out = D2Str(treeMPS)
+			%% function out = D2Str(treeMPS)
+			%	generates string output of bond dimensions returned in a flattened cell array for each line to display
+			if treeMPS.height == 0
+				out = {num2str(treeMPS.D,'%-5u')};		% converts a chain to string; pack into cell
+				return;
+			end
+			% else: hasChild!
+			childStr = {};
+			for i = 1:treeMPS.degree
+				childStr{i} = TDVPData.D2Str(treeMPS.child(i));
+			end
+
+			for i = 1:treeMPS.degree
+				% str1 for the first line of each child
+				if i == 1
+					str1 = sprintf('%-5u%s',treeMPS.D(1));
+				elseif i == treeMPS.degree
+					str1 = sprintf('  \\- ');
+				else
+					str1 = sprintf('  |- ');
+				end
+				if iscell(childStr{i})
+					childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+					for j = 2:length(childStr{i})
+						if i == treeMPS.degree
+							childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+						else
+							childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+						end
+					end
+				end
+			end
+			childStr = [childStr{:}];		% flatten cell array
+			if treeMPS.isRoot
+				out = sprintf('%s\n',childStr{:});
+			else
+				out = childStr;
+			end
+			
+		end
+		
+		function out = dk2Str(treeMPS)
+			%% function out = D2Str(treeMPS)
+			%	generates string output of bond dimensions returned in a flattened cell array for each line to display
+			if treeMPS.height == 0
+				out = {num2str(treeMPS.dk,'%-5u')};		% converts a chain to string; pack into cell
+				return;
+			end
+			% else: hasChild!
+			childStr = {};
+			for i = 1:treeMPS.degree
+				childStr{i} = TDVPData.dk2Str(treeMPS.child(i));
+			end
+
+			for i = 1:treeMPS.degree
+				% str1 for the first line of each child
+				if i == 1
+					str1 = sprintf('%-5u%s',treeMPS.D(1));
+				elseif i == treeMPS.degree
+					str1 = sprintf('  \\- ');
+				else
+					str1 = sprintf('  |- ');
+				end
+				if iscell(childStr{i})
+					childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+					for j = 2:length(childStr{i})
+						if i == treeMPS.degree
+							childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+						else
+							childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+						end
+					end
+				end
+			end
+			childStr = [childStr{:}];		% flatten cell array
+			if treeMPS.isRoot
+				out = sprintf('%s\n',childStr{:});
+			else
+				out = childStr;
+			end
+			
+		end
 	end
 	
 end
