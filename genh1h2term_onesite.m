@@ -790,15 +790,16 @@ switch para.model
 				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
 			end
 			switch s
-            case para.chain{mc}.L                                             % last chain pos: only one coupling?
-                zm				  = sparse(size(bp,1),size(bp,1));
-                op.h1term{1}	  = para.chain{1}.epsilon(s).*n;
-                op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
-                op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
-			otherwise
-                op.h1term{1}	  = para.chain{1}.epsilon(s).*n;									% e(1) == w(0)
-                op.h2term{1,1}    = para.chain{1}.t(s).*bp; op.h2term{1,2} = bm;					% t(2) == t(n=0)
-                op.h2term{2,1}    = para.chain{1}.t(s).*bm; op.h2term{2,2} = bp;
+				% only need s+1 here since L got shifted by 1 in treeMPS
+				case para.chain{mc}.L                                             % last chain pos: only one coupling?
+					zm				  = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}	  = para.chain{1}.epsilon(s).*n;
+					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}	  = para.chain{1}.epsilon(s).*n;									% e(1) == w(0)
+					op.h2term{1,1}    = para.chain{1}.t(s+1).*bp; op.h2term{1,2} = bm;					% t(2) == t(n=0)
+					op.h2term{2,1}    = para.chain{1}.t(s+1).*bm; op.h2term{2,2} = bp;
 			end
 		end
         

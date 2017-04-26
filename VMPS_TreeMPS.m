@@ -139,7 +139,7 @@ if strfind(para.model,'SpinBoson')
 		out = regexp(para.model,'SpinBoson(?<nChains>\d)C','names');
 		para.nChains = str2double(out.nChains);
 	end
-	para.wc = [1,5];		% only for testing purposes
+% 	para.wc = [1,5];		% only for testing purposes
 	for mc = 1:para.nChains
 		para.chain{mc}.mapping			= 'OrthogonalPolynomials';
 		para.chain{mc}.spectralDensity	= 'Leggett_Hard';

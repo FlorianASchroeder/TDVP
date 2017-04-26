@@ -746,6 +746,9 @@ if ~treeMPS.isRoot
 	% [    Cn  , VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
 else
 	treeMPS.BondCenter = Cn;		% should == 1
+	if abs(1-abs(Cn)) > 10^-5 
+		fprintf('\n State norm: %g', Cn);
+	end
 end
 	
 	function tdvp_1site_evolveNode()

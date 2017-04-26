@@ -189,11 +189,13 @@ classdef TDVPData
 			
 			if obj.version >= 42 && isfield(obj.tresults,'t')
 				obj.t = obj.tresults.t;
+				obj.dt    = max(diff(obj.tresults.t));				% important for fourier smoothing
 			else
 				obj.t = obj.para.tdvp.t;
+				obj.dt    = max(diff(obj.t));				% important for fourier smoothing
 			end
 			obj.tCalc = obj.para.tdvp.t;
-			obj.dt    = max(diff(obj.tresults.t));				% important for fourier smoothing
+			
 			
 			if isfield(obj.para,'nChains')
 				obj.nChains = obj.para.nChains;
