@@ -636,8 +636,8 @@ end
 if strContains(para.tdvp.Observables,'.heff.')
 	if isNew
 		D = treeMPS.D(2); dk = treeMPS.dk(1);
-		tresults.Heff			= zeros([totalN, D, dk, D, dk],'single');
-		tresults.system.state	= zeros([totalN, dk, D],'single');
+		tresults.Heff			= zeros([totalN, dk, dk, dk, dk],'single');
+		tresults.system.state	= zeros([totalN, dk, dk],'single');
 		tresults.E				= zeros([totalN,1],'single');
 	end
 	temp = getObservable({'syspes',size(tresults.Heff,2)},treeMPS,[],para);
