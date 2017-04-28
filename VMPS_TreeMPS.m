@@ -71,6 +71,7 @@ p.addParameter('useVmat'		,1	,@isnumeric);
 p.addParameter('useVtens'		,0	,@isnumeric);
 p.addParameter('initChainState'	,'vac',@(x) any(validatestring(x,...
 								{'rand','vac'})));		% possible initial chain states
+p.addParameter('comment'		,'',@isstr);
 
 % para.tdvp input parser
 % pt.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
@@ -603,7 +604,7 @@ if isfield(para.chain{1},'s') && para.chain{1}.s ~= 1 && isfield(para,'SpinBoson
 end
 
 if any(strfind(para.model,'DPMES'))
-	para.folder = sprintf('%s-%s-%s-L%dCT%g%s',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L,pDPMES.Results.CTShift,pDPMES.Results.InitialState);
+	para.folder = sprintf('%s-%s-%s%s-L%dCT%g%s',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.comment, para.L,pDPMES.Results.CTShift,pDPMES.Results.InitialState);
 else
 	para.folder = sprintf('%s-%s-%s-L%d',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L);
 end
