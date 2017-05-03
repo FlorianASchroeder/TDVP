@@ -3127,7 +3127,11 @@ classdef TDVPData
 				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
 				uistack(pl(2), 'bottom');
 				set(pl(2),'EdgeColor','none')
-				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+				if ax.ColorOrderIndex == 1
+					ax.ColorOrderIndex = 7;
+				else
+					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+				end
 			else
 				std = p.Results.subshades';			% n x t
 				for ii = 1:size(std,1)
@@ -3137,7 +3141,11 @@ classdef TDVPData
 						pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
 						uistack(pl(ii+1),'bottom');
 						set(pl(ii+1),'EdgeColor','none')
-						ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+						if ax.ColorOrderIndex == 1
+							ax.ColorOrderIndex = 7;
+						else
+							ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+						end
 					end
 					lower = upper;
 				end
