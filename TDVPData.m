@@ -1389,7 +1389,80 @@ classdef TDVPData
 % 					
 % 					obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim);
 % 					return;
+				case 'heff-full'
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
 					
+					% get the fully matricised Heff
+					out = obj.getData('heff-full');
+					D = out{1};																		% t x D*dk_eig
+					V = out{2};																		% t x D*dk x D*dk_eig
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = D;
+
+					h.ylbl = sprintf('$E (eV)$');
+% 					return
+				case 'heff-full-pop'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					
+					out = obj.getData('heff-full-pop');
+					D       = out{1};								% t x D*dk_eig
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+% 						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii), h.ylim, h.ax, 'thickness',h.patchthickness);
+						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'thickness',h.patchthickness);
+					end
+
+					h.t = title(sprintf('$E_{eff, full}$'));
+					h.t.Units  = 'normalized';
+					h.t.Position = [0.5,0.9];
+					return;
+				case 'heff-full-pop-diab'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					
+					out = obj.getData('heff-full-pop');
+					D       = out{1};								% t x D*dk_eig
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+% 							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+					end
+
+					h.t = title(sprintf('$E_{eff, full}$',h.state));
+					h.t.Units  = 'normalized';
+					h.t.Position = [0.5,0.9];
+					return;
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
 			end
