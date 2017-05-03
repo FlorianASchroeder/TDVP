@@ -2837,6 +2837,53 @@ classdef TDVPData
             
 		end
 		
+		function y = maxFilter(x,windowWidth)
+            % function imOut = maxFilter(imIn,windowWidth)
+            %
+			% Applies Maximum filter to 2D Matrices
+			% windowWidth is [m n] indicating widths in both directions
+            % The original code was posted on matlab central file exchange.
+            % I'm unable to find the original to give proper credits.
+            % This version was slightly modified by Florian Schroeder, May 2017.
+            
+            if mod(windowWidth, 2 ) == 0
+                disp('Window has even size');
+                return
+			end
+			
+			d = size(x);
+            y = x;
+            
+            windowBreadth = (windowWidth - 1)/2;
+            
+            for m = 1:d(1)
+                for n = 1:d(2)
+                    r1 = max(m-windowBreadth(1),1):min(m+windowBreadth(1),d(1));
+                    r2 = max(n-windowBreadth(2),1):min(n+windowBreadth(2),d(2));
+                    t1 = x(r1,r2);
+                    t2 = max(t1(:));
+                    y(m,n) = t2;
+                end
+            end
+            
+		end
+		
+		function resetColorOrder(ax)
+			
+			if isempty(ax)
+				ax = gca;
+			end
+			
+			col = get(0,'defaultAxesColorOrder');
+			col = mat2cell(col,ones(7,1),3);
+			
+			pl_handle = [ax.Children];
+			idx = fliplr(1:length(pl_handle));
+			idx = mod(idx-1,7)+1;
+			set(pl_handle,{'Color'},col(idx,:));
+			
+		end
+		
 		function h = plotGrid(rows,cols,varargin)
 			%% function h = plotGrid(rows,cols)
 			%	creates a grid of axes
