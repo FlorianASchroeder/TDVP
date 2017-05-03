@@ -2444,8 +2444,14 @@ classdef TDVPData
 					h.ax.CLim = h.ax.ZLim;
 				else
 					xs = length(get(h.pl,'xdata'));
-					set(h.pl,'zdata', h.zdata(:,1:xs,h.SldIdx{:}));
-					h.ax.CLim = h.ax.ZLim;
+					if isa(h.pl, 'matlab.graphics.primitive.Image')
+						set(h.pl,'cdata', h.zdata(:,1:xs,h.SldIdx{:}));
+% 						h.ax.CLim = [min(h.pl.CData(:)), max(h.pl.CData(:))];
+% 						set(h.pl,'cdatamapping','scaled');					% refresh Clim
+					else
+						set(h.pl,'zdata', h.zdata(:,1:xs,h.SldIdx{:}));
+						h.ax.CLim = h.ax.ZLim;
+					end
 				end
 	% 			fprintf('Source.Value: %g, Sld.Value: %g',source.Value,h.sld.getValue);
 	% 			callbackdata
