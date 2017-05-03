@@ -511,6 +511,53 @@ classdef TDVPData
 						obj2.Heff(start:stop,:,:,:,:) = permute(temp,[1,4,2,5,3]);						% t x D x dk x D x dk
 					end
 					out = obj2;
+				case 'heff-current'
+					% best on an already swapped Heff.
+					% calculates the transition rates / currents from one diabatic state to another
+					% is equivalent to evaluating all the elements which can make up the current operator j = -i[H,N]
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					out = 2 * imag(obj.Heff(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho) )
+					full = 1;
+				case 'heff-full'
+					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
+					d = size(obj.Heff);																% t x D' x dk' x D x dk
+					obj.Heff = reshape(obj.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
+					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,:,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D'))';
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					out = {};
+					out{1} = D;																		% t x D*dk_eig
+					out{2} = V;																		% t x D*dk x D*dk_eig, cell
+				case 'heff-full-pop'
+					h.state = p.Results.state;
+					temp = obj.getData('heff-full');
+					D = temp{1}; 																	% t x D*dk_eig
+					V = temp{2};																	% t x D*dk x D*dk_eig
+					
+					Vtemp = cell2mat(V);															% creates (D*dk*t) x D*dk_eig
+					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},2)]);					% D*dk x t x D*dk_eig
+					Vtemp = permute(Vtemp, [2,1,3]);												% t x D*dk x D*dk_eig
+
+					% obj.sysState: t x dk x D
+					d = size(obj.sysState); d(1) = obj.lastIdx;
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,:),[1,3,2]);					% t x D x dk
+					tempState = reshape(tempState, [d(1),d(2)*d(3)]);								% t x D*dk
+					tempState = bsxfun(@times,Vtemp ,tempState);									% t x D*dk x D*dk_eig
+					
+					pop = squeeze(sum(tempState,2));
+					pop = pop.*conj(pop);															% t x D*dk_eig
+					
+					popDiab = reshape(tempState, d(1), d(3), d(2), []);								% t x D x dk x D*dk_eig
+					popDiab = squeeze(sum(popDiab,2));												% t x dk x D*dk_eig
+					popDiab = popDiab.*conj(popDiab);
+					
+					out = {};
+					out{1} = D;																		% t x D*dk_eig
+					out{2} = pop;																	% t x D*dk_eig
+					out{3} = popDiab;																% t x dk x D*dk_eig
+				
 			end
 			
 			if ~full && ~iscell(out) && ~isobject(out)
