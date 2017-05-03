@@ -2359,6 +2359,33 @@ classdef TDVPData
 					h.xSize = size(obj.sysState,2)*ones(1,obj.nChains);
 					h.tlbl = 'Adiabatic State evolution';
 					h.sldlbl = {'Bond State'};
+				case 'heff-offdiag'
+					h.zdata = obj.Heff.*conj(obj.Heff);;				% t x D' x dk' x D x dk
+					d = size(h.zdata);
+					h.zdata = reshape(h.zdata, d(1),d(2)*d(3),[]);		% t x D' * dk' x D * dk
+					h.zdata = permute(h.zdata, [2,3,1]);				% D' * dk' x D * dk x t
+					for ii = 1:size(h.zdata,3)
+						h.zdata(:,:,ii) = h.zdata(:,:,ii) - diag(diag(h.zdata(:,:,ii)));	% remove the offdiagonals
+					end
+					h.zlbl = '$|H_{eff}|$';
+					h.xdata = (1:size(h.zdata,2))';						% D'*dk' x D*dk
+					h.xSize = length(h.xdata);
+					h.ydata = (1:size(h.zdata,1))';						% D'*dk' x D*dk
+					h.ySize = length(h.ydata);
+					h.xlbl = 'Initial State D*dk';
+					h.ylbl = 'Final State D*dk';
+					h.sldlbl = {'t'};
+					h.tlbl = 'Effective Hamiltonian paths';
+				case 'heff-current'
+					h.zdata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					d = size(h.zdata);
+					h.zdata = reshape(h.zdata, d(1),d(2)*d(3),[]);		% t x D' * dk' x D * dk
+					h.zlbl = '$\left< j \right>$';
+					h.xdata = (1:size(h.zdata,2))';						% D'*dk' x D*dk
+					h.xSize = length(h.xdata);
+					h.xlbl = 'Final State D*dk';
+					h.sldlbl = {'In. State'};
+					h.tlbl = 'Currents';
 					
 			end
 			
