@@ -522,7 +522,7 @@ classdef TDVPData
 					% is equivalent to evaluating all the elements which can make up the current operator j = -i[H,N]
 					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
 					
-					out = 2 * imag(obj.Heff(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho) )
+					out = 2 * imag(obj.Heff(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho*) )
 					full = 1;
 				case 'heff-full'
 					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
@@ -613,11 +613,16 @@ classdef TDVPData
 					axInd = cellfun('isclass',varargin,'matlab.graphics.axis.Axes');			% override!
 					
 					if ~isempty(m)						% plot into grid
+						if length(varargin) < m+1 || isempty(varargin{m+1})
+							[gridSize(1),gridSize(2)] = TDVPData.bestGrid(length(obj));
+						else
+							gridSize = varargin{m+1};
+						end
 						plotToGrid = 1;
 						if sum(fInd) == 1
-							gridh = TDVPData.plotGrid(varargin{m+1}(1),varargin{m+1}(2),varargin{fInd});
+							gridh = TDVPData.plotGrid(gridSize(1),gridSize(2),varargin{fInd});
 						else
-							gridh = TDVPData.plotGrid(varargin{m+1}(1),varargin{m+1}(2));
+							gridh = TDVPData.plotGrid(gridSize(1),gridSize(2));
 						end
 						if any(axInd)
 							varargin{axInd} = [];														% cannot plot multiple plots into single axes
@@ -636,7 +641,11 @@ classdef TDVPData
 					else
 						[hTemp,plTemp,obj(ii)] = obj(ii).plot(type,varargin{:});
 					end
-					t = title(obj(ii).folder);
+					if isempty(obj(ii).LegLabel)
+						t = title(obj(ii).folder);
+					else
+						t = title(obj(ii).LegLabel);
+					end
 					if plotToGrid
 						t.Units  = 'normalized';
 						t.Position = [0.5,0.9];
@@ -645,7 +654,7 @@ classdef TDVPData
 					if size(pl,2) ~= size(plTemp,2)
 						pl(end,size(plTemp,2)) = gobjects(1,1);
 					end
-					pl(ii,:) = plTemp;
+					pl(ii,1:length(plTemp)) = plTemp;
 					h(ii) = hTemp;
 				end
 				return;
