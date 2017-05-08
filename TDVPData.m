@@ -44,6 +44,7 @@ classdef TDVPData
 		Heff;		% effective potential for system
         mps;        % MPS and Vmat of sites 1&2
         Vmat;
+		treeMPS;	% The TreeMPS
 		LegLabel;	%
 		Comment;	% 
 		folder;		% for easy identification
@@ -69,7 +70,7 @@ classdef TDVPData
 				return;		% empty initialization
 			elseif nargin == 1 && ischar(fname)
 				try
-					temp = load(fname,'para','tresults');
+					temp = load(fname);
 					% Deserialize if needed
 					Vars = fields(temp);
 					for ii = 1:size(Vars)
@@ -269,6 +270,10 @@ classdef TDVPData
                 obj.tresults.mps = [];
                 obj.Vmat = obj.tresults.Vmat;
                 obj.tresults.Vmat = [];
+			end
+			
+			if isfield(temp,'treeMPS')
+				obj.treeMPS = temp.treeMPS;
 			end
 			
 			if ~isempty(strfind(obj.para.model,'DPMES'))
@@ -3267,7 +3272,7 @@ classdef TDVPData
 		end
 		
 		function out = dk2Str(treeMPS)
-			%% function out = D2Str(treeMPS)
+			%% function out = dk2Str(treeMPS)
 			%	generates string output of bond dimensions returned in a flattened cell array for each line to display
 			if treeMPS.height == 0
 				out = {num2str(treeMPS.dk,'%-5u')};		% converts a chain to string; pack into cell
@@ -3282,7 +3287,61 @@ classdef TDVPData
 			for i = 1:treeMPS.degree
 				% str1 for the first line of each child
 				if i == 1
-					str1 = sprintf('%-5u%s',treeMPS.D(1));
+					str1 = sprintf('%-5u%s',0);
+				elseif i == treeMPS.degree
+					str1 = sprintf('  \\- ');
+				else
+					str1 = sprintf('  |- ');
+				end
+				if iscell(childStr{i})
+					childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+					for j = 2:length(childStr{i})
+						if i == treeMPS.degree
+							childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+						else
+							childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+						end
+					end
+				end
+			end
+			childStr = [childStr{:}];		% flatten cell array
+			if treeMPS.isRoot
+				out = sprintf('%s\n',childStr{:});
+			else
+				out = childStr;
+			end
+			
+		end
+		
+		function out = dkUsage(treeMPS)
+			%% function out = dkUsage(treeMPS)
+			%	generates string output of bond dimensions returned in a flattened cell array for each line to display
+			thresh = 1e-1;								% minimum amplitude to be relevant
+			if treeMPS.height == 0
+				%% iterate through chain and estimate relevant dk usage
+				dk = zeros(1,treeMPS.L);
+				for ii = 1:treeMPS.L
+					est = sqrt(sum(abs(treeMPS.Vmat{ii}).^2,2));				% measure importance by row-norm in dk! (column norm is always 1)
+					est = find(est<thresh,1,'first');
+					if isempty(est)
+						dk(ii) = treeMPS.dk(ii);
+					else
+						dk(ii) = est;
+					end
+				end
+				out = {num2str(dk,'%-5u')};		% converts a chain to string; pack into cell
+				return;
+			end
+			% else: hasChild!
+			childStr = {};
+			for i = 1:treeMPS.degree
+				childStr{i} = TDVPData.dkUsage(treeMPS.child(i));
+			end
+
+			for i = 1:treeMPS.degree
+				% str1 for the first line of each child
+				if i == 1
+					str1 = sprintf('%-5u%s',0);
 				elseif i == treeMPS.degree
 					str1 = sprintf('  \\- ');
 				else
