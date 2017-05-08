@@ -1503,13 +1503,15 @@ classdef TDVPData
 						h.ylim = [min(D(:)),max(D(:))];
 					end
 					for ii = 1:size(pop,2)
-						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
 % 							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+						h.pl = [h.pl,plTemp];
 					end
-
+					
 					h.t = title(sprintf('$E_{eff, full}$',h.state));
 					h.t.Units  = 'normalized';
 					h.t.Position = [0.5,0.9];
+					pl = h.pl;
 					return;
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
