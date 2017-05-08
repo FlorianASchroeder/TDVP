@@ -670,6 +670,7 @@ classdef TDVPData
 			pl = [];					% old plot handle;
 			h.chain = [];				% chain number needed for (a)diabatic n and x plots
 			h.state = [];				% state number needed for heff plots
+			h.color = {};				% cell array with color for each line, if specified
 			
 			ts = 1;						% scale time axis
 			eScale = 0;					% energy units used for DFT: 0 = none, 1 = eV, 2 = cm (wavenumber)
@@ -1420,6 +1421,39 @@ classdef TDVPData
 
 					h.ylbl = sprintf('$E (eV)$');
 % 					return
+				case 'heff-full-diab'
+					% color surfaces according to the major diabatic character
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					col = get(0,'defaultaxescolororder');
+					% get the fully matricised Heff
+					out = obj.getData('heff-full');
+					D = out{1};																		% t x D*dk_eig
+					V = out{2};																		% t x D*dk x D*dk_eig
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = D;
+					
+					h.ylbl = sprintf('$E (eV)$');
+					
+					Vtemp = cell2mat(V);												% creates (D*dk*t) x D*dk_eig
+					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% D*dk x t x D*dk_eig
+					V = permute(Vtemp, [3,1,2]);										% D*dk_eig x D*dk x t
+					
+					d = size(V);
+					V = reshape(V, [d(1),sqrt(d(2))*[1,1], d(3)]);						% D*dk_eig x D x dk x t
+					V = squeeze(sum(V.*conj(V),2));										% D*dk_eig x dk x t
+					
+					% Now: V has percentage of dk contribution on each D*dk_eig
+					character = mean(V,3);
+% 					[~,I] = max(character,[],2);
+% 					h.color = arrayfun(@(i) col(i,:),I,'UniformOutput',false);
+					d = size(character);
+					h.color = arrayfun(@(i) character(i,:)*col(1:d(2),:), (1:d(1))','UniformOutput',false);
 				case 'heff-full-pop'
 					% heff, but with additional thickness according to population of given potential surface
 					% this plots the thickness according to population of diabatic states on each surface
@@ -1551,6 +1585,9 @@ classdef TDVPData
 			xlabel(h.xlbl);
 			ylabel(h.ylbl);
 			
+			if ~isempty(h.color)
+				set(pl,{'Color'},h.color);
+			end
 			if unicolor
 				arrayfun(@(x) set(x,'Color',pl(1).Color), pl);
 				h.ax.ColorOrderIndex = idx + 1;
