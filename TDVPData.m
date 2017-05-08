@@ -2809,6 +2809,13 @@ classdef TDVPData
 			out = sqrt(sum(out.*conj(out)./d(2)^2,2));
 		end
 		
+		function out = getDkUsage(obj,varargin)
+			%% getDkUsage()
+			%	get the maximum number of relevantly occupied Dk for each boson
+			%	only applicable to treeMPS
+			assert(~isempty(obj.treeMPS),'No treeMPS stored, unable to give answer!');
+			out = TDVPData.dkUsage(obj.treeMPS);						% forward to the static function
+		end
 	end
 	
 	% Static methods are functions that do not require 'obj' but are
