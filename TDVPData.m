@@ -313,7 +313,7 @@ classdef TDVPData
 		end
 		
 		function out = gettRhoiiSystem(obj)
-			% DEPRECATED
+			% DEPRECATED: Use getData('rhoii') instead
 			% returns the diagonal of the system reduced density matrix
 			out = 0;
 			if isfield(obj.tresults,'PPCWavefunction')
@@ -324,7 +324,12 @@ classdef TDVPData
 		end
 		
 		function out = getData(obj,type,varargin)
-			% returns certain data or observables
+			%% out = getData(obj,type,varargin)
+			%	returns certain data or observables:
+			%
+			%	getData('rhoii')				t x dk system RDM populations
+			%	getData('rhoii','state',n)		t x 1  system RDM population of state n
+			%
 			full = 0;		% truncate to simulated time - tresults.lastIdx
 			idxOffset = 0;
 			out = 0;
@@ -352,6 +357,11 @@ classdef TDVPData
 						rhoii = 0;
 					end
 					out = rhoii;
+					h.state = p.Results.state;
+					if h.state ~= 0 && h.state <= size(out,2)
+						% return only a single state
+						out = out(:,h.state);
+					end
 					full = 1;
 				case 'rhoii-osc-res'
 					% oscillating residuals
@@ -519,10 +529,22 @@ classdef TDVPData
 				case 'heff-current'
 					% best on an already swapped Heff.
 					% calculates the transition rates / currents from one diabatic state to another
-					% is equivalent to evaluating all the elements which can make up the current operator j = -i[H,N]
+					% is equivalent to evaluating all the elements which can make up the current operator j = i[H,N]
 					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
 					
-					out = 2 * imag(obj.Heff(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho*) )
+					out = -2 * imag(obj.Heff(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho*) )
+					full = 1;
+				case 'heff-current-v2'
+					% calculates the transition rates / currents from one diabatic state to another
+					% is equivalent to evaluating all the elements which can make up the current operator j = i[H,N]
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					rho_SE = rho_SE(1:obj.lastIdx,:,:,:,:);
+					
+					d = size(rho_SE);
+					Nop = zeros(d(5)); Nop(2,2) = 1;												% select which state to look at.
+					HN = contracttensors(obj.Heff(1:obj.lastIdx,:,:,:,:),5,5,Nop,2,1);				% multiply into last dk
+					
+					out = -2 * imag(HN .* conj(rho_SE));		% is 2*Im( Tr(H rho*) )
 					full = 1;
 				case 'heff-full'
 					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
@@ -535,6 +557,29 @@ classdef TDVPData
 					out = {};
 					out{1} = D;																		% t x D*dk_eig
 					out{2} = V;																		% t x D*dk x D*dk_eig, cell
+				case 'heff-full-diab'
+					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
+					d = size(obj.Heff);																% t x D' x dk' x D x dk
+					obj.Heff = reshape(obj.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
+					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,:,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D'))';
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					
+					% VC for V-contribution/ diabatic Character 
+					VC = cell2mat(V);																% creates (D*dk*t) x D*dk_eig
+					VC = reshape(VC,[size(V{1},1),length(V),size(V{1},1)]);							% D*dk x t x D*dk_eig
+					VC = permute(VC, [3,1,2]);														% D*dk_eig x D*dk x t
+					
+					d = size(VC);
+					VC = reshape(VC, [d(1),sqrt(d(2))*[1,1], d(3)]);								% D*dk_eig x D x dk x t
+					VC = squeeze(sum(VC.*conj(VC),2));												% D*dk_eig x dk x t
+					% Now: VC has percentage of dk contribution on each D*dk_eig and t
+					
+					out = {};
+					out{1} = D;																		% t x D*dk_eig
+					out{2} = V;																		% t x D*dk x D*dk_eig, cell
+					out{3} = VC;																	% D*dk_eig x dk x t
 				case 'heff-full-pop'
 					h.state = p.Results.state;
 					temp = obj.getData('heff-full');
@@ -553,6 +598,7 @@ classdef TDVPData
 					
 					pop = squeeze(sum(tempState,2));
 					pop = pop.*conj(pop);															% t x D*dk_eig
+					% pop is sysState rotated into adiab Basis then taken probability -> should be correct
 					
 					popDiab = reshape(tempState, d(1), d(3), d(2), []);								% t x D x dk x D*dk_eig
 					popDiab = squeeze(sum(popDiab,2));												% t x dk x D*dk_eig
@@ -562,7 +608,20 @@ classdef TDVPData
 					out{1} = D;																		% t x D*dk_eig
 					out{2} = pop;																	% t x D*dk_eig
 					out{3} = popDiab;																% t x dk x D*dk_eig
-				
+				case 'rho-se'
+					% get rho from sysState which contains correlations with the environment.
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					d = size(rho_SE);
+					legLab = cell(prod(d(2:end)),1);
+					for ii = 1:prod(d(2:end))
+						[l,m,n,o] = ind2sub(d(2:end),ii);
+						legLab{ii} = sprintf('$|%d\\rangle|%d\\rangle \\to |%d\\rangle|%d\\rangle$',o,n,m,l);
+					end
+					rho_SE = reshape(rho_SE,d(1),[]);
+					out = {};
+					out{1} = rho_SE(1:obj.lastIdx,:);				% t x D'*dk'*D*dk
+					out{2} = legLab;				% D'*dk'*D*dk
 			end
 			
 			if ~full && ~iscell(out) && ~isobject(out)
