@@ -1207,6 +1207,49 @@ switch para.model
 		end
 		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
+	case 'DTMESclust4'
+		%%%%%%%%%%%%%%%%%%% DT-MES Model - 4-Chains %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%
+		% working?
+		% Created 06/06/17 by F.S. & A.M.A
+		%
+		op.h1term = {};
+		op.h2term = cell(para.M,2);
+		if treeIdx == 0
+			% is the pentacene system!
+			[H0,H1]               = DTMES_Operators('clust4',para);
+			zm                    = zeros(size(H0,1));
+			op.h1term{1}          = H0;
+			for mc = 1:length(H1)
+				op.h2term{1,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{1,2,mc} = zm;	% need sqrt(2) here? how are coord operators defined?
+				op.h2term{2,1,mc} = para.chain{mc}.t(1).*H1{mc}./sqrt(2); op.h2term{2,2,mc} = zm;
+			end
+
+		else
+			mc  = treeIdx;					% number of edge == chain number
+			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			if para.parity ~= 'n'
+						error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+			end
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s						% this is 1:L on chain
+				case para.chain{mc}.L
+					zm = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1} = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}   = para.chain{mc}.epsilon(s).*n;
+					op.h2term{1,1} = para.chain{mc}.t(s+1).*bp; op.h2term{1,2} = bm;				% t(1) already couples to node
+					op.h2term{2,1} = para.chain{mc}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+		%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 	case 'testTree'
 		%%%%%%%%%%%%%%%%%%% testTree %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		%	This is a test tree with uniform boson chains.
@@ -1406,6 +1449,36 @@ switch nModel
 			H1{ii} = para.chain{ii}.H1;
 		end
 		
+end
+
+end
+
+function [H0, H1] = DTMES_Operators(nModel,para)
+%% creates the Hamiltonian terms for the DPMES molecule.
+%	assigns the parameters loaded from the files into para to the actual operators
+states = para.systemStates;
+switch nModel
+	case 'clust4'
+		% LE+, LE-, CT+, CT-, TT with 4 chains
+		% order: {	'B11',	'B12',	'A11',	'A12',	'B22',  'B23',	'A2'}; ?TODO
+		% H1 can be loaded directly from para.chain{ii}.H1
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		for ii = 1:para.nChains
+			H1{ii} = para.chain{ii}.H1;
+		end
+	case 'Tree?'
+		% TODO: overwrite and reuse
+		% TT, LE+, LE-, CT+, CT- with 7 chains
+		% order: {	'A2',	'A11',	'A12',	'B11',	'B12',	'B22',  'B23'};
+		% H1 can be loaded directly from para.chain{ii}.H1
+		H0 = diag(states([1,2,3,4,5],2));
+		n = size(H0,1);
+		H1 = cell(7,1);								% one for each chain!
+		for ii = 1:7
+			H1{ii} = para.chain{ii}.H1;
+		end
 end
 
 end

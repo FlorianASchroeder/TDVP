@@ -28,15 +28,22 @@ pDPMES.CaseSensitive = false;
 pDPMES.KeepUnmatched = true;
 pDPMES.FunctionName = 'VMPS_TreeMPS';
 
+pDTMES = inputParser;					% parses for para.SpinBoson
+pDTMES.CaseSensitive = false;
+pDTMES.KeepUnmatched = true;
+pDTMES.FunctionName = 'VMPS_TreeMPS';
+
 %% Define local parameters
 SBMInitialStates   = {'sz', '-sz', 'sx', '-sx', 'sy', '-sy', 'none'};
 DPMESInitialStates = {'TT','LE+', 'LE-', 'CT+', 'CT-'};					% Position of Name = number of InitialState
+DTMESInitialStates = {'LE+', 'LE-', 'CT+', 'CT-','TT'};					% Position of Name = number of InitialState
 
 %% Define validation functions for string expressions
 % para input parser
 p.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
 								{'SpinBoson','SpinBoson2C', 'DPMES5-7C', 'DPMESclust7-1', 'DPMES-Tree1','DPMES-Tree2',...
-								 'DPMES-Tree3','DPMES-Tree4','testTree'})));		% possible model inputs
+								 'DPMES-Tree3','DPMES-Tree4','testTree',...
+								 'DTMESclust4'})));		% possible model inputs
 p.addParameter('s'				,1	,@isnumeric);
 p.addParameter('L'				,50	,@isnumeric);		% longest L between root and all leaves
 p.addParameter('alpha'			,0.1,@isnumeric);
@@ -111,6 +118,11 @@ pDPMES.addParameter('InitialState'	,'LE+',@(x) any(validatestring(x,DPMESInitial
 pDPMES.addParameter('CTShift'		,0	,@isnumeric);
 pDPMES.addParameter('BroadenChain'  ,zeros(1,7),@isnumeric);									% logic, indicate which chains shall be broadened
 pDPMES.addParameter('PeakWidth'     ,cmToeV(20),@isnumeric);									% width of 20 cm^-1 as standard?
+
+pDTMES.addParameter('InitialState'	,'LE+',@(x) any(validatestring(x,DPMESInitialStates)));		% Initial States
+pDTMES.addParameter('CTShift'		,0	,@isnumeric);
+pDTMES.addParameter('BroadenChain'  ,zeros(1,7),@isnumeric);									% logic, indicate which chains shall be broadened
+pDTMES.addParameter('PeakWidth'     ,cmToeV(20),@isnumeric);									% width of 20 cm^-1 as standard?
 
 %%
 p.parse(varargin{:});
@@ -526,6 +538,57 @@ if strfind(para.model,'DPMES-Tree4')
 % 			para.IntialState:	 1		  2		  3		  4		  5
 	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
 end
+
+%% Settings for DTMES
+if strfind(para.model,'DTMESclust4')
+	% This is star-model obtained using fkmeans from 06/06/2017
+	% clusters under weighting by coupling strength only!
+	% Works only for TreeMPS now!
+ 	pDTMES.parse(varargin{:});
+	
+%% Setting Environments
+	para.nChains = 4;
+	para.paramFolder				= 'DTMESdata';
+	para.systemStates				= load(sprintf('%s/states.dat',para.paramFolder);			% [#state, E(eV)]: TODO: setup for matrix!
+	para.systemStates([4,5],2)      = para.systemStates([4,5],2)*(1+pDTMES.Results.CTShift);	% use delta as percentual shift of CT states!
+	para.BroadenChain				= pDTMES.Results.BroadenChain;								% save for reference
+	
+	% Chains:		1		2		3		4		5		6		7
+	ChainFiles = {	'B11',	'B12',	'A11',	'A12',	'B22',  'B23',	'A2'};						% TODO! The order here determines the order in the tree!
+	
+	for ii = 1:length(ChainFiles)
+		para.chain{ii}.mapping			= 'LanczosTriDiag';
+		para.chain{ii}.spectralDensity	= 'CoupDiscr';
+		para.chain{ii}.Lambda           = 1;
+		para.chain{ii}.initState		= para.initChainState;
+		para.chain{ii}.dataPoints		= cmToeV(load(sprintf('%s/Modes-%s.dat',para.paramFolder,ChainFiles{ii})));
+		para.chain{ii}.H1				= load(sprintf('%s/H1-%s.dat',para.paramFolder,ChainFiles{ii}));
+		para.chain{ii}.L				= min(length(para.chain{ii}.dataPoints),para.L-1);
+		if pDTMES.Results.BroadenChain(ii)
+			% allows individual broadening of each chain
+			para.chain{ii}.spectralDensity	= 'CoupBroad';
+			para.chain{ii}.discrMethod		= 'Direct';
+			para.chain{ii}.discretization	= 'Linear';
+			para.chain{ii}.mapping			= 'Stieltjes';
+			para.chain{ii}.L				= max(length(para.chain{ii}.dataPoints),para.L-1);
+			para.chain{ii}.peakWidth		= pDTMES.Results.PeakWidth;
+			para.chain{ii}.w_cutoff			= max(para.chain{ii}.dataPoints(:,1))+pDTMES.Results.PeakWidth*10;			% 10*width above highest mode to be safe?
+		end
+	end
+	
+%% Setting TreeMPS for Star DTMES
+	para.treeMPS.height    = 1;										% star structure, since only tree node + leaves
+	para.treeMPS.nNodes    = 1;
+	para.treeMPS.maxDegree = para.nChains;
+	para.treeMPS.leafIdx   = num2cell((1:para.nChains)'+1);			% maps from chain number to leaf index in para
+	para.treeMPS.nodeIdx   = {0+1};									% maps from node number to nodeIdx
+	
+%% Set-up parameters for specific ground state preparation!
+%     Initial States:			LE+		LE-		CT+		CT-		 TT
+% 			para.IntialState:	 1		  2		  3		  4		  5
+	para.InitialState               = find(~cellfun('isempty', strfind(DTMESInitialStates,pDTMES.Results.InitialState)));
+end
+
 %% Defaults to para
 para.loopmax		= 50;						% (minimizeE)
 para.increasedk		= 0;						% Tells by how much dk should have been increased to achieve good sv in MPS. start with 0.
@@ -604,6 +667,8 @@ end
 
 if any(strfind(para.model,'DPMES'))
 	para.folder = sprintf('%s-%s-%s-L%dCT%g%s',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L,pDPMES.Results.CTShift,pDPMES.Results.InitialState);
+elseif any(strfind(para.model,'DTMES'))
+	para.folder = sprintf('%s-%s-%s-L%dCT%g%s',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L,pDTMES.Results.CTShift,pDTMES.Results.InitialState);
 else
 	para.folder = sprintf('%s-%s-%s-L%d',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L);
 end
@@ -813,7 +878,7 @@ for mc = para.treeMPS.nNodes:-1:1
 	if ~nodes(mc).isRoot
 		idx = num2cell(ones(length(nodes(mc).D),1));            % indexes all left and child bonds;
 		nodes(mc).mps{1}(idx{:},1) = 1;                         % initially connect as product states
-	elseif any(strfind(para.model,'DPMES'))
+	elseif any(strfind(para.model,'DPMES')) || any(strfind(para.model,'DTMES'))
 		idx = num2cell([ones(1,NC+1),para.InitialState]);			% start in second excited state!
 		nodes(mc).mps{1}(idx{:}) = 1;
 	elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
