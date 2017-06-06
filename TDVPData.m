@@ -3174,7 +3174,13 @@ classdef TDVPData
 			%% function h = plotGrid(rows,cols)
 			%	creates a grid of axes
 			%	onto a 8.5 cm x 6.4 cm figure suitable for 2-column format.
-			%	if different 'rowwidth' is defined, the figure width will be adjusted.
+			%
+			%	h = plotGrid(rows,cols, 'rowheight',h, 'rowwidth', w)
+			%		allows specifying different values in cm. Default: h = 1.0, w = 7.2;
+			%
+			%	h = plotGrid(rows,cols, figHandle,...)
+			%		creates the grid in defined figure 
+			%
 			p = inputParser;
 			addRequired(p,'rows',@isnumeric);
 			addRequired(p,'cols',@isnumeric);
@@ -3224,6 +3230,7 @@ classdef TDVPData
 				end
 			end
 			[h.ax.Units] = deal('norm');
+			h.f.Units = 'norm';
 		end
 		
 		function h = plotRowGroups(rows,varargin)
@@ -3507,6 +3514,8 @@ classdef TDVPData
 				return
 			elseif nPlots <= 9
 				m = 3; n = 3;
+			elseif nPlots <= 12
+				m = 3; n = 4; 
 			end
 		end
 		
@@ -3646,6 +3655,25 @@ classdef TDVPData
 				out = childStr;
 			end
 			
+		end
+		
+		function out = subsample(data,fromDt, toDt)
+			%% function out = subsample(data,fromDt, toDt)
+			%	subsample data taken at intervals fromDt down to an interval toDt
+			%
+			%	for now only 2D-array supported
+			if mod(toDt/fromDt,1) == 0 || mod(toDt/fromDt,1) > 0.99
+				step = round(toDt/fromDt);
+				if step == 1
+					% no subsampling needed
+					out = data;
+				else
+					out = data(1:step:end,:);
+				end
+			else
+				warning('Incommensurate subsampling performed by interpolation');
+				out = 0;	%% TODO: has to be implemented; use interp?
+			end
 		end
 	end
 	
