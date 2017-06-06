@@ -2456,6 +2456,7 @@ classdef TDVPData
 			h.ydata = obj.t(1:obj.lastIdx)*h.ts;
 			h.zdata = [];					% T x L x NC x ...  if not, needs to be reshaped!
 			h.xSize = obj.para.L*ones(1,obj.nChains);	% size for each slider value
+			h.imagesc = 0;
 			
 			if obj.nChains > 1 && obj.para.useTreeMPS
 				h.xSize = cellfun(@(x) x.L,obj.para.chain)+1;
@@ -2480,6 +2481,8 @@ classdef TDVPData
 					case '-cm'
 						% use cm^-1 as Units
 						h.evTocm = 1;
+					case '-imagesc'
+						h.imagesc = 1;
 				end
 			end
 			
@@ -2643,7 +2646,21 @@ classdef TDVPData
 					h.xlbl = 'Final State D*dk';
 					h.sldlbl = {'In. State'};
 					h.tlbl = 'Currents';
-					
+				case 'heff-current-v2'
+					h.zdata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					d = size(h.zdata);
+					h.zdata = reshape(h.zdata, d(1),d(2)*d(3),[]);		% t x D' * dk' x D * dk
+					h.zdata = permute(h.zdata,[3,2,1]);
+					h.zlbl = '$\left< j \right>$';
+					h.xdata = (1:size(h.zdata,2))';						% D'*dk' x D*dk
+					h.ydata = h.xdata;
+					h.xSize = length(h.xdata);
+					h.xlbl = 'Initial State D*dk';
+					h.ylbl = 'Final State D*dk';
+					h.sldlbl = {'t_i'};
+					h.tlbl = 'Currents';
+				otherwise
+					return;
 			end
 			
 			
@@ -2659,9 +2676,14 @@ classdef TDVPData
 			h.ysize = size(h.ydata);
 			h.zsize = size(h.zdata);
 			
-			h.pl = surf(h.xdata(1:h.xSize(1),1),h.ydata,h.zdata(:,1:h.xSize(1),h.SldIdx{:}));
-			shading interp
-			rotate3d on
+			if ~h.imagesc
+				h.pl = surf(h.xdata(1:h.xSize(1),1),h.ydata,h.zdata(:,1:h.xSize(1),h.SldIdx{:}));
+				shading interp
+				rotate3d on
+			else
+				h.pl = imagesc(h.xdata(1:h.xSize(1),1),h.ydata,h.zdata(:,1:h.xSize(1),h.SldIdx{:}));
+				h.ax.YAxis.Direction = 'normal';
+			end
 			axis tight
 			h.ax.View = [0 90];
 			h.ax.TickDir = 'out';
