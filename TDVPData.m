@@ -718,7 +718,7 @@ classdef TDVPData
 				end
 				return;
 			end
-			h.xlbl = 't';
+			h.xlbl = '$t$';
 			h.ylbl = [];
 			h.leglbl = {};
 			h.xdata = [];
@@ -826,6 +826,7 @@ classdef TDVPData
 			end
 			h.f.Renderer = 'painters';				% provides much better 2D results generally!
 			hold all;
+			box on;
 			
 			if resetColorOrder
 				h.ax.ColorOrderIndex = 1;
@@ -878,7 +879,6 @@ classdef TDVPData
 					h.ylbl = '$\rho_{ii}(t)$';
 				case 'rhoij-real'
 					if ~isfield(obj.tresults,'rho'), return, end;
-					box on;
 					r = obj.getData('rhoij');							% {rhoij, info}
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = real(r{1});
@@ -886,7 +886,6 @@ classdef TDVPData
 					h.ylbl = 'Re($\rho_{ij})$';
 				case 'rhoij-imag'
 					if ~isfield(obj.tresults,'rho'), return, end;
-					box on;
 					r = obj.getData('rhoij');							% {rhoij, info}
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = imag(r{1});
@@ -894,7 +893,6 @@ classdef TDVPData
 					h.ylbl = 'Im($\rho_{ij})$';
 				case 'rhoij-abs'
 					if ~isfield(obj.tresults,'rho'), return, end;
-					box on;
 					r = obj.getData('rhoij');							% {rhoij, info}
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = abs(r{1});
@@ -1054,9 +1052,14 @@ classdef TDVPData
 					h.xdata = f;
 					h.ydata = abs(ft);
 					h.ylbl = '$FT(\rho_{ii})$';
+				case 'rho-se-abs'
+					r = obj.getData('rho-se');							% {rhoij, info}
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = abs(r{1});
+					h.leglbl = r{2};
+					h.ylbl = '$|\rho_{SE}|$';
 				case 'vne'
 					% von Neumann Entropy of the system
-					box on;
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = obj.getData('vne');				% t x 1
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
