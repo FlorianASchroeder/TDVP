@@ -1493,29 +1493,48 @@ classdef TDVPData
 					
 					col = get(0,'defaultaxescolororder');
 					% get the fully matricised Heff
-					out = obj.getData('heff-full');
-					D = out{1};																		% t x D*dk_eig
-					V = out{2};																		% t x D*dk x D*dk_eig
+					out = obj.getData('heff-full-diab');
+					D  = out{1};																		% t x D*dk_eig
+					V  = out{2};																		% t x D*dk x D*dk_eig
+					VC = out{3};																		% D*dk_eig x dk x t
 					
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = D;
 					
 					h.ylbl = sprintf('$E (eV)$');
 					
-					Vtemp = cell2mat(V);												% creates (D*dk*t) x D*dk_eig
-					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% D*dk x t x D*dk_eig
-					V = permute(Vtemp, [3,1,2]);										% D*dk_eig x D*dk x t
-					
-					d = size(V);
-					V = reshape(V, [d(1),sqrt(d(2))*[1,1], d(3)]);						% D*dk_eig x D x dk x t
-					V = squeeze(sum(V.*conj(V),2));										% D*dk_eig x dk x t
-					
-					% Now: V has percentage of dk contribution on each D*dk_eig
-					character = mean(V,3);
+					character = mean(VC,3);
 % 					[~,I] = max(character,[],2);
 % 					h.color = arrayfun(@(i) col(i,:),I,'UniformOutput',false);
 					d = size(character);
 					h.color = arrayfun(@(i) character(i,:)*col(1:d(2),:), (1:d(1))','UniformOutput',false);
+				case 'heff-full-diab-v2'
+					% color surfaces according to the major diabatic character as dot series
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					col = get(0,'defaultaxescolororder');
+					% get the fully matricised Heff
+					out = obj.getData('heff-full-diab');
+					D  = out{1};																		% t x D*dk_eig
+					V  = out{2};																		% t x D*dk x D*dk_eig
+					VC = out{3};																		% D*dk_eig x dk x t
+					
+					d = size(VC);
+					h.xdata = bsxfun(@times, obj.t(1:obj.lastIdx)'*ts, ones(1,d(1)));					% t x D*dk_eig
+					h.xdata = h.xdata(:);																% t*D*dk_eig
+					h.ydata = D(:);
+					VC = permute(VC,[3,1,2]);															% t x D*dk_eig x dk
+					VC = reshape(VC,[],d(2));															% t*D*dk_eig x dk
+					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
+					
+					h.pl = scatter(h.xdata,h.ydata,1,h.cdata,'.');
+					h.ylbl = sprintf('$E (eV)$');
+					pl = h.pl;
+					
 				case 'heff-full-pop'
 					% heff, but with additional thickness according to population of given potential surface
 					% this plots the thickness according to population of diabatic states on each surface
@@ -1541,10 +1560,10 @@ classdef TDVPData
 						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'thickness',h.patchthickness);
 					end
 
-					h.t = title(sprintf('$E_{eff, full}$'));
-					h.t.Units  = 'normalized';
-					h.t.Position = [0.5,0.9];
-					return;
+% 					h.t = title(sprintf('$E_{eff, full}$'));
+% 					h.t.Units  = 'normalized';
+% 					h.t.Position = [0.5,0.9];
+					
 				case 'heff-full-pop-diab'
 					% heff, but with additional thickness according to population of given potential surface
 					% this plots the thickness according to population of diabatic states on each surface
@@ -1567,19 +1586,135 @@ classdef TDVPData
 					for ii = 1:size(pop,2)
 						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
 % 							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
-						h.pl = [h.pl,plTemp];
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
 					end
 					
-					h.t = title(sprintf('$E_{eff, full}$',h.state));
-					h.t.Units  = 'normalized';
-					h.t.Position = [0.5,0.9];
+% 					h.t = title(sprintf('$E_{eff, full}$',h.state));
+% 					h.t.Units  = 'normalized';
+% 					h.t.Position = [0.5,0.9];
 					pl = h.pl;
-					return;
+% 					return;
+				case 'heff-full-pop-diab-v2'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					% colour surfaces according to mixing of diabatic staets
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ylbl = '$E/eV$';
+					out     = obj.getData('heff-full-pop');
+					D       = out{1};								% t x D*dk_eig
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+						delete(plTemp(1));
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
+					end
+					plotArgs = {};
+					if eScale
+						plotArgs = [plotArgs,{'-fsev'}];
+					end
+					
+					% plot diabatic coloured scatter ontop
+					htemp = obj.plot('heff-full-diab-v2',plotArgs{:},h.ax);
+					h.pl(end+1) = htemp.pl;
+					h.pl(end).SizeData = 0.05;
+
+					
+% 					h.t = title(sprintf('$E_{eff, full}$',h.state));
+% 					h.t.Units  = 'normalized';
+% 					h.t.Position = [0.5,0.9];
+					pl = h.pl;
+					h.ydata = [];			% delete to finish without replot
+				case 'heff-current'
+					% Now only for DPMES
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,2),4));			% t x dk' x dk
+					h.ylbl  = '$\langle j \rangle$';
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('%s $\\to$ %s',stateLab{ii},stateLab{jj});
+							if ii > jj 
+								select(ii,jj) = 1;
+							end
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk' x D * dk
+					h.ydata = h.ydata(:,logical(select(:)));
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(logical(select(:)));
+% 					set(pl,{'DisplayName'},legLab(logical(select(:))));
+					h.pl = pl;
+% 					return;
+				case 'heff-current-nonzero'
+					% Now only for DPMES
+					% deletes zero currents
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,2),4));			% t x dk' x dk
+					h.ylbl  = '$\langle j \rangle$';
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('%s $\\to$ %s',stateLab{ii},stateLab{jj});
+							if ii > jj && sum(abs(h.ydata(:,ii,jj))) ~= 0
+								select(ii,jj) = 1;
+							end
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk' x D * dk
+					h.ydata = h.ydata(:,logical(select(:)));
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(logical(select(:)));
+					h.pl = pl;
+				case 'heff-current-cumsum'
+					% Now only for DPMES
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,2),4));			% t x dk' x dk
+					h.ylbl  = '$\int\langle j \rangle$';
+					
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('%s $\\to$ %s',stateLab{ii},stateLab{jj});
+							if ii > jj 
+								select(ii,jj) = 1;
+							end
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk' x D * dk
+					h.ydata = cumsum(h.ydata(:,logical(select(:))),1);
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(logical(select(:)));
+% 					set(pl,{'DisplayName'},);
+					h.pl = pl;
+% 					return;
+					
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
 			end
 			
-			if ~isempty(h.ydata)
+			if ~isempty(h.ydata) && isempty(h.pl)
 				if h.normalise
 					h.ydata = bsxfun(@rdivide,h.ydata,max(h.ydata,[],1));
 				end
@@ -1648,6 +1783,13 @@ classdef TDVPData
 			end
 			xlabel(h.xlbl);
 			ylabel(h.ylbl);
+			if ~isempty(h.xlim)
+				xlim(h.xlim);
+			end
+			if ~isempty(h.ylim)
+				ylim(h.ylim);
+			end
+			
 			
 			if ~isempty(h.color)
 				set(pl,{'Color'},h.color);
