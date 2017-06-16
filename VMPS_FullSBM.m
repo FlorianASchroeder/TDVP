@@ -37,26 +37,26 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson';
+para.model='SpinBoson2CXZ';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
+	%		  'SpinBoson2CXZ',
 	%		  'DPMES3-4C', 'DPMES4-5C', 'DPMES5-7C'
 	%		  'UniformBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
-para.nEnvironments  = 1;
+para.nEnvironments  = 2;
 	% number of different spectral functions
 	% supported 1 to any
-para.nChains		= 1;
+para.nChains		= 2;
 	% number of chains
 	% 1 for folded, can have nEnvironments = 2;
 	% = nEnvironments for multi-chain models;
 para.useVtens = 0;										% Enables the V-tensor-network for MultiChain models! Only Artificial State!
 
-para.useStarMPS = 0;
+para.useStarMPS = 1;
 para.useTreeMPS = 0;
 
 %% System Definitions:
-% if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
 if ~any(strcmp(para.model,{'MLSpinBoson','2SpinPhononModel'}))
 	% setting para for single-spin models
 	% H0 = -para.hx./2.*sigmaX -para.hz./2.*sigmaZ
@@ -141,12 +141,26 @@ elseif ~isempty(strfind(para.model,'SpinBoson'))
 	if alpha == 0 && para.chain{1}.L == 0                  
 		para.chain{1}.L = 10;						% otherwise encounter error
 	end
-%	para.chain{2} = para.chain{1};
-%	para.chain{2}.w_cutoff = 5;
+	para.chain{2} = para.chain{1};
+	para.chain{2}.w_cutoff = 5;
 elseif ~isempty(strfind(para.model,'UniformBosonTTM'))
 	% put in parameters by hand!
 	para.chain{1}.epsilon = 0.5;
 	para.chain{1}.t       = 0.25;
+elseif strcmp(para.model,'MLSpinBoson')
+	%% chain 1 for MLSBM:
+	para.chain{1}.mapping			= 'OrthogonalPolynomials';
+	para.chain{1}.spectralDensity	= 'Leggett_Hard';
+	para.chain{1}.discretization	= 'None';
+	% para.chain{1}.discrMethod		= 'Numeric';
+
+	para.chain{1}.s					= s;			% SBM spectral function power law behaviour
+	para.chain{1}.alpha				= alpha;		% SBM spectral function magnitude; see Bulla 2003 - 10.1103/PhysRevLett.91.170601
+	para.chain{1}.L					= L;
+	para.chain{1}.w_cutoff          = 1;
+	if alpha == 0 && para.chain{1}.L == 0                  
+		para.chain{1}.L = 10;						% otherwise encounter error
+	end
 end
 
 assert(para.nEnvironments == length(para.chain),'number of environments is wrong');		% redundant, sanity check!
@@ -358,7 +372,7 @@ if strcmp(para.model,'MLSpinBoson')
     end
 
 %% random static disorder:
-    para.MLSB_staticDisorder = 1;
+    para.MLSB_staticDisorder = 1;			% 0 or 1
     para.MLSB_disSDV = 200/2.3548;         % standard deviation of disorder; FWHM = 200 cm^-1; FWHM = 2.3548*SDV;
     % Vector with absolute values of disorder in cm^-1:
     para.MLSB_disDiag = para.MLSB_disSDV.*randn(para.MLSB_Ls,1);        % set to 0 if no diag disorder wanted

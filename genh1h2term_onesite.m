@@ -386,6 +386,52 @@ switch para.model
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+	case 'SpinBoson2CXZ'
+        %%%%%%%%%%%%%%%%%%% Spin-Boson Model - 2-Chain %%%%%%%%%%%%%%%%%%%%%%
+		% Not linear, but in multi-chain configuration!
+		% Chain 1: X; Chain 2: Z coupled
+		% To be used with StarMPS for maximum speed
+		% Spin is always in chain 1 for backward compatibility
+		%
+		% Created 16/06/17 by F.S.
+        switch s
+            case 1
+				[sigmaX,~,sigmaZ]  = spinop(para.spinbase);
+                zm_spin			   = zeros(2);
+                op.h1term{1,1}     = - para.hx./2.*sigmaX - para.hz./2.*sigmaZ;
+                op.h2term{1,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{1,2,1,1} = zm_spin;	% X chain
+                op.h2term{2,1,1,1} = para.chain{1}.t(1).*sigmaX./2; op.h2term{2,2,1,1} = zm_spin;
+                op.h2term{3,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{3,2,1,1} = zm_spin;	% Z chain
+                op.h2term{4,1,1,1} = para.chain{2}.t(1).*sigmaZ./2; op.h2term{4,2,1,1} = zm_spin;
+            case para.L
+                [bpx,bmx,nx] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+				[bpz,bmz,nz] = bosonop(para.dk(2,s),para.shift(2,s),para.parity);
+                if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+                end
+                zmx = sparse(size(bpx,1),size(bpx,1));
+				zmz = sparse(size(bpz,1),size(bpz,1));
+                op.h1term{1,s}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{2,s}     = para.chain{2}.epsilon(s-1).*nz;
+                op.h2term{1,1,s,1} = zmx; op.h2term{1,2,s,1} = bmx;
+                op.h2term{2,1,s,1} = zmx; op.h2term{2,2,s,1} = bpx;
+                op.h2term{3,1,s,2} = zmz; op.h2term{3,2,s,2} = bmz;
+                op.h2term{4,1,s,2} = zmz; op.h2term{4,2,s,2} = bpz;
+            otherwise
+                [bpx,bmx,nx] = bosonop(para.dk(1,s),para.shift(1,s),para.parity);
+				[bpz,bmz,nz] = bosonop(para.dk(2,s),para.shift(2,s),para.parity);
+				if para.parity ~= 'n'
+					error('VMPS:genh1h2term_onesite:ParityNotSupported','parity not implemented yet');
+				end
+                op.h1term{1,s}     = para.chain{1}.epsilon(s-1).*nx;
+				op.h1term{2,s}     = para.chain{2}.epsilon(s-1).*nz;
+                op.h2term{1,1,s,1} = para.chain{1}.t(s).*bpx; op.h2term{1,2,s,1} = bmx;
+                op.h2term{2,1,s,1} = para.chain{1}.t(s).*bmx; op.h2term{2,2,s,1} = bpx;
+                op.h2term{3,1,s,2} = para.chain{2}.t(s).*bpz; op.h2term{3,2,s,2} = bmz;
+                op.h2term{4,1,s,2} = para.chain{2}.t(s).*bmz; op.h2term{4,2,s,2} = bpz;
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 	case 'SpinBoson2CT'
         %%%%%%%%%%%%%%%%%%% Spin-Boson Model - 2-Chain Thermal Bath %%%%%%%%%%%%%%%%%%%%%%
 		% SBM including ancilla chain for thermal bath states
@@ -1440,3 +1486,10 @@ end
 
 end
 
+function op = SBM_Star_Op(para, op, s) 
+	%% op = SBM_Star_Op(para, op, s) 
+	%	generates the operators for a multi-environment Spin Boson Model for use with StarMPS
+	
+	NC = para.nChains;
+	
+end
