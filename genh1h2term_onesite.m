@@ -299,19 +299,19 @@ switch para.model
                 [HS0, HSI] = MLSB_Operators(para);                  % uses local function
                 zm_spin=zeros(para.MLSB_Ls);
                 op.h1term{1}= HS0;
-                op.h2term{1,1,1} = para.t(1).*HSI; op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi) only for J_Renger!
-                op.h2term{2,1,1} = para.t(1).*conj(HSI'); op.h2term{2,2,1} = zm_spin;		% was sigmaX; conj() to still have hermitian Hamiltonian!
+                op.h2term{1,1,1} = para.chain{1}.t(1).*HSI;  op.h2term{1,2,1} = zm_spin;		% t(1) = sqrt(eta_0/pi) only for J_Renger!
+                op.h2term{2,1,1} = para.chain{1}.t(1).*HSI'; op.h2term{2,2,1} = zm_spin;		% was sigmaX; conj() to still have hermitian Hamiltonian!
             case para.L
                 [bp,bm,n] = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
                 zm=sparse(size(bp,1),size(bp,1));
-                op.h1term{para.L}=para.epsilon(para.L-1).*n;
+                op.h1term{para.L}=para.chain{1}.epsilon(para.L-1).*n;
                 op.h2term{1,1,para.L} = zm; op.h2term{1,2,para.L} = bm;
                 op.h2term{2,1,para.L} = zm; op.h2term{2,2,para.L} = bp;
             otherwise
                 [bp,bm,n] = bosonop(para.dk(s),para.shift(s),para.parity);
-                op.h1term{s}=para.epsilon(s-1).*n;
-                op.h2term{1,1,s} = para.t(s).*bp; op.h2term{1,2,s} = bm;
-                op.h2term{2,1,s} = para.t(s).*bm; op.h2term{2,2,s} = bp;
+                op.h1term{s}=para.chain{1}.epsilon(s-1).*n;
+                op.h2term{1,1,s} = para.chain{1}.t(s).*bp; op.h2term{1,2,s} = bm;
+                op.h2term{2,1,s} = para.chain{1}.t(s).*bm; op.h2term{2,2,s} = bp;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     case 'ImpurityQTN'
@@ -1321,24 +1321,23 @@ function [H0, H1] = MLSB_Operators(para)
 % perhaps export to file
 switch para.MLSB_mode
     case 1
-        %   Define equal spacing Delta between each level:  para.MLSB_Delta
+        %   Define spacings Delta between each level:  para.MLSB_Delta
         %   Define couplings System-Bath as vector:         para.MLSB_t
         %   Define Size of ML-System:                       para.MLSBM_Ls
         %   Energy levels will be symmetrically aligned around 0
         %   TODO: next-neighbour couping within system
-        assert(length(para.MLSB_Delta) == 1, 'Only one spacing Delta allowed');
         assert(length(para.MLSB_t) == para.MLSB_Ls, 'All couplings t between system and bath must be defined');
         H0 = diag(((para.MLSB_Ls:-1:1)- (para.MLSB_Ls+1)/2).*para.MLSB_Delta);
+		H0 = diag([0, cumsum(para.MLSB_Delta)]);
         H1 = diag(para.MLSB_t);
     case 2
         % Hamiltonian with rotational symmetry. Get from separate function
         % untis in eV
         [H0, H1] = Hamiltonian_PPC(para);
 	case 3
-		% Hamiltonian of DP-MES
-		H0 = zeros(5);
-		H1 = zeros(5);
-		error('VMPS:genh1h2term_onesite','DP_MES Hamiltonian not yet available.')
+		% Hamiltonian from matrices
+		H0 = para.MLSB_H0;
+		H1 = para.MLSB_H1;
     otherwise
 end
 
