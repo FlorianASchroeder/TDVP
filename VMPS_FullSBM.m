@@ -37,9 +37,10 @@ if isdeployed           % take care of command line arguments
 end
 
 %% Choose model and chain mapping
-para.model='SpinBoson';
+para.model='MLSpinBoson';
     % choose: 'SpinBoson', 'SpinBoson2folded', 'MLSpinBoson','ImpurityQTN'
 	%         '2SpinPhononModel', 'SpinBoson2C', 'SpinBosonTTM', 'SpinBoson2CT'
+	%		  'SpinBoson2CXZ',
 	%		  'DPMES3-4C', 'DPMES4-5C', 'DPMES5-7C'
 	%		  'UniformBosonTTM'
 % para.chainMapping = 'OrthogonalPolynomials';
@@ -56,7 +57,6 @@ para.useStarMPS = 0;
 para.useTreeMPS = 0;
 
 %% System Definitions:
-% if ~strcmp(para.model,'MLSpinBoson') && ~strcmp(para.model,'2SpinPhononModel')
 if ~any(strcmp(para.model,{'MLSpinBoson','2SpinPhononModel'}))
 	% setting para for single-spin models
 	% H0 = -para.hx./2.*sigmaX -para.hz./2.*sigmaZ
@@ -141,8 +141,8 @@ elseif ~isempty(strfind(para.model,'SpinBoson'))
 	if alpha == 0 && para.chain{1}.L == 0                  
 		para.chain{1}.L = 10;						% otherwise encounter error
 	end
-%	para.chain{2} = para.chain{1};
-%	para.chain{2}.w_cutoff = 5;
+% 	para.chain{2} = para.chain{1};
+% 	para.chain{2}.w_cutoff = 5;
 elseif ~isempty(strfind(para.model,'UniformBosonTTM'))
 	% put in parameters by hand!
 	para.chain{1}.epsilon = 0.5;
@@ -224,8 +224,10 @@ if strcmp(para.model,'MLSpinBoson')     % definitions needed in SBM_genpara for 
     %   2:  Hamiltonian with rotational symmetry. Read in data from file.
     %       Needs Define: MLSBM_t, MLSB_system,
     %       Automatically defined: MLSB_Ls, Renger2012 J(w),
+	%	3:  Define H0 and H1 as matrix from file input
+	%		Needs Define: MLSB_H0, MLSB_H1
 	if ~isempty(strfind(para.chain{1}.spectralDensity,'Leggett'))
-		para.MLSB_mode = 1;
+		para.MLSB_mode = 3;
 	elseif ~isempty(strfind(para.chain{1}.spectralDensity,'Renger'))
 		para.MLSB_mode = 2;
 	end
@@ -329,25 +331,29 @@ end
 
 if strcmp(para.model,'MLSpinBoson')
 %% Model Definition para.MLSB_mode:
-    %   1:  from diagonalised, constant spacing Delta, predefined t=[t1 t2 t3 t4...]; energies symmetric about 0s
+    %   1:  from diagonalised, define spacings Delta, predefined t=[t1 t2 t3 t4...]; energies symmetric about 0s
     %       Needs Define: MLSB_Ls, MLSB_Delta, MLSB_t,
     %       Automatically defined: SBM J(w)
     %   2:  Hamiltonian with rotational symmetry. Read in data from file.
     %       Needs Define: MLSBM_t, MLSB_system,
     %       Automatically defined: MLSB_Ls, Renger2012 J(w),
     %       Can be affected with static random disorder
+	%	3:  Define H0 and H1 as matrix from file input
 
 % All modes:
 % System-Bath coupling:
-%    para.MLSB_t = [-1 -1 -1 1 1 1];                 % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
-    para.MLSB_p = period;                           % period of coupling for cosine
-    para.MLSB_etaFactor = eta;                      % multiplier to increase system-bath coupling
-    para.MLSB_t = @(x) para.MLSB_etaFactor.*exp(1i*2*pi/para.MLSB_p.*x);                % MLSB_t can be an anonymous function.
-    para.MLSB_tOff = 1;                             % 0=diag coupling; 1 = 1. off-diagonal n,n+1 coupling
-
+    
+	if para.MLSB_mode ~= 3
+% 		para.MLSB_t = [-1 -1 -1 1 1 1];                 % coupling of each level to bath from range [-1,1]. Used as para.t(1)*para.MLSB_t
+		para.MLSB_p = period;                           % period of coupling for cosine
+		para.MLSB_etaFactor = eta;                      % multiplier to increase system-bath coupling
+		para.MLSB_t = @(x) para.MLSB_etaFactor.*exp(1i*2*pi/para.MLSB_p.*x);                % MLSB_t can be an anonymous function.
+		para.MLSB_tOff = 1;                             % 0=diag coupling; 1 = 1. off-diagonal n,n+1 coupling
+	end
+	
     if para.MLSB_mode == 1
-        para.MLSB_Ls = 6;                           % number of levels in System, symmetric around E=0;
-        para.MLSB_Delta = para.hx;                  % level spacing in already diagonalized model
+        para.MLSB_Delta = para.hx;                  % level spacings in already diagonalized model
+		para.MLSB_Ls = length(para.hx)+1;           % number of levels in System, symmetric around E=0;
     end
 
     if para.MLSB_mode == 2
@@ -355,10 +361,20 @@ if strcmp(para.model,'MLSpinBoson')
             % Choose: 'RsMolischianumB850', 'RsMolischianumB800B850'
         para.MLSB_Ls = length(Hamiltonian_PPC(para));
             % Inherently defined within model
-    end
+	end
+	
+	if para.MLSB_mode == 3
+		para.MLSB_H0 = load('DPMESdata_20170408/H1-A2.dat');			% TODO: needs file input
+% 		para.MLSB_H1 = load();						% TODO: needs file input, if most general coupling matrix given
+		para.MLSB_H1 = diag(beta);					% e.g.: beta = [-1, 1, 3];
+		para.MLSB_Ls = size(para.MLSB_H0,1);
+		assert(para.MLSB_Ls == size(para.MLSB_H1,1), 'Dimension mismatch of H1 and H0');
+	end
 
+	para.MLSB_InitialState = 1;				% pick which state should be occupied initially; 0: do Ground State optimisation
+	
 %% random static disorder:
-    para.MLSB_staticDisorder = 1;
+    para.MLSB_staticDisorder = 0;			% 0 or 1
     para.MLSB_disSDV = 200/2.3548;         % standard deviation of disorder; FWHM = 200 cm^-1; FWHM = 2.3548*SDV;
     % Vector with absolute values of disorder in cm^-1:
     para.MLSB_disDiag = para.MLSB_disSDV.*randn(para.MLSB_Ls,1);        % set to 0 if no diag disorder wanted
@@ -547,6 +563,8 @@ elseif ~isempty(strfind(para.model,'DPMES'))
 	prepareArtState();
 elseif isfield(para, 'useStarMPS') && para.useStarMPS == 1
 	prepareArtState();		% for now only artificial vacuum state
+elseif isfield(para, 'MLSB_InitialState') && para.MLSB_InitialState ~= 0
+	prepareArtState();
 else
 	[mps, Vmat,para,results,op] = minimizeE(op,para);
 end
@@ -636,6 +654,11 @@ fileName = para.filename;
 			mps{1}(1,1,2) = 1;
 			Vmat{1} = eye(para.dk(1,1));
 			nextSite = 2;
+		elseif isfield(para, 'MLSB_InitialState') && ~para.useStarMPS
+			mps{1} = zeros(1,para.D(1),para.dk(1,1));
+			mps{1}(1,1,para.MLSB_InitialState) = 1;
+			Vmat{1} = eye(para.dk(1,1));
+			nextSite = 2;
 		elseif isfield(para, 'useStarMPS') && para.useStarMPS == 1
 			mps{1} = zeros([1,para.D(:,1).',para.dk(1,1)]);
 			if ~isempty(strfind(para.model,'DPMES'))
@@ -658,6 +681,9 @@ fileName = para.filename;
 					mps{1}(idx{:},1) = -1/sqrt(2);
 					mps{1}(idx{:},2) = 1/sqrt(2);
 				end
+			elseif isfield(para, 'MLSB_InitialState')
+				idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states
+				mps{1}(idx{:},para.MLSB_InitialState) = 1;
 			else
 				mps{1}(1) = 1;									% just pick one random element for now!
 			end
