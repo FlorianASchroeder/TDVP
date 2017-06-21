@@ -566,7 +566,7 @@ para.relativeshift=zeros(para.nChains,para.L);
 para.relativeshiftprecision=0.01;				% When the relative shift is below this value then stop shifting
 % para = maxshift(para);						% TODO!
 
-para.version = 'v77';
+para.version = 'v79';
 
 if isstruct(para.tdvp)
 	%% Defaults to para for tdvp
