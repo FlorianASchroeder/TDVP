@@ -427,6 +427,10 @@ for ii = 1:length(para.chain)
 
 end
 
+%% Get the RC parameters in cm^-1
+x = res(1);
+[cellfun(@(x) x.epsilon(1), x.para.chain);cellfun(@(x) x.t(1), x.para.chain)]./1.23984e-4
+
 %% For TDVP analysis:
 
 %% TDVP (1) SBM: Plot evolution of the spin
@@ -527,6 +531,10 @@ formatPlot(f,'twocolumn-single');
 % diff(rhoii) overlay: select upper plot first!
 % plot(x.t(1:x.lastIdx-1)*0.658,-25*diff(real(x.rho(1:x.lastIdx,1,1))),'-.','Color',[0.5,0.5,0.5],'LineWidth',1.5); % for LE+
 
+%% TDVP Get TreeMPS vNE across all ER-node
+% open a full .mat file and deserialise treeMPS
+TDVPData.printSvNETreeMPS(treeMPS)
+
 %% TDVP (3) Environment Plots
 %% TDVP (3.1): Plot <n> CHAIN
 mode = 0;		% 0: lin, 1: log
@@ -608,7 +616,7 @@ axis tight
 formatPlot(f,'twocolumn-single')
 %% TDVP (3.1): 1D Plot <n> Chain DFT - dist - TDVPData
 f=figure(316);  f.Name = ''; clf; hold all; ax = gca;
-x = res(4);
+% x = res(4);
 h = x.plotSld1DFT('chain-n','-cmev','-dist','-smoothres',f);
 set(h.sld{2},'Value',20);	% start with 20 zero padding
 set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
@@ -618,6 +626,18 @@ ylabel('$|FT (n_{RC})|$');
 [h.ax.XLim] = deal([0,2000]);
 formatPlot(f,'twocolumn-single')
 drawnow; h.controlPanel.delete;
+%% TDVP (3.1): 1D Plot <n> Chain DFT - dist - TDVPData
+f=figure(316);  f.Name = ''; clf; hold all; ax = gca;
+x = res(1);
+h = x.plot('chain-n-rc-ft','-cmev','-resetColorOrder','-norm','-dist',f)
+% set(h.pl,{'Displayname'},{'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'}')
+set(h.pl,{'Displayname'},{'$A_{2}$','$A_{1,1}$','$A_{1,2}$','$B_{1,1}$','$B_{1,2}$','$B_{2,2}$','$B_{2,3}$'}');  %for DPMES-Tree3
+arrayfun(@(x) legend(x,'show'),h.ax);
+arrayfun(@(x) grid(x,'on'),h.ax);
+ylabel('$|FT (n_{RC})|$');
+[h.ax.XLim] = deal([0,2000]);
+formatPlot(f,'twocolumn-single')
+drawnow;
 %% TDVP (3.1): 1D Plot <n> RC - diabatic all chains, grid - TDVPData
 % x = y(end);
 h = x.plot('chain-n-d-rc','-fsev');
@@ -1166,9 +1186,11 @@ ax(end).Visible = 'off';
 t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
 %% TDVP (3.1): 1D Plot <x> RC - adiabatic all chains, grid - TDVPData
 % x = y(1);
-h = x.plot('chain-x-a-rc','-fsev');
-h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Displacement RC';
-chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+h = x.plot('chain-x-a-rc','-fsev','-rowheight',10,'-rowwidth',45);
+h.f.OuterPosition = [0 0.05 1 0.95];
+h.f.Name = 'Adiabatic Displacement RC';
+% chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};  % for old DPMES
+chainlbl = {'$B_{1,1}$','$B_{1,2}$','$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{2,1}$','$B_{2,2}$'};		% for DPMES-Tree4
 for ii = 1:length(chainlbl)
 	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
 	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
@@ -1981,7 +2003,7 @@ formatPlot(f,'twocolumn-single')
 
 	%% TDVPData: DFT Smooth residuals dist
 f=figure(714);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
-x = res(2);
+x = res(1);
 h = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder','-dist',f); ax=gca; f=gcf;
 set(h.pl,{'Displayname'},{'TT','LE+','LE-','CT+','CT-'}')
 arrayfun(@(x) legend(x,'show'),h.ax);
@@ -1992,7 +2014,7 @@ ylabel('$|FT(\rho_{ii})|^2$');
 formatPlot(f,'twocolumn-single')
 
 	%% TDVPData: DFT Smooth residuals norm dist
-f=figure(714);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
+f=figure(715);  f.Name = 'Rhoii residual DFT'; clf; hold all; ax = gca;
 % x = res(2);
 ph = x.plot('rhoii-osc-res-med','-cmev','-resetColorOrder','-norm','-dist',f); ax=gca; f=gcf;
 leg = legend('TT','LE+','LE-','CT+','CT-');
@@ -2133,6 +2155,30 @@ grid on
 axis tight
 formatPlot(gcf,'twocolumn-single')
 
+
+%% TDVP (8.1) TES/PES Energy Surfaces
+x = res(8);
+h=x.plot('heff-full-pop-diab-v2','-fsev','-xlim',[0,420]);
+% [h.pl(1:end-1).FaceAlpha] = deal(0.5);
+h.ax.Color = 'none'
+box on;
+xlim([0,420]);
+
+%% TDVP (8.2) j Currents
+x = res(1);
+h = x.plot('heff-current-nonzero','-fsev');
+legend toggle;
+xlim([0,420]);
+TDVPData.resetColorOrder(h.ax);
+%% TDVP (8.2.1) sum(j) Currents cumsum
+x = res(1);
+h = x.plot('heff-current-cumsum','-fsev');
+delete(h.pl(~sum(abs(h.ydata),1)));
+legend toggle;
+xlim([0,420]);
+TDVPData.resetColorOrder(h.ax);
+%% export
+export_fig(['img/test'],'-transparent','-painters','-png','-m4')
 %% TDVP z-averaging in one file
 % naming scheme to find files:
 %   take series filename and replace z-value by *
@@ -6351,7 +6397,48 @@ for ii = 1:2%size(defPlot,1)
 end
 % x.plot('calctime-d-sec',figure)
 
-%% DPMESclust7-1 Star model															% LabBook 09/04/2016
+%% DPMES-Tree2 v76 TreeMPS Broad 20cm vs chains - TDVPData								% LabBook 10/04/2017
+clear
+defPlot(1,:) = {'20170410-DPMES-Tree2-v76-dt0.5-broad-vs-chains',							[ 1: 4], {'xlim',[0,1000]}};
+% defPlot(3,:) = {'20161112-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-4: broad different chains
+dirPat = '20170406-0944-..-DPMES-Tree2-Tree-v76TCMde9-L100CT0LE\+';
+filPat = 'results-Till5000Step0.5v76-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'L(?<L>[0-9\.]*)CT','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.L),tokens));
+matches = [matches; m(I)];
+legLabels = {'B1','A1','B2','A2'};
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+	%% plot full dynamics in grid
+close all
+for ii = 1:1%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid',[2,2]);
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:length(ax)
+		title(ax(kk),sprintf('Broadened %s',legLabels{kk}));
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+end
+% x.plot('calctime-d-sec',figure)
+
+%% DPMESclust7-1 Star model															% LabBook 09/04/2017
 clear
 defPlot(1,:) = {'20170409-DPMESclust7-1-Star-v77-dt0.5-vs-D',					[ 1: 4], {'xlim',[0,670]}};
 defPlot(2,:) = {'20170409-DPMESclust7-1-Star-v77-dt2-vs-D',						[ 6: 9], {'xlim',[0,670]}};
@@ -6402,10 +6489,10 @@ for ii = 1:2%size(defPlot,1)
 	end
 end
 
-%% DPMES-Tree3/4 Comparison															% LabBook 09/04/2016
+%% DPMES-Tree3/4 Comparison															% LabBook 09/04/2017
 clear
-defPlot(1,:) = {'20170409-DPMES-Tree3-v77-dt0.5',					[ 1: 2], {'xlim',[0,170]}};
-defPlot(2,:) = {'20170409-DPMES-Tree4-v77-dt0.5',					[ 3: 4], {'xlim',[0,170]}};
+defPlot(1,:) = {'20170409-DPMES-Tree3-v77-dt0.5',					[ 1: 2], {'xlim',[0,2000]}};
+defPlot(2,:) = {'20170409-DPMES-Tree4-v77-dt0.5',					[ 3: 4], {'xlim',[0,2000]}};
 % defPlot(3,:) = {'20161112-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
 
 load('TDVPLib.mat');
@@ -6428,14 +6515,14 @@ m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
 matches = [matches; m];
 legLabels = [legLabels, {'Tree3 broad'}];
 
-% 1: Tree3 no broadening
+% 1: Tree4 no broadening
 dirPat = '20170409-1735-52-DPMES-Tree4-Tree-v77TCMde11-L100CT0LE\+';
 filPat = 'results-Till5000Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
 m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
 matches = [matches; m];
 legLabels = [legLabels, {'Tree4'}];
 
-% 2: Tree3 with 20cm broadening
+% 2: Tree4 with 20cm broadening
 dirPat = '20170409-1736-02-DPMES-Tree4-Tree-v77TCMde11-L100CT0LE\+';
 filPat = 'results-Till5000Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
 m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
@@ -6445,7 +6532,7 @@ legLabels = [legLabels, {'Tree4 broad'}];
 
 res = TDVPData({matches.name});
 res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
-%% plot full dynamics in grid
+	%% plot full dynamics in grid
 close all
 for ii = 1:2%size(defPlot,1)
 	
@@ -6462,6 +6549,571 @@ for ii = 1:2%size(defPlot,1)
 		end
 	end
 end
+
+%% DPMES-Tree2 Potential Dynamics													% LabBook 14/04/2017
+clear
+defPlot(1,:) = {'20170414-DPMES-Tree2-v77-dt0.5',					[ 1: 1], {'xlim',[0,450]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1: Tree2 no broadening
+dirPat = '20170412-1742-25-DPMES-Tree2-Tree-v77-L18CT0LE\+';
+filPat = 'results-Till1000Step0.1v77-OBBmax40-Dmax\(30-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+matches = [matches; m];
+legLabels = [legLabels, {'noBroad'}];
+
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+
+	%% plot
+close all
+for ii = 1:1%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('heff-pop-diab','-fsev','-ylim',[1.5,4.5]);
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.f.Children];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+end
+
+%% Heff-swapping: 20170412-1742 (not good)
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170412-1742-25-DPMES-Tree2-Tree-v77-L18CT0LE\+';
+filPat = 'results-Till1000Step0.1v77-OBBmax40-Dmax\(30-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+	%% Define swaps
+	% first find swaps 1 after the other (only do this once per dataset)
+swaps = [  41 2 3;...
+		  124 4 5;...
+		  302 2 5;...
+		  317 2 5;...
+		  363 2 5;...
+		  757 2 4;...	# soft change
+		  924 1 3;...
+		  958 4 5;...	# soft change
+		 1120 2 5;...	# soft change
+		 1473 1 4;...	# soft change
+		 2248 2 5;...	# very soft		(could be removed)
+		 2280 2 5;...	# very soft
+		 2305 2 5;...	# very soft
+		  ]		
+
+% h = res.plot('heff-pop-diab-swap','-state',swaps,'-ylim',[1.8,4.2],'-rowheight',12,'-rowwidth',49,'-patchthickness',0.2);
+%% Kin-Heff-swapping: 20170417-1449 Tree2
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170417-1449-08-DPMES-Tree2-Tree-v77-L18CT0LE\+';
+filPat = 'results-Till1500Step0.1v77-OBBmax40-Dmax\(30-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+%% swap
+swaps = [   7 4 5;...
+		   41 2 3;...
+		  124 4 5;...
+		  302 2	4;...
+		  317 2 4;...
+		  363 2 4;...
+		  757 2 5;...
+		  924 1 3;...
+		  958 4 5;...
+		 1120 2 4;...
+		 1473 1 5;...
+		 2247 2 4;...
+		 2279 2 4;...
+		 2307 2 4;...
+		];
+h=res(1).plot('heff-pop-diab-swap','-state',swaps,'-rowheight',12,'-rowwidth',48,'-ylim',[1.6,3.8],'fsev');
+h.f.Position([1,2]) = [0,1];
+h.f.Name = '20170417-1449-heff-swap';
+delete(h.ax(6));
+xlabel(h.ax(2),'$t/fs$'); ylabel(h.ax(2),'$E/eV$');
+%% Kin-Heff-swapping: 20170417-1451 Tree2 (B1 broad)
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170417-1451-55-DPMES-Tree2-Tree-v77-L100CT0LE\+';
+filPat = 'results-Till1500Step0.1v77-OBBmax40-Dmax\(30-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+%% swap
+swaps = [   7 4 5;...
+		   38 2 3;...
+		  130 4 5;... 
+		  304 2 4;...
+		  321 2 4;...
+		  365 2 4;
+		  810 2 5;
+		 1057 1 3;
+		 1296 4 5;
+		 2090 1 5;
+		];
+h=res(1).plot('heff-pop-diab-swap','-state',swaps,'-rowheight',12,'-rowwidth',48,'-ylim',[1.6,3.8]);
+h.f.Position([1,2]) = [0,1];
+h.f.Name = '20170417-1451-heff-swap';
+delete(h.ax(6));
+xlabel(h.ax(2),'$t/fs$'); ylabel(h.ax(2),'$E/eV$');
+%% Kin-Heff-swapping: 20170417-1536 Tree4
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170417-1536-29-DPMES-Tree4-Tree-v77-L100CT0LE\+';
+filPat = 'results-Till1500Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+%% swap
+swaps = [   5 2 3;
+		   58 4 5;
+		  161 3 5;
+		  326 1 5;
+		  437 3 4;
+		  457 3 4;
+		  464 3 4;
+		  608 3 4;
+		  627 3 4;
+		  676 3 4;
+		  681 3 4;
+		];
+h=res(1).plot('heff-pop-diab-swap','-state',swaps,'-rowheight',12,'-rowwidth',48,'-ylim',[1.6,3.8]);
+h.f.Position([1,2]) = [0,1];
+h.f.Name = '20170417-1536-heff-swap';
+delete(h.ax(6));
+xlabel(h.ax(2),'$t/fs$'); ylabel(h.ax(2),'$E/eV$');
+%% PES-Heff-swapping: 20170419-1218 Tree2
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170419-1218-25-DPMES-Tree2-Tree-v77-L18CT0LE\+';
+filPat = 'results-Till1500Step0.2v77-OBBmax40-Dmax\(40-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+%% swap
+swaps = [  22	2	3;
+		   64	4	5;
+		  152	2	5;
+		  159	2	5;
+		  183	2	5;
+		  378	2	4;
+		  463	1	3;
+		  480	4	5;
+		  563	2	5;
+		  736	1	4;
+		];
+h=res(1).plot('heff-pop-diab-swap','-fsev','-state',swaps,'-rowheight',12,'-rowwidth',48,'-ylim',[1.5,3.4],'-xlim',[0,1000]);
+h.f.Position([1,2]) = [0,1];
+h.f.Name = '20170419-1218-PES-swap';
+delete(h.ax(6));
+% xlabel(h.ax(2),'$t/fs$'); ylabel(h.ax(2),'$E/eV$');
+%% PES-Heff-swapping: 20170428-1244 Tree4 Sym Clean
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170428-1244-31-DPMES-Tree4-Tree-v77-L100CT0LE\+';
+filPat = 'results-Till1700Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+%% swap
+swaps = [   5	2	3;
+		   58	4	5;
+		  162	2	5;
+		  173	2	5;
+		  324	1	3;
+		  434	4	5;
+		];
+h=res(1).plot('heff-pop-diab-swap','-state',swaps,'-rowheight',12,'-rowwidth',48,'-ylim',[1.2,3.4],'-xlim',[0,900]);
+h.f.Position([1,2]) = [0,1];
+h.f.Name = '20170428-1244-PES-swap';
+delete(h.ax(6));
+% xlabel(h.ax(2),'$t/fs$'); ylabel(h.ax(2),'$E/eV$');
+%% PES-Heff-swapping: 20170428-1348 Tree4 75 Modes
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170428-1348-57-DPMES-Tree4-Tree-v77-75Modes-L20CT0LE\+';
+filPat = 'results-Till1500Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom256-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+%% swap
+swaps = [   5	2	3;
+		  118	4	5;
+		  170	2	5;
+		  320	1	3;
+		  331	2	5;
+		  361	4	5;
+		];
+res(2) = res(1).getData('heff-swap','state',swaps);
+h=res(2).plot('heff-pop-diab','-rowheight',12,'-rowwidth',48,'-ylim',[1.0,3.9],'-xlim',[0,1100]);
+h.f.Position([1,2]) = [0,1];
+h.f.Name = '20170428-1348-PES-swap';
+delete(h.ax(6));
+% xlabel(h.ax(2),'$t/fs$'); ylabel(h.ax(2),'$E/eV$');
+%% PES-Heff-swapping: 20170428-2117 Tree4 full
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+
+% 1
+dirPat = '20170428-2117-08-DPMES-Tree4-Tree-v77TCMde9-L100CT0LE\+';
+filPat = 'results-Till1700Step0.5v77-OBBmax40-Dmax\(50-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+% tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+% [y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m];
+% legLabels = [y];
+
+
+res = TDVPData({matches.name});
+%% swap
+swaps = [   5	2	3;
+		   58	4	5;
+		  162	2	5;
+		  173	2	5;
+		  324	1	3;
+		  434	4	5;
+		];
+res(2) = res(1).getData('heff-swap','state',swaps);
+h=res(2).plot('heff-pop-diab','-rowheight',12,'-rowwidth',48,'-ylim',[1.2,3.4],'-xlim',[0,900]);
+h.f.Position([1,2]) = [0,1];
+h.f.Name = '20170428-1244-PES-swap';
+delete(h.ax(6));
+% xlabel(h.ax(2),'$t/fs$'); ylabel(h.ax(2),'$E/eV$');
+
+%% DPMES-Tree4 v78 TreeMPS Dnode convergence  - TDVPData								% LabBook 30/05/2017
+clear
+defPlot(1,:) = {'20170428-DPMES-Tree4-v78-dt0.5-DNodeConvergence',						[ 1: 5], {'xlim',[0,1200]}};
+% defPlot(3,:) = {'20161101-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-5: dt 0.5
+dirPat = '20170428-2116-06-DPMES-Tree4-Tree-v77TCMde9-L100CT0LE\+';
+filPat = 'results-Till1700Step0.5v77-OBBmax40-Dmax\(.*-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+	%% plot single state convergence
+state = 1;
+for ii = 1:size(defPlot,1)
+	f = figure(); hold all; ax = gca; f.Name = defPlot{ii,1};
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder',figure);
+	a = cellfun(@(x) copyobj(x(state),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+	legend({res(pick).LegLabel});
+	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+	[a.LineStyle] = deal(linestyles{1:length(a)});
+	ylabel('$\rho_{ii} (t)$');
+	set(gca,'color','none');
+	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+	%% plot full dynamics in grid
+%close all
+for ii = 1:2%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid');
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:length(ax)
+		title(ax(kk),sprintf('$D_{node}=%s, \\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+% 	a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+% 	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+% 	legend({res(pick).LegLabel});
+% 	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+% 	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+% 	[a.LineStyle] = deal(linestyles{1:length(a)});
+% 	ylabel('$\rho_{ii} (t)$');
+% 	set(gca,'color','none');
+% 	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+%% DPMES-Tree4 v78 TreeMPS Dnode[80,100,120] convergence  + PES- TDVPData				% LabBook 30/05/2017
+clear
+defPlot(1,:) = {'20170504-DPMES-Tree4-v78-dt0.5-DConvergence',						[ 1: 6], {'xlim',[0,1200]}};
+defPlot(2,:) = {'20170504-DPMES-Tree4-v78-dt0.2-DConvergence',						[ 7:13], {'xlim',[0,1200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-6: dt 0.5
+dirPat = '20170504-1825-10-DPMES-Tree4-Tree-v77TCMde9-L100CT0LE\+';
+filPat = 'results-Till1700Step0.5v77-OBBmax40-Dmax\(.*-.*\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);	
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-(?<DChain>[0-9\.]*)\)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 7:13 dt 0.2
+dirPat = '20170504-1825-10-DPMES-Tree4-Tree-v77TCMde9-L100CT0LE\+';
+filPat = 'results-Till1700Step0.2v77-OBBmax40-Dmax\(.*-.*\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-(?<DChain>[0-9\.]*)\)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(legLabels);
+	%% plot single state convergence
+state = 1;
+for ii = 1:size(defPlot,1)
+	f = figure(); hold all; ax = gca; f.Name = defPlot{ii,1};
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder',figure);
+	a = cellfun(@(x) copyobj(x(state),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+	legend({res(pick).LegLabel});
+	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+	[a.LineStyle] = deal(linestyles{1:length(a)});
+	ylabel('$\rho_{ii} (t)$');
+	set(gca,'color','none');
+	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+	%% plot full dynamics in grid
+%close all
+for ii = 1:2%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid');
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:length(ax)
+		t=title(ax(kk),sprintf('%s, $\\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		t.Interpreter = 'latex';
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+% 	a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+% 	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+% 	legend({res(pick).LegLabel});
+% 	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+% 	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+% 	[a.LineStyle] = deal(linestyles{1:length(a)});
+% 	ylabel('$\rho_{ii} (t)$');
+% 	set(gca,'color','none');
+% 	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+%% DPMES-Tree4 v78 TreeMPS Dnode[10:120] convergence - TDVPData							% LabBook 30/05/2017
+clear
+defPlot(1,:) = {'20170530-DPMES-Tree4-v78-DConvergence-overview',						[1:4,12,6:9,11], {'xlim',[0,1200]}};
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-5: dt 0.5
+dirPat = '20170428-2116-06-DPMES-Tree4-Tree-v77TCMde9-L100CT0LE\+';
+filPat = 'results-Till1700Step0.5v77-OBBmax40-Dmax\(.*-20\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-(?<DChain>[0-9\.]*)\)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$(%s,%s)$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+% 6-11: dt 0.5
+dirPat = '20170504-1825-10-DPMES-Tree4-Tree-v77TCMde9-L100CT0LE\+';
+filPat = 'results-Till1700Step0.5v77-OBBmax40-Dmax\(.*-.*\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);	
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-(?<DChain>[0-9\.]*)\)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$(%s,%s)$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+% 12: dt 0.2 (50,30)
+dirPat = '20170504-1825-10-DPMES-Tree4-Tree-v77TCMde9-L100CT0LE\+';
+filPat = 'results-Till1700Step0.2v77-OBBmax40-Dmax\(50-30\)-expvCustom270-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-(?<DChain>[0-9\.]*)\)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+matches = [matches; m(I)];
+legLabels = [legLabels, y];
+
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(legLabels);
+
+	%% plot full dynamics in grid (only testing)
+%close all
+for ii = 1:1%size(defPlot,1)
+	
+	pick = defPlot{ii,2};
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder','-grid');
+	h(1).f.Name = defPlot{ii,1};
+	ax = [h.ax];
+	[ax.XLim] = deal(defPlot{ii,3}{2});
+	for kk = 1:length(ax)
+		t=title(ax(kk),sprintf('%s, $\\frac{t_{CPU}}{sweep} = %.2g min$',res(pick(kk)).LegLabel, 60*mean(diff(nonzeros(res(pick(kk)).para.tdvp.calcTime)))));
+		t.Interpreter = 'latex';
+		if kk ~= length(ax)
+			a = copyobj(h(end).pl,ax(kk));		% copy D=100 into other gridcells
+			set(a,'Color',[1,1,1]*0.6);
+		end
+	end
+% 	a = cellfun(@(x) copyobj(x(4),ax),{h.pl},'UniformOutput',false); a=[a{:}];
+% 	ax.XLabel = h(1).ax(1).XLabel; close(h(1).f);
+% 	legend({res(pick).LegLabel});
+% 	set(a,{'Color'},mat2cell(ax.ColorOrder(mod(0:length(a)-1,7)+1,:),ones(1,length(a)),3));
+% 	linestyles = reshape(repmat({'-','--',':'},7,1),[],1);
+% 	[a.LineStyle] = deal(linestyles{1:length(a)});
+% 	ylabel('$\rho_{ii} (t)$');
+% 	set(gca,'color','none');
+% 	grid on
+end
+% x.plot('calctime-d-sec',figure)
+
+	%% plot TT error against time/sweep
+%close all
+clear h
+for ii = 1:size(defPlot,1)
+	pick = defPlot{ii,2};
+	h.f = figure(ii); clf; h.ax = gca; h.f.Name = defPlot{ii,1}; hold all;
+	% extract the TT populations
+	ttPop = cell2mat(arrayfun(@(x) TDVPData.subsample(real(x.getData('rhoii','state',1)),x.dt,1),res(pick)','UniformOutput',false));
+	% estimate mean error
+	ttErr = bsxfun(@minus,-ttPop,-ttPop(:,end));
+	ttErr = bsxfun(@rdivide,ttErr,ttPop(:,end)); ttErr(isnan(ttErr)) = 0;		% makes error relative
+	ttMeanErr = (mean(ttErr,1))*100;
+	
+% 	ttErr = mean(abs(bsxfun(@minus,-ttPop,-ttPop(:,end))),1);
+% 	ttMeanErr = ttErr./mean(abs(diff(ttPop(:,end))));
+	% get Runtimes
+	tSweep = arrayfun(@(x) 60*mean(diff(nonzeros(x.para.tdvp.calcTime))),res(pick));
+	h.pl = scatter(tSweep, ttMeanErr,'filled');
+	xlabel('$t/Sweep/min$');
+	ylabel('Mean rel. error in $\rho_{\mathrm{TT}}$');
+	box on;
+	% shift text labels
+	offX = -ones(1,length(pick))*0.9; offY = ones(1,length(pick))*0.04;
+	offY(1) = -0.05;
+	offX(4) = -2.1;offY(4) = 0;
+	offX(6) = -1.5;offY(6) = 0.12;
+	offX(7) = 0;offY(7) = 0.12;
+	offX(8) = 0;
+	offX(9) = -0.5;
+	for kk = 1:length(pick)
+		t = text(tSweep(kk)+offX(kk),double(ttMeanErr(kk))+offY(kk),strrep(res(pick(kk)).LegLabel,', ','\\\\'));
+	end
+	set(gca,'color','none');
+% 	xlim([0,11.9]);
+% 	ylim([-0.03,0.56]);
+	plot(h.ax.XLim,[0,0],'k');
+end
+resizePlot(h.f)
+
+
 
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
@@ -7242,6 +7894,18 @@ exponent = integral(@(w) Jhard(w).*(1-cos(w.*t)),0,wc,'ArrayValued',true);
 figure(2); clf; hold all;
 plot(t,exp(-exponent));
 plot(t(2:end),diff(exponent)./t(2))
+%% Plot iSBM2C pure dephasing decoherence
+t = 0:0.2:20;
+a = 0.1; s=1; wc=[1,5]; wcut=inf;
+exponent = 0;
+for ii = 1:2
+% 	Jsmooth = @(w) 2.*a.* w.^(s-2).* wc(ii).^(1-s).*exp(-w/wc(ii));
+	Jhard = @(w) 2.*a.* w.^(s-2).* wc(ii).^(1-s);
+	exponent = exponent+ integral(@(w) Jhard(w).*(1-cos(w.*t)),0,wc(ii),'ArrayValued',true);
+end
+figure(2); clf; hold all;
+plot(t,exp(-exponent)*0.5);
+plot(t(2:end),diff(exponent)./t(2))
 %% Create ideal 2D <n> for Thermal cooling
 n = para.L; beta = 40; dt = 0.1;
 sigmaZ= [1,-1]; ii = 1; Aocc = zeros(n,n,2);
@@ -7474,11 +8138,35 @@ A = treeMPS.mps{1}; dA = size(A);
 [B, dB] = tensShape(A,'unfoldiso', [5,9],dA);
 [~,S,~] = svd2(B);
 
+%% Export adiabatic RC displacement
+% only takes the strongest adiabatic state!
+% obj = TDVPData('20161031-1428-05-DPMES-Tree2-Tree-v76TCMde11-L18CT0LE+\results-Till5000Step0.5v76-OBBmax60-Dmax(100-20)-expvCustom270-1core-small.mat');
+obj = TDVPData('20170409-1735-52-DPMES-Tree4-Tree-v77TCMde11-L100CT0LE+\results-Till5000Step0.5v77-OBBmax40-Dmax(50-20)-expvCustom270-1core-small.mat');
+maxN = 440;
+x = zeros(maxN,7);		% t x nChain
+for ii = 1:7
+	rcCol = find(~all(squeeze(obj.xCa(1:maxN,:,1,ii))==0),1);
+	x(:,ii) = squeeze(real(obj.xCa(1:maxN,rcCol,1,ii)));		% t x L x state x nChain
+end
+csvwrite('adiabX.dat',x);
+
+%% Analyse adiabatic potential
+adiabEnv = 1;
+out = real(cell2mat(arrayfun(@(i) sort(eig(squeeze(tresults.Heff(i,adiabEnv,:,adiabEnv,:))))',[1:tresults.lastIdx-1]','UniformOutput',false)));
+figure;
+plot(tresults.t(2:tresults.lastIdx),out(1:end,:))
+
+%% try to simultaneously extract distribution of wavefunction
+%
+for ii = 1:tresults.lastIdx
+	tresults.system.state
+end
 %% Save all currently opend figures
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
-	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
-% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m4', f_handles(ii));
+	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-pdf','-m2', f_handles(ii));
+% 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
+% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-painters','-png','-m2', f_handles(ii));
 % 	figure(f_handles(ii));
 % 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end

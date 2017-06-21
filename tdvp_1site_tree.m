@@ -254,8 +254,8 @@ for timeslice = para.tdvp.slices
 		% only calculate the current slice
 		tresults = calTimeObservables(treeMPS,[],para,tresults);
 	end
-
-
+	
+	
 	%% Additional saving
 	if mod(timeslice,para.tdvp.saveInterval) == 0 || timeslice ==  para.tdvp.slices(end)
 		%% backup results, op and para less often than tmps and tVmat
@@ -667,13 +667,14 @@ function [Atens, CA] = prepare_Tens(Atens, para)
 	if diff(size(AS)) >= 0
 		[AS, CA] = prepare_onesiteVmat(AS.', para);			% need for transpose since m x n, m > n input needed
 	else
-		[CA, AS] = prepare_onesiteVmat(AS, para);
+		% AS: D x prod(rest)
+		[CA, AS] = prepare_onesiteVmat(AS, para);			% means that prod(rest) < D, thus AS will be smaller than before!
 		CA = CA.';
-		AS = AS.';
+		AS = AS.';											% prod(rest) x prod(rest)
+		d(mc+1) = size(AS,1);
 	end
 
 	Atens	 = tensShape(AS.', 'fold', mc+1, d);
-
 end
 
 function treeMPS = tdvp_1site_evolveTree(treeMPS,para)
@@ -745,6 +746,9 @@ if ~treeMPS.isRoot
 	% [    Cn  , VmatChain, paraChain, resultsChain] = tdvp_1site_evolveKn(mpsChain,VmatChain,paraChain,resultsChain,opChain,sitej,Cn,Hn);
 else
 	treeMPS.BondCenter = Cn;		% should == 1
+	if abs(1-abs(Cn)) > 10^-5 
+		fprintf('\n State norm: %g', Cn);
+	end
 end
 	
 	function tdvp_1site_evolveNode()

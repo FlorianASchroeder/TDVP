@@ -23,6 +23,7 @@ evolveTreeCn = 0;
 if sitej == 0 && para.useTreeMPS
 	% this is Cn between different tree levels. Either Node <-> Node or Node <-> leaf
 	evolveTreeCn = 1;
+	para.tdvp.expvCustomNow = 1;
 	% Only use Hleft/Hright from op
 	% return mps = Cn;
 end

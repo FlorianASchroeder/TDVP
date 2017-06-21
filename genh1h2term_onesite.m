@@ -817,27 +817,38 @@ function op = genh1h2term_onesite_tree(para,treeIdx,s)
 switch para.model
 	case 'SpinBoson'
 		%%%%%%%%%%%%%%%%%%% Spin-boson Model %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+		%	Modified 10/04/2017
+		%
 		op.h1term = {};
 		op.h2term = cell(para.M,2);
-        switch s
-            case 1                                                  % first chain pos = all spin sites!
-                [sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
-                zm_spin			  = zeros(2);
-                op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
-                op.h2term{1,1}	  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
-                op.h2term{2,1}    = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2} = zm_spin;
-            case para.L                                             % last chain pos: only one coupling?
-                [bp,bm,n]		  = bosonop(para.dk(para.L),para.shift(para.L),para.parity);
-                zm				  = sparse(size(bp,1),size(bp,1));
-                op.h1term{1}	  = para.chain{1}.epsilon(para.L-1).*n;
-                op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
-                op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
-            otherwise
-                [bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
-                op.h1term{1}	  = para.chain{1}.epsilon(s-1).*n;									% e(1) == w(0)
-                op.h2term{1,1}    = para.chain{1}.t(s).*bp; op.h2term{1,2} = bm;					% t(2) == t(n=0)
-                op.h2term{2,1}    = para.chain{1}.t(s).*bm; op.h2term{2,2} = bp;
-        end
+		if treeIdx == 0
+			[sigmaX,~,sigmaZ] = spinop(para.spinbase);			% gives XYZ operators with respect to specific main base
+			zm_spin			  = zeros(2);
+			op.h1term{1}	  = -para.hx./2.*sigmaX-para.hz./2.*sigmaZ;
+			op.h2term{1,1}	  = para.chain{1}.t(1).*sigmaZ./2; op.h2term{1,2} = zm_spin;		% t(1) = sqrt(eta_0/pi)/2
+			op.h2term{2,1}    = para.chain{1}.t(1).*sigmaZ./2; op.h2term{2,2} = zm_spin;
+		else
+			mc  = treeIdx;					% number of edge == chain number
+			idx = treeIdx+1;				% idx = num2cell(treeIdx+1); index in para.*
+			if iscell(para.dk) && iscell(para.shift)
+				[bp,bm,n]		  = bosonop(para.dk{idx}(s),para.shift{idx}(s),para.parity);
+			else
+				[bp,bm,n]		  = bosonop(para.dk(s),para.shift(s),para.parity);
+			end
+			switch s
+				% only need s+1 here since L got shifted by 1 in treeMPS
+				case para.chain{mc}.L                                             % last chain pos: only one coupling?
+					zm				  = sparse(size(bp,1),size(bp,1));
+					op.h1term{1}	  = para.chain{1}.epsilon(s).*n;
+					op.h2term{1,1}    = zm; op.h2term{1,2} = bm;
+					op.h2term{2,1}    = zm; op.h2term{2,2} = bp;
+				otherwise
+					op.h1term{1}	  = para.chain{1}.epsilon(s).*n;									% e(1) == w(0)
+					op.h2term{1,1}    = para.chain{1}.t(s+1).*bp; op.h2term{1,2} = bm;					% t(2) == t(n=0)
+					op.h2term{2,1}    = para.chain{1}.t(s+1).*bm; op.h2term{2,2} = bp;
+			end
+		end
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		
 	case 'SpinBoson2C'
