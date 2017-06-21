@@ -542,9 +542,20 @@ classdef TDVPData
 					% best on an already swapped Heff.
 					% calculates the transition rates / currents from one diabatic state to another
 					% is equivalent to evaluating all the elements which can make up the current operator j = i[H,N]
+					% out: t x D' x dk' x D x dk
 					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
 					
 					out = -2 * imag(obj.Heff(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho*) )
+					full = 1;
+				case 'heff-current-squared'
+					% Possibly relevant for superexchange. Uses H^2 
+					% calculates the transition rates / currents from one diabatic state to another
+					% is equivalent to evaluating all the elements which can make up the current operator j = i[H,N]
+					% out: t x D' x dk' x D x dk
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					heffsquared = squeeze(sum(sum(bsxfun(@times, obj.Heff, permute(obj.Heff, [1,6,7,2,3,4,5])),4),5)); 
+					out = -2 * imag(heffsquared(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho*) )
 					full = 1;
 				case 'heff-current-v2'
 					% calculates the transition rates / currents from one diabatic state to another
@@ -624,6 +635,7 @@ classdef TDVPData
 					% get rho from sysState which contains correlations with the environment.
 					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
 					
+					% make labels
 					d = size(rho_SE);
 					legLab = cell(prod(d(2:end)),1);
 					for ii = 1:prod(d(2:end))
@@ -633,7 +645,41 @@ classdef TDVPData
 					rho_SE = reshape(rho_SE,d(1),[]);
 					out = {};
 					out{1} = rho_SE(1:obj.lastIdx,:);				% t x D'*dk'*D*dk
-					out{2} = legLab;				% D'*dk'*D*dk
+					out{2} = legLab;								% D'*dk'*D*dk
+				case 'is-heff-selfadjoint'
+					% 'out' contains the total absolute error of Heff-Heff' as measure of self-adjointness
+					d = size(obj.Heff);
+					heffTemp = conj(reshape(permute(obj.Heff, [1,4,5,2,3]),d(1),[]));		% form hermitian conjugate; t x rest
+					heff = reshape(obj.Heff, d(1),[]);
+					out = sum(abs(heff - heffTemp),2);
+					full = 1;
+				case 'is-rho-se-selfadjoint'
+					% 'out' contains the total absolute error of rhoSE-rhoSE' as measure of self-adjointness
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					d = size(rho_SE);
+					rho_SETemp = conj(reshape(permute(rho_SE, [1,4,5,2,3]),d(1),[]));		% form hermitian conjugate; t x rest
+					rho_SE = reshape(rho_SE, d(1),[]);
+					out = sum(abs(rho_SE - rho_SETemp),2);
+					full = 1;
+				case 'is-heff-current-antisymmetric'
+					% 'out' contains the total absolute error of cur+cur.' as measure of anti-symmetry
+					cur = obj.getData('heff-current');
+					
+					d = size(cur);
+					curTemp = reshape(permute(cur, [1,4,5,2,3]),d(1),[]);		% form transpose; t x rest
+					cur = reshape(cur, d(1),[]);
+					out = sum(abs(cur + curTemp),2);
+					full = 1;
+				case 'is-heff-current-total-zero'
+					% 'out' contains the sum over the upper right diagonal of cur
+					% not working, not finished!
+					cur = obj.getData('heff-current');
+					
+					d = size(cur);
+					cur = reshape(cur,d(1),d(2)*d(3),[]);				% t x D*dk x D*dk
+					
+				
 			end
 			
 			if ~full && ~iscell(out) && ~isobject(out)
