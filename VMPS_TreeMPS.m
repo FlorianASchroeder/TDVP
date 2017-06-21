@@ -90,8 +90,8 @@ pt.addParameter('extractStarInterval',1	,@isnumeric);
 pt.addParameter('storeMPS'			,0	,@isnumeric);
 pt.addParameter('evolveSysTrotter'	,1	,@isnumeric);
 pt.addParameter('HEffSplitIsometry'	,1	,@isnumeric);
-pt.addParameter('maxExpMDim'		,120,@isnumeric);
-pt.addParameter('maxExpVDim'		,200,@isnumeric);
+pt.addParameter('maxExpMDim'		,120,@isnumeric);	% E5: 160, P40: 120
+pt.addParameter('maxExpVDim'		,200,@isnumeric);	% E5: 270, P40: 256
 pt.addParameter('expvCustom'		,1	,@isnumeric);
 pt.addParameter('useDkExpand'		,0	,@isnumeric);
 pt.addParameter('expandOBB'			,1	,@isnumeric);
@@ -289,7 +289,7 @@ if strfind(para.model,'DPMESclust7-1')
 	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
 end
 
-%% Settings for DPMES Tree1
+%% Settings for DPMES-TreeN
 if strfind(para.model,'DPMES-Tree1')
  	pDPMES.parse(varargin{:});
 	

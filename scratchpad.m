@@ -1186,9 +1186,11 @@ ax(end).Visible = 'off';
 t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
 %% TDVP (3.1): 1D Plot <x> RC - adiabatic all chains, grid - TDVPData
 % x = y(1);
-h = x.plot('chain-x-a-rc','-fsev');
-h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Adiabatic Displacement RC';
-chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+h = x.plot('chain-x-a-rc','-fsev','-rowheight',10,'-rowwidth',45);
+h.f.OuterPosition = [0 0.05 1 0.95];
+h.f.Name = 'Adiabatic Displacement RC';
+% chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};  % for old DPMES
+chainlbl = {'$B_{1,1}$','$B_{1,2}$','$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{2,1}$','$B_{2,2}$'};		% for DPMES-Tree4
 for ii = 1:length(chainlbl)
 	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
 	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
