@@ -442,7 +442,8 @@ function tresults = calTimeObservables_Tree(treeMPS,para,tresults)
 %		.ac.	autocorrelation
 %		.ses.	system-environment state
 %		.ss.	system state
-%		.heff.  adiabatic potential energy surfaces + system state
+%		.heff.  adiabatic total     energy surfaces + system state
+%		.pes.   adiabatic potential energy surfaces + system state
 %
 %
 %	Created by FS 26/02/2016
@@ -452,6 +453,7 @@ function tresults = calTimeObservables_Tree(treeMPS,para,tresults)
 isNew    = 0;					% if constructed new tresults
 skipObs  = 0;
 skipStar = 0;
+heffPes  = 0;					% whether heff and pes are selected
 
 % Parameters
 O        = para.tdvp.Observables;		% Observables list
@@ -634,16 +636,36 @@ if strContains(para.tdvp.Observables,'.ss.')					% ss for system state
 end
 
 if strContains(para.tdvp.Observables,'.heff.')
+	if strContains(para.tdvp.Observables,'.pes.')
+		heffPes = 1;										% skips system.state saving in .pes.
+	end
 	if isNew
 		D = treeMPS.D(2); dk = treeMPS.dk(1);
 		tresults.Heff			= zeros([totalN, dk, dk, dk, dk],'single');
 		tresults.system.state	= zeros([totalN, dk, dk],'single');
 		tresults.E				= zeros([totalN,1],'single');
 	end
-	temp = getObservable({'syspes',size(tresults.Heff,2)},treeMPS,[],para);
+	temp = getObservable({'sysheff',size(tresults.Heff,2)},treeMPS,[],para);
 	tresults.Heff(i,:,:,:,:)    = single(temp{1});			% t x D' x dk' x D x dk
 	tresults.system.state(i,:,:)= single(temp{2});			% t x dk x D
 	tresults.E(i)				= single(temp{3});
+end
+
+if strContains(para.tdvp.Observables,'.pes.')
+	if isNew
+		D = treeMPS.D(2); dk = treeMPS.dk(1);
+		tresults.pes			= zeros([totalN, dk, dk, dk, dk],'single');
+		tresults.Epot			= zeros([totalN,1],'single');
+		if ~heffPes
+			tresults.system.state	= zeros([totalN, dk, dk],'single');
+		end
+	end
+	temp = getObservable({'syspes',size(tresults.Heff,2)},treeMPS,[],para);
+	tresults.pes(i,:,:,:,:)			= single(temp{1});			% t x D' x dk' x D x dk
+	if ~heffPes
+		tresults.system.state(i,:,:)= single(temp{2});			% t x dk x D
+	end
+	tresults.Epot(i)				= single(temp{3});
 end
 %% TTM Extraction
 

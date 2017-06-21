@@ -312,6 +312,18 @@ classdef TDVPData
 			obj.Comment = str;
 		end
 		
+		function obj = setHeffTo(obj,type)
+			%% obj = setHeffTo(obj,type)
+			% type: {'pes','tes'}	to select between TES and PES in the plotting routines
+			%
+			switch type
+				case 'pes'
+					obj.Heff = obj.tresults.pes;
+				case 'tes'
+					obj.Heff = obj.tresults.Heff;
+			end
+		end
+		
 		function out = gettRhoiiSystem(obj)
 			% DEPRECATED: Use getData('rhoii') instead
 			% returns the diagonal of the system reduced density matrix

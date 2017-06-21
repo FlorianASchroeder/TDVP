@@ -541,7 +541,7 @@ switch type{1}
 		out = calStateProject(mps,Vmat,para,systemState,envState);
 		
 	case 'sysheff'
-		% Calculates the effective Hamiltonian representing the adiabatic potential surfaces 
+		% Calculates the effective Hamiltonian representing the adiabatic total energy surfaces (TES)
 		% on which the system evolves.
 		% For now: optimised for treeMPS
 		%
@@ -556,6 +556,8 @@ switch type{1}
 		end
 		
 	case 'syspes'
+		% Calculates the effective potenital representing the adiabatic potential energy surfaces (PES)
+		% on which the system evolves.
 		out = cell(1,3);
 		if para.useTreeMPS
 			[out{1},out{2},out{3}] = calSysPES(mps,para,type{2});
@@ -1546,11 +1548,18 @@ end
 end
 
 function [Heff, C, E] = calSysHeff(treeMPS,para,n)
+	%% [Heff, C, E] = calSysHeff(treeMPS,para,n)
+	%	calculates the effective Hamiltonian and corresponding system state to obtain the total energy surfaces
+	%
+	%	Output:
+	%	 Heff: D' x dk' x D x dk is the effective Hamiltonian; D are adiabatic (bond) states, dk are the diabats
+	%		C: dk(diab) x D(adiab) maps diabatic to adiabatic states;
+	%		E: Energy when contracting Heff with C
 	if nargin == 2
 		n = [];
 	end
 	if strcmp(para.model,'SpinBoson')
-		% shortcut for simpler code
+		%% shortcut for simpler code
 		OBBDim = treeMPS.d_opt;
 		BondDimRight = treeMPS.D(2);	% works only for single chain models now! e.g. SBM
 		
@@ -1563,7 +1572,7 @@ function [Heff, C, E] = calSysHeff(treeMPS,para,n)
 		end
 		C = squeeze(treeMPS.mps{1}).';					% dk x D
 	else
-		% try to write general approach for treeMPS; Copied from expvCustom/TreeMultA
+		%% try to write general approach for treeMPS; Copied from expvCustom/TreeMultA
 		% 1. split off center to obtain isometry from chains to adiabatic system state
 		d = size(treeMPS.mps{1});							% 1 x D1...Dn x dk
 		OBBDim = d(end);
@@ -1626,7 +1635,8 @@ function [Heff, C, E] = calSysHeff(treeMPS,para,n)
 end
 
 function [Heff, C, E] = calSysPES(treeMPS,para,Dmax)
-	% New approach, trying to remove kinetic energy contributions from the aadiabatic potentials
+	% New approach, trying to remove kinetic energy contributions from the adiabatic potentials
+	% To obtain the potential energy surfaces
 	
 	%% 1. Traverse tree and remove kinetic terms from h1term
 	treeMPSPot = setPotOp(treeMPS);

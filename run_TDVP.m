@@ -76,6 +76,8 @@ para.tdvp.Observables = '.n.dm.';%'.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
 	% sp: stateProjection to extract specific amplitudes
 	% ss: system state -> map from diabatic to adiabatic basis
 	% ses: System-environment state for site 1&2; includes ss
+	% heff:	Total Energy Surfaces
+	% pes:  Potential Energy Surfaces
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 0;			% Trotter splitting in System evolution?
 para.tdvp.HEffSplitIsometry = 0;		% split mps{1} into isometry + relevant part
