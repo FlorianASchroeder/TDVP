@@ -1243,7 +1243,6 @@ classdef TDVPData
 					end
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\langle x \rangle$';
-					
 				case 'chain-x-d-rc'
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
@@ -1273,6 +1272,7 @@ classdef TDVPData
 						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						h.ylbl = '$\langle x \rangle$';
 						h.tlbl = 'Adiabatic Displacement';
+						plot([min(h.xdata),max(h.xdata)],[0,0],'k:','DisplayName','zero');	% zero baseline
 					else
 						% this is the first call to generate grid plot!
 						nPlots = size(obj.xCa,4);
@@ -1708,12 +1708,13 @@ classdef TDVPData
 						for jj = 1:5
 							legLab{ii,jj} = sprintf('%s $\\to$ %s',stateLab{ii},stateLab{jj});
 							if ii > jj 
-								select(ii,jj) = 1;
+								select(ii,jj) = 1;						% select only lower left triangular since current is antisymmetric
 							end
 						end
 					end
 					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk' x D * dk
 					h.ydata = h.ydata(:,logical(select(:)));
+					h.ydata = h.ydata/ts;								% convert from energy to quanta
 					pl = plot(h.xdata,h.ydata);
 					h.leglbl = legLab(logical(select(:)));
 % 					set(pl,{'DisplayName'},legLab(logical(select(:))));
@@ -1744,10 +1745,11 @@ classdef TDVPData
 					h.pl = pl;
 				case 'heff-current-cumsum'
 					% Now only for DPMES
+					% output units: should be quanta
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
 					h.ydata = squeeze(sum(sum(h.ydata,2),4));			% t x dk' x dk
-					h.ylbl  = '$\int\langle j \rangle$';
+					h.ylbl  = '$\int\langle j \rangle$/quanta (needs checking)';
 					
 					% generate selection of upper right and legend labels
 					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
@@ -1760,13 +1762,47 @@ classdef TDVPData
 							end
 						end
 					end
-					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk' x D * dk
-					h.ydata = cumsum(h.ydata(:,logical(select(:))),1);
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x dk' * dk
+					h.ydata = cumsum(h.ydata(:,logical(select(:))),1);	% integral approximation. units of time and hbar cancel each other, so no modification needed
 					pl = plot(h.xdata,h.ydata);
 					h.leglbl = legLab(logical(select(:)));
 % 					set(pl,{'DisplayName'},);
 					h.pl = pl;
 % 					return;
+				case 'heff-current-flowfrom-detail'
+					% Now only for DPMES
+					% sums over all acceptors
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,5),4));			% t x D' x dk'
+					h.ylbl  = '$\langle j \rangle$';
+					
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('$|%d\\rangle$,%s',ii,stateLab{jj});
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk'
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(:);
+					h.pl = pl;
+				case 'heff-current-flowfrom-system'
+					% Now only for DPMES
+					% Shows which states loose population through coherent currents
+					% sums over all acceptors and all Bond states
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(sum(h.ydata,5),4),2));	% t x dk'
+					h.ylbl  = '$\langle j \rangle$';
+					
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = stateLab(:);
+					h.pl = pl;
 					
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
