@@ -268,8 +268,8 @@ set(gca,'View',[0,0]);
 %% plotting first rows of uneven cell arrays
 cellfun(@(x) x(1,1), results.Vmat_sv(2:end))
 %% try to calculate Shift analytically:
-t = para.t; e = para.epsilon;
-A = gallery('tridiag',t(2:end),e(1:end),t(2:end));    %creates tridiag for system A.(shiftVec) = (-t1*sigmaZ, 0,0,0,0,...)
+t = para.chain{1}.t; e = para.chain{1}.epsilon;
+A = gallery('tridiag',t(2:end-1),e(1:end),t(2:end-1));    %creates tridiag for system A.(shiftVec) = (-t1*sigmaZ, 0,0,0,0,...)
 B = zeros(para.L-1,1);
 B(1) = -t(1)*1;%(results.spin.sz);  % -t1*sigmaZ
 shift = A\B.*sqrt(2);
@@ -285,10 +285,23 @@ if wantSave
 end
 %% Plot < n > of chain
 figure(1); hold on;
-pl(1) = plot(real(results.nx));
+results.nx = real(getObservable({'bath1correlators','n'}, mps,Vmat,para));
+pl = plot(real(results.nx));
 %set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$<n_{k,VMPS}>$')
+% set(gca,'yscale','log')
+formatPlot(1)
+if wantSave
+    export_fig(sprintf('%s%s-Occupation',saveto,para.filename(1:13)),'-transparent','-png','-pdf','-painters')
+end
+%% Plot < x > of chain
+figure(1); hold on;
+results.xx = real(getObservable({'bath1correlators','x'}, mps,Vmat,para));
+pl = plot(real(results.xx));
+%set(gca,'YScale','log');
+xlabel('Site k')
+ylabel('$<x_{k,VMPS}>$')
 % set(gca,'yscale','log')
 formatPlot(1)
 if wantSave
@@ -299,14 +312,14 @@ f = figure(3)
 f.Name = 'Chain hopping and site energies';
 subplot(1,2,1); hold all
 % pl = plot(cell2mat(cellfun(@(x) x.t, para.chain, 'UniformOutput',false)));
-pl = cellfun(@(x) plot(x.t), para.chain, 'UniformOutput',false);
+cellfun(@(x) plot(x.t), para.chain, 'UniformOutput',false);
 % set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$t_k$')
 axis tight
 legend(strsplit(sprintf('%d,', 1:length(para.chain)),','))
 subplot(1,2,2); hold all;
-pl = cellfun(@(x) plot(x.epsilon), para.chain, 'UniformOutput',false);
+cellfun(@(x) plot(x.epsilon), para.chain, 'UniformOutput',false);
 % set(gca,'YScale','log');
 xlabel('Site k')
 ylabel('$\epsilon_k$')
@@ -383,15 +396,15 @@ PlotData(:,PlotData(:,7)==0.001)
 %% For PPC MLSBM:
 
 %% Plot Energy convergence
-figure(1);
+figure(2);
 plot(cell2mat(results.EvaluesLog)-min(cell2mat(results.EvaluesLog)));
-disp(sprintf('%.15e',results.E))
+% disp(sprintf('%.15e',results.E))
 set(gca,'YScale','log');
-try
-title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));catch end
+% try
+% title(sprintf('$E_0 = %.10g, \\Lambda =  %.2g, z =  %.2g$',results.E, para.Lambda, para.z));catch end
 xlabel('Site$\cdot$Loop');
 ylabel('$E-E_0$');
-formatPlot(1)
+formatPlot(2)
 yLim = get(gca,'YLim');
 for i = 1:para.loop
 %     line([para.L*i para.L*i],yLim,'LineWidth',1,'Color','black');
@@ -400,6 +413,13 @@ if wantSave
     export_fig(sprintf('%s%s-MLSBM-Econvergence-Lambda%.2gz%.2gp16',saveto,para.filename(1:13),para.Lambda,para.z),'-transparent','-png','-painters')
 end
 
+%% Plot Energy Error convergence
+figure(3);
+plot(results.Eerror);
+set(gca,'YScale','log');
+xlabel('Sweep');
+ylabel('E error');
+formatPlot(3);
 %% Get System-Bath coupling
 figure(2);
 plot(real(diag(op.h2term{1,1,1})./para.t(1)));
