@@ -606,6 +606,7 @@ classdef TDVPData
 					out{3} = VC;																	% D*dk_eig x dk x t
 				case 'heff-full-pop'
 					%% Calculates the Diabatic and Adiabatic population on the HEff surfaces
+					%	Vtemp: trafo from diabat to adiabats
 					temp = obj.getData('heff-full');
 					D = temp{1}; 																	% t x D*dk_eig
 					V = temp{2};																	% t cell x D*dk x D*dk_eig
@@ -622,22 +623,35 @@ classdef TDVPData
 					pop = pop.*conj(pop);															% t x D*dk_eig
 					% pop is sysState rotated into adiab Basis then taken probability -> should be correct
 					
-					popDiab = reshape(tempState, d(1), d(3), d(2), []);								% t x D x dk x D*dk_eig
-					popDiab = squeeze(sum(popDiab,2));												% t x dk x D*dk_eig
-					popDiab = popDiab.*conj(popDiab);
-					% real(obj.getData('rhoii')) - sum(popDiab,3)  has 10^-4 error so should be accurate!
-					% summing over D amplitudes before squaring for populations is essential to get the right behaviour!
-					% but the envelope of the population per surface seems wrong.
+					% select popDiab2:
+					Vpop = Vtemp.*conj(Vtemp);														% t x D*dk x D*dk_eig
+					Vpop = reshape(Vpop,d(1), d(2), d(3), []);										% t x D x dk x D*dk_eig
+					Vpop = squeeze(sum(Vpop, 2));													% t x dk x D*dk_eig
+					popDiab = bsxfun(@times, Vpop, permute(pop, [1,3,2]));							% t x dk x D*dk_eig
 					
 					out = {};
 					out{1} = D;																		% t x D*dk_eig
 					out{2} = pop;																	% t x D*dk_eig
 					out{3} = popDiab;																% t x dk x D*dk_eig
+					out{4} = Vtemp;																	% t x D*dk x D*dk_eig
 					
-					%% Different approach to popDiab:
+					return;
+					
+					%% Different approaches to popDiab:
+					% Summary:
+					% 1 == 4: diabatic population is correct, but distribution over adiabats wrong
+					% 2 == 5: adiabatic pop is correct, but division into diabats is wrong!
+					% 3:	mixture between 1 and 2 but still wrong
+					% can measure similarity with norm(popDiab(:)-popDiab4(:))
+					
+					% popDiab1: summing over D amplitudes before squaring for populations
+					popDiab1 = reshape(tempState, d(1), d(3), d(2), []);							% t x D x dk x D*dk_eig
+					popDiab1 = squeeze(sum(popDiab1,2));											% t x dk x D*dk_eig
+					popDiab1 = popDiab1.*conj(popDiab1);
+					
 					% divide pop into popDiab by using mapping information from V
-					% this yields results which do not respect phase information, 
-					% thus are wrong when summing over D*dk_eig to recover rhoii populations
+					% this yields results which do not respect inter-adiabat-coherences, 
+					% thus are wrong when summing over D*dk_eig to recover diabat populations
 					Vpop = Vtemp.*conj(Vtemp);														% t x D*dk x D*dk_eig
 					Vpop = reshape(Vpop,d(1), d(2), d(3), []);										% t x D x dk x D*dk_eig
 					Vpop = squeeze(sum(Vpop, 2));													% t x dk x D*dk_eig
@@ -658,13 +672,7 @@ classdef TDVPData
 					popDiab5 = reshape(popDiab5, d(1), d(3), d(2), []);								% t x D x dk x D*dk_eig
 					popDiab5 = squeeze(sum(popDiab5.*conj(popDiab5),2));							% t x dk x D*dk_eig
 					
-					% Conclusion:
-					% 1 == 4: diabatic population is correct, but distribution over adiabats wrong
-					% 2 == 5: adiabatic pop is correct, but division into diabats is wrong!
-					% 3:	mixture between 1 and 2 but still wrong
-					% can measure similarity with norm(popDiab(:)-popDiab4(:))
-					out{3} = popDiab5;	% select between 1-4
-					
+% 					out{3} = popDiab2;	% select between 1-5					
 				case 'pes-from-tes'
 					% get the adiabatic states from the TES
 					% use these to get the corresponding PES
@@ -683,6 +691,27 @@ classdef TDVPData
 					
 					out = {};
 					out{1} = arrayfun(@(ii) V{ii}'*squeeze(pes.Heff(ii,:,:))*V{ii}, [1:pes.lastIdx]','UniformOutput',false);	% t cell: D*dk_eig' x D*dk_eig
+					% take only diagonal of potential:
+					out{1} = cell2mat(cellfun(@(x) real(diag(x)'),out{1}, 'UniformOutput',false));	% t x D*dk_eig
+					out{2} = VC;																	% D*dk_eig x dk x t
+				case 'tes-from-pes'
+					% get the adiabatic states from the PES
+					% use these to get the corresponding TES
+					
+					%% First make sure TES is selected
+					pes = obj.setHeffTo('pes');
+					pesout = pes.getData('heff-full-diab');
+					D = pesout{1};																	% t x D*dk_eig
+					V = pesout{2};																	% t x D*dk x D*dk_eig, cell in timesteps
+					VC = pesout{3};																	% D*dk_eig x dk x t
+						% V contains map from diabatic System-Environment basis (SE) into adiabatic basis
+					%% Get TES into heff
+					tes = obj.setHeffTo('tes');
+					d = size(tes.Heff);																% t x D' x dk' x D x dk
+					tes.Heff = reshape(tes.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
+					
+					out = {};
+					out{1} = arrayfun(@(ii) V{ii}'*squeeze(tes.Heff(ii,:,:))*V{ii}, [1:tes.lastIdx]','UniformOutput',false);	% t cell: D*dk_eig' x D*dk_eig
 					% take only diagonal of potential:
 					out{1} = cell2mat(cellfun(@(x) real(diag(x)'),out{1}, 'UniformOutput',false));	% t x D*dk_eig
 					out{2} = VC;																	% D*dk_eig x dk x t
@@ -733,8 +762,6 @@ classdef TDVPData
 					
 					d = size(cur);
 					cur = reshape(cur,d(1),d(2)*d(3),[]);				% t x D*dk x D*dk
-					
-				
 			end
 			
 			if ~full && ~iscell(out) && ~isobject(out)
@@ -1941,6 +1968,64 @@ classdef TDVPData
 					
 					% plot diabatic coloured scatter ontop
 					htemp = obj.plot('pes-from-tes',plotArgs{:},h.ax);
+					h.pl(end+1) = htemp.pl;
+					h.pl(end).SizeData = 0.05;
+					pl = h.pl;
+					h.ydata = [];			% delete to finish without replot
+				case 'tes-from-pes'
+					% get the adiabatic states from the PES
+					% use these to get the corresponding TES
+					% Plot as dots colored according to diabatic mixture
+					
+					col = get(0,'defaultaxescolororder');
+					% get the diabatic populations as eigenvectors of TES
+					out = obj.getData('tes-from-pes');
+					D  = out{1};																		% t x D*dk_eig
+					VC = out{2};																		% D*dk_eig x dk x t
+					
+					d = size(VC);
+					h.xdata = bsxfun(@times, obj.t(1:obj.lastIdx)'*ts, ones(1,d(1)));					% t x D*dk_eig
+					h.xdata = h.xdata(:);																% t*D*dk_eig
+					h.ydata = D(:);
+					VC = permute(VC,[3,1,2]);															% t x D*dk_eig x dk
+					VC = reshape(VC,[],d(2));															% t*D*dk_eig x dk
+					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
+					
+					h.pl = scatter(h.xdata,h.ydata,40,h.cdata,'.');
+					h.ylbl = sprintf('$E/eV$');
+					pl = h.pl;
+				case 'tes-from-pes-pop-diab-v2'
+					% similar to 'heff-full-pop-diab-v2', but with TES in adiabatic basis of PES
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ylbl = '$E/eV$';
+					out     = obj.getData('heff-full-pop');
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					out = obj.getData('tes-from-pes');
+					D       = out{1};								% t x D*dk_eig
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(popDiab,3)
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+						delete(plTemp(1));
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
+					end
+					plotArgs = {};
+					if eScale
+						plotArgs = [plotArgs,{'-fsev'}];
+					end
+					
+					% plot diabatic coloured scatter ontop
+					htemp = obj.plot('tes-from-pes',plotArgs{:},h.ax);
 					h.pl(end+1) = htemp.pl;
 					h.pl(end).SizeData = 0.05;
 					pl = h.pl;
