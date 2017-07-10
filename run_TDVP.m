@@ -76,11 +76,13 @@ para.tdvp.Observables = '.n.dm.';%'.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
 	% sp: stateProjection to extract specific amplitudes
 	% ss: system state -> map from diabatic to adiabatic basis
 	% ses: System-environment state for site 1&2; includes ss
+	% heff:	Total Energy Surfaces
+	% pes:  Potential Energy Surfaces
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 0;			% Trotter splitting in System evolution?
 para.tdvp.HEffSplitIsometry = 0;		% split mps{1} into isometry + relevant part
-para.tdvp.maxExpMDim = 120;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 300; P40: 120 System dependent, use benchmark!
-para.tdvp.maxExpVDim = 256;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 700; P40: 256 maxExpMDim < maxExpVDim
+para.tdvp.maxExpMDim = 120;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 160; P40: 120 System dependent, use benchmark!
+para.tdvp.maxExpVDim = 256;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 270; P40: 256 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;
@@ -125,7 +127,7 @@ if loadedFromFile
 end
 
 %% Format Filename
-para.tdvp.version = 'v77';
+para.tdvp.version = 'v79';
 if isfield(para.tdvp,'filename')
 	%% Continued TDVP remember filename to load after directory change!
 	% from File can be -small.mat!

@@ -41,8 +41,10 @@ classdef TDVPData
 		rhoOscRes;	% residual of populations after exponential fit
 		stateProj;	% state projection amplitude
 		sysState;	% state of system
+		Heff;		% effective potential for system
         mps;        % MPS and Vmat of sites 1&2
         Vmat;
+		treeMPS;	% The TreeMPS
 		LegLabel;	%
 		Comment;	% 
 		folder;		% for easy identification
@@ -68,7 +70,7 @@ classdef TDVPData
 				return;		% empty initialization
 			elseif nargin == 1 && ischar(fname)
 				try
-					temp = load(fname,'para','tresults');
+					temp = load(fname);
 					% Deserialize if needed
 					Vars = fields(temp);
 					for ii = 1:size(Vars)
@@ -188,11 +190,13 @@ classdef TDVPData
 			
 			if obj.version >= 42 && isfield(obj.tresults,'t')
 				obj.t = obj.tresults.t;
+				obj.dt    = max(diff(obj.tresults.t));				% important for fourier smoothing
 			else
 				obj.t = obj.para.tdvp.t;
+				obj.dt    = max(diff(obj.t));				% important for fourier smoothing
 			end
 			obj.tCalc = obj.para.tdvp.t;
-			obj.dt    = max(diff(obj.tresults.t));				% important for fourier smoothing
+			
 			
 			if isfield(obj.para,'nChains')
 				obj.nChains = obj.para.nChains;
@@ -257,11 +261,19 @@ classdef TDVPData
 				obj.stateProj = obj.tresults.stateProjection;
 			end
 			
+			if isfield(obj.tresults,'Heff')
+				obj.Heff = obj.tresults.Heff;
+			end
+			
 			if isfield(obj.tresults,'mps')
                 obj.mps = obj.tresults.mps;
                 obj.tresults.mps = [];
                 obj.Vmat = obj.tresults.Vmat;
                 obj.tresults.Vmat = [];
+			end
+			
+			if isfield(temp,'treeMPS')
+				obj.treeMPS = temp.treeMPS;
 			end
 			
 			if ~isempty(strfind(obj.para.model,'DPMES'))
@@ -300,8 +312,20 @@ classdef TDVPData
 			obj.Comment = str;
 		end
 		
+		function obj = setHeffTo(obj,type)
+			%% obj = setHeffTo(obj,type)
+			% type: {'pes','tes'}	to select between TES and PES in the plotting routines
+			%
+			switch type
+				case 'pes'
+					obj.Heff = obj.tresults.pes;
+				case 'tes'
+					obj.Heff = obj.tresults.Heff;
+			end
+		end
+		
 		function out = gettRhoiiSystem(obj)
-			% DEPRECATED
+			% DEPRECATED: Use getData('rhoii') instead
 			% returns the diagonal of the system reduced density matrix
 			out = 0;
 			if isfield(obj.tresults,'PPCWavefunction')
@@ -312,17 +336,21 @@ classdef TDVPData
 		end
 		
 		function out = getData(obj,type,varargin)
-			% returns certain data or observables
+			%% out = getData(obj,type,varargin)
+			%	returns certain data or observables:
+			%
+			%	getData('rhoii')				t x dk system RDM populations
+			%	getData('rhoii','state',n)		t x 1  system RDM population of state n
+			%
 			full = 0;		% truncate to simulated time - tresults.lastIdx
 			idxOffset = 0;
 			out = 0;
-			
-			for m = 1:nargin-2
-				switch lower(varargin{m})
-					case '-full'
-						full = 1;
-				end
-			end
+						
+			% Parse additional inputs
+			p = inputParser;
+			addParameter(p,'state',0,@isnumeric);		% used in heff
+			addParameter(p,'full' ,0,@islogical);
+			parse(p,varargin{:});
 			
 			switch lower(type)
 				case 'calctime'
@@ -341,6 +369,11 @@ classdef TDVPData
 						rhoii = 0;
 					end
 					out = rhoii;
+					h.state = p.Results.state;
+					if h.state ~= 0 && h.state <= size(out,2)
+						% return only a single state
+						out = out(:,h.state);
+					end
 					full = 1;
 				case 'rhoii-osc-res'
 					% oscillating residuals
@@ -419,10 +452,319 @@ classdef TDVPData
 					out = obj.getSysEnvObs('n');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
                     full = 1;
 				case 'spin'
+				case 'heff-e'
+					% calculate energy from heff & sysState
+					d = size(obj.Heff);																% t x D x dk x D x dk
+					obj.Heff = permute(reshape(obj.Heff, [d(1),d(2)*d(3), d(4)*d(5)]), [2,3,1]);	% (D * dk) x (D * dk) x t
+					obj.sysState = reshape(permute(obj.sysState, [3,2,1]), [d(2)*d(3),d(1)]);		% (D * dk) x t
+					out = arrayfun(@(i) (obj.sysState(:,i)'*obj.Heff(:,:,i)*obj.sysState(:,i))/(obj.sysState(:,i)'*obj.sysState(:,i)),1:obj.lastIdx);
+					out = real(out);
+				case 'heff'
+					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
+					h.state = p.Results.state;
+					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D'))';
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					out = {};
+					out{1} = D;																		% t x dk_eig
+					out{2} = V;																		% t x dk x dk_eig
+				case 'heff-pop'
+					h.state = p.Results.state;
+					temp = obj.getData('heff','state',h.state);
+					D = temp{1}; V = temp{2};
+					% V{i}: dk x D_eig
+					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+
+					% obj.sysState: t x dk x D
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+					pop = pop.*conj(pop);															% t x dk_eig x 1
+					out = {};
+					out{1} = D;																		% t x dk_eig
+					out{2} = pop;																	% t x dk_eig
+				case 'heff-pop-diab'
+					h.state = p.Results.state;
+					temp = obj.getData('heff','state',h.state);
+					D = temp{1}; V = temp{2};
+					% V{i}: dk x D_eig
+					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+
+					% obj.sysState: t x dk x D
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+					pop = pop.*conj(pop);															% t x dk_eig x 1
+
+					pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x dk_eig x dk
+					pop = permute(pop,[1,3,2]);
+					out = {};
+					out{1} = D;								% t x dk_eig
+					out{2} = pop;							% t x dk x dk_eig
+				case 'heff-swap'
+					% swaps Bond states according to matrix defined in 'state':
+					% h.state has to be a matrix defining: [tIdx, n1, n2], which pair of D states n1, n2 have to be swapped.
+					h.state = p.Results.state;
+					if ~ismatrix(h.state)
+						error('for this, h.state has to be a matrix defining: [tIdx, n1, n2], which D states have to be swapped');
+					end
+					obj2 = obj;		% copy obj.
+					D = size(obj.sysState,3);
+					for ii = 0:size(h.state,1)
+						if ii == 0
+							start = 1;
+							stop = h.state(1,1)-1;
+							thisPerm = eye(D);										% start off with identity matrix
+						else
+							start = stop+1;
+							if ii < size(h.state,1)
+								stop  = h.state(ii+1,1)-1;												% last index within this cut, should always be < obj.lastIdx
+							else
+								stop = obj.lastIdx;
+							end
+							newPerm = eye(D);
+							newPerm([h.state(ii,2),h.state(ii,3)],:) = newPerm([h.state(ii,3),h.state(ii,2)],:);
+							thisPerm = thisPerm*newPerm;
+						end
 					
+						% apply permutation
+						obj2.sysState(start:stop,:,:) = contracttensors(obj.sysState(start:stop,:,:),3,3, thisPerm,2,1);
+						
+						temp = contracttensors(obj.Heff(start:stop,:,:,:,:),5,2, thisPerm,2,1);			% t x dk x D x dk x D,
+						temp = contracttensors(temp, 5,3, thisPerm,2,1);								% t x dk x dk x D x D,
+						obj2.Heff(start:stop,:,:,:,:) = permute(temp,[1,4,2,5,3]);						% t x D x dk x D x dk
+					end
+					out = obj2;
+				case 'heff-current'
+					% best on an already swapped Heff.
+					% calculates the transition rates / currents from one diabatic state to another
+					% is equivalent to evaluating all the elements which can make up the current operator j = i[H,N]
+					% out: t x D' x dk' x D x dk
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					out = -2 * imag(obj.Heff(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho*) )
+					full = 1;
+				case 'heff-current-squared'
+					% Possibly relevant for superexchange. Uses H^2 
+					% calculates the transition rates / currents from one diabatic state to another
+					% is equivalent to evaluating all the elements which can make up the current operator j = i[H,N]
+					% out: t x D' x dk' x D x dk
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					heffsquared = squeeze(sum(sum(bsxfun(@times, obj.Heff, permute(obj.Heff, [1,6,7,2,3,4,5])),4),5)); 
+					out = -2 * imag(heffsquared(1:obj.lastIdx,:,:,:,:) .* conj(rho_SE(1:obj.lastIdx,:,:,:,:)));		% is 2*Im( Tr(H rho*) )
+					full = 1;
+				case 'heff-current-v2'
+					% calculates the transition rates / currents from one diabatic state to another
+					% is equivalent to evaluating all the elements which can make up the current operator j = i[H,N]
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					rho_SE = rho_SE(1:obj.lastIdx,:,:,:,:);
+					
+					d = size(rho_SE);
+					Nop = zeros(d(5)); Nop(2,2) = 1;												% select which state to look at.
+					HN = contracttensors(obj.Heff(1:obj.lastIdx,:,:,:,:),5,5,Nop,2,1);				% multiply into last dk
+					
+					out = -2 * imag(HN .* conj(rho_SE));		% is 2*Im( Tr(H rho*) )
+					full = 1;
+				case 'heff-full'
+					% Find and Sort EigenSystem of the full Heff
+					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
+					d = size(obj.Heff);																% t x D' x dk' x D x dk
+					obj.Heff = reshape(obj.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
+					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,:,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D'))';
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					out = {};
+					out{1} = D;																		% t x D*dk_eig
+					out{2} = V;																		% t x D*dk x D*dk_eig, cell
+				case 'heff-full-diab'
+					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
+					d = size(obj.Heff);																% t x D' x dk' x D x dk
+					obj.Heff = reshape(obj.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
+					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,:,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D'))';
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					
+					% VC for V-contribution/ diabatic Character 
+					VC = cell2mat(V);																% creates (D*dk*t) x D*dk_eig
+					VC = reshape(VC,[size(V{1},1),length(V),size(V{1},1)]);							% D*dk x t x D*dk_eig
+					VC = permute(VC, [3,1,2]);														% D*dk_eig x D*dk x t
+					
+					d = size(VC);
+					VC = reshape(VC, [d(1),sqrt(d(2))*[1,1], d(3)]);								% D*dk_eig x D x dk x t
+					VC = squeeze(sum(VC.*conj(VC),2));												% D*dk_eig x dk x t
+					% Now: VC has percentage of dk contribution on each D*dk_eig and t
+					
+					out = {};
+					out{1} = D;																		% t x D*dk_eig
+					out{2} = V;																		% t x D*dk x D*dk_eig, cell
+					out{3} = VC;																	% D*dk_eig x dk x t
+				case 'heff-full-pop'
+					%% Calculates the Diabatic and Adiabatic population on the HEff surfaces
+					%	Vtemp: trafo from diabat to adiabats
+					temp = obj.getData('heff-full');
+					D = temp{1}; 																	% t x D*dk_eig
+					V = temp{2};																	% t cell x D*dk x D*dk_eig
+					
+					Vtemp = permute(cell2mat(permute(V,[2,3,1])),[3,1,2]);							% t x D*dk x D*dk_eig
+					
+					% obj.sysState: t x dk x D
+					d = size(obj.sysState); d(1) = obj.lastIdx;
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,:),[1,3,2]);					% t x D x dk
+					tempState = reshape(tempState, [d(1),d(2)*d(3)]);								% t x D*dk
+					tempState = bsxfun(@times,conj(Vtemp),tempState);								% t x D*dk x D*dk_eig
+					
+					pop = squeeze(sum(tempState,2));
+					pop = pop.*conj(pop);															% t x D*dk_eig
+					% pop is sysState rotated into adiab Basis then taken probability -> should be correct
+					
+					% select popDiab2:
+					Vpop = Vtemp.*conj(Vtemp);														% t x D*dk x D*dk_eig
+					Vpop = reshape(Vpop,d(1), d(2), d(3), []);										% t x D x dk x D*dk_eig
+					Vpop = squeeze(sum(Vpop, 2));													% t x dk x D*dk_eig
+					popDiab = bsxfun(@times, Vpop, permute(pop, [1,3,2]));							% t x dk x D*dk_eig
+					
+					out = {};
+					out{1} = D;																		% t x D*dk_eig
+					out{2} = pop;																	% t x D*dk_eig
+					out{3} = popDiab;																% t x dk x D*dk_eig
+					out{4} = Vtemp;																	% t x D*dk x D*dk_eig
+					
+					return;
+					
+					%% Different approaches to popDiab:
+					% Summary:
+					% 1 == 4: diabatic population is correct, but distribution over adiabats wrong
+					% 2 == 5: adiabatic pop is correct, but division into diabats is wrong!
+					% 3:	mixture between 1 and 2 but still wrong
+					% can measure similarity with norm(popDiab(:)-popDiab4(:))
+					
+					% popDiab1: summing over D amplitudes before squaring for populations
+					popDiab1 = reshape(tempState, d(1), d(3), d(2), []);							% t x D x dk x D*dk_eig
+					popDiab1 = squeeze(sum(popDiab1,2));											% t x dk x D*dk_eig
+					popDiab1 = popDiab1.*conj(popDiab1);
+					
+					% divide pop into popDiab by using mapping information from V
+					% this yields results which do not respect inter-adiabat-coherences, 
+					% thus are wrong when summing over D*dk_eig to recover diabat populations
+					Vpop = Vtemp.*conj(Vtemp);														% t x D*dk x D*dk_eig
+					Vpop = reshape(Vpop,d(1), d(2), d(3), []);										% t x D x dk x D*dk_eig
+					Vpop = squeeze(sum(Vpop, 2));													% t x dk x D*dk_eig
+					popDiab2 = bsxfun(@times, Vpop, permute(pop, [1,3,2]));							% t x dk x D*dk_eig
+					
+					% popDiab3: take pop and multiply with distribution of popDiab1
+					temp = bsxfun(@rdivide, popDiab, sum(popDiab,2));	% normalise
+					popDiab3 = bsxfun(@times, temp, permute(pop, [1,3,2]));							% t x dk x D*dk_eig
+					
+					% popDiab4: tempState^2 then sum over D; very similar to 1
+					popDiab4 = reshape(tempState, d(1), d(3), d(2), []);							% t x D x dk x D*dk_eig
+					popDiab4 = popDiab4.*conj(popDiab4);
+					popDiab4 = squeeze(sum(popDiab4,2));											% t x dk x D*dk_eig
+					
+					% popDiab5: map from adiab into dk D and trace over D; identical to 2
+					popDiab5 = sum(tempState,2);													% t x 1 x D*dk_eig
+					popDiab5 = bsxfun(@times, Vtemp, popDiab5);										% t x D*dk x D*dk_eig
+					popDiab5 = reshape(popDiab5, d(1), d(3), d(2), []);								% t x D x dk x D*dk_eig
+					popDiab5 = squeeze(sum(popDiab5.*conj(popDiab5),2));							% t x dk x D*dk_eig
+					
+% 					out{3} = popDiab2;	% select between 1-5					
+				case 'pes-from-tes'
+					% get the adiabatic states from the TES
+					% use these to get the corresponding PES
+					
+					%% First make sure TES is selected
+					tes = obj.setHeffTo('tes');
+					tesout = tes.getData('heff-full-diab');
+					D = tesout{1};																	% t x D*dk_eig
+					V = tesout{2};																	% t x D*dk x D*dk_eig, cell in timesteps
+					VC = tesout{3};																	% D*dk_eig x dk x t
+						% V contains map from diabatic System-Environment basis (SE) into adiabatic basis
+					%% Get PES into heff
+					pes = obj.setHeffTo('pes');
+					d = size(pes.Heff);																% t x D' x dk' x D x dk
+					pes.Heff = reshape(pes.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
+					
+					out = {};
+					out{1} = arrayfun(@(ii) V{ii}'*squeeze(pes.Heff(ii,:,:))*V{ii}, [1:pes.lastIdx]','UniformOutput',false);	% t cell: D*dk_eig' x D*dk_eig
+					% take only diagonal of potential:
+					out{1} = cell2mat(cellfun(@(x) real(diag(x)'),out{1}, 'UniformOutput',false));	% t x D*dk_eig
+					out{2} = VC;																	% D*dk_eig x dk x t
+				case 'tes-from-pes'
+					% get the adiabatic states from the PES
+					% use these to get the corresponding TES
+					
+					%% First make sure TES is selected
+					pes = obj.setHeffTo('pes');
+					pesout = pes.getData('heff-full-diab');
+					D = pesout{1};																	% t x D*dk_eig
+					V = pesout{2};																	% t x D*dk x D*dk_eig, cell in timesteps
+					VC = pesout{3};																	% D*dk_eig x dk x t
+						% V contains map from diabatic System-Environment basis (SE) into adiabatic basis
+					%% Get TES into heff
+					tes = obj.setHeffTo('tes');
+					d = size(tes.Heff);																% t x D' x dk' x D x dk
+					tes.Heff = reshape(tes.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
+					
+					out = {};
+					out{1} = arrayfun(@(ii) V{ii}'*squeeze(tes.Heff(ii,:,:))*V{ii}, [1:tes.lastIdx]','UniformOutput',false);	% t cell: D*dk_eig' x D*dk_eig
+					% take only diagonal of potential:
+					out{1} = cell2mat(cellfun(@(x) real(diag(x)'),out{1}, 'UniformOutput',false));	% t x D*dk_eig
+					out{2} = VC;																	% D*dk_eig x dk x t
+				case 'rho-se'
+					% get rho from sysState which contains correlations with the environment.
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					% make labels
+					d = size(rho_SE);
+					legLab = cell(prod(d(2:end)),1);
+					for ii = 1:prod(d(2:end))
+						[l,m,n,o] = ind2sub(d(2:end),ii);
+						legLab{ii} = sprintf('$|%d\\rangle|%d\\rangle \\to |%d\\rangle|%d\\rangle$',o,n,m,l);
+					end
+					rho_SE = reshape(rho_SE,d(1),[]);
+					out = {};
+					out{1} = rho_SE(1:obj.lastIdx,:);				% t x D'*dk'*D*dk
+					out{2} = legLab;								% D'*dk'*D*dk
+				case 'is-heff-selfadjoint'
+					% 'out' contains the total absolute error of Heff-Heff' as measure of self-adjointness
+					d = size(obj.Heff);
+					heffTemp = conj(reshape(permute(obj.Heff, [1,4,5,2,3]),d(1),[]));		% form hermitian conjugate; t x rest
+					heff = reshape(obj.Heff, d(1),[]);
+					out = sum(abs(heff - heffTemp),2);
+					full = 1;
+				case 'is-rho-se-selfadjoint'
+					% 'out' contains the total absolute error of rhoSE-rhoSE' as measure of self-adjointness
+					rho_SE = bsxfun(@times, permute(conj(obj.sysState), [1 3 2]) , permute(obj.sysState, [1,4,5,3,2]));  % t x D' x dk' x 1 x 1 .* t x 1 x 1 x D x dk  = t x D' x dk' x D x dk
+					
+					d = size(rho_SE);
+					rho_SETemp = conj(reshape(permute(rho_SE, [1,4,5,2,3]),d(1),[]));		% form hermitian conjugate; t x rest
+					rho_SE = reshape(rho_SE, d(1),[]);
+					out = sum(abs(rho_SE - rho_SETemp),2);
+					full = 1;
+				case 'is-heff-current-antisymmetric'
+					% 'out' contains the total absolute error of cur+cur.' as measure of anti-symmetry
+					cur = obj.getData('heff-current');
+					
+					d = size(cur);
+					curTemp = reshape(permute(cur, [1,4,5,2,3]),d(1),[]);		% form transpose; t x rest
+					cur = reshape(cur, d(1),[]);
+					out = sum(abs(cur + curTemp),2);
+					full = 1;
+				case 'is-heff-current-total-zero'
+					% 'out' contains the sum over the upper right diagonal of cur
+					% not working, not finished!
+					cur = obj.getData('heff-current');
+					
+					d = size(cur);
+					cur = reshape(cur,d(1),d(2)*d(3),[]);				% t x D*dk x D*dk
 			end
 			
-			if ~full
+			if ~full && ~iscell(out) && ~isobject(out)
 				out = out(1:obj.tresults.lastIdx-idxOffset);	% truncate if wanted
 			end
 		end
@@ -454,6 +796,9 @@ classdef TDVPData
 			%
 			% additional options ,Name,Value, pair:
 			%	'-grid',[m n]		:	Use with object array: plots into specified grid m x n; can specify figure
+			%   '-chain',m			:   for which chain to plot certain observables (mostly RC plots)
+			%   '-state',m			:	for which adiabatic state to plot heff-pop
+			%	'-ylim',[m n]		:	pre-define ylim for heff-pop-diab to obtain correct area sizes
 			
 			% initialise modifiers
 			% plot(...,ax_handle)	Plots into the axes/figure given by handle
@@ -467,11 +812,16 @@ classdef TDVPData
 					axInd = cellfun('isclass',varargin,'matlab.graphics.axis.Axes');			% override!
 					
 					if ~isempty(m)						% plot into grid
+						if length(varargin) < m+1 || isempty(varargin{m+1})
+							[gridSize(1),gridSize(2)] = TDVPData.bestGrid(length(obj));
+						else
+							gridSize = varargin{m+1};
+						end
 						plotToGrid = 1;
 						if sum(fInd) == 1
-							gridh = TDVPData.plotGrid(varargin{m+1}(1),varargin{m+1}(2),varargin{fInd});
+							gridh = TDVPData.plotGrid(gridSize(1),gridSize(2),varargin{fInd});
 						else
-							gridh = TDVPData.plotGrid(varargin{m+1}(1),varargin{m+1}(2));
+							gridh = TDVPData.plotGrid(gridSize(1),gridSize(2));
 						end
 						if any(axInd)
 							varargin{axInd} = [];														% cannot plot multiple plots into single axes
@@ -490,7 +840,11 @@ classdef TDVPData
 					else
 						[hTemp,plTemp,obj(ii)] = obj(ii).plot(type,varargin{:});
 					end
-					t = title(obj(ii).folder);
+					if isempty(obj(ii).LegLabel)
+						t = title(obj(ii).folder);
+					else
+						t = title(obj(ii).LegLabel);
+					end
 					if plotToGrid
 						t.Units  = 'normalized';
 						t.Position = [0.5,0.9];
@@ -499,19 +853,23 @@ classdef TDVPData
 					if size(pl,2) ~= size(plTemp,2)
 						pl(end,size(plTemp,2)) = gobjects(1,1);
 					end
-					pl(ii,:) = plTemp;
+					pl(ii,1:length(plTemp)) = plTemp;
 					h(ii) = hTemp;
 				end
 				return;
 			end
-			h.xlbl = 't';
+			h.xlbl = '$t$';
 			h.ylbl = [];
 			h.leglbl = {};
 			h.xdata = [];
 			h.ydata = [];
+			h.ylim = [];
+			h.xlim = [];
 			h.pl = [];					% plot handle
 			pl = [];					% old plot handle;
 			h.chain = [];				% chain number needed for (a)diabatic n and x plots
+			h.state = [];				% state number needed for heff plots
+			h.color = {};				% cell array with color for each line, if specified
 			
 			ts = 1;						% scale time axis
 			eScale = 0;					% energy units used for DFT: 0 = none, 1 = eV, 2 = cm (wavenumber)
@@ -522,6 +880,9 @@ classdef TDVPData
 			DFTshift = 0;				% shift the fft results
 			h.normalise = 0;				% normalise to maximum peak (for FFT especially)
 			h.distribute = 0;			% distribute plot lines along y; only use if h.normalise = 1, otherwise gets messy
+			h.rowheight  = 1;			% defaults for grid
+			h.rowwidth  = 7.2;			% defaults for grid
+			h.patchthickness = 0.2;		% in % of total ylim
 			
 			h.f  = [];
 			h.ax = [];
@@ -567,6 +928,24 @@ classdef TDVPData
 					case '-chain'
 						h.chain = varargin{m+1};
 						[varargin{[m,m+1]}] = deal([]);
+					case '-state'
+						h.state = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-xlim'
+						h.xlim = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-ylim'
+						h.ylim = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-rowheight'
+						h.rowheight = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-rowwidth'
+						h.rowwidth = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
+					case '-patchthickness'
+						h.patchthickness = varargin{m+1};
+						[varargin{[m,m+1]}] = deal([]);
 					otherwise
 						% pass through as direct plot options!
 						plotOpt = [plotOpt, varargin(m)];
@@ -587,6 +966,7 @@ classdef TDVPData
 			end
 			h.f.Renderer = 'painters';				% provides much better 2D results generally!
 			hold all;
+			box on;
 			
 			if resetColorOrder
 				h.ax.ColorOrderIndex = 1;
@@ -596,7 +976,7 @@ classdef TDVPData
 				idx = h.ax.ColorOrderIndex;
 			end
 			
-			switch lower(type)
+			switch lower(type)						% all the plot types
 				case 'sz'
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = obj.tresults.spin.sz(1:obj.lastIdx);
@@ -639,7 +1019,6 @@ classdef TDVPData
 					h.ylbl = '$\rho_{ii}(t)$';
 				case 'rhoij-real'
 					if ~isfield(obj.tresults,'rho'), return, end;
-					box on;
 					r = obj.getData('rhoij');							% {rhoij, info}
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = real(r{1});
@@ -647,7 +1026,6 @@ classdef TDVPData
 					h.ylbl = 'Re($\rho_{ij})$';
 				case 'rhoij-imag'
 					if ~isfield(obj.tresults,'rho'), return, end;
-					box on;
 					r = obj.getData('rhoij');							% {rhoij, info}
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = imag(r{1});
@@ -655,7 +1033,6 @@ classdef TDVPData
 					h.ylbl = 'Im($\rho_{ij})$';
 				case 'rhoij-abs'
 					if ~isfield(obj.tresults,'rho'), return, end;
-					box on;
 					r = obj.getData('rhoij');							% {rhoij, info}
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = abs(r{1});
@@ -815,9 +1192,14 @@ classdef TDVPData
 					h.xdata = f;
 					h.ydata = abs(ft);
 					h.ylbl = '$FT(\rho_{ii})$';
+				case 'rho-se-abs'
+					r = obj.getData('rho-se');							% {rhoij, info}
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = abs(r{1});
+					h.leglbl = r{2};
+					h.ylbl = '$|\rho_{SE}|$';
 				case 'vne'
 					% von Neumann Entropy of the system
-					box on;
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = obj.getData('vne');				% t x 1
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
@@ -846,7 +1228,10 @@ classdef TDVPData
 						h.tlbl = 'Diabatic Occupation';
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
+						nPlots = size(obj.occCd,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						
 						for ii = 1:size(obj.occCd,4)
 							obj.plot('chain-n-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
@@ -863,7 +1248,11 @@ classdef TDVPData
 						h.tlbl = 'Adiabatic Occupation';
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
+						
+						nPlots = size(obj.occCd,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						
 						for ii = 1:size(obj.occCd,4)
 							obj.plot('chain-n-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
@@ -890,9 +1279,16 @@ classdef TDVPData
 				case 'chain-n-rc-ft'
 					% applies DFT to the occupation of site 2
 					DFTplot = 1;
-					h.data = real(squeeze(real(obj.occC(1:obj.lastIdx,2,:))));		% t x L x nChain
-					h.data = TDVPData.meanRes(h.data);
-% 					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
+					if isfield(obj.para,'useTreeMPS') && obj.para.useTreeMPS
+						for ii = 1:size(obj.occC,3)
+							pos = find(obj.occC(2,:,ii),1,'first');					% find pos of rc in chain ii
+							h.data(:,ii) = real(obj.occC(1:obj.lastIdx,pos,ii));
+						end
+					else
+						h.data = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					end
+% 					h.data = TDVPData.meanRes(h.data);
+					h.data = TDVPData.movAvgRes(h.data,350/obj.dt);
 					h.tdata = obj.t(1:obj.lastIdx);
 					h.Fs = 1/diff(obj.t(1:2));
 					h.window = 'kaiser';
@@ -929,7 +1325,6 @@ classdef TDVPData
 					end
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\langle x \rangle$';
-					
 				case 'chain-x-d-rc'
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
@@ -942,8 +1337,10 @@ classdef TDVPData
 						h.tlbl = 'Diabatic Displacement';
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
-						for ii = 1:size(obj.occCd,4)
+						nPlots = size(obj.xCd,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						for ii = 1:size(obj.xCd,4)
 							obj.plot('chain-x-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
 						return;				% exit here!
@@ -957,10 +1354,13 @@ classdef TDVPData
 						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						h.ylbl = '$\langle x \rangle$';
 						h.tlbl = 'Adiabatic Displacement';
+						plot([min(h.xdata),max(h.xdata)],[0,0],'k:','DisplayName','zero');	% zero baseline
 					else
 						% this is the first call to generate grid plot!
-						htemp = TDVPData.plotGrid(2,4,h.f);
-						for ii = 1:size(obj.occCd,4)
+						nPlots = size(obj.xCa,4);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						for ii = 1:size(obj.xCa,4)
 							obj.plot('chain-x-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
 						end
 						return;				% exit here!
@@ -1029,11 +1429,612 @@ classdef TDVPData
 % 					pl = plot(f, [real(linAbs),imag(linAbs),abs(linAbs)]);
 					pl = plot(f, real(linAbs));
 					h.ylbl = 'Linear Absorption';
+				case 'pot-dyn'
+					% Plots the Potential landscape as experienced by the wavepakets over time
+					% highly experimental and only works with hand-defined hamiltonian
+					if strcmp(obj.para.model,'SpinBoson')
+						%%
+						[sigmaX,~,sigmaZ] = spinop(obj.para.spinbase);			% gives XYZ operators with respect to specific main base
+						H = @(x,n) - obj.para.hx./2.*sigmaX - obj.para.hz./2.*sigmaZ + obj.para.chain{1}.t(1).*sigmaZ./2 *x*sqrt(2) + eye(2)*obj.para.chain{1}.epsilon(1) *x^2;
+					end
+					%%
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+% 					rcCol = find(~all(squeeze(obj.occCa(1:obj.lastIdx,:,1,h.chain))==0),1);
+					displ = squeeze(real(obj.xCa(1:obj.lastIdx,2,:,1)));		% t x L x state x nChain
+					occ = squeeze(real(obj.occCa(1:obj.lastIdx,2,:,1)));		% t x L x state x nChain
+					temp = arrayfun(@(i) eig(H(displ(i,2),occ(i,1)))',(1:obj.lastIdx)','UniformOutput',false);
+					h.ydata = cell2mat(temp);
+				case 'heff'
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					if ~isempty(h.state)
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						h.ydata = real(cell2mat(arrayfun(@(i) sort(eig(squeeze(obj.Heff(i,h.state,:,h.state,:))))',[1:obj.lastIdx]','UniformOutput',false)));
+						
+						h.ylbl = sprintf('$E_{eff}(%d)$',h.state);
+					else
+						% this is the first call to generate grid plot!
+						nn = ceil(sqrt(size(obj.Heff,2)));				% count the number of adiabatic states to derive grid
+						htemp = TDVPData.plotGrid(nn,nn,h.f);
+						for ii = 1:size(obj.Heff,2)
+							obj.plot('heff',varargin{:},htemp.ax(ii),'-state',ii);
+						end
+						return;				% exit here!
+					end
+				case 'heff-pop'
+					% heff, but with additional thickness according to population of given potential surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					if ~isempty(h.state)
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						
+						out = obj.getData('heff-pop','state',h.state);
+						D = out{1};								% t x dk_eig
+						pop = out{2};							% t x dk_eig
+						
+						if isempty(h.ylim)
+							h.ylim = [min(D(:)),max(D(:))];
+						end
+						for ii = 1:size(pop,2)
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii),h.ylim, h.ax,'thickness',h.patchthickness);
+						end
+						
+						%  V{3}'*squeeze(obj.Heff(3,1,:,1,:))*V{3}
+						h.ylbl = sprintf('$E_{eff}(%d)$',h.state);
+						return;
+					else
+						% this is the first call to generate grid plot!
+						nPlots = size(obj.Heff,2);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f);
+						for ii = 1:size(obj.Heff,2)
+							obj.plot('heff-pop',varargin{:},htemp.ax(ii),'-state',ii);
+						end
+						return;				% exit here!
+					end
+				case 'heff-pop-diab'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					if ~isempty(h.state)
+						h.xdata = obj.t(1:obj.lastIdx)*ts;
+						
+						out = obj.getData('heff-pop-diab','state',h.state);
+						D = out{1};									% t x dk_eig
+						pop = out{2};								% t x dk x dk_eig
+						
+						if isempty(h.ylim)
+							h.ylim = [min(D(:)),max(D(:))];
+						end
+						for ii = 1:size(pop,2)
+							h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+% 							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+						end
+						
+						h.t = title(sprintf('$E_{eff}(%d)$',h.state));
+						h.t.Units  = 'normalized';
+						h.t.Position = [0.5,0.9];
+						return;
+					else
+						% this is the first call to generate grid plot!
+						nPlots = size(obj.Heff,2);
+						[mm,nn] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						% for good screen, use: ,'rowheight',12,'rowwidth',45
+						% for two-column spanning pubFig use 'rowheight',4,'rowwidth',16.5
+						for ii = 1:size(obj.Heff,2)
+							obj.plot('heff-pop-diab',varargin{:},htemp.ax(ii),'-state',ii,'-ylim',h.ylim,'-patchthickness',h.patchthickness);
+						end
+						if ~isempty(h.ylim)
+							set(htemp.f.Children,{'YLim'},{h.ylim});
+						end
+						if ~isempty(h.xlim)
+							set(htemp.f.Children,{'XLim'},{h.xlim});
+						end
+						h = htemp;
+						return;				% exit here!
+					end
+				case 'heff-pop-diab-swap'
+					% Partly working!
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					% Additionally finds discontinuities arising from switching adiabatic states and swaps accordingly to get smoother dynamics (experimental!)
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					% want to rearrange obj.Heff t x D x dk x D x dk, and obj.sysState: t x dk x D
+					close(h.f);
+					if ~ismatrix(h.state)
+						error('for this, h.state has to be a matrix defining: [tIdx, n1, n2], which D states have to be swapped');
+					end
+					obj2 = obj.getData('heff-swap','state',h.state);
+					
+					h = obj2.plot('heff-pop-diab',varargin{:},'-xlim',h.xlim,'-ylim',h.ylim,'-rowwidth',h.rowwidth,'-rowheight',h.rowheight,'-patchthickness',h.patchthickness);
+					h.obj = obj2;																		% return object for further processing
+					return;
+					
+					%%
+					% Can detect discontinuities in obj.sysState
+					% Convert into probabilities to avoid complex numbers
+% 					tempProb = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));		% t x dk x D
+% 					
+% 					thresh = 10^-1.4;
+% 					derivs = diff(tempProb,1,1);						% derivative along time
+% 					jumps = derivs.* ((derivs < (-thresh)) | (derivs>thresh));
+% 					
+% 					[m,n,o] = find(jumps);
+% 					tSorted = sortrows([m,n,o],1);
+% 					[I,J] = ind2sub([5,5],tSorted(:,2));
+% 					tSorted = [tSorted(:,1),I,J,tSorted(:,3)];
+% 					%%
+% 					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,h.state,:,h.state,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
+% 					D = real(cell2mat(D'))';
+% 					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+% 					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+% 					% V{i}: dk x D_eig
+% 					Vtemp = cell2mat(V);												% creates (dk*t) x D_eig
+% 					Vtemp = reshape(Vtemp,[size(V{1},1),length(V),size(V{1},1)]);		% dk x t x D_eig
+% 					Vtemp = permute(Vtemp, [2,3,1]);									% t x D_eig x dk
+% 
+% 					% obj.sysState: t x dk x D
+% 					tempState = permute(obj.sysState(1:obj.lastIdx,:,h.state),[1,3,2]);				% t x 1 x dk
+% 					pop = sum(bsxfun(@times,Vtemp ,tempState),3);
+% 					pop = pop.*conj(pop);															% t x D_eig x 1
+% 
+% 					pop = bsxfun(@times,(Vtemp.*conj(Vtemp)),pop);									% t x D_eig x dk
+% 					pop = permute(pop,[1,3,2]);														% t x dk x D_eig
+% 
+% 					if isempty(h.ylim)
+% 						h.ylim = [min(D(:)),max(D(:))];
+% 					end
+% 
+% 					% find discontinuities in D and swap!
+% 					derivs = diff(D,1,1);
+% 					[mIdx,nIdx]    = find(abs(derivs)>10^-1);
+% 					
+% 					obj2.plot('heff-pop-diab',varargin{:},'-ylim',h.ylim);
+% 					return;
+				case 'heff-full'
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					% get the fully matricised Heff
+					out = obj.getData('heff-full');
+					D = out{1};																		% t x D*dk_eig
+					V = out{2};																		% t x D*dk x D*dk_eig
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = D;
+
+					h.ylbl = sprintf('$E (eV)$');
+% 					return
+				case 'heff-full-diab'
+					% color surfaces according to the mean diabatic character
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					col = get(0,'defaultaxescolororder');
+					% get the fully matricised Heff
+					out = obj.getData('heff-full-diab');
+					D  = out{1};																		% t x D*dk_eig
+					V  = out{2};																		% t x D*dk x D*dk_eig
+					VC = out{3};																		% D*dk_eig x dk x t
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = D;
+					
+					h.ylbl = sprintf('$E/eV$');
+					
+					character = mean(VC,3);
+					d = size(character);
+					h.color = arrayfun(@(i) character(i,:)*col(1:d(2),:), (1:d(1))','UniformOutput',false);
+				case 'heff-full-diab-v2'
+					% color surfaces according to the diabatic character per time as dot series
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					col = get(0,'defaultaxescolororder');
+					% get the fully matricised Heff
+					out = obj.getData('heff-full-diab');
+					D  = out{1};																		% t x D*dk_eig
+					V  = out{2};																		% t x D*dk x D*dk_eig
+					VC = out{3};																		% D*dk_eig x dk x t
+					
+					d = size(VC);
+					h.xdata = bsxfun(@times, obj.t(1:obj.lastIdx)'*ts, ones(1,d(1)));					% t x D*dk_eig
+					h.xdata = h.xdata(:);																% t*D*dk_eig
+					h.ydata = D(:);
+					VC = permute(VC,[3,1,2]);															% t x D*dk_eig x dk
+					VC = reshape(VC,[],d(2));															% t*D*dk_eig x dk
+					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
+					
+					h.pl = scatter(h.xdata,h.ydata,1,h.cdata,'.');
+					h.ylbl = sprintf('$E/eV$');
+					pl = h.pl;
+				case 'heff-full-pop'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					
+					out = obj.getData('heff-full-pop');
+					D       = out{1};								% t x D*dk_eig
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+% 						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii), h.ylim, h.ax, 'thickness',h.patchthickness);
+						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'thickness',h.patchthickness);
+					end
+
+% 					h.t = title(sprintf('$E_{eff, full}$'));
+% 					h.t.Units  = 'normalized';
+% 					h.t.Position = [0.5,0.9];
+				case 'heff-full-pop-v2'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					% colour surfaces according to mixing of diabatic staets
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ylbl = '$E/eV$';
+					out     = obj.getData('heff-full-pop');
+					D       = out{1};								% t x D*dk_eig
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax,'thickness',h.patchthickness);
+						delete(plTemp(1));
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
+					end
+					plotArgs = {};
+					if eScale
+						plotArgs = [plotArgs,{'-fsev'}];
+					end
+					
+					% plot diabatic coloured scatter ontop
+					htemp = obj.plot('heff-full-diab-v2',plotArgs{:},h.ax);
+					h.pl(end+1) = htemp.pl;
+					h.pl(end).SizeData = 0.05;
+					pl = h.pl;
+					h.ydata = [];			% delete to finish without replot	
+				case 'heff-full-pop-diab'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					
+					out = obj.getData('heff-full-pop');
+					D       = out{1};								% t x D*dk_eig
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+% 							h.pl = TDVPData.plotVarianceLines(h.xdata,D(:,ii),sum(pop(:,:,ii),2), h.ylim, h.ax, 'subshades',pop(:,:,ii),'thickness',h.patchthickness);
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
+					end
+					
+% 					h.t = title(sprintf('$E_{eff, full}$',h.state));
+% 					h.t.Units  = 'normalized';
+% 					h.t.Position = [0.5,0.9];
+					pl = h.pl;
+% 					return;
+				case 'heff-full-pop-diab-v2'
+					% heff, but with additional thickness according to population of given potential surface
+					% this plots the thickness according to population of diabatic states on each surface
+					% colour surfaces according to mixing of diabatic staets
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ylbl = '$E/eV$';
+					out     = obj.getData('heff-full-pop');
+					D       = out{1};								% t x D*dk_eig
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+						delete(plTemp(1));
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
+					end
+					plotArgs = {};
+					if eScale
+						plotArgs = [plotArgs,{'-fsev'}];
+					end
+					
+					% plot diabatic coloured scatter ontop
+					htemp = obj.plot('heff-full-diab-v2',plotArgs{:},h.ax);
+					h.pl(end+1) = htemp.pl;
+					h.pl(end).SizeData = 0.05;
+					pl = h.pl;
+					h.ydata = [];			% delete to finish without replot
+				case 'heff-current'
+					% Now only for DPMES
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,2),4));			% t x dk' x dk
+					h.ylbl  = '$\langle j \rangle$';
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('%s $\\to$ %s',stateLab{ii},stateLab{jj});
+							if ii > jj 
+								select(ii,jj) = 1;						% select only lower left triangular since current is antisymmetric
+							end
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk' x D * dk
+					h.ydata = h.ydata(:,logical(select(:)));
+					h.ydata = h.ydata/ts;								% convert from energy to quanta
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(logical(select(:)));
+% 					set(pl,{'DisplayName'},legLab(logical(select(:))));
+					h.pl = pl;
+% 					return;
+				case 'heff-current-nonzero'
+					% Now only for DPMES
+					% deletes zero currents
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,2),4));			% t x dk' x dk
+					h.ylbl  = '$\langle j \rangle$';
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('%s $\\to$ %s',stateLab{ii},stateLab{jj});
+							if ii > jj && sum(abs(h.ydata(:,ii,jj))) ~= 0
+								select(ii,jj) = 1;
+							end
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk' x D * dk
+					h.ydata = h.ydata(:,logical(select(:)));
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(logical(select(:)));
+					h.pl = pl;
+				case 'heff-current-cumsum'
+					% Now only for DPMES
+					% output units: should be quanta
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,2),4));			% t x dk' x dk
+					h.ylbl  = '$\int\langle j \rangle$/quanta (needs checking)';
+					
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('%s $\\to$ %s',stateLab{ii},stateLab{jj});
+							if ii > jj 
+								select(ii,jj) = 1;
+							end
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x dk' * dk
+					h.ydata = cumsum(h.ydata(:,logical(select(:))),1);	% integral approximation. units of time and hbar cancel each other, so no modification needed
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(logical(select(:)));
+% 					set(pl,{'DisplayName'},);
+					h.pl = pl;
+% 					return;
+				case 'heff-current-flowfrom-detail'
+					% Now only for DPMES
+					% sums over all acceptors
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(h.ydata,5),4));			% t x D' x dk'
+					h.ylbl  = '$\langle j \rangle$';
+					
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					legLab = cell(5,5); select = zeros(5);
+					for ii = 1:5
+						for jj = 1:5
+							legLab{ii,jj} = sprintf('$|%d\\rangle$,%s',ii,stateLab{jj});
+						end
+					end
+					h.ydata = reshape(h.ydata, size(h.ydata,1),[]);		% t x D' * dk'
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = legLab(:);
+					h.pl = pl;
+				case 'heff-current-flowfrom-system'
+					% Now only for DPMES
+					% Shows which states loose population through coherent currents
+					% sums over all acceptors and all Bond states
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					h.ydata = squeeze(sum(sum(sum(h.ydata,5),4),2));	% t x dk'
+					h.ylbl  = '$\langle j \rangle$';
+					
+					% generate selection of upper right and legend labels
+					stateLab = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+					pl = plot(h.xdata,h.ydata);
+					h.leglbl = stateLab(:);
+					h.pl = pl;
+				case 'pes-from-tes'
+					% get the adiabatic states from the TES
+					% use these to get the corresponding PES
+					% Plot as dots colored according to diabatic mixture
+					
+					col = get(0,'defaultaxescolororder');
+					% get the diabatic populations as eigenvectors of TES
+					out = obj.getData('pes-from-tes');
+					D  = out{1};																		% t x D*dk_eig
+					VC = out{2};																		% D*dk_eig x dk x t
+					
+					d = size(VC);
+					h.xdata = bsxfun(@times, obj.t(1:obj.lastIdx)'*ts, ones(1,d(1)));					% t x D*dk_eig
+					h.xdata = h.xdata(:);																% t*D*dk_eig
+					h.ydata = D(:);
+					VC = permute(VC,[3,1,2]);															% t x D*dk_eig x dk
+					VC = reshape(VC,[],d(2));															% t*D*dk_eig x dk
+					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
+					
+					h.pl = scatter(h.xdata,h.ydata,40,h.cdata,'.');
+					h.ylbl = sprintf('$E/eV$');
+					pl = h.pl;
+				case 'pes-from-tes-pop-diab-v2'
+					% similar to 'heff-full-pop-diab-v2', but with PES in adiabatic basis of TES
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ylbl = '$E/eV$';
+					out     = obj.getData('heff-full-pop');
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					out = obj.getData('pes-from-tes');
+					D       = out{1};								% t x D*dk_eig
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+						delete(plTemp(1));
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
+					end
+					plotArgs = {};
+					if eScale
+						plotArgs = [plotArgs,{'-fsev'}];
+					end
+					
+					% plot diabatic coloured scatter ontop
+					htemp = obj.plot('pes-from-tes',plotArgs{:},h.ax);
+					h.pl(end+1) = htemp.pl;
+					h.pl(end).SizeData = 0.05;
+					pl = h.pl;
+					h.ydata = [];			% delete to finish without replot
+				case 'tes-from-pes'
+					% get the adiabatic states from the PES
+					% use these to get the corresponding TES
+					% Plot as dots colored according to diabatic mixture
+					
+					col = get(0,'defaultaxescolororder');
+					% get the diabatic populations as eigenvectors of TES
+					out = obj.getData('tes-from-pes');
+					D  = out{1};																		% t x D*dk_eig
+					VC = out{2};																		% D*dk_eig x dk x t
+					
+					d = size(VC);
+					h.xdata = bsxfun(@times, obj.t(1:obj.lastIdx)'*ts, ones(1,d(1)));					% t x D*dk_eig
+					h.xdata = h.xdata(:);																% t*D*dk_eig
+					h.ydata = D(:);
+					VC = permute(VC,[3,1,2]);															% t x D*dk_eig x dk
+					VC = reshape(VC,[],d(2));															% t*D*dk_eig x dk
+					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
+					
+					h.pl = scatter(h.xdata,h.ydata,40,h.cdata,'.');
+					h.ylbl = sprintf('$E/eV$');
+					pl = h.pl;
+				case 'tes-from-pes-pop-diab-v2'
+					% similar to 'heff-full-pop-diab-v2', but with TES in adiabatic basis of PES
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ylbl = '$E/eV$';
+					out     = obj.getData('heff-full-pop');
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					out = obj.getData('tes-from-pes');
+					D       = out{1};								% t x D*dk_eig
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(popDiab,3)
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+						delete(plTemp(1));
+						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+						h.pl = [h.pl,plTemp(sel)];
+					end
+					plotArgs = {};
+					if eScale
+						plotArgs = [plotArgs,{'-fsev'}];
+					end
+					
+					% plot diabatic coloured scatter ontop
+					htemp = obj.plot('tes-from-pes',plotArgs{:},h.ax);
+					h.pl(end+1) = htemp.pl;
+					h.pl(end).SizeData = 0.05;
+					pl = h.pl;
+					h.ydata = [];			% delete to finish without replot
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
 			end
 			
-			if ~isempty(h.ydata)
+			if ~isempty(h.ydata) && isempty(h.pl)
 				if h.normalise
 					h.ydata = bsxfun(@rdivide,h.ydata,max(h.ydata,[],1));
 				end
@@ -1102,7 +2103,17 @@ classdef TDVPData
 			end
 			xlabel(h.xlbl);
 			ylabel(h.ylbl);
+			if ~isempty(h.xlim)
+				xlim(h.xlim);
+			end
+			if ~isempty(h.ylim)
+				ylim(h.ylim);
+			end
 			
+			
+			if ~isempty(h.color)
+				set(pl,{'Color'},h.color);
+			end
 			if unicolor
 				arrayfun(@(x) set(x,'Color',pl(1).Color), pl);
 				h.ax.ColorOrderIndex = idx + 1;
@@ -1765,6 +2776,7 @@ classdef TDVPData
 			h.ydata = obj.t(1:obj.lastIdx)*h.ts;
 			h.zdata = [];					% T x L x NC x ...  if not, needs to be reshaped!
 			h.xSize = obj.para.L*ones(1,obj.nChains);	% size for each slider value
+			h.imagesc = 0;
 			
 			if obj.nChains > 1 && obj.para.useTreeMPS
 				h.xSize = cellfun(@(x) x.L,obj.para.chain)+1;
@@ -1789,6 +2801,8 @@ classdef TDVPData
 					case '-cm'
 						% use cm^-1 as Units
 						h.evTocm = 1;
+					case '-imagesc'
+						h.imagesc = 1;
 				end
 			end
 			
@@ -1815,7 +2829,7 @@ classdef TDVPData
 % 				end
 			end
 			
-			switch lower(type)
+			switch lower(type)											% all the plot choices
 				case 'chain-n'
 					h.zdata = real(obj.occC(1:obj.lastIdx,:,:));		% t x L x chain
 					h.zlbl = '$\left< n_k \right>$';
@@ -1912,15 +2926,64 @@ classdef TDVPData
 					h.sldlbl = {'State','Chain'};
 					h.tlbl = 'Star Displacement';
 				case 'state-adiab'
-					h.zdata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
+					if ~isempty(obj.sysState)
+						h.zdata = obj.sysState(1:obj.lastIdx,:,:).*conj(obj.sysState(1:obj.lastIdx,:,:));			% t x dk x D; calc the probability
+					else
+						error('Not available, need to extract Observable ss');
+						close(h.f);
+						return;
+					end
 					h.zlbl = '$|\Psi_k|^2$';
 					h.xlbl = 'Diabatic States';
 					h.xdata = (1:size(obj.sysState,2)).';
 					h.xSize = size(obj.sysState,2)*ones(1,obj.nChains);
 					h.tlbl = 'Adiabatic State evolution';
 					h.sldlbl = {'Bond State'};
-					
+				case 'heff-offdiag'
+					h.zdata = obj.Heff.*conj(obj.Heff);;				% t x D' x dk' x D x dk
+					d = size(h.zdata);
+					h.zdata = reshape(h.zdata, d(1),d(2)*d(3),[]);		% t x D' * dk' x D * dk
+					h.zdata = permute(h.zdata, [2,3,1]);				% D' * dk' x D * dk x t
+					for ii = 1:size(h.zdata,3)
+						h.zdata(:,:,ii) = h.zdata(:,:,ii) - diag(diag(h.zdata(:,:,ii)));	% remove the offdiagonals
+					end
+					h.zlbl = '$|H_{eff}|$';
+					h.xdata = (1:size(h.zdata,2))';						% D'*dk' x D*dk
+					h.xSize = length(h.xdata);
+					h.ydata = (1:size(h.zdata,1))';						% D'*dk' x D*dk
+					h.ySize = length(h.ydata);
+					h.xlbl = 'Initial State D*dk';
+					h.ylbl = 'Final State D*dk';
+					h.sldlbl = {'t'};
+					h.tlbl = 'Effective Hamiltonian paths';
+				case 'heff-current'
+					h.zdata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					d = size(h.zdata);
+					h.zdata = reshape(h.zdata, d(1),d(2)*d(3),[]);		% t x D' * dk' x D * dk
+					h.zlbl = '$\left< j \right>$';
+					h.xdata = (1:size(h.zdata,2))';						% D'*dk' x D*dk
+					h.xSize = length(h.xdata);
+					h.xlbl = 'Final State D*dk';
+					h.sldlbl = {'In. State'};
+					h.tlbl = 'Currents';
+				case 'heff-current-v2'
+					h.zdata = obj.getData('heff-current');				% t x D' x dk' x D x dk
+					d = size(h.zdata);
+					h.zdata = reshape(h.zdata, d(1),d(2)*d(3),[]);		% t x D' * dk' x D * dk
+					h.zdata = permute(h.zdata,[3,2,1]);
+					h.zlbl = '$\left< j \right>$';
+					h.xdata = (1:size(h.zdata,2))';						% D'*dk' x D*dk
+					h.ydata = h.xdata;
+					h.xSize = length(h.xdata);
+					h.xlbl = 'Initial State D*dk';
+					h.ylbl = 'Final State D*dk';
+					h.sldlbl = {'t_i'};
+					h.tlbl = 'Currents';
+				otherwise
+					return;
 			end
+			
+			
 			h.f.Name = h.tlbl;
 			
 			if h.logZ
@@ -1933,9 +2996,14 @@ classdef TDVPData
 			h.ysize = size(h.ydata);
 			h.zsize = size(h.zdata);
 			
-			h.pl = surf(h.xdata(1:h.xSize(1),1),h.ydata,h.zdata(:,1:h.xSize(1),h.SldIdx{:}));
-			shading interp
-			rotate3d on
+			if ~h.imagesc
+				h.pl = surf(h.xdata(1:h.xSize(1),1),h.ydata,h.zdata(:,1:h.xSize(1),h.SldIdx{:}));
+				shading interp
+				rotate3d on
+			else
+				h.pl = imagesc(h.xdata(1:h.xSize(1),1),h.ydata,h.zdata(:,1:h.xSize(1),h.SldIdx{:}));
+				h.ax.YAxis.Direction = 'normal';
+			end
 			axis tight
 			h.ax.View = [0 90];
 			h.ax.TickDir = 'out';
@@ -1975,8 +3043,14 @@ classdef TDVPData
 					h.ax.CLim = h.ax.ZLim;
 				else
 					xs = length(get(h.pl,'xdata'));
-					set(h.pl,'zdata', h.zdata(:,1:xs,h.SldIdx{:}));
-					h.ax.CLim = h.ax.ZLim;
+					if isa(h.pl, 'matlab.graphics.primitive.Image')
+						set(h.pl,'cdata', h.zdata(:,1:xs,h.SldIdx{:}));
+% 						h.ax.CLim = [min(h.pl.CData(:)), max(h.pl.CData(:))];
+% 						set(h.pl,'cdatamapping','scaled');					% refresh Clim
+					else
+						set(h.pl,'zdata', h.zdata(:,1:xs,h.SldIdx{:}));
+						h.ax.CLim = h.ax.ZLim;
+					end
 				end
 	% 			fprintf('Source.Value: %g, Sld.Value: %g',source.Value,h.sld.getValue);
 	% 			callbackdata
@@ -2282,6 +3356,14 @@ classdef TDVPData
 			out = diff(reshape(obj.rho,d(1),[])) - diff(reshape(obj2.rho,d(1),[]));		% t x dk*dk
 			out = sqrt(sum(out.*conj(out)./d(2)^2,2));
 		end
+		
+		function out = getDkUsage(obj,varargin)
+			%% getDkUsage()
+			%	get the maximum number of relevantly occupied Dk for each boson
+			%	only applicable to treeMPS
+			assert(~isempty(obj.treeMPS),'No treeMPS stored, unable to give answer!');
+			out = TDVPData.dkUsage(obj.treeMPS);						% forward to the static function
+		end
 	end
 	
 	% Static methods are functions that do not require 'obj' but are
@@ -2330,11 +3412,95 @@ classdef TDVPData
 			B = bsxfun(@minus,A,mean(A,1));
 		end
 		
+		function y = medianFilter(x,windowWidth)
+            % function imOut = medianFilter(imIn,windowWidth)
+            %
+			% Applies Median filter to 2D Matrices only
+			% windowWidth is [m n] indicating widths in both directions
+            % The original code was posted on matlab central file exchange.
+            % I'm unable to find the original to give proper credits.
+            % This version was slightly modified by Florian Schroeder, April 2017.
+            
+            if mod(windowWidth, 2 ) == 0
+                disp('Window has even size');
+                return
+			end
+			
+			d = size(x);
+            y = x;
+            
+            windowBreadth = (windowWidth - 1)/2;
+            
+            for m = 1:d(1)
+                for n = 1:d(2)
+                    r1 = max(m-windowBreadth(1),1):min(m+windowBreadth(1),d(1));
+                    r2 = max(n-windowBreadth(2),1):min(n+windowBreadth(2),d(2));
+                    t1 = x(r1,r2);
+                    t2 = median(t1(:));
+                    y(m,n) = t2;
+                end
+            end
+            
+		end
+		
+		function y = maxFilter(x,windowWidth)
+            % function imOut = maxFilter(imIn,windowWidth)
+            %
+			% Applies Maximum filter to 2D Matrices
+			% windowWidth is [m n] indicating widths in both directions
+            % The original code was posted on matlab central file exchange.
+            % I'm unable to find the original to give proper credits.
+            % This version was slightly modified by Florian Schroeder, May 2017.
+            
+            if mod(windowWidth, 2 ) == 0
+                disp('Window has even size');
+                return
+			end
+			
+			d = size(x);
+            y = x;
+            
+            windowBreadth = (windowWidth - 1)/2;
+            
+            for m = 1:d(1)
+                for n = 1:d(2)
+                    r1 = max(m-windowBreadth(1),1):min(m+windowBreadth(1),d(1));
+                    r2 = max(n-windowBreadth(2),1):min(n+windowBreadth(2),d(2));
+                    t1 = x(r1,r2);
+                    t2 = max(t1(:));
+                    y(m,n) = t2;
+                end
+            end
+            
+		end
+		
+		function resetColorOrder(ax)
+			
+			if isempty(ax)
+				ax = gca;
+			end
+			
+			col = get(0,'defaultAxesColorOrder');
+			col = mat2cell(col,ones(7,1),3);
+			
+			pl_handle = [ax.Children];
+			idx = fliplr(1:length(pl_handle));
+			idx = mod(idx-1,7)+1;
+			set(pl_handle,{'Color'},col(idx,:));
+			
+		end
+		
 		function h = plotGrid(rows,cols,varargin)
 			%% function h = plotGrid(rows,cols)
 			%	creates a grid of axes
 			%	onto a 8.5 cm x 6.4 cm figure suitable for 2-column format.
-			%	if different 'rowwidth' is defined, the figure width will be adjusted.
+			%
+			%	h = plotGrid(rows,cols, 'rowheight',h, 'rowwidth', w)
+			%		allows specifying different values in cm. Default: h = 1.0, w = 7.2;
+			%
+			%	h = plotGrid(rows,cols, figHandle,...)
+			%		creates the grid in defined figure 
+			%
 			p = inputParser;
 			addRequired(p,'rows',@isnumeric);
 			addRequired(p,'cols',@isnumeric);
@@ -2384,6 +3550,7 @@ classdef TDVPData
 				end
 			end
 			[h.ax.Units] = deal('norm');
+			h.f.Units = 'norm';
 		end
 		
 		function h = plotRowGroups(rows,varargin)
@@ -2540,6 +3707,292 @@ classdef TDVPData
 				for ii = 1:treeMPS.degree
 					out = [out, TDVPData.printSvNETreeMPS(treeMPS.child(ii))];
 				end
+			end
+		end
+		
+		function pl = plotVariance(x,y,std,ylim,ax,varargin)
+			% plot a line defined by x,y with shaded variance given by std
+			% plot into axes given in ax
+			% need to give expected ylim = [min,max] in order to determine correct line thickness
+			% if giving subshades then: sum(subshades,2) = std
+			
+			colOrder = get(0,'DefaultaxesColorOrder');	% only used if std ~= n by 1
+			
+			% process varargin with parser
+			p = inputParser;
+			addParameter(p,'thickness',0.02,@isnumeric);
+			addParameter(p,'alpha' ,0.5,@isnumeric);
+			addParameter(p,'subshades',[],@isnumeric);		% t x n array for n subshades to plot
+			parse(p,varargin{:});
+			
+			max_thickness = p.Results.thickness;						% now: 2% of yrange should be maximum std thickness
+			fill_alpha = p.Results.alpha;
+			
+			% make all row vectors
+			x   = reshape(x,1,[]); 
+			y   = reshape(y,1,[]);
+			std = reshape(std,1,[]);
+			upper = y + diff(ylim)*std/2 * max_thickness;
+			lower = y - diff(ylim)*std/2 * max_thickness;
+			
+			pl(1) = plot(ax, x,y);		% first plot the mean
+			if isempty(p.Results.subshades)
+				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
+				uistack(pl(2), 'bottom');
+				set(pl(2),'EdgeColor','none')
+				if ax.ColorOrderIndex == 1
+					ax.ColorOrderIndex = 7;
+				else
+					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+				end
+			else
+				std = p.Results.subshades';			% n x t
+				for ii = 1:size(std,1)
+					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
+					if max(std(ii,:)) > 5e-3
+						% Only plot if max patch height > 1%
+						pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+						uistack(pl(ii+1),'bottom');
+						set(pl(ii+1),'EdgeColor','none')
+						if ax.ColorOrderIndex == 1
+							ax.ColorOrderIndex = 7;
+						else
+							ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+						end
+					end
+					lower = upper;
+				end
+			end
+		end
+		
+		function pl = plotVarianceLines(x,y,std,ylim,ax,varargin)
+			% plot a line defined by x,y with shaded variance given by std
+			% plot into axes given in ax
+			% need to give expected ylim = [min,max] in order to determine correct line thickness
+			% if giving subshades then: sum(subshades,2) = std
+			
+			colOrder = get(0,'DefaultaxesColorOrder');	% only used if std ~= n by 1
+			
+			% process varargin with parser
+			p = inputParser;
+			addParameter(p,'thickness',0.02,@isnumeric);
+			addParameter(p,'alpha' ,0.5,@isnumeric);
+			addParameter(p,'subshades',[],@isnumeric);		% t x n array for n subshades to plot
+			parse(p,varargin{:});
+			
+			max_thickness = p.Results.thickness;						% now: 2% of yrange should be maximum std thickness
+			fill_alpha = p.Results.alpha;
+			
+			% make all row vectors
+			x   = reshape(x,1,[]); 
+			y   = reshape(y,1,[]);
+			std = reshape(std,1,[]);
+			upper = y + diff(ylim)*std/2 * max_thickness;
+			lower = y - diff(ylim)*std/2 * max_thickness;
+			
+			pl(1) = plot(ax, x,y);		% first plot the mean
+			if isempty(p.Results.subshades)
+				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
+				uistack(pl(2), 'bottom');
+				set(pl(2),'EdgeColor','none')
+				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+			else
+				std = p.Results.subshades';			% n x t
+				for ii = 1:size(std,1)
+					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
+					if max(std(ii,:)) > 5e-3
+						% Only plot if max patch height > 1%
+						pl(ii+1) = plot([x,x(end:-1:1)], [upper,lower(end:-1:1)], 'Color', colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+						uistack(pl(ii+1),'bottom');
+						ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+					end
+					lower = upper;
+				end
+			end
+		end
+		
+		function [m,n] = bestGrid(nPlots)
+			% find the best grid m x n to display n plots
+			% require n>=m
+			nAx = nPlots;
+			
+			% Simple stupid approach
+			if nPlots == 1
+				m = 1; n = 1;
+				return
+			elseif nPlots == 2
+				m = 1; n = 2;
+				return
+			elseif nPlots <= 4
+				m = 2; n = 2;
+				return
+			elseif nPlots <= 6
+				m = 2; n = 3;
+				return
+			elseif nPlots <= 8
+				m = 2; n = 4;
+				return
+			elseif nPlots <= 9
+				m = 3; n = 3;
+			elseif nPlots <= 12
+				m = 3; n = 4; 
+			end
+		end
+		
+		function out = D2Str(treeMPS)
+			%% function out = D2Str(treeMPS)
+			%	generates string output of bond dimensions returned in a flattened cell array for each line to display
+			if treeMPS.height == 0
+				out = {num2str(treeMPS.D,'%-5u')};		% converts a chain to string; pack into cell
+				return;
+			end
+			% else: hasChild!
+			childStr = {};
+			for i = 1:treeMPS.degree
+				childStr{i} = TDVPData.D2Str(treeMPS.child(i));
+			end
+
+			for i = 1:treeMPS.degree
+				% str1 for the first line of each child
+				if i == 1
+					str1 = sprintf('%-5u%s',treeMPS.D(1));
+				elseif i == treeMPS.degree
+					str1 = sprintf('  \\- ');
+				else
+					str1 = sprintf('  |- ');
+				end
+				if iscell(childStr{i})
+					childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+					for j = 2:length(childStr{i})
+						if i == treeMPS.degree
+							childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+						else
+							childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+						end
+					end
+				end
+			end
+			childStr = [childStr{:}];		% flatten cell array
+			if treeMPS.isRoot
+				out = sprintf('%s\n',childStr{:});
+			else
+				out = childStr;
+			end
+			
+		end
+		
+		function out = dk2Str(treeMPS)
+			%% function out = dk2Str(treeMPS)
+			%	generates string output of bond dimensions returned in a flattened cell array for each line to display
+			if treeMPS.height == 0
+				out = {num2str(treeMPS.dk,'%-5u')};		% converts a chain to string; pack into cell
+				return;
+			end
+			% else: hasChild!
+			childStr = {};
+			for i = 1:treeMPS.degree
+				childStr{i} = TDVPData.dk2Str(treeMPS.child(i));
+			end
+
+			for i = 1:treeMPS.degree
+				% str1 for the first line of each child
+				if i == 1
+					str1 = sprintf('%-5u%s',0);
+				elseif i == treeMPS.degree
+					str1 = sprintf('  \\- ');
+				else
+					str1 = sprintf('  |- ');
+				end
+				if iscell(childStr{i})
+					childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+					for j = 2:length(childStr{i})
+						if i == treeMPS.degree
+							childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+						else
+							childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+						end
+					end
+				end
+			end
+			childStr = [childStr{:}];		% flatten cell array
+			if treeMPS.isRoot
+				out = sprintf('%s\n',childStr{:});
+			else
+				out = childStr;
+			end
+			
+		end
+		
+		function out = dkUsage(treeMPS)
+			%% function out = dkUsage(treeMPS)
+			%	generates string output of bond dimensions returned in a flattened cell array for each line to display
+			thresh = 1e-1;								% minimum amplitude to be relevant
+			if treeMPS.height == 0
+				%% iterate through chain and estimate relevant dk usage
+				dk = zeros(1,treeMPS.L);
+				for ii = 1:treeMPS.L
+					est = sqrt(sum(abs(treeMPS.Vmat{ii}).^2,2));				% measure importance by row-norm in dk! (column norm is always 1)
+					est = find(est<thresh,1,'first');
+					if isempty(est)
+						dk(ii) = treeMPS.dk(ii);
+					else
+						dk(ii) = est;
+					end
+				end
+				out = {num2str(dk,'%-5u')};		% converts a chain to string; pack into cell
+				return;
+			end
+			% else: hasChild!
+			childStr = {};
+			for i = 1:treeMPS.degree
+				childStr{i} = TDVPData.dkUsage(treeMPS.child(i));
+			end
+
+			for i = 1:treeMPS.degree
+				% str1 for the first line of each child
+				if i == 1
+					str1 = sprintf('%-5u%s',0);
+				elseif i == treeMPS.degree
+					str1 = sprintf('  \\- ');
+				else
+					str1 = sprintf('  |- ');
+				end
+				if iscell(childStr{i})
+					childStr{i}{1} = sprintf('%s%s',str1,childStr{i}{1});
+					for j = 2:length(childStr{i})
+						if i == treeMPS.degree
+							childStr{i}{j} = sprintf('     %s',childStr{i}{j});
+						else
+							childStr{i}{j} = sprintf('  |  %s',childStr{i}{j});
+						end
+					end
+				end
+			end
+			childStr = [childStr{:}];		% flatten cell array
+			if treeMPS.isRoot
+				out = sprintf('%s\n',childStr{:});
+			else
+				out = childStr;
+			end
+			
+		end
+		
+		function out = subsample(data,fromDt, toDt)
+			%% function out = subsample(data,fromDt, toDt)
+			%	subsample data taken at intervals fromDt down to an interval toDt
+			%
+			%	for now only 2D-array supported
+			if mod(toDt/fromDt,1) == 0 || mod(toDt/fromDt,1) > 0.99
+				step = round(toDt/fromDt);
+				if step == 1
+					% no subsampling needed
+					out = data;
+				else
+					out = data(1:step:end,:);
+				end
+			else
+				warning('Incommensurate subsampling performed by interpolation');
+				out = 0;	%% TODO: has to be implemented; use interp?
 			end
 		end
 	end

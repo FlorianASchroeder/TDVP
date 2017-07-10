@@ -71,6 +71,7 @@ p.addParameter('useVmat'		,1	,@isnumeric);
 p.addParameter('useVtens'		,0	,@isnumeric);
 p.addParameter('initChainState'	,'vac',@(x) any(validatestring(x,...
 								{'rand','vac'})));		% possible initial chain states
+p.addParameter('comment'		,'',@isstr);
 
 % para.tdvp input parser
 % pt.addParameter('model'			,'SpinBoson',@(x) any(validatestring(x,...
@@ -89,8 +90,8 @@ pt.addParameter('extractStarInterval',1	,@isnumeric);
 pt.addParameter('storeMPS'			,0	,@isnumeric);
 pt.addParameter('evolveSysTrotter'	,1	,@isnumeric);
 pt.addParameter('HEffSplitIsometry'	,1	,@isnumeric);
-pt.addParameter('maxExpMDim'		,120,@isnumeric);
-pt.addParameter('maxExpVDim'		,200,@isnumeric);
+pt.addParameter('maxExpMDim'		,120,@isnumeric);	% E5: 160, P40: 120
+pt.addParameter('maxExpVDim'		,200,@isnumeric);	% E5: 270, P40: 256
 pt.addParameter('expvCustom'		,1	,@isnumeric);
 pt.addParameter('useDkExpand'		,0	,@isnumeric);
 pt.addParameter('expandOBB'			,1	,@isnumeric);
@@ -139,7 +140,7 @@ if strfind(para.model,'SpinBoson')
 		out = regexp(para.model,'SpinBoson(?<nChains>\d)C','names');
 		para.nChains = str2double(out.nChains);
 	end
-	para.wc = [1,5];		% only for testing purposes
+% 	para.wc = [1,5];		% only for testing purposes
 	for mc = 1:para.nChains
 		para.chain{mc}.mapping			= 'OrthogonalPolynomials';
 		para.chain{mc}.spectralDensity	= 'Leggett_Hard';
@@ -288,7 +289,7 @@ if strfind(para.model,'DPMESclust7-1')
 	para.InitialState               = find(~cellfun('isempty', strfind(DPMESInitialStates,pDPMES.Results.InitialState)));
 end
 
-%% Settings for DPMES Tree1
+%% Settings for DPMES-TreeN
 if strfind(para.model,'DPMES-Tree1')
  	pDPMES.parse(varargin{:});
 	
@@ -565,7 +566,7 @@ para.relativeshift=zeros(para.nChains,para.L);
 para.relativeshiftprecision=0.01;				% When the relative shift is below this value then stop shifting
 % para = maxshift(para);						% TODO!
 
-para.version = 'v77';
+para.version = 'v79';
 
 if isstruct(para.tdvp)
 	%% Defaults to para for tdvp
@@ -603,7 +604,7 @@ if isfield(para.chain{1},'s') && para.chain{1}.s ~= 1 && isfield(para,'SpinBoson
 end
 
 if any(strfind(para.model,'DPMES'))
-	para.folder = sprintf('%s-%s-%s-L%dCT%g%s',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L,pDPMES.Results.CTShift,pDPMES.Results.InitialState);
+	para.folder = sprintf('%s-%s-%s%s-L%dCT%g%s',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.comment, para.L,pDPMES.Results.CTShift,pDPMES.Results.InitialState);
 else
 	para.folder = sprintf('%s-%s-%s-L%d',datestr(now,'yyyymmdd-HHMM-SS'), para.model, Descr, para.L);
 end
@@ -817,6 +818,7 @@ for mc = para.treeMPS.nNodes:-1:1
 		idx = num2cell([ones(1,NC+1),para.InitialState]);			% start in second excited state!
 		nodes(mc).mps{1}(idx{:}) = 1;
 	elseif isfield(para,'SpinBoson') && strcmp(para.SpinBoson.GroundStateMode, 'artificial')
+		d_opt = 2;
 		if strcmp(para.SpinBoson.InitialState, 'sz')
 			%% prepare +Sz eigenstate
 			idx = num2cell(ones(1,NC+1));			% select state coupling to all first chain states

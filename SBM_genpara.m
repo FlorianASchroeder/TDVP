@@ -33,7 +33,7 @@ eval(sprintf('init_%s()',chainpara.spectralDensity));
 
 % first: OrthPol, analytic from recurrence relation.
 if strcmp(chainpara.mapping,'OrthogonalPolynomials')
-	assert(isfield(chainpara,'L') && chainpara.L>1,'Please state required finite chain length!');
+	assert(isfield(chainpara,'L') && chainpara.L>=1,'Please state required finite chain length!');
     assert(isfield(chainpara,'alpha'),'Please state para.alpha, the strength of coupling!');
 
 	[chainpara.epsilon, chainpara.t] = chainParams_OrthogonalPolynomials();			% returns length L parameters to allow pure boson chains
@@ -58,7 +58,7 @@ elseif chainpara.Lambda == 1
 	% TODO: make sensible estimate!
 	bigL = 10*chainpara.L		% arbitrary now
 	if strcmp(chainpara.discrMethod,'Direct') && strcmp(chainpara.mapping,'Stieltjes')
-		bigL = 1000*bigL;							% can deal with much more!
+		bigL = 100*bigL;							% can deal with much more!
 	end
 else
 	error('VMPS:SBM_genpara','Please define Lambda >= 1 for discretization!');

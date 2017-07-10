@@ -489,7 +489,7 @@ end
 		A = reshape(A,d);
 		
 		% 1. on-site H1
-		w =	contracttensors(A, NC+2, NC+2, op.h1jOBB.', 2,1);
+% 		w =	contracttensors(A, NC+2, NC+2, op.h1jOBB.', 2,1);
 		w = reshape(A1 * op.h1jOBB.',d);
 		
 		
