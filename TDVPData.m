@@ -939,7 +939,7 @@ classdef TDVPData
 			DFTshift = 0;				% shift the fft results
 			h.normalise = 0;				% normalise to maximum peak (for FFT especially)
 			h.distribute = 0;			% distribute plot lines along y; only use if h.normalise = 1, otherwise gets messy
-			h.rowheight  = 1;			% defaults for grid
+			h.rowheight  = 2;			% defaults for grid
 			h.rowwidth  = 7.2;			% defaults for grid
 			h.patchthickness = 0.2;		% in % of total ylim
 			
@@ -1016,8 +1016,8 @@ classdef TDVPData
 				if isempty(h.ax)
 					h.f = figure();
 				else
-					axes(h.ax);					% select axes
-					h.f = gcf;					% get their figure
+					axes(h.ax(1));					% select axes
+					h.f = gcf;						% get their figure
 				end
 			end
 			if isempty(h.ax)
@@ -1277,6 +1277,8 @@ classdef TDVPData
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\langle n \rangle$';
 				case 'chain-n-d-rc'
+					%% Plot the diabatic RC Chain occupation
+					%
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
@@ -1286,8 +1288,8 @@ classdef TDVPData
 						h.ylbl = '$\langle n \rangle$';
 						h.tlbl = 'Diabatic Occupation';
 					else
-						% this is the first call to generate grid plot!
-						nPlots = size(obj.occCd,4);
+						% Plot for all chains: this is the first call to generate grid plot!
+						nPlots  = size(obj.occCd,4);				% = nChains
 						[mm,nn] = TDVPData.bestGrid(nPlots);
 						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
 						
@@ -1297,6 +1299,7 @@ classdef TDVPData
 						return;				% exit here!
 					end
 				case 'chain-n-a-rc'
+					% h.chain: 1x1; h.state: 1 x n possible
 					if ~isempty(h.chain)
 						% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
@@ -1306,7 +1309,7 @@ classdef TDVPData
 						h.ylbl = '$\langle n \rangle$';
 						h.tlbl = 'Adiabatic Occupation';
 					else
-						% this is the first call to generate grid plot!
+						% Plot for all chains: this is the first call to generate grid plot!
 						
 						nPlots = size(obj.occCd,4);
 						[mm,nn] = TDVPData.bestGrid(nPlots);
@@ -1386,7 +1389,7 @@ classdef TDVPData
 					h.ylbl = '$\langle x \rangle$';
 				case 'chain-x-d-rc'
 					if ~isempty(h.chain)
-						% this is specific call to subplot!
+						%% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						% find first non-zero column == RC
 						rcCol = find(~all(squeeze(obj.xCd(1:obj.lastIdx,:,1,h.chain))==0),1);
@@ -1406,7 +1409,7 @@ classdef TDVPData
 					end
 				case 'chain-x-a-rc'
 					if ~isempty(h.chain)
-						% this is specific call to subplot!
+						%% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						rcCol = find(~all(squeeze(obj.xCa(1:obj.lastIdx,:,1,h.chain))==0),1);
 						h.ydata = squeeze(real(obj.xCa(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
@@ -1979,6 +1982,9 @@ classdef TDVPData
 					% Plot as dots colored according to diabatic mixture
 					
 					col = get(0,'defaultaxescolororder');
+					% set to tes to avoid errors
+					obj = obj.setHeffTo('tes');
+					
 					% get the diabatic populations as eigenvectors of TES
 					out = obj.getData('pes-from-tes');
 					D  = out{1};																		% t x D*dk_eig
@@ -1997,6 +2003,9 @@ classdef TDVPData
 					pl = h.pl;
 				case 'pes-from-tes-pop-diab-v2'
 					% similar to 'heff-full-pop-diab-v2', but with PES in adiabatic basis of TES
+					% set to tes to avoid errors
+					obj = obj.setHeffTo('pes');
+					
 					if isempty(obj.Heff)
 						error('Not available, need to extract Observable heff');
 						close(h.f);
@@ -2038,7 +2047,10 @@ classdef TDVPData
 					% Plot as dots colored according to diabatic mixture
 					
 					col = get(0,'defaultaxescolororder');
-					% get the diabatic populations as eigenvectors of TES
+					
+					% set to pes to avoid errors
+					obj = obj.setHeffTo('pes');
+					% get the adiabatic populations as eigenvectors of PES
 					out = obj.getData('tes-from-pes');
 					D  = out{1};																		% t x D*dk_eig
 					VC = out{2};																		% D*dk_eig x dk x t
@@ -2056,6 +2068,10 @@ classdef TDVPData
 					pl = h.pl;
 				case 'tes-from-pes-pop-diab-v2'
 					% similar to 'heff-full-pop-diab-v2', but with TES in adiabatic basis of PES
+					
+					% set to pes to avoid errors
+					obj = obj.setHeffTo('pes');
+					
 					if isempty(obj.Heff)
 						error('Not available, need to extract Observable heff');
 						close(h.f);
@@ -2106,7 +2122,7 @@ classdef TDVPData
 				if h.normalise
 					h.ydata = bsxfun(@rdivide,h.ydata,max(h.ydata,[],1));
 				end
-				h.pl = plot(h.xdata, h.ydata);
+				h.pl = plot(h.ax,h.xdata, h.ydata);							% TODO: make fail-safe for axes arrays!
 				pl = h.pl;
 			end
 			if ~isempty(pl) && isempty(h.pl)
@@ -2149,8 +2165,8 @@ classdef TDVPData
 				end
 			end
 			
-			if all(size(h.pl) == size(h.leglbl))
-				set(h.pl,{'Displayname'},h.leglbl);
+			if numel(h.pl) == numel(h.leglbl)
+				set(h.pl(:),{'Displayname'},h.leglbl(:));
 			end
 			
 			if DFTplot == 1
