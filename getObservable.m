@@ -1660,6 +1660,10 @@ function [Heff, C, E] = calSysPES(treeMPS,para,Dmax)
 				[bp,bm,n]		  = bosonop(treeMPS.dk(ii),treeMPS.shift(ii),para.parity);
 				% need: w/2*(x^2-1/2)
 				treeMPS.op.h1term{ii}     = treeMPS.op.h1term{ii}(2,2)./2*((bp+bm)*(bp+bm)/2-eye(treeMPS.dk(ii))/2);				% Since have x = (bp+bm)/sqrt(2)
+				
+				% Also set correct interaction terms:  t * Q_k * Q_k+1
+				treeMPS.op.h2term{1,1,ii} = (treeMPS.op.h2term{1,1,ii} + treeMPS.op.h2term{1,1,ii}')./2;
+				treeMPS.op.h2term{2,1,ii} = (treeMPS.op.h2term{2,1,ii} + treeMPS.op.h2term{2,1,ii}')./2;
 			end
 		else
 			%% for now nodes don't have to be changed since they don't carry Harmonic Modes
