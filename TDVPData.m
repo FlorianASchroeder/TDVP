@@ -1074,6 +1074,10 @@ classdef TDVPData
 					box on;
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = abs(obj.getData('rhoii'));
+					if ~isempty(h.state)
+						h.ax.ColorOrderIndex = h.state;		% ensure same colors
+						h.ydata = h.ydata(:,h.state);
+					end
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$\rho_{ii}(t)$';
 				case 'rhoij-real'
@@ -1263,6 +1267,35 @@ classdef TDVPData
 					h.ydata = obj.getData('vne');				% t x 1
 					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 					h.ylbl = '$S_{vNE}$';
+				case 'chain-para'
+					%% Plot the Chain parameters epsilon & t
+					% plot into existing axes if there are enough
+					NC = obj.nChains;
+					[m,n] = TDVPData.bestGrid(NC);
+					if (numel(h.ax) < NC)
+						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						h.ax = htemp.ax;
+					end
+					h.pl = gobjects(m,n,2);
+					for ii = 1:NC
+						[mm,nn] = ind2sub([m,n],ii);
+						hold(h.ax(ii),'on');
+						h.pl(mm,nn,1) = plot(h.ax(ii),obj.para.chain{ii}.epsilon,'DisplayName','$\epsilon$'); hold all;
+						h.pl(mm,nn,2) = plot(h.ax(ii),obj.para.chain{ii}.t,'LineStyle','--','Color',h.pl(mm,nn,1).Color,'DisplayName','$t$');
+						TDVPData.decrColorOrderIndex(h.ax(ii));
+						t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
+						t.Units = 'norm';
+						if t.Position(2) > 1
+							t.Position(2) = t.Position(2)-0.1;
+						end
+						if mm == m
+							xlabel(h.ax(ii),'Site $k$');
+						end
+						if nn == 1
+							ylabel(h.ax(ii),'');
+						end
+					end
+					return
 				case 'chain-n-rc'
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = zeros(obj.lastIdx,size(obj.occC,3));
@@ -1274,49 +1307,110 @@ classdef TDVPData
 					else
 						h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
 					end
-					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+					h.leglbl = obj.chainLabel;
 					h.ylbl = '$\langle n \rangle$';
 				case 'chain-n-d-rc'
 					%% Plot the diabatic RC Chain occupation
 					%
 					if ~isempty(h.chain)
-						% this is specific call to subplot!
+						%% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						rcCol = find(~all(squeeze(obj.occCd(1:obj.lastIdx,:,1,h.chain))==0),1);
 						h.ydata = squeeze(real(obj.occCd(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
-						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						if ~isempty(h.state)
+							h.ax.ColorOrderIndex = h.chain;
+							h.ydata = h.ydata(:,h.state);
+						end
+						h.leglbl = obj.sysLabel;
 						h.ylbl = '$\langle n \rangle$';
 						h.tlbl = 'Diabatic Occupation';
 					else
-						% Plot for all chains: this is the first call to generate grid plot!
+						%% Plot for all chains: this is the first call to generate grid plot!
 						nPlots  = size(obj.occCd,4);				% = nChains
-						[mm,nn] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						
-						for ii = 1:size(obj.occCd,4)
-							obj.plot('chain-n-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						nStates = size(obj.occCd,3);
+						[m,n] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						h.ax = htemp.ax;
+						if ~isempty(h.xlim)
+							varargin = [varargin,{'-xlim',h.xlim}];
+						end
+						if ~isempty(h.ylim)
+							varargin = [varargin,{'-ylim',h.ylim}];
+						end
+						if ~isempty(h.state)
+							varargin = [varargin,{'-state',h.state}];
+							nStates = length(h.state);
+						end
+						h.pl = gobjects(m,n,nStates);
+						for ii = 1:numel(h.ax)
+							if ii > nPlots
+								delete(h.ax(ii));
+								h.ax(ii) = [];
+								continue;
+							end
+							[mm,nn] = ind2sub([m,n],ii);
+							htemp = obj.plot('chain-n-d-rc',varargin{:},h.ax(ii),'-chain',ii);
+							h.pl(mm,nn,:) = htemp.pl;
+							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
+							t.Units = 'norm';
+							if t.Position(2) > 1
+								t.Position(2) = t.Position(2)-0.1;
+							end
+							if ii == nPlots && mod(ii,m) ~= 0
+								h.ax(ii).XTickLabelMode = 'auto';
+							end
 						end
 						return;				% exit here!
 					end
 				case 'chain-n-a-rc'
 					% h.chain: 1x1; h.state: 1 x n possible
 					if ~isempty(h.chain)
-						% this is specific call to subplot!
+						%% this is specific call to subplot!
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						rcCol = find(~all(squeeze(obj.occCa(1:obj.lastIdx,:,1,h.chain))==0),1);
 						h.ydata = squeeze(real(obj.occCa(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
-						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						if ~isempty(h.state)
+							h.ax.ColorOrderIndex = h.chain;
+							h.ydata = h.ydata(:,h.state);
+						end
+						h.leglbl = obj.sysLabel;
 						h.ylbl = '$\langle n \rangle$';
 						h.tlbl = 'Adiabatic Occupation';
 					else
-						% Plot for all chains: this is the first call to generate grid plot!
-						
-						nPlots = size(obj.occCd,4);
-						[mm,nn] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						
-						for ii = 1:size(obj.occCd,4)
-							obj.plot('chain-n-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						%% Plot for all chains: this is the first call to generate grid plot!
+						nPlots  = size(obj.occCa,4);				% = nChains
+						nStates = size(obj.occCa,3);
+						[m,n] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						h.ax = htemp.ax;
+						if ~isempty(h.xlim)
+							varargin = [varargin,{'-xlim',h.xlim}];
+						end
+						if ~isempty(h.ylim)
+							varargin = [varargin,{'-ylim',h.ylim}];
+						end
+						if ~isempty(h.state)
+							varargin = [varargin,{'-state',h.state}];
+							nStates = length(h.state);
+						end
+						h.pl = gobjects(m,n,nStates);
+						for ii = 1:numel(h.ax)
+							if ii > nPlots
+								delete(h.ax(ii));
+								h.ax(ii) = [];
+								continue;
+							end
+							[mm,nn] = ind2sub([m,n],ii);
+							htemp = obj.plot('chain-n-a-rc',varargin{:},h.ax(ii),'-chain',ii);
+							h.pl(mm,nn,:) = htemp.pl;
+							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
+							t.Units = 'norm';
+							if t.Position(2) > 1
+								t.Position(2) = t.Position(2)-0.1;
+							end
+							if ii == nPlots && mod(ii,m) ~= 0
+								h.ax(ii).XTickLabelMode = 'auto';
+							end
 						end
 						return;				% exit here!
 					end
@@ -1385,7 +1479,7 @@ classdef TDVPData
 					else
 						h.ydata = squeeze(real(obj.xC(1:obj.lastIdx,2,:)));		% t x L x nChain
 					end
-					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+					h.leglbl = obj.chainLabel;
 					h.ylbl = '$\langle x \rangle$';
 				case 'chain-x-d-rc'
 					if ~isempty(h.chain)
@@ -1394,16 +1488,49 @@ classdef TDVPData
 						% find first non-zero column == RC
 						rcCol = find(~all(squeeze(obj.xCd(1:obj.lastIdx,:,1,h.chain))==0),1);
 						h.ydata = squeeze(real(obj.xCd(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
-						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						if ~isempty(h.state)
+							h.ax.ColorOrderIndex = h.chain;
+							h.ydata = h.ydata(:,h.state);
+						end
+						h.leglbl = obj.sysLabel;
 						h.ylbl = '$\langle x \rangle$';
 						h.tlbl = 'Diabatic Displacement';
+						plot([min(h.xdata),max(h.xdata)],[0,0],'k:','DisplayName','$\langle x \rangle=0$');	% zero baseline
 					else
-						% this is the first call to generate grid plot!
+						%% this is the first call to generate grid plot!
 						nPlots = size(obj.xCd,4);
-						[mm,nn] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						for ii = 1:size(obj.xCd,4)
-							obj.plot('chain-x-d-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						nStates = size(obj.xCd,3);
+						[m,n] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						h.ax = htemp.ax;
+						if ~isempty(h.xlim)
+							varargin = [varargin,{'-xlim',h.xlim}];
+						end
+						if ~isempty(h.ylim)
+							varargin = [varargin,{'-ylim',h.ylim}];
+						end
+						if ~isempty(h.state)
+							varargin = [varargin,{'-state',h.state}];
+							nStates = length(h.state);
+						end
+						h.pl = gobjects(m,n,nStates);
+						for ii = 1:numel(h.ax)
+							if ii > nPlots
+								delete(h.ax(ii));
+								h.ax(ii) = [];
+								continue;
+							end
+							[mm,nn] = ind2sub([m,n],ii);
+							htemp = obj.plot('chain-x-d-rc',varargin{:},h.ax(ii),'-chain',ii);
+							h.pl(mm,nn,:) = htemp.pl;
+							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
+							t.Units = 'norm';
+							if t.Position(2) > 1
+								t.Position(2) = t.Position(2)-0.1;
+							end
+							if ii == nPlots && mod(ii,mm) ~= 0
+								h.ax(ii).XTickLabelMode = 'auto';
+							end	
 						end
 						return;				% exit here!
 					end
@@ -1413,17 +1540,49 @@ classdef TDVPData
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						rcCol = find(~all(squeeze(obj.xCa(1:obj.lastIdx,:,1,h.chain))==0),1);
 						h.ydata = squeeze(real(obj.xCa(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
-						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+						if ~isempty(h.state)
+							h.ax.ColorOrderIndex = h.chain;
+							h.ydata = h.ydata(:,h.state);
+						end
+						h.leglbl = obj.sysLabel;
 						h.ylbl = '$\langle x \rangle$';
 						h.tlbl = 'Adiabatic Displacement';
-						plot([min(h.xdata),max(h.xdata)],[0,0],'k:','DisplayName','zero');	% zero baseline
+						plot([min(h.xdata),max(h.xdata)],[0,0],'k:','DisplayName','$\langle x \rangle=0$');	% zero baseline
 					else
-						% this is the first call to generate grid plot!
+						%% this is the first call to generate grid plot!
 						nPlots = size(obj.xCa,4);
-						[mm,nn] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(mm,nn,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						for ii = 1:size(obj.xCa,4)
-							obj.plot('chain-x-a-rc',varargin{:},htemp.ax(ii),'-chain',ii);
+						nStates = size(obj.xCa,3);
+						[m,n] = TDVPData.bestGrid(nPlots);
+						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+						h.ax = htemp.ax;
+						if ~isempty(h.xlim)
+							varargin = [varargin,{'-xlim',h.xlim}];
+						end
+						if ~isempty(h.ylim)
+							varargin = [varargin,{'-ylim',h.ylim}];
+						end
+						if ~isempty(h.state)
+							varargin = [varargin,{'-state',h.state}];
+							nStates = length(h.state);
+						end
+						h.pl = gobjects(m,n,nStates);
+						for ii = 1:numel(h.ax)
+							if ii > nPlots
+								delete(h.ax(ii));
+								h.ax(ii) = [];
+								continue;
+							end
+							[mm,nn] = ind2sub([m,n],ii);
+							htemp = obj.plot('chain-x-a-rc',varargin{:},h.ax(ii),'-chain',ii);
+							h.pl(mm,nn,:) = htemp.pl;
+							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
+							t.Units = 'norm';
+							if t.Position(2) > 1
+								t.Position(2) = t.Position(2)-0.1;
+							end
+							if ii == nPlots && mod(ii,mm) ~= 0
+								h.ax(ii).XTickLabelMode = 'auto';
+							end	
 						end
 						return;				% exit here!
 					end
@@ -2311,6 +2470,16 @@ classdef TDVPData
 					h.ylbl = '$\left< n_k \right>$';
 					h.sldlbl = {'Site k =','Chain'};
 					h.tlbl = 'Chain Occupation vs t - coherence';
+				case 'chain-n-d-t-sum'
+					%% Plot n(t), slider in k & NC
+					% sum over L
+					h.ydata = real(obj.occCd(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = sum(h.ydata,2);
+					h.ydata = permute(h.ydata,[1 3 4 2]);				% t x state x chain x 1
+					h.noSldDims = 2;
+					h.ylbl = '$\sum_k \left< n_k \right>$';
+					h.sldlbl = {'Chain'};
+					h.tlbl = 'Chain Occupation vs t - diabatic';
 				case 'chain-n-k'
 					% Plot n(k), slider in t & NC
 					h.ydata = real(obj.occC(1:obj.lastIdx,:,:));		% t x L x nChain
@@ -2321,6 +2490,16 @@ classdef TDVPData
 					h.xlbl = 'Site $k$';
 					h.sldlbl = {'Time t =','Chain'};
 					h.tlbl = 'Chain Occupation vs k';
+				case 'chain-n-d-k'
+					%% Plot n(k), slider in t & NC
+					h.ydata = real(obj.occCd(1:obj.lastIdx,:,:,:));		% t x L x state x nChain
+					h.ydata = permute(h.ydata,[2 3 1 4]);				% L x state x t x chain
+					h.ylbl = '$\left< n_k \right>$';
+					h.xdata = (1:obj.para.L).';
+					h.xSize = obj.para.L*ones(1,obj.nChains);
+					h.xlbl = 'Site $k$';
+					h.sldlbl = {'State','Time t =','Chain'};
+					h.tlbl = 'Chain Occupation vs k - diabatic';
 				case 'chain-x-t'
 					h.ydata = real(obj.xC(1:obj.lastIdx,:,:,:));		% t x L  x nChain
 					h.ylbl = '$\left< x_k \right>$';
