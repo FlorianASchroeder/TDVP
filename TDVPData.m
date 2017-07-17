@@ -702,6 +702,36 @@ classdef TDVPData
 					popDiab5 = squeeze(sum(popDiab5.*conj(popDiab5),2));							% t x dk x D*dk_eig
 					
 % 					out{3} = popDiab2;	% select between 1-5					
+				case 'heff-full-main-bonds'
+					% take the dominantly populated surface and derive its breakdown into bond states
+					% this allows estimation of participating environments
+					out = obj.getData('heff-full-pop');
+					D		= out{1};																	% t x D*dk_eig
+					pop		= out{2};																	% t x D*dk_eig
+					popDiab = out{3};																	% t x dk x D*dk_eig
+					Vtemp	= out{4};																	% t x D*dk x D*dk_eig
+					
+					% find which surface is dominantly populated
+					[maxPop,Imax] = max(pop,[],2);
+					% take corresponding mapping
+					d = size(Vtemp);
+					dk = size(popDiab,2);
+					D = d(2)/dk;
+					
+					VtempNew = zeros(d(1),d(2));
+					for ii = 1:d(1)
+						VtempNew(ii,:) = Vtemp(ii,:,Imax(ii));											% t x D*dk
+					end
+					
+					legLab = cell(d(2),1);
+					for ii = 1:d(2)
+						[mm,nn] = ind2sub([D,dk],ii);
+						legLab{ii} = sprintf('$|$%s,$%d\\rangle$',obj.sysLabel{nn},mm);
+					end
+					
+					out = {};
+					out{1} = VtempNew;																	% t x D*dk
+					out{2} = legLab;																	% D*dk
 				case 'pes-from-tes'
 					% get the adiabatic states from the TES
 					% use these to get the corresponding PES
@@ -2060,6 +2090,14 @@ classdef TDVPData
 					h.pl(end).SizeData = 0.05;
 					pl = h.pl;
 					h.ydata = [];			% delete to finish without replot
+				case 'heff-full-main-bonds'
+					out = obj.getData('heff-full-main-bonds');
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ydata = out{1};								% t x D*dk
+					h.ydata = h.ydata.*conj(h.ydata);				% convert to probabilities
+					h.ylbl = '$P(Sys-Bond state)$';
+					h.leglbl = out{2};
+					h.tlbl = 'Largest Populated Surface - System-Bond State breakdown';
 				otherwise
 					error('TDVPData:plot','PlotType not avaliable');
 			end
