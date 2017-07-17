@@ -807,7 +807,7 @@ end
 	% 		fprintf('evolve: rank(A) = %d, dim(A,2) = %d, rrQR error = %g\n', rank(Atens), prod(dOut(end-1:end)),norm(Atens - Iso2*A2));
 			
 			if size(A,2) ~= size(A,1)
-				warning('VMPS:tdvp_1site_tree:tdvp_1site_evolveNode:BadDimensions','Matrix has wrong shape for trotter splitting. If error occurs please use para.tdvp.evolveSysTrotter = 1.');
+				warning('VMPS:tdvp_1site_tree:tdvp_1site_evolveNode:BadDimensions','Matrix has wrong shape for trotter splitting. If error occurs please use para.tdvp.evolveSysTrotter = 0.');
 			end
 			A = reshape(A,[],dOut(end-1),dOut(end));
 			% evolve simplified mps matrix

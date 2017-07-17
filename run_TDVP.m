@@ -81,8 +81,8 @@ para.tdvp.Observables = '.n.dm.';%'.n.na.nd.x.xa.xd.x2.x2a.x2d.dm.';
 para.tdvp.storeMPS = 0;					% save tmps or not!
 para.tdvp.evolveSysTrotter = 0;			% Trotter splitting in System evolution?
 para.tdvp.HEffSplitIsometry = 0;		% split mps{1} into isometry + relevant part
-para.tdvp.maxExpMDim = 120;				% For Lappy: 100, OE-PC: 80, pc52: 260; E5: 160; P40: 120 System dependent, use benchmark!
-para.tdvp.maxExpVDim = 256;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 270; P40: 256 maxExpMDim < maxExpVDim
+para.tdvp.maxExpMDim = 120;				% For Lappy: 100, OE-Rugor: 128, pc52: 260; E5: 160; P40: 120 System dependent, use benchmark!
+para.tdvp.maxExpVDim = 256;				% higher dim -> use expvCustom() if expvCustom == 1. Number from benchmarking. Lappy: 400, Haswell: 800; E5: 270; P40: 256; OE-Rugor: 240 maxExpMDim < maxExpVDim
 para.tdvp.expvCustom = 1;				% 1 for Custom programmed, 0 for standard expv()
 para.tdvp.expvCustomTestAccuracy = 0;	% do expvCustom alongside expv for testing.
 para.tdvp.expvCustomTestAccuracyRMS = 0;	% display RMS of expvCustom from expv(); set only if para.tdvp.expvCustomTestAccuracy = 1;

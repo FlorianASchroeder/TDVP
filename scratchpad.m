@@ -685,6 +685,30 @@ ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
 legend toggle;
 ax(end).Visible = 'off';
 t = title(x.folder); t.Units = 'norm'; t.Position = [0.5,-0.13,0];
+%% TDVP (3.1): 1D Plot <n> RC - adiabatic & diabatic, grid - TDVPData
+h = x.plot('chain-n-a-rc','-fsev','-xlim',[0,200],'-rowheight',10,'-rowwidth',40);
+h.f.OuterPosition = [0 0.05 1 0.95];
+h.f.Name = 'Bond State Occupation RC';
+chainlbl = x.chainLabel;
+for ii = 1:length(chainlbl)
+	text(h.ax(ii),0.9,0.9,chainlbl{ii},'sc');
+	text(h.ax(ii),0.05,0.95,sprintf('$\\langle n \\rangle \\in [%g,%g]$',h.ax(ii).YLim(1),h.ax(ii).YLim(2)),'sc');
+end
+ax = h.ax; %[ax.YLim] = deal([-0.07,0.3]);
+legend toggle;
+t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
+isLine = arrayfun(@(x) isa(x,'matlab.graphics.chart.primitive.Line'), h.pl);
+[h.pl(isLine).LineStyle] = deal(':');
+[h.pl(isLine).LineWidth] = deal(2);
+
+cpStates = [1,2];		% copy States TT and LE+ for now!
+h2 = x.plot('chain-n-d-rc','-fsev','-xlim',[0,200]);
+h2.f.Visible = 'off';
+pl = reshape(h2.pl,[],size(h2.pl,3));
+for ii = 1:length(ax)
+	copyobj(pl(ii,cpStates),ax(ii));
+end
+close(h2.f);
 %% TDVP (3.1): 2D Plot <n> RC tFFT
 nc = 2;
 f = figure(310+nc+4); clf;f.Name = sprintf('Chain %d',nc);
@@ -1191,34 +1215,61 @@ h = x.plotSld1D('chain-x-t','-fsev');
 formatPlot(gcf,'twocolumn-single')
 
 %% TDVP (3.1): 1D Plot <x> RC - diabatic all chains, grid - TDVPData
+%	displays <x> range and annotates Chain Labels
+%	
 % x = y(1);
-h = x.plot('chain-x-d-rc','-fsev');
+h = x.plot('chain-x-d-rc','-fsev','-xlim',[0,110],'-rowwidth',40,'-rowheight',10);
 h.f.Units = 'pixels'; h.f.Position = get(0,'ScreenSize'); h.f.Name = 'Diabatic Displacement RC';
-chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
-popName = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+% chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};
+chainlbl = x.chainLabel;
+% popName = {'$\langle x \rangle=0$','TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
 for ii = 1:length(chainlbl)
-	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
-	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
+	text(h.ax(ii),0.9,0.9,chainlbl{ii},'sc');
+	text(h.ax(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.ax(ii).YLim(1),h.ax(ii).YLim(2)),'sc');
 end
-ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
-legend(popName{:});
-ax(end).Visible = 'off';
+ax = [h.ax]; %[ax.YLim] = deal([-0.07,0.3]);
+% legend(popName{:});
+legend toggle;
 t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
 %% TDVP (3.1): 1D Plot <x> RC - adiabatic all chains, grid - TDVPData
 % x = y(1);
-h = x.plot('chain-x-a-rc','-fsev','-rowheight',10,'-rowwidth',45);
+h = x.plot('chain-x-a-rc','-fsev','-xlim',[0,110],'-rowheight',10,'-rowwidth',40);
 h.f.OuterPosition = [0 0.05 1 0.95];
 h.f.Name = 'Adiabatic Displacement RC';
 % chainlbl = {'$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{1}$','$B_{2,1}$','$B_{2,2}$','$B_{2,3}$'};  % for old DPMES
-chainlbl = {'$B_{1,1}$','$B_{1,2}$','$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{2,1}$','$B_{2,2}$'};		% for DPMES-Tree4
+% chainlbl = {'$B_{1,1}$','$B_{1,2}$','$A_{1,1}$','$A_{1,2}$','$A_{2}$','$B_{2,1}$','$B_{2,2}$'};		% for DPMES-Tree4
+chainlbl = x.chainLabel;
 for ii = 1:length(chainlbl)
-	text(h.f.Children(ii),0.9,0.9,chainlbl{end-ii+1},'sc');
-	text(h.f.Children(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.f.Children(ii).YLim(1),h.f.Children(ii).YLim(2)),'sc');
+	text(h.ax(ii),0.9,0.9,chainlbl{ii},'sc');
+	text(h.ax(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.ax(ii).YLim(1),h.ax(ii).YLim(2)),'sc');
 end
-ax = [h.f.Children]; [ax.XLim] = deal([0,199]); %[ax.YLim] = deal([-0.07,0.3]);
+ax = [h.ax]; %[ax.YLim] = deal([-0.07,0.3]);
 legend toggle;
-ax(end).Visible = 'off';
 t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
+
+%% TDVP (3.1.1): 1D Plot <x> RC - adiabatic & diabatic, grid - TDVPData
+h = x.plot('chain-x-a-rc','-fsev','-xlim',[0,200],'-rowheight',10,'-rowwidth',40);
+h.f.OuterPosition = [0 0.05 1 0.95];
+h.f.Name = 'Bond State Displacement RC';
+chainlbl = x.chainLabel;
+for ii = 1:length(chainlbl)
+	text(h.ax(ii),0.9,0.9,chainlbl{ii},'sc');
+	text(h.ax(ii),0.05,0.95,sprintf('$\\langle x \\rangle \\in [%g,%g]$',h.ax(ii).YLim(1),h.ax(ii).YLim(2)),'sc');
+end
+ax = h.ax; %[ax.YLim] = deal([-0.07,0.3]);
+legend toggle;
+t = title(x.folder);t.Units = 'normalized'; t.Position = [0.5,-0.13,0];
+isLine = arrayfun(@(x) isa(x,'matlab.graphics.chart.primitive.Line'), h.pl);
+[h.pl(isLine).LineStyle] = deal(':');
+[h.pl(isLine).LineWidth] = deal(2);
+
+cpStates = [1,2];		% copy States TT and LE+ for now!
+h2 = x.plot('chain-x-d-rc','-fsev','-xlim',[0,110]);
+h2.f.Visible = 'off';
+for ii = 1:length(ax)
+	copyobj(h2.pl(cpStates,ii),ax(ii));
+end
+close(h2.f);
 %% TDVP (3.8.3): 1D Plot <x> CHAIN - Diabatic - TDVPData
 % x = res(35);
 h = x.plotSld1D('chain-x-d-t','-fsev');
@@ -2177,12 +2228,36 @@ formatPlot(gcf,'twocolumn-single')
 
 
 %% TDVP (8.1) TES/PES Energy Surfaces
-x = res(8);
-h=x.plot('heff-full-pop-diab-v2','-fsev','-xlim',[0,420]);
+x = res(1);
+h = x.plot('heff-full-diab-v2','-fsev',figure(20)); h.pl(end).SizeData = 10; resizePlot(h.f,2.2,2);
+% h = x.setHeffTo('pes').plot('heff-full-diab-v2','-fsev',figure(21),'-ylim',[1.3,3.4]); h.pl(end).SizeData = 10; resizePlot(h.f,2.2,2);
+% h = x.plot('heff-full-pop-diab','-xlim',[0,40]); ylabel('$E$');h.pl(end).SizeData = 50;
 % [h.pl(1:end-1).FaceAlpha] = deal(0.5);
-h.ax.Color = 'none'
-box on;
-xlim([0,420]);
+% h.ax.Color = 'none'
+% box on;
+% xlim([0,420]);
+% h = x.setHeffTo('pes').plot('heff-full-pop-diab','-xlim',[0,40]); ylabel('$E$');h.pl(end).SizeData = 50
+
+%% TDVP (8.1) TES/PES Energy Surfaces SBM
+% x = res(8);
+% xlimits = [0,40]; arrayfun(@(x) clf(x),1:8);
+ylimits = [-0.5,0.5];
+h = x.setHeffTo('pes').plot('heff-pop-diab','-state',1,'-xlim',xlimits, figure(1)); title('PES (1)'); xlabel('$t$'); ylabel('$E$'); resizePlot(h.f,1.3);
+h = x.setHeffTo('pes').plot('heff-pop-diab','-state',2,'-xlim',xlimits, figure(2)); title('PES (2)'); xlabel('$t$'); ylabel('$E$'); resizePlot(h.f,1.3);
+h = x.setHeffTo('tes').plot('heff-pop-diab','-state',1,'-xlim',xlimits, figure(3)); title('TES (1)'); xlabel('$t$'); ylabel('$E$'); resizePlot(h.f,1.3);
+h = x.setHeffTo('tes').plot('heff-pop-diab','-state',2,'-xlim',xlimits, figure(4)); title('TES (2)'); xlabel('$t$'); ylabel('$E$'); resizePlot(h.f,1.3);
+
+% h = x.setHeffTo('tes').plot('heff-full-pop-diab','-xlim',xlimits, figure(5)); xlabel('$t$'); ylabel('$E$'); resizePlot(h.f,1.3);
+% h = x.setHeffTo('pes').plot('heff-full-pop-diab','-xlim',xlimits, figure(6)); ylabel('$E$'); ylabel('$E$'); resizePlot(h.f,1.3);
+h = x.setHeffTo('tes').plot('heff-full-pop-diab-v2','-xlim',xlimits, figure(5)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,1.3);
+h = x.setHeffTo('pes').plot('heff-full-pop-diab-v2','-xlim',xlimits, figure(6)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,1.3);
+% h = x.setHeffTo('tes').plot('heff-full-pop-diab-v2','-xlim',xlimits,'-ylim',ylimits, figure(5)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,2.6,2);
+% h = x.setHeffTo('pes').plot('heff-full-pop-diab-v2','-xlim',xlimits,'-ylim',ylimits, figure(6)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,2.6,2);
+
+% h = x.plot('tes-from-pes-pop-diab-v2','-xlim',xlimits, figure(7)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,1.3);
+% h = x.plot('pes-from-tes-pop-diab-v2','-xlim',xlimits, figure(8)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,1.3);
+h = x.plot('tes-from-pes-pop-diab-v2','-xlim',xlimits,'-ylim',ylimits, figure(7)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,1.3);
+h = x.plot('pes-from-tes-pop-diab-v2','-xlim',xlimits,'-ylim',ylimits, figure(8)); ylabel('$E$');h.pl(end).SizeData = 50; resizePlot(h.f,1.3);
 
 %% TDVP (8.2) j Currents
 x = res(1);
@@ -2199,6 +2274,24 @@ xlim([0,420]);
 TDVPData.resetColorOrder(h.ax);
 %% export
 export_fig(['img/test'],'-transparent','-painters','-png','-m4')
+
+%% TDVP (8.3) System States: PES to environment <n> mapping
+% try to find the environmental state corresponding to a specific surface in the TES/PES
+x = res(1);
+tes = x.getData('heff-full-pop');
+popSurf = tes{2};
+% tes{1} = E;																	% t x D*dk_eig			Energies
+% tes{2} = pop;																	% t x D*dk_eig			population on surface
+% tes{3} = popDiab;																% t x dk x D*dk_eig
+% tes{4} = Vtemp;																% t x D*dk x D*dk_eig	map to surface
+tIdx = find(x.t*0.658>20,1);		% want to look at 80fs.
+eigIdx = find(popSurf(tIdx,:)== max(popSurf(tIdx,:)),1);						% largest population on surface
+
+d = size(x.sysState);															% t x dk x D
+stateMix = reshape(tes{4}(tIdx,:,eigIdx), d(3), d(2));							% D x dk
+stateMixPop = stateMix.*conj(stateMix)
+% TODO: need to continue!
+
 %% TDVP z-averaging in one file
 % naming scheme to find files:
 %   take series filename and replace z-value by *
@@ -6511,8 +6604,8 @@ end
 
 %% DPMES-Tree3/4 Comparison															% LabBook 09/04/2017
 clear
-defPlot(1,:) = {'20170409-DPMES-Tree3-v77-dt0.5',					[ 1: 2], {'xlim',[0,2000]}};
-defPlot(2,:) = {'20170409-DPMES-Tree4-v77-dt0.5',					[ 3: 4], {'xlim',[0,2000]}};
+defPlot(1,:) = {'20170409-DPMES-Tree3-v77-dt0.5',					[ 1: 2], {'xlim',[0,4500]}};
+defPlot(2,:) = {'20170409-DPMES-Tree4-v77-dt0.5',					[ 3: 4], {'xlim',[0,4500]}};
 % defPlot(3,:) = {'20161112-DPMES-Tree2-v76-dt0.5-BondConvergence3',						[ 1:12], {'xlim',[0,200]}};
 
 load('TDVPLib.mat');
@@ -8184,9 +8277,9 @@ end
 %% Save all currently opend figures
 f_handles = get(0,'children');
 for ii = 1:length(f_handles)
-	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-pdf','-m2', f_handles(ii));
+% 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-pdf','-m2', f_handles(ii));
 % 	export_fig(['img/',f_handles(ii).Name],'-transparent','-png','-m2', f_handles(ii));
-% 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-painters','-png','-m2', f_handles(ii));
+	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-painters','-png','-m2', f_handles(ii));
 % 	figure(f_handles(ii));
 % 	export_fig(sprintf('img/%d',f_handles(ii).Number),'-transparent','-png','-m2', gca);
 end

@@ -344,6 +344,8 @@ end
 
 		for ii = 1:length(w_i)
 			A = 1/(integral(@(w) cauchypdf(w,w_i(ii),sigma)./w, 1e-5,w_cutoff)*w_i(ii));		% normalization constant to keep constant reorganisation Energy
+%			A = 1/(integral(@(w) cauchypdf(w,w_i(ii),sigma)./w^2, 1e-5,w_cutoff)*w_i(ii)^2);	% normalization constant to keep constant Huang-Rhys
+% 			A = 1;																				% normalization constant to keep constant coupling strength
 			y = y + A .* j_i(ii) .*cauchypdf(omega,w_i(ii),sigma);
 		end
 
