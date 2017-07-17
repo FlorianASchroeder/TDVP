@@ -15,6 +15,8 @@ classdef TDVPData
 		tresults;
 		version;
 		nChains;
+		chainLabel; % Name of the Chains
+		sysLabel;	% Name of System States
 		% for SBM:
 		alpha;		% if Spin-Boson
 		s;			% if Spin-Boson
@@ -276,7 +278,10 @@ classdef TDVPData
 				obj.treeMPS = temp.treeMPS;
 			end
 			
+			obj.chainLabel = arrayfun(@(x) sprintf('$%d$',x),1:obj.nChains,'UniformOutput',false);
+			obj.sysLabel   = arrayfun(@(x) sprintf('$%d$',x),1:2,'UniformOutput',false);			% TODO: needs fixing
 			if ~isempty(strfind(obj.para.model,'DPMES'))
+				obj.sysLabel = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
 				% any particular vars for DPMES?
 				temp = regexp(obj.para.folder,'CT([-.0-9]*)','tokens');
 				if ~isempty(temp)
@@ -288,6 +293,9 @@ classdef TDVPData
 					else
 						obj.CTShift = 0;	% give up
 					end
+				end
+				if strcmp(obj.para.model,'DPMES-Tree4')
+					obj.chainLabel = {	'$B_{11}$',	'$B_{12}$',	'$A_{11}$',	'$A_{12}$',	'$A_2$',	'$B_{21}$',  '$B_{22}$'	};
 				end
 			end
 			obj.LegLabel = '';
@@ -3740,11 +3748,7 @@ classdef TDVPData
 				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
 				uistack(pl(2), 'bottom');
 				set(pl(2),'EdgeColor','none')
-				if ax.ColorOrderIndex == 1
-					ax.ColorOrderIndex = 7;
-				else
-					ax.ColorOrderIndex = ax.ColorOrderIndex-1;
-				end
+				TDVPData.decrColorOrderIndex(ax);
 			else
 				std = p.Results.subshades';			% n x t
 				for ii = 1:size(std,1)
@@ -3762,6 +3766,16 @@ classdef TDVPData
 					end
 					lower = upper;
 				end
+			end
+		end
+		
+		function decrColorOrderIndex(ax)
+			%% decrColorOrderIndex(ax)
+			%	decreases the ColorOrderIndex of ax by one
+			if ax.ColorOrderIndex == 1
+				ax.ColorOrderIndex = 7;
+			else
+				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
 			end
 		end
 		
@@ -3795,7 +3809,7 @@ classdef TDVPData
 				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
 				uistack(pl(2), 'bottom');
 				set(pl(2),'EdgeColor','none')
-				ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+				TDVPData.decrColorOrderIndex(ax);
 			else
 				std = p.Results.subshades';			% n x t
 				for ii = 1:size(std,1)
@@ -3804,7 +3818,7 @@ classdef TDVPData
 						% Only plot if max patch height > 1%
 						pl(ii+1) = plot([x,x(end:-1:1)], [upper,lower(end:-1:1)], 'Color', colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
 						uistack(pl(ii+1),'bottom');
-						ax.ColorOrderIndex = ax.ColorOrderIndex-1;
+						TDVPData.decrColorOrderIndex(ax);
 					end
 					lower = upper;
 				end
@@ -3812,6 +3826,7 @@ classdef TDVPData
 		end
 		
 		function [m,n] = bestGrid(nPlots)
+			%% [m,n] = bestGrid(nPlots)
 			% find the best grid m x n to display n plots
 			% require n>=m
 			nAx = nPlots;
