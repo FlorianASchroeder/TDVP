@@ -467,6 +467,30 @@ classdef TDVPData
 					obj.sysState = reshape(permute(obj.sysState, [3,2,1]), [d(2)*d(3),d(1)]);		% (D * dk) x t
 					out = arrayfun(@(i) (obj.sysState(:,i)'*obj.Heff(:,:,i)*obj.sysState(:,i))/(obj.sysState(:,i)'*obj.sysState(:,i)),1:obj.lastIdx);
 					out = real(out);
+				case 'heff-full-pop-bare'
+					%% return heff-full, state, population, and diabatic population without diagonalisation
+					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
+					d = size(obj.Heff);																% t x D' x dk' x D x dk
+					heff = reshape(obj.Heff,d(1),d(2)*d(3),d(4)*d(5));								% t x D' * dk' x D * dk
+					D = arrayfun(@(i) diag(squeeze(heff(i,:,:)))',[1:obj.lastIdx]','UniformOutput',false);
+					D = real(cell2mat(D));															% t x D*dk
+					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
+					
+					% obj.sysState: t x dk x D
+					d = size(obj.sysState); d(1) = obj.lastIdx;
+					tempState = permute(obj.sysState(1:obj.lastIdx,:,:),[1,3,2]);					% t x D x dk
+					tempState = reshape(tempState, [d(1),d(2)*d(3)]);								% t x D*dk
+					for ii = 1:d(1), tempState(ii,:) = tempState(ii,I(ii,:)); end					% ordered states according to energy
+					
+					pop = tempState .* conj(tempState);												% t x D*dk; pop on each surface
+					
+					
+					%% Make output
+					out = {};
+					out{1} = D;																		% t x D*dk
+					out{2} = pop;																	% t x D*dk
+% 					out{3} = popDiab;																% t x dk x D*dk_eig
+% 					out{4} = Vtemp;																	% t x D*dk x D*dk_eig
 				case 'heff'
 					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
 					h.state = p.Results.state;
@@ -590,13 +614,10 @@ classdef TDVPData
 					out{1} = D;																		% t x D*dk_eig
 					out{2} = V;																		% t x D*dk x D*dk_eig, cell
 				case 'heff-full-diab'
-					assert(~isempty(obj.Heff),'Heff was not extracted in simulation');
-					d = size(obj.Heff);																% t x D' x dk' x D x dk
-					obj.Heff = reshape(obj.Heff,d(1),d(2)*d(3),d(4)*d(5));							% t x D' * dk' x D * dk
-					[V,D] = arrayfun(@(i) eig(squeeze(obj.Heff(i,:,:)),'vector'),[1:obj.lastIdx]','UniformOutput',false);
-					D = real(cell2mat(D'))';
-					[D,I] = sort(D,2);																% sort eigenvalues ascending, get I to sort V
-					V = arrayfun(@(i) V{i}(:,I(i,:)),[1:obj.lastIdx]','UniformOutput',false);		% reorder eigenvectors accordingly
+					% VC: diabatic character normalised to 1
+					out = obj.getData('heff-full');
+					D = out{1};																		% t x D*dk_eig
+					V = out{2};																		% t x D*dk x D*dk_eig, cell
 					
 					% VC for V-contribution/ diabatic Character 
 					VC = cell2mat(V);																% creates (D*dk*t) x D*dk_eig
@@ -1694,15 +1715,15 @@ classdef TDVPData
 					out = obj.getData('heff-full-pop');
 					D       = out{1};								% t x D*dk_eig
 					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
-					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+% 					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
 					
 					
 					if isempty(h.ylim)
 						h.ylim = [min(D(:)),max(D(:))];
 					end
 					for ii = 1:size(pop,2)
-% 						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii), h.ylim, h.ax, 'thickness',h.patchthickness);
-						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'thickness',h.patchthickness);
+						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii), h.ylim, h.ax, 'thickness',h.patchthickness);
+% 						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'thickness',h.patchthickness);
 					end
 
 % 					h.t = title(sprintf('$E_{eff, full}$'));
@@ -1723,13 +1744,14 @@ classdef TDVPData
 					out     = obj.getData('heff-full-pop');
 					D       = out{1};								% t x D*dk_eig
 					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
-					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+% 					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
 					
 					if isempty(h.ylim)
 						h.ylim = [min(D(:)),max(D(:))];
 					end
 					for ii = 1:size(pop,2)
-						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax,'thickness',h.patchthickness);
+%						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax,'thickness',h.patchthickness);
+						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii), h.ylim, h.ax,'thickness',h.patchthickness);
 						delete(plTemp(1));
 						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
 						h.pl = [h.pl,plTemp(sel)];
