@@ -1326,40 +1326,7 @@ classdef TDVPData
 						h.tlbl = 'Diabatic Occupation';
 					else
 						%% Plot for all chains: this is the first call to generate grid plot!
-						nPlots  = size(obj.occCd,4);				% = nChains
-						nStates = size(obj.occCd,3);
-						[m,n] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						h.ax = htemp.ax;
-						if ~isempty(h.xlim)
-							varargin = [varargin,{'-xlim',h.xlim}];
-						end
-						if ~isempty(h.ylim)
-							varargin = [varargin,{'-ylim',h.ylim}];
-						end
-						if ~isempty(h.state)
-							varargin = [varargin,{'-state',h.state}];
-							nStates = length(h.state);
-						end
-						h.pl = gobjects(m,n,nStates);
-						for ii = 1:numel(h.ax)
-							if ii > nPlots
-								delete(h.ax(ii));
-								h.ax(ii) = [];
-								continue;
-							end
-							[mm,nn] = ind2sub([m,n],ii);
-							htemp = obj.plot('chain-n-d-rc',varargin{:},h.ax(ii),'-chain',ii);
-							h.pl(mm,nn,:) = htemp.pl;
-							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
-							t.Units = 'norm';
-							if t.Position(2) > 1
-								t.Position(2) = t.Position(2)-0.1;
-							end
-							if ii == nPlots && mod(ii,m) ~= 0
-								h.ax(ii).XTickLabelMode = 'auto';
-							end
-						end
+						hlp_t_L_state_chain_grid(obj.occCd,'chain-n-d-rc');
 						return;				% exit here!
 					end
 				case 'chain-n-a-rc'
@@ -1369,49 +1336,17 @@ classdef TDVPData
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						rcCol = find(~all(squeeze(obj.occCa(1:obj.lastIdx,:,1,h.chain))==0),1);
 						h.ydata = squeeze(real(obj.occCa(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
+						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						if ~isempty(h.state)
 							h.ax.ColorOrderIndex = h.chain;
 							h.ydata = h.ydata(:,h.state);
+							h.leglbl = arrayfun(@(i) sprintf('$%d$',i),h.state,'UniformOutput',false);
 						end
-						h.leglbl = obj.sysLabel;
 						h.ylbl = '$\langle n \rangle$';
 						h.tlbl = 'Adiabatic Occupation';
 					else
 						%% Plot for all chains: this is the first call to generate grid plot!
-						nPlots  = size(obj.occCa,4);				% = nChains
-						nStates = size(obj.occCa,3);
-						[m,n] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						h.ax = htemp.ax;
-						if ~isempty(h.xlim)
-							varargin = [varargin,{'-xlim',h.xlim}];
-						end
-						if ~isempty(h.ylim)
-							varargin = [varargin,{'-ylim',h.ylim}];
-						end
-						if ~isempty(h.state)
-							varargin = [varargin,{'-state',h.state}];
-							nStates = length(h.state);
-						end
-						h.pl = gobjects(m,n,nStates);
-						for ii = 1:numel(h.ax)
-							if ii > nPlots
-								delete(h.ax(ii));
-								h.ax(ii) = [];
-								continue;
-							end
-							[mm,nn] = ind2sub([m,n],ii);
-							htemp = obj.plot('chain-n-a-rc',varargin{:},h.ax(ii),'-chain',ii);
-							h.pl(mm,nn,:) = htemp.pl;
-							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
-							t.Units = 'norm';
-							if t.Position(2) > 1
-								t.Position(2) = t.Position(2)-0.1;
-							end
-							if ii == nPlots && mod(ii,m) ~= 0
-								h.ax(ii).XTickLabelMode = 'auto';
-							end
-						end
+						hlp_t_L_state_chain_grid(obj.occCa,'chain-n-a-rc');
 						return;				% exit here!
 					end
 				case 'chain-n-site2-ft'
@@ -1498,40 +1433,7 @@ classdef TDVPData
 						plot([min(h.xdata),max(h.xdata)],[0,0],'k:','DisplayName','$\langle x \rangle=0$');	% zero baseline
 					else
 						%% this is the first call to generate grid plot!
-						nPlots = size(obj.xCd,4);
-						nStates = size(obj.xCd,3);
-						[m,n] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						h.ax = htemp.ax;
-						if ~isempty(h.xlim)
-							varargin = [varargin,{'-xlim',h.xlim}];
-						end
-						if ~isempty(h.ylim)
-							varargin = [varargin,{'-ylim',h.ylim}];
-						end
-						if ~isempty(h.state)
-							varargin = [varargin,{'-state',h.state}];
-							nStates = length(h.state);
-						end
-						h.pl = gobjects(m,n,nStates);
-						for ii = 1:numel(h.ax)
-							if ii > nPlots
-								delete(h.ax(ii));
-								h.ax(ii) = [];
-								continue;
-							end
-							[mm,nn] = ind2sub([m,n],ii);
-							htemp = obj.plot('chain-x-d-rc',varargin{:},h.ax(ii),'-chain',ii);
-							h.pl(mm,nn,:) = htemp.pl;
-							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
-							t.Units = 'norm';
-							if t.Position(2) > 1
-								t.Position(2) = t.Position(2)-0.1;
-							end
-							if ii == nPlots && mod(ii,mm) ~= 0
-								h.ax(ii).XTickLabelMode = 'auto';
-							end	
-						end
+						hlp_t_L_state_chain_grid(obj.xCd,'chain-x-d-rc');
 						return;				% exit here!
 					end
 				case 'chain-x-a-rc'
@@ -1540,50 +1442,18 @@ classdef TDVPData
 						h.xdata = obj.t(1:obj.lastIdx)*ts;
 						rcCol = find(~all(squeeze(obj.xCa(1:obj.lastIdx,:,1,h.chain))==0),1);
 						h.ydata = squeeze(real(obj.xCa(1:obj.lastIdx,rcCol,:,h.chain)));		% t x L x state x nChain
+						h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
 						if ~isempty(h.state)
 							h.ax.ColorOrderIndex = h.chain;
 							h.ydata = h.ydata(:,h.state);
+							h.leglbl = arrayfun(@(i) sprintf('$%d$',i),h.state,'UniformOutput',false);
 						end
-						h.leglbl = obj.sysLabel;
 						h.ylbl = '$\langle x \rangle$';
 						h.tlbl = 'Adiabatic Displacement';
 						plot([min(h.xdata),max(h.xdata)],[0,0],'k:','DisplayName','$\langle x \rangle=0$');	% zero baseline
 					else
 						%% this is the first call to generate grid plot!
-						nPlots = size(obj.xCa,4);
-						nStates = size(obj.xCa,3);
-						[m,n] = TDVPData.bestGrid(nPlots);
-						htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
-						h.ax = htemp.ax;
-						if ~isempty(h.xlim)
-							varargin = [varargin,{'-xlim',h.xlim}];
-						end
-						if ~isempty(h.ylim)
-							varargin = [varargin,{'-ylim',h.ylim}];
-						end
-						if ~isempty(h.state)
-							varargin = [varargin,{'-state',h.state}];
-							nStates = length(h.state);
-						end
-						h.pl = gobjects(m,n,nStates);
-						for ii = 1:numel(h.ax)
-							if ii > nPlots
-								delete(h.ax(ii));
-								h.ax(ii) = [];
-								continue;
-							end
-							[mm,nn] = ind2sub([m,n],ii);
-							htemp = obj.plot('chain-x-a-rc',varargin{:},h.ax(ii),'-chain',ii);
-							h.pl(mm,nn,:) = htemp.pl;
-							t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
-							t.Units = 'norm';
-							if t.Position(2) > 1
-								t.Position(2) = t.Position(2)-0.1;
-							end
-							if ii == nPlots && mod(ii,mm) ~= 0
-								h.ax(ii).XTickLabelMode = 'auto';
-							end	
-						end
+						hlp_t_L_state_chain_grid(obj.xCa,'chain-x-a-rc');
 						return;				% exit here!
 					end
 				case 'chain-x-site2-ft'
@@ -2362,9 +2232,52 @@ classdef TDVPData
 				h.ax.ColorOrderIndex = idx + 1;
 			end
 			
-% 			figure; plot(obj.t(1:obj.lastIdx)*ts,abs(rhoii(1:obj.lastIdx,:)).*(window*ones(1,size(rhoii,2))));		% auxiliary plot for hann-windowed rhoii-ft
+			function hlp_t_L_state_chain_grid(data,plottype)
+				%% hlp_t_L_state_chain_grid(data,plottype)
+				% creates grid plots for PlotTypes:
+				%	chain-n-d-rc
+				%	chain-n-a-rc
+				%	chain-x-d-rc
+				%	chain-x-a-rc
+				%
+				%	data: t x L x state x nChain
+				nPlots = size(data,4);
+				nStates = size(data,3);
+				[m,n] = TDVPData.bestGrid(nPlots);
+				htemp = TDVPData.plotGrid(m,n,h.f,'rowheight',h.rowheight,'rowwidth',h.rowwidth);
+				h.ax = htemp.ax;
+				if ~isempty(h.xlim)
+					varargin = [varargin,{'-xlim',h.xlim}];
+				end
+				if ~isempty(h.ylim)
+					varargin = [varargin,{'-ylim',h.ylim}];
+				end
+				if ~isempty(h.state)
+					varargin = [varargin,{'-state',h.state}];
+					nStates = length(h.state);
+				end
+				h.pl = gobjects(m,n,nStates);
+				for ii = 1:numel(h.ax)
+					if ii > nPlots
+						delete(h.ax(ii));
+						h.ax(ii) = [];
+						continue;
+					end
+					[mm,nn] = ind2sub([m,n],ii);
+					htemp = obj.plot(plottype,varargin{:},h.ax(ii),'-chain',ii);
+					h.pl(mm,nn,:) = htemp.pl;
+					t = title(h.ax(ii),sprintf('Chain %s',obj.chainLabel{ii}));
+					t.Units = 'norm';
+					if t.Position(2) > 1
+						t.Position(2) = t.Position(2)-0.1;
+					end
+					if ii == nPlots && mod(ii,mm) ~= 0
+						h.ax(ii).XTickLabelMode = 'auto';
+					end	
+				end
+			end
 		end
-		
+			
 		function h   = plotSld1D(obj, type, varargin)
 			%% Plot with Slider to flip through different 2D plots
 			% default: Plot versus time
