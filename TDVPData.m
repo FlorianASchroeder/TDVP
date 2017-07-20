@@ -2030,10 +2030,47 @@ classdef TDVPData
 					h.pl = scatter(h.xdata,h.ydata,40,h.cdata,'.');
 					h.ylbl = sprintf('$E/eV$');
 					pl = h.pl;
+				case 'pes-from-tes-pop'
+					% similar to 'heff-full-pop-diab-v2', but with PES in adiabatic basis of TES
+					% set to tes to avoid errors
+					obj = obj.setHeffTo('tes');
+					
+					if isempty(obj.Heff)
+						error('Not available, need to extract Observable heff');
+						close(h.f);
+						return;
+					end
+					
+					h.xdata = obj.t(1:obj.lastIdx)*ts;
+					h.ylbl = '$E/eV$';
+					out     = obj.getData('heff-full-pop');
+					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
+					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
+					
+					out = obj.getData('pes-from-tes');
+					D       = out{1};								% t x D*dk_eig
+					
+					if isempty(h.ylim)
+						h.ylim = [min(D(:)),max(D(:))];
+					end
+					for ii = 1:size(pop,2)
+						h.pl = TDVPData.plotVariance(h.xdata,D(:,ii),pop(:,ii), h.ylim, h.ax, 'thickness',h.patchthickness);
+% 						plTemp = TDVPData.plotVariance(h.xdata,D(:,ii),squeeze(sum(popDiab(:,:,ii),2)), h.ylim, h.ax, 'subshades',popDiab(:,:,ii),'thickness',h.patchthickness);
+% 						delete(plTemp(1));
+% 						sel = arrayfun(@(x) ~isa(x,'matlab.graphics.GraphicsPlaceholder') && isvalid(x) ,plTemp);
+% 						h.pl = [h.pl,plTemp(sel)];
+					end
+					plotArgs = {};
+					if eScale
+						plotArgs = [plotArgs,{'-fsev'}];
+					end
+					
+					pl = h.pl;
+					h.ydata = [];			% delete to finish without replot
 				case 'pes-from-tes-pop-diab-v2'
 					% similar to 'heff-full-pop-diab-v2', but with PES in adiabatic basis of TES
 					% set to tes to avoid errors
-					obj = obj.setHeffTo('pes');
+					obj = obj.setHeffTo('tes');
 					
 					if isempty(obj.Heff)
 						error('Not available, need to extract Observable heff');
@@ -3913,9 +3950,14 @@ classdef TDVPData
 			
 			pl(1) = plot(ax, x,y);		% first plot the mean
 			if isempty(p.Results.subshades)
-				pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
+				if verLessThan('matlab','9.3')
+					pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color*fill_alpha + (1-fill_alpha)*[1,1,1]);
+				else
+					pl(2) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], pl(1).Color);
+					pl(2).FaceAlpha = fill_alpha;
+				end
 				uistack(pl(2), 'bottom');
-				set(pl(2),'EdgeColor','none')
+				set(pl(2),'EdgeColor','none');
 				TDVPData.decrColorOrderIndex(ax);
 			else
 				std = p.Results.subshades';			% n x t
@@ -3923,7 +3965,12 @@ classdef TDVPData
 					upper = lower + diff(ylim)*std(ii,:) * max_thickness;
 					if max(std(ii,:)) > 5e-3
 						% Only plot if max patch height > 1%
-						pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+						if verLessThan('matlab','9.3')
+							pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:)*fill_alpha + (1-fill_alpha)*[1,1,1]);
+						else
+							pl(ii+1) = fill([x,x(end:-1:1)], [upper,lower(end:-1:1)], colOrder(ii,:));
+							pl(ii+1).FaceAlpha = fill_alpha;
+						end
 						uistack(pl(ii+1),'bottom');
 						set(pl(ii+1),'EdgeColor','none')
 						if ax.ColorOrderIndex == 1
