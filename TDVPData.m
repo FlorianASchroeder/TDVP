@@ -963,17 +963,17 @@ classdef TDVPData
 						% fs timescale for H in eV and eV scale in DFT plots
 						ts = 0.658;
 						eScale = 1;
-						h.xlbl = '$t/fs$';
+						h.xlbl = '$t/\mathrm{fs}$';
 					case '-cmev'
 						% cm scale in DFT plots
 						ts = 0.658;
 						eScale = 2;
-						h.xlbl = '$E/cm^{-1}$';
+						h.xlbl = '$E/\mathrm{cm}^{-1}$';
 					case '-nmev'
 						% nm scale in DFT plots
 						ts = 0.658;
 						eScale = 3;
-						h.xlbl = '$\lambda/nm$';
+						h.xlbl = '$\lambda/\mathrm{nm}$';
 					case '-fftshift'
 						DFTshift = 1;
 					case '-unicol'
@@ -1080,9 +1080,11 @@ classdef TDVPData
 					box on;
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = abs(obj.getData('rhoii'));
+					h.leglbl = obj.sysLabel;
 					if ~isempty(h.state)
 						h.ax.ColorOrderIndex = h.state;		% ensure same colors
 						h.ydata = h.ydata(:,h.state);
+						h.leglbl = h.leglbl(h.state);
 					end
 					h.ylbl = '$\rho_{ii}(t)$';
 				case 'rhoii-diff'
@@ -1763,7 +1765,7 @@ classdef TDVPData
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
 					h.ydata = D;
 					
-					h.ylbl = sprintf('$E/eV$');
+					h.ylbl = sprintf('$E/\\mathrm{eV}$');
 					
 					character = mean(VC,3);
 					d = size(character);
@@ -1792,7 +1794,7 @@ classdef TDVPData
 					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
 					
 					h.pl = scatter(h.xdata,h.ydata,1,h.cdata,'.');
-					h.ylbl = sprintf('$E/eV$');
+					h.ylbl = sprintf('$E/\\mathrm{eV}$');
 					pl = h.pl;
 				case 'heff-full-pop'
 					% heff, but with additional thickness according to population of given potential surface
@@ -1833,7 +1835,7 @@ classdef TDVPData
 					end
 					
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ylbl = '$E/eV$';
+					h.ylbl = '$E/\mathrm{eV}$';
 					out     = obj.getData('heff-full-pop');
 					D       = out{1};								% t x D*dk_eig
 					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
@@ -1902,7 +1904,7 @@ classdef TDVPData
 					end
 					
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ylbl = '$E/eV$';
+					h.ylbl = '$E/\mathrm{eV}$';
 					out     = obj.getData('heff-full-pop');
 					D       = out{1};								% t x D*dk_eig
 					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
@@ -2059,7 +2061,7 @@ classdef TDVPData
 					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
 					
 					h.pl = scatter(h.xdata,h.ydata,40,h.cdata,'.');
-					h.ylbl = sprintf('$E/eV$');
+					h.ylbl = sprintf('$E/\\mathrm{eV}$');
 					pl = h.pl;
 				case 'pes-from-tes-pop'
 					% similar to 'heff-full-pop-diab-v2', but with PES in adiabatic basis of TES
@@ -2073,7 +2075,7 @@ classdef TDVPData
 					end
 					
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ylbl = '$E/eV$';
+					h.ylbl = '$E/\mathrm{eV}$';
 					out     = obj.getData('heff-full-pop');
 					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
 					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
@@ -2110,7 +2112,7 @@ classdef TDVPData
 					end
 					
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ylbl = '$E/eV$';
+					h.ylbl = '$E/\mathrm{eV}$';
 					out     = obj.getData('heff-full-pop');
 					pop     = out{2};								% t x D*dk_eig;			Pop on each surface
 					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
@@ -2161,7 +2163,7 @@ classdef TDVPData
 					h.cdata = VC*col(1:d(2),:);															% t*D*dk_eig x col
 					
 					h.pl = scatter(h.xdata,h.ydata,40,h.cdata,'.');
-					h.ylbl = sprintf('$E/eV$');
+					h.ylbl = sprintf('$E/\\mathrm{eV}$');
 					pl = h.pl;
 				case 'tes-from-pes-pop-diab-v2'
 					% similar to 'heff-full-pop-diab-v2', but with TES in adiabatic basis of PES
@@ -2176,7 +2178,7 @@ classdef TDVPData
 					end
 					
 					h.xdata = obj.t(1:obj.lastIdx)*ts;
-					h.ylbl = '$E/eV$';
+					h.ylbl = '$E/\mathrm{eV}$';
 					out     = obj.getData('heff-full-pop');
 					popDiab = out{3};								% t x dk x D*dk_eig		Diab pop on each surface
 					
@@ -2272,7 +2274,7 @@ classdef TDVPData
 				end
 				if eScale == 1
 					f = f*4.135; % in eV
-					h.xlbl = '$E/eV$';
+					h.xlbl = '$E/\mathrm{eV}$';
 				elseif eScale == 2
 					f = f*4.135*8065.73; % in cm
 				elseif eScale == 3
@@ -2379,7 +2381,7 @@ classdef TDVPData
 					case '-fsev'
 						% fs timescale for H in eV
 						h.ts = 0.658;
-						h.xlbl = '$t/fs$';
+						h.xlbl = '$t/\mathrm{fs}$';
 						h.xdata = h.xdata*h.ts;
 					case '-log'
 						% Logarithmic scale in z
@@ -2723,16 +2725,16 @@ classdef TDVPData
 					case '-ev'
 						% ev scale for H in eV
 						h.freqScale = h.freqScale/0.658*4.135;
-						h.xlbl = '$E/eV$';
+						h.xlbl = '$E/\mathrm{eV}$';
 					case '-cmev'
 						% use cm^-1 as Units
 						h.freqScale = h.freqScale/0.658*4.135*8065.73;
-						h.xlbl = '$E/cm^{-1}$';
+						h.xlbl = '$E/\mathrm{cm}^{-1}$';
 					case '-nmev'
 						% nm scale, H in ev
 						h.freqScale = h.freqScale/0.658*4.135/1239.84193;
 						h.fInvert = 1;
-						h.xlbl = '$\lambda/nm$';
+						h.xlbl = '$\lambda/\mathrm{nm}$';
 					case '-log'
 						% Logarithmic scale in z
 						h.logY = 1;
@@ -3037,7 +3039,7 @@ classdef TDVPData
 					case '-fsev'
 						% fs timescale for H in eV
 						h.ts = 0.658;
-						h.ylbl = '$t/fs$';
+						h.ylbl = '$t/\mathrm{fs}$';
 						h.ydata = h.ydata*h.ts;
 					case '-log'
 						% Logarithmic scale in z
@@ -3112,10 +3114,10 @@ classdef TDVPData
 				case 'chain-x-ft'
 					h.maxN = pow2(nextpow2(obj.lastIdx));				% FT window length
 					h.ydata = (0:h.maxN/2)/h.ydata(end);				% fs * k/N = k/T where k=0... N/2
-					h.ylbl = '$f$ in $1/fs$';
+					h.ylbl = '$f$ in $1/\mathrm{fs}$';
 					if h.evTocm && h.ts ~=1
 						h.ydata = h.ydata*4.135*8065.73;
-						h.ylbl = '$f/cm^{-1}$';
+						h.ylbl = '$f/\mathrm{cm}^{-1}$';
 					end
 					h.zdata = fft(real(obj.xC(1:obj.lastIdx,:,:,:)),h.maxN,1);		% f x L x state x chain
 					h.zdata = 2*abs(h.zdata(1:h.maxN/2+1,:,:,:));
@@ -3773,6 +3775,7 @@ classdef TDVPData
 			h.f.Units = 'centimeters'; h.f.Position([3,4]) = [1.3+p.Results.rowwidth,1+h.axH*h.rows];
 			% f.Renderer = 'painters';
 			set(h.f,'DefaultAxesFontSize', 8,...
+					'DefaultLegendInterpreter','latex',...
 					'DefaultLineLineWidth',1);
 % 			% Lowest 
 % 			i=h.rows*h.cols; h.ax(i) = axes; box on;
