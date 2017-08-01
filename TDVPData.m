@@ -281,7 +281,8 @@ classdef TDVPData
 			obj.chainLabel = arrayfun(@(x) sprintf('$%d$',x),1:obj.nChains,'UniformOutput',false);
 			obj.sysLabel   = arrayfun(@(x) sprintf('$%d$',x),1:2,'UniformOutput',false);			% TODO: needs fixing
 			if ~isempty(strfind(obj.para.model,'DPMES'))
-				obj.sysLabel = {'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'};
+				% Need fully enclosed Latex expressions to enable embedding into other expressions.
+				obj.sysLabel = {'$\mathrm{TT}$','$\mathrm{LE}^+$','$\mathrm{LE}^-$','$\mathrm{CT}^+$','$\mathrm{CT}^-$'};
 				% any particular vars for DPMES?
 				temp = regexp(obj.para.folder,'CT([-.0-9]*)','tokens');
 				if ~isempty(temp)
@@ -295,7 +296,11 @@ classdef TDVPData
 					end
 				end
 				if strcmp(obj.para.model,'DPMES-Tree4')
-					obj.chainLabel = {	'$B_{11}$',	'$B_{12}$',	'$A_{11}$',	'$A_{12}$',	'$A_2$',	'$B_{21}$',  '$B_{22}$'	};
+					obj.chainLabel = {	'$B_{1,1}$',	'$B_{1,2}$',	'$A_{1,1}$',	'$A_{1,2}$',	'$A_2$',	'$B_{2,1}$',  '$B_{2,2}$'	};
+				end
+				if strcmp(obj.para.model,'DPMES-Tree6')
+					%	'B21',	'B22',	'B11',	'B12',	'B13',	'B14',  'A2',	'A11',	'A12'
+					obj.chainLabel = {	'$B_{2,1}$',	'$B_{2,2}$',	'$B_{1,1}$',	'$B_{1,2}$', '$B_{1,3}$',	'$B_{1,4}$',	'$A_2$',	'$A_{1,1}$',  '$A_{1,2}$'	};
 				end
 			end
 			obj.LegLabel = '';
