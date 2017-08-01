@@ -942,6 +942,7 @@ classdef TDVPData
 			h.rowheight  = 2;			% defaults for grid
 			h.rowwidth  = 7.2;			% defaults for grid
 			h.patchthickness = 0.2;		% in % of total ylim
+			h.visible = 1;				% default for fig visibility
 			
 			h.f  = [];
 			h.ax = [];
@@ -1005,6 +1006,8 @@ classdef TDVPData
 					case '-patchthickness'
 						h.patchthickness = varargin{m+1};
 						[varargin{[m,m+1]}] = deal([]);
+					case '-invisible'
+						h.visible = 0;
 					otherwise
 						% pass through as direct plot options!
 						plotOpt = [plotOpt, varargin(m)];
@@ -1026,6 +1029,9 @@ classdef TDVPData
 			h.f.Renderer = 'painters';				% provides much better 2D results generally!
 			hold all;
 			box on;
+			if ~h.visible
+				h.f.Visible = 'off';
+			end
 			
 			if resetColorOrder
 				h.ax.ColorOrderIndex = 1;
@@ -1078,7 +1084,18 @@ classdef TDVPData
 						h.ax.ColorOrderIndex = h.state;		% ensure same colors
 						h.ydata = h.ydata(:,h.state);
 					end
-					h.leglbl = arrayfun(@(i) sprintf('$%d$',i),(1:size(h.ydata,2))','UniformOutput',false);
+					h.ylbl = '$\rho_{ii}(t)$';
+				case 'rhoii-diff'
+					%% Plot the Time derivative of the system's populations
+					box on;
+					h.xdata = obj.t(1:obj.lastIdx-1)*ts;
+					h.ydata = diff(abs(obj.getData('rhoii')))/(obj.dt*ts);
+					h.leglbl = cellfun(@(x) sprintf('$d\\rho_{%s}/dt$',x(2:end-1)),obj.sysLabel,'UniformOutput',false);
+					if ~isempty(h.state)
+						h.ax.ColorOrderIndex = h.state;		% ensure same colors
+						h.ydata = h.ydata(:,h.state);
+						h.leglbl = h.leglbl(h.state);
+					end
 					h.ylbl = '$\rho_{ii}(t)$';
 				case 'rhoij-real'
 					if ~isfield(obj.tresults,'rho'), return, end;
@@ -1307,6 +1324,20 @@ classdef TDVPData
 					else
 						h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
 					end
+					h.leglbl = obj.chainLabel;
+					h.ylbl = '$\langle n \rangle$';
+				case 'chain-n-rc-diff'
+					h.xdata = obj.t(1:obj.lastIdx-1)*ts;
+					h.ydata = zeros(obj.lastIdx,size(obj.occC,3));
+					if isfield(obj.para,'useTreeMPS') && obj.para.useTreeMPS
+						for ii = 1:size(obj.occC,3)
+							pos = find(obj.occC(2,:,ii),1,'first');					% find pos of rc in chain ii
+							h.ydata(:,ii) = real(obj.occC(1:obj.lastIdx,pos,ii));
+						end
+					else
+						h.ydata = squeeze(real(obj.occC(1:obj.lastIdx,2,:)));		% t x L x nChain
+					end
+					h.ydata = diff(h.ydata)/(obj.dt*ts);
 					h.leglbl = obj.chainLabel;
 					h.ylbl = '$\langle n \rangle$';
 				case 'chain-n-d-rc'
