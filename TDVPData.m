@@ -4259,6 +4259,112 @@ classdef TDVPData
 				out = 0;	%% TODO: has to be implemented; use interp?
 			end
 		end
+		
+		function res = getTensorVNE(A,n)
+			%% function res = getTensorVNE(A,n)
+			%	calculate the von Neumann entropy for any possible partition of tensor A
+			%	as a proxy for the entanglement and thus most optimal partition into subtensors.
+			%   n gives highest order of bunched legs
+			
+			N = ndims(A);
+			dA = size(A);
+			res = {};
+			k = 1;
+			if nargin == 1
+				n = 4;			% default setting -> up to quarts
+			end
+
+			% First look at single partitions
+			% the ones with smallest vNE could be singled out alone
+			for ii = 1:N
+				[B, dB] = tensShape(A,'unfoldiso', ii,dA);
+				[~,S,~] = svd2(B);
+				res{k,1} = ii;
+				res{k,2} = vonNeumannEntropy(S);
+				res{k,3} = diag(S);
+				fprintf('dim %d: %g\n',res{k,1:2});
+				k = k+1;
+			end
+			
+			if n == 1
+				return;
+			end
+			
+			% Second look at pairs
+			for ii = 1:N
+				for jj = ii+1:N
+					[B, dB] = tensShape(A,'unfoldiso', [ii,jj],dA);
+					[~,S,~] = svd2(B);
+					res{k,1} = [ii,jj];
+					res{k,2} = vonNeumannEntropy(S);
+					res{k,3} = diag(S);
+					pairSum = sum([res{res{k,1},2}]);
+					fprintf('dim [%d,%d]: %5.3g;\t individual sum: %5.3g; \t rel.Compression: %5.1f\n',res{k,1:2}, pairSum, (1-res{k,2}/pairSum)*100);
+					k = k+1;
+				end
+			end
+			
+			if n == 2
+				return;
+			end
+			
+			% Third look into triads
+			for ii = 1:N
+				for jj = ii+1:N
+					for kk = jj+1:N
+						[B, dB] = tensShape(A,'unfoldiso', [ii,jj,kk],dA);
+						[~,S,~] = svd2(B);
+						res{k,1} = [ii,jj,kk];
+						res{k,2} = vonNeumannEntropy(S);
+						res{k,3} = diag(S);
+						triadSum = sum([res{res{k,1},2}]);
+						fprintf('dim [%d,%d,%d]: %5.3g;\t individual sum: %5.3g; \t rel.Compression: %5.1f\n',res{k,1:2}, triadSum, (1-res{k,2}/triadSum)*100);
+						k = k+1;
+					end
+				end
+			end
+
+			if n == 3
+				return;
+			end
+			
+			% Fourth look into quarts
+			for ii = 1:N
+				for jj = ii+1:N
+					for kk = jj+1:N
+						for ll = kk+1:N
+							[B, dB] = tensShape(A,'unfoldiso', [ii,jj,kk,ll],dA);
+							[~,S,~] = svd2(B);
+							res{k,1} = [ii,jj,kk,ll];
+							res{k,2} = vonNeumannEntropy(S);
+							res{k,3} = diag(S);
+							triadSum = sum([res{res{k,1},2}]);
+							fprintf('dim [%d,%d,%d,%d]: %5.3g;\t individual sum: %5.3g; \t rel.Compression: %5.1f\n',res{k,1:2}, triadSum, (1-res{k,2}/triadSum)*100);
+							k = k+1;
+						end
+					end
+				end
+			end
+			if n == 4
+				return;
+			end
+		end
+		
+		function res = getTensorVNEAdjacency(A)
+			%% function res = getTensorVNEAdjacency(A)
+			%	calculate Adjacency matrix of the von Neumann entropy for any possible partition of tensor A
+			
+			N = ndims(A);
+			out = TDVPData.getTensorVNE(A,2);
+			
+			res = zeros(N);						% N x N adjacency matrix
+			
+			for kk = N+1:size(out,1)
+				ii = out{kk,1}(1); jj = out{kk,1}(2);
+				pairSum = sum([out{out{kk,1},2}]);
+				res(ii,jj) = (pairSum - out{kk,2})/2;
+			end
+			return;
+		end
 	end
-	
 end

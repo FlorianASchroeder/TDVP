@@ -8358,10 +8358,17 @@ load('..\cacheComputations\20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT
 %% Get vNE for each partition
 % lower vNE: lower entanglement!
 res = getTensorVNE(squeeze(treeMPS.mps{1}));
+%% Get vNE Adjacency of TreeMPS Root node
+res = TDVPData.getTensorVNEAdjacency(squeeze(treeMPS.mps{1}));
+% Get graph for adjacency
+g = graph(res,'upper');
+%% Plot the Graph
+h = plot(g,  'LineWidth', 5*g.Edges.Weight/max(g.Edges.Weight), 'Layout', 'circle'); %		'EdgeLabel',g.Edges.Weight,
 %% [5,9] and [6,7] SV:
 A = treeMPS.mps{1}; dA = size(A);
 [B, dB] = tensShape(A,'unfoldiso', [5,9],dA);
 [~,S,~] = svd2(B);
+
 
 %% Export adiabatic RC displacement
 % only takes the strongest adiabatic state!
