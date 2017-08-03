@@ -2292,6 +2292,22 @@ stateMix = reshape(tes{4}(tIdx,:,eigIdx), d(3), d(2));							% D x dk
 stateMixPop = stateMix.*conj(stateMix)
 % TODO: need to continue!
 
+%% TDVP (8.3) System States: ES breakdown
+% try to plot the diabatic states corresponding to a specific surface in the TES/PES
+x = res(1);
+es = x.setHeffTo('tes').getData('heff-full-pop');
+popSurf = es{2};
+Vtemp = es{4};
+% tes{1} = E;																	% t x D*dk_eig			Energies
+% tes{2} = pop;																	% t x D*dk_eig			population on surface
+% tes{3} = popDiab;																% t x dk x D*dk_eig
+% tes{4} = Vtemp;																% t x D*dk x D*dk_eig	map to surface
+t_fs = 80;								% want to look at 80fs.
+tIdx = find(x.t*0.658>t_fs,1);
+eigIdx = find(popSurf(tIdx,:)== max(popSurf(tIdx,:)),1);						% largest population on surface
+
+% imagesc(abs(squeeze(Vtemp(tIdx
+% TODO not fully done yet
 %% TDVP z-averaging in one file
 % naming scheme to find files:
 %   take series filename and replace z-value by *
@@ -7226,7 +7242,103 @@ for ii = 1:size(defPlot,1)
 end
 resizePlot(h.f)
 
+%% DPMES-Tree4 v79 TreeMPS ProperPot - TDVPData											% LabBook 25/07/2017
+clear
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
 
+% 1-2: dt 0.5
+dirPat = '20170717-.*-DPMES-Tree4-Tree-v79-ProperPot-L70CT0LE\+';
+filPat = 'results-Till1700Step0.5v79-OBBmax40-Dmax.*-expvCustom240-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-(?<DChain>[0-9\.]*)\)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$(%s,%s)$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(legLabels);
+	%% Do Plots
+	res.plot('rhoii','-fsev');
+	%% PES, TES in grid
+	defPlot(1,:) = {'20170725-DPMES-Tree4-v79-ProperPot-ACzoom',				[1],		{'xlim',[0, 200],'ylimTop',[2.04, 2.119],'ylimBot',[1.54, 2.08]}};
+	defPlot(2,:) = {'20170725-DPMES-Tree4-v79-ProperPot',						[1],		{'xlim',[0,1130],'ylimTop',[1.6 , 3.8  ],'ylimBot',[1.5, 3.5]}};
+	
+	ii = 2;
+	x = res(defPlot{ii,2});
+	h = TDVPData.plotGrid(2,2,'rowheight',5,'rowwidth',16); resizePlot(h.f,1.6,2);	% side-by-side
+h.f.Name = defPlot{ii,1};
+xlimAll = defPlot{ii,3}{2}; ylimTop = defPlot{ii,3}{4}; ylimBot = defPlot{ii,3}{6}; thickness = 0.1; dotsize = 50;
+htemp  = x.setHeffTo('tes').plot('heff-full-pop-diab-v2','-fsev'   ,'-xlim',xlimAll,'-ylim',ylimTop,'-patchthickness',thickness,h.ax(1)); htemp.pl(end).SizeData = dotsize;
+htemp2 = x.plot('pes-from-tes-pop-diab-v2','-fsev','-xlim',xlimAll,'-ylim',ylimBot,'-patchthickness',thickness,h.ax(2)); htemp2.pl(end).SizeData = dotsize;
+htemp2 = x.plot('tes-from-pes-pop-diab-v2','-fsev','-xlim',xlimAll,'-ylim',ylimTop,'-patchthickness',thickness,h.ax(3)); htemp2.pl(end).SizeData = dotsize;
+htemp2 = x.setHeffTo('pes').plot('heff-full-pop-diab-v2','-fsev'   ,'-xlim',xlimAll,'-ylim',ylimBot,'-patchthickness',thickness,h.ax(4)); htemp2.pl(end).SizeData = dotsize;
+
+ylabel(h.ax(3),'');
+ylabel(h.ax(4),'');
+
+legend(htemp.pl(1:5),{'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'}, 'location','North');
+%
+legText = {'a','b','c','d'};
+legPosX = ones(1,5)*0.02;
+legPosY = ones(1,4)*0.92;
+for ii = 1:length(legText)
+	t=text(h.ax(ii),legPosX(ii),legPosY(ii),sprintf('$\\mathbf{%s}$',legText{ii}),'sc','FontSize',8.8,'FontWeight','bold');
+end
+
+%% DPMES-Tree6 v79 TreeMPS divB1 - TDVPData												% LabBook 25/07/2017
+clear
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'DPMES')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-2: 1: bad, 2: good calculation
+dirPat = '20170720-1328-3.-DPMES-Tree6-Tree-v79-divB1-L70CT0LE\+';
+filPat = 'results-Till.*Step.*v79-OBBmax40-Dmax.*-expvCustom240-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'Dmax\((?<DNode>[0-9\.]*)-(?<DChain>[0-9\.]*)\)','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.DNode),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$(%s,%s)$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(legLabels);
+	%% Do Plots
+	res.plot('rhoii','-fsev',gcf,'-resetColorOrder');
+	%% PES, TES in grid
+	defPlot(1,:) = {'20170725-DPMES-Tree6-v79-divB1-ACzoom',				[2],		{'xlim',[0, 200],'ylimTop',[2.04, 2.119],'ylimBot',[1.54, 2.08]}};
+	defPlot(2,:) = {'20170725-DPMES-Tree6-v79-divB1',						[2],		{'xlim',[0, 600],'ylimTop',[1.6 , 3.8  ],'ylimBot',[1.5, 3.5]}};
+	
+	ii = 1;
+	x = res(defPlot{ii,2});
+	h = TDVPData.plotGrid(2,2,'rowheight',5,'rowwidth',16); resizePlot(h.f,1.6,2);	% side-by-side
+h.f.Name = defPlot{ii,1};
+xlimAll = defPlot{ii,3}{2}; ylimTop = defPlot{ii,3}{4}; ylimBot = defPlot{ii,3}{6}; thickness = 0.1; dotsize = 50;
+htemp  = x.setHeffTo('tes').plot('heff-full-pop-diab-v2','-fsev'   ,'-xlim',xlimAll,'-ylim',ylimTop,'-patchthickness',thickness,h.ax(1)); htemp.pl(end).SizeData = dotsize;
+htemp2 = x.plot('pes-from-tes-pop-diab-v2','-fsev','-xlim',xlimAll,'-ylim',ylimBot,'-patchthickness',thickness,h.ax(2)); htemp2.pl(end).SizeData = dotsize;
+htemp2 = x.plot('tes-from-pes-pop-diab-v2','-fsev','-xlim',xlimAll,'-ylim',ylimTop,'-patchthickness',thickness,h.ax(3)); htemp2.pl(end).SizeData = dotsize;
+htemp2 = x.setHeffTo('pes').plot('heff-full-pop-diab-v2','-fsev'   ,'-xlim',xlimAll,'-ylim',ylimBot,'-patchthickness',thickness,h.ax(4)); htemp2.pl(end).SizeData = dotsize;
+
+ylabel(h.ax(3),'');
+ylabel(h.ax(4),'');
+
+legend(htemp.pl(1:5),{'TT','LE$^+$','LE$^-$','CT$^+$','CT$^-$'}, 'location','North');
+%
+legText = {'a','b','c','d'};
+legPosX = ones(1,5)*0.02;
+legPosY = ones(1,4)*0.92;
+for ii = 1:length(legText)
+	t=text(h.ax(ii),legPosX(ii),legPosY(ii),sprintf('$\\mathbf{%s}$',legText{ii}),'sc','FontSize',8.8,'FontWeight','bold');
+end
 
 %% TDVP SBM multi (1): Plot Visibility / Coherence
 fignum = 3; figure(fignum); clf; hold all;
@@ -8242,14 +8354,21 @@ end
 % which could be reduced by chain combination
 %x = TDVPData('H:\Documents\Theory\schroederflorian-vmps-tdvp\TDVP-Git\Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat');
 % load('Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat','treeMPS','para'); % used for ER-Tree2
-load('20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT0LE+\results-Till1000Step0.5v77-OBBmax40-Dmax(5-7)-expvCustom270-1core.mat','treeMPS','para')
+load('..\cacheComputations\20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT0LE+\results-Till1000Step0.5v77-OBBmax40-Dmax(5-7)-expvCustom270-1core.mat','treeMPS','para')
 %% Get vNE for each partition
 % lower vNE: lower entanglement!
 res = getTensorVNE(squeeze(treeMPS.mps{1}));
+%% Get vNE Adjacency of TreeMPS Root node
+res = TDVPData.getTensorVNEAdjacency(squeeze(treeMPS.mps{1}));
+% Get graph for adjacency
+g = graph(res,'upper');
+%% Plot the Graph
+h = plot(g,  'LineWidth', 5*g.Edges.Weight/max(g.Edges.Weight), 'Layout', 'circle'); %		'EdgeLabel',g.Edges.Weight,
 %% [5,9] and [6,7] SV:
 A = treeMPS.mps{1}; dA = size(A);
 [B, dB] = tensShape(A,'unfoldiso', [5,9],dA);
 [~,S,~] = svd2(B);
+
 
 %% Export adiabatic RC displacement
 % only takes the strongest adiabatic state!
