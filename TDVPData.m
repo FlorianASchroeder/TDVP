@@ -295,6 +295,16 @@ classdef TDVPData
 						obj.CTShift = 0;	% give up
 					end
 				end
+				if strcmp(obj.para.model,'DPMES4-5C')
+					obj.sysLabel   = {'$\mathrm{TT}$','$\mathrm{LE}^+$','$\mathrm{CT}^+$','$\mathrm{CT}^-$'};
+					obj.chainLabel = {	'$A_{1,1}$',	'$A_{1,2}$',	'$B_{1}$',	'$A_2$',	'$B_{2}$'	};
+				end
+				if strcmp(obj.para.model,'DPMES5-7C')
+					obj.chainLabel = {	'$A_{1,1}$',	'$A_{1,2}$',	'$A_2$',	'$B_{1}$',	'$B_{2,1}$',  '$B_{2,2}$',  '$B_{2,3}$'	};
+				end
+				if strcmp(obj.para.model,'DPMESclust7-1')
+					obj.chainLabel = {	'$B_{1,1}$',	'$B_{1,2}$',	'$A_{1,1}$',	'$A_{1,2}$',	'$B_{2,1}$',  '$B_{2,2}$',  '$A_2$'	};
+				end
 				if strcmp(obj.para.model,'DPMES-Tree4')
 					obj.chainLabel = {	'$B_{1,1}$',	'$B_{1,2}$',	'$A_{1,1}$',	'$A_{1,2}$',	'$A_2$',	'$B_{2,1}$',  '$B_{2,2}$'	};
 				end
