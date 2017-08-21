@@ -391,7 +391,7 @@ if strcmp(para.model, 'SpinBosonTTM')
 		EAm(:,:,k) = ncon({rdm, squeeze(ONOB(:,:,k))'},...
 						  {[-1,2,-2,1], [1,2]})*d;			% apply Op, contract / trace; perhaps *d
 	end
-	Epsilon = reshape(EAm,[d^2,d^2]);
+	Epsilon = reshape(EAm,[d^2,d^2]);						% Simpler: E_{(ij)k} = d* B_{(lm)k}* \rho_{i,l,j,m} can be performed as direct matrix product! TODO since much faster!
 	T = Epsilon;
 	for k = 3:i
 		T = T - tresults.TTM.T(:,:,i+1-k)*tresults.TTM.Epsilon(:,:,k-1);          % TODO: vectorize for loop?
