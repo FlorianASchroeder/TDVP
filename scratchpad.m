@@ -4227,6 +4227,155 @@ for fignum = 5 %:size(defPlot,1)
 	set(gca,'color','none');
 	ph = cellfun(@(x) plot(x.tresults.t, x.tresults.spin.sz,'k.'), res(defPlot{3,2},1), 'UniformOutput', false);
 end
+
+%% TDVP SBM multi load : v59 TTM Benchmark, s=1 0.01 < a < 1	TDVPData			% LabBook 16/08/2015
+clear
+defPlot(1,:) = {'20150816-SBMTTM-dt0.02-FirstTry',							[1:8], {'ylim',[1e-5,1],'xlim',[0,100],'yscale','log'}};
+defPlot(2,:) = {'20150805-Benchmark-v52-dt01-Using-ExpvCustom-only',		[9:14,17,18], {'ylim',[-1,1],'xlim',[0,500]}};
+defPlot(3,:) = {'20150929-SBMTTM-dt01-szcoup',								[19:21],{'ylim',[-1,1],'xlim',[0,100],'yscale','log'}};
+defPlot(4,:) = {'20150928-Benchmark-v62-dt01-Bond150',						[22:29],{'ylim',[-1,1],'xlim',[0,300]}};
+defPlot(5,:) = {'20150928-SBMTTM-dt01-szcoup-SBM-compare',					[22,27,28],{'ylim',[-1,1],'xlim',[0,1000]}};
+i=0; cols = 5;
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'SpinBoson')),TDVPfolds));
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'2015')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+% 1-8: TTM Data
+dirPat = '20150816-0156-SpinBosonTTM-OrthPol-v59TCMde9-alpha.*delta0.1epsilon0dk30D5dopt5L100';
+filPat = 'results-Till150Step0.02v59-OBBExpand-BondExpand10-expvCustom800-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+% 9-14: TDVP Data weak
+dirPat = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha.*delta0.1epsilon0dk30D5dopt5L200-art-sz';
+filPat = 'results-Till500Step0.1v52n-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+% 15-18: TDVP Data strong
+dirPat = '20150519-1402-SpinBoson-OrthPol-v43TCMde11-alpha.*delta0.1epsilon0dk30D5dopt5L500-artificial';
+filPat = 'results-Till1000Step0.1v43-OBBExpand-noBondExpand-expvCustom800-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+% 19-21: TTM Data
+dirPat = '20150929-1353-SpinBosonTTM-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till100Step0.1v62-alpha.*-OBBmax40-Dmax150-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+% 22-29
+dirPat = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till300Step0.1v62-alpha.*-OBBmax40-Dmax150-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
+	%% plot TTM norm
+for fignum = [1,3]%:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	resizePlot(f,2,2,true);
+	ph = res(pick).plot('ttm-norm',f);
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	legend toggle
+% 	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	resizePlot(f,2,2,true);
+% 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+end
+
+figure(fignum+1);clf; hold all;
+ph = arrayfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+	%% reconstruct Dynamics using the TTM & plot
+finalT = 1000;
+[sx,sy,sz] = spinop('Z');
+tic;
+for k = 19:21%6:size(res,1)
+	n = round(finalT/res{k,1}.para.tdvp.deltaT)+1;
+	rhoT = zeros(length(res{k,1}.tresults.TTM.T)*4,1);
+	Esigma = zeros(n,3);
+	T = reshape(res{k,1}.tresults.TTM.T, 4,[]);			% creates [T(1) T(2) T(3) ...]
+	for i = 1:n
+		if i == 1
+			rho = [1,0,0,0]';
+		else
+			rho = T*rhoT;
+		end
+		rhoT = [rho; rhoT(1:end-4)];					% prepend new vector rho(i)
+		rho = reshape(rho,[2,2]);						% reshape rho(i) for observables
+		Esigma(i,1) = trace(sx*rho);
+		Esigma(i,2) = trace(sy*rho);
+		Esigma(i,3) = trace(sz*rho);
+	end
+	res{k,1}.tresults.spin.sx = real(Esigma(:,1));
+	res{k,1}.tresults.spin.sy = real(Esigma(:,2));
+	res{k,1}.tresults.spin.sz = real(Esigma(:,3));
+	res{k,1}.tresults.t       = 0:res{k,1}.para.tdvp.deltaT:finalT;
+% 	plot(res{k,1}.tresults.TTM.t,res{k,1}.tresults.TTM.Esigma(:,3));
+end
+toc
+	%% Plot Spin Dynamics for szcoup
+	set(0,'defaulttextinterpreter','latex');
+for fignum = 5 %:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+	ph = cellfun(@(x) plot(x.tresults.t, x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
+% 	ph = cellfun(@(x) plot(x.tresults.t(2:x.tresults.lastIdx), x.tresults.TTM.Tnorm(1:x.tresults.lastIdx-1)./(x.para.tdvp.deltaT.^2)), res(pick,1), 'UniformOutput', false); % plot TTM norm
+	axis tight; ax = gca;
+	set(ax,defPlot{fignum,3}{:});
+	plot(ax.XLim,[0,0],'k');
+	xlabel('$\omega_ct$');
+	ylabel('$\left<\sigma_z\right>$');
+% 	ylabel('$|T|/\Delta t^2$');
+	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+	legend boxoff
+	fs = 22;
+	leg.FontSize = fs;
+	formatPlot(fignum,'twocolumn-single');
+	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+	ph = cellfun(@(x) plot(x.tresults.t, x.tresults.spin.sz,'k.'), res(defPlot{3,2},1), 'UniformOutput', false);
+end
+
+
 %% THERM SBM multi load : v61 T=300K Benchmark, s=1 a=0.01							% LabBook 28/08/2015
 % Only contains the first THERM trials!
 clear
@@ -5261,7 +5410,7 @@ end
 %% DPMES4-5C v66  StarMPS Totter - TDVPData											% LabBook 18/12/2015
 % Purpose to Benchmark StarMPS Trotter
 clear
-defPlot(1,:) = {'20151204-DPMES4-5C-v66-disorder10-D10-4thParams-highv2',		[ 2: 5], {'xlim',[0,400],'yscale','lin'}};
+defPlot(1,:) = {'20151218 - DPMES TDVP Benchmark - StarMPS Trotter',		[ 2: 5], {'xlim',[0,260],'yscale','lin'}};
 
 i=0; cols = 5;
 %%To update library:
@@ -5301,42 +5450,69 @@ for file = {matches.name}
 end
 [y,I] = sort([res((offset+1):end).dt]);
 res((offset+1):end,1) = res(offset+I,1);
-
 %%
 for fignum = 1:size(defPlot,1)
 	f = figure(fignum); clf; hold all; ax = gca;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
-% 	ph = arrayfun(@(x) x.plot('rhoii','-unicol'), res(pick), 'UniformOutput', false);
-% 	ph = arrayfun(@(x) x.plot('rhoii','-fsev','-unicol'), res(pick), 'UniformOutput', false);
-	ph = arrayfun(@(x) x.plot('rhoii','-resetColorOrder'), res(pick), 'UniformOutput', false);legend('TT','LE+','CT+','CT-')
-% 	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx)*0.658, abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
-% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
-% 	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), abs(x.tresults.PPCWavefunction(1:x.tresults.lastIdx,[1,2,3])),...
-% 				'DisplayName',sprintf('D%d',x.para.tdvp.maxBondDim(end))), res(pick,1), 'UniformOutput', false);
-	axis tight;
-	phArr = cellfun(@(x) x(1),ph,'UniformOutput',false);
-% 	leg = legend([phArr{:}],res(pick).LegLabel,'location','Northwest');
-% 	legend boxoff
-% 	fs = 22;
-% 	leg.FontSize = fs;
+	h = res(pick).plot('rhoii','-fsev','-resetColorOrder',f);
 	set(ax,defPlot{fignum,3}{:});
-% 	xlabel('$t/fs$');
-	xlabel('Time $\omega_c t$');
-	ylabel('$\rho_{ii} (t)$');
-	fs = 22;
-	formatPlot(fignum,'twocolumn-single');
 	set(gca,'color','none');
-	grid on
-	res(1).plot('rhoii','-unicol','k.');	% overlay of old v3-high simulation
+	[~,ph] = res(1).plot('rhoii','-fsev','-unicol','k',f);	% overlay of old v3-high simulation
+	legend(h(1).pl);
 end
 % export_fig(['img/20151218 - DPMES TDVP Benchmark - Dynamics'],'-transparent','-png','-m2',gca)
 
 % further plots:
-figure(3);clf;hold all; arrayfun(@(x) x.plot('calctime'), res,'UniformOutput',false);xlabel('Time $\omega_c t$'); ylabel('Total CPU time in h'); legend toggle;
+figure(3);clf;hold all; res.plot('calctime','-fsev',figure(3),'-xlim',[0,260]); ylabel('Total CPU time in h'); legend toggle;
 % export_fig(['img/20151218 - DPMES TDVP Benchmark - Total t'],'-transparent','-png','-m2',gca)
-figure(4);clf;hold all; arrayfun(@(x) x.plot('calctime-d'), res,'UniformOutput',false);xlabel('Time $\omega_c t$'); ylabel('CPU time per sweep in h'); legend toggle;
-% export_fig(['img/20151218 - DPMES TDVP Benchmark - t per sweep'],'-transparent','-png','-m2',gca)
+f = figure(4);clf;f.Name = '20151218-DPMES-StarMPS-Trotter-Benchmark-tPerSweep'; resizePlot(f,2,2);hold all; 
+res.plot('calctime-d-sec',figure(4),'-fsev','-xlim',[0,260],'-ylim',[0,119]); ylabel('CPU time/sweep/sec'); legend toggle; title('');resizePlot(f,2,2);
+% export_fig(['img/',get(gcf,'name')],'-transparent','-painters','-png','-pdf','-m3')
+%% Special convergence plot
+% as taken from DPMES paper, reference in last position
+% 				 png name														res#				ax prop															columnleg prop (#col, boxon,lineratio)
+defPlot( 1,:) = {'20151218 - DPMES TDVP Benchmark - StarMPS Trotter',			[2:5,1],			{'xlim',[0,1.5],'ylim',[5e-3,1e-1],'yscale','log'},					{3,0,0.5}};
+	% Define the Figure & Plot
+h = struct();
+h.f = figure(120); clf;
+h.f.Name = defPlot{1,1};
+h.ax = gca;
+set(h.f,'DefaultAxesFontSize', 8,...
+		'DefaultLineLineWidth',1);
+resizePlot(h.f);
+col = get(0,'defaultaxescolororder');		% not necessary?
+hold all; box on;
+
+	% Do Plots and copy
+ii = 1; pick = defPlot{ii,2}; axes(h.ax(ii));
+	% extract the TT populations
+ttPop = cell2mat(arrayfun(@(x) TDVPData.subsample(reshape(real(x.getData('rhoii')),[],1),x.dt,1),res(pick)','UniformOutput',false));
+	% estimate mean error
+ttErr = abs(bsxfun(@minus,ttPop,ttPop(:,end)));
+ttErr = bsxfun(@rdivide,ttErr,ttPop(:,end)); ttErr(isnan(ttErr)) = 0;		% makes error relative
+ttMeanErr = (mean(ttErr,1));
+	% get Runtimes
+tSweep = arrayfun(@(x) 60*mean(diff(nonzeros(x.para.tdvp.calcTime))),res(pick));
+h.pl = scatter(tSweep, ttMeanErr,'filled');
+set(h.ax(ii), defPlot{ii,3}{:});
+xlabel('$t_{CPU}$/Sweep/min');
+ylabel('$\varepsilon(\hat\rho_{\mathrm{TT}})$');
+
+	% shift text labels
+offX = +ones(1,length(pick))*0.1; offY = ones(1,length(pick))*0;
+% offX(5) = 0.2; offY(5) = 0;
+% offX(7) = -1.0; offY(7) = -0.005;
+% offX(8) = -0.1; offY(8) = 0.008;
+% offX(9) = -0.6; offY(9) = 0.003;
+% offY = offY;
+for kk = 1:length(pick)
+	t = text(tSweep(kk)+offX(kk),double(ttMeanErr(kk))+offY(kk),strrep(res(pick(kk)).LegLabel,', ','\\\\'),'FontSize',8);
+end
+set(gca,'color','none');
+t = text(0.7,0.05,'$\varepsilon(\hat\rho_{\mathrm{TT}}) = \mathrm{mean}(\frac{\rho_{\mathrm{TT}}-\hat\rho_{\mathrm{TT}}}{\rho_{\mathrm{TT}}})$');
+t = text(0.7,0.025,'$\rho_{\mathrm{TT}}: (120,30)$','FontSize',8);
+t = text(0.7,0.013,'$t_{CPU}/\mathrm{Sweep} = 10.2$ min','FontSize',8);
 
 %% DPMES4-5C v66-v72  StarMPS H correction - TDVPData								% LabBook 29/01/2016
 % test v72 against v66 and effect of H_int correction
@@ -8354,7 +8530,7 @@ end
 % which could be reduced by chain combination
 %x = TDVPData('H:\Documents\Theory\schroederflorian-vmps-tdvp\TDVP-Git\Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat');
 % load('Data\20160325-1237-26-DPMES5-7C-Tree-v73TCMde11-L18CT0LE+\results-Till5000Step0.1v73-OBBmax60-Dmax(7-60)-expvCustom700-1core.mat','treeMPS','para'); % used for ER-Tree2
-load('..\cacheComputations\20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT0LE+\results-Till1000Step0.5v77-OBBmax40-Dmax(5-7)-expvCustom270-1core.mat','treeMPS','para')
+load('..\cacheComputations\20170408-0329-34-DPMESclust7-1-Tree-v77TCMde10-L100CT0LE+\results-Till1000Step0.5v77-OBBmax40-Dmax(5-7)-expvCustom270-1core.mat','treeMPS','para');
 %% Get vNE for each partition
 % lower vNE: lower entanglement!
 res = getTensorVNE(squeeze(treeMPS.mps{1}));
@@ -8363,6 +8539,7 @@ res = TDVPData.getTensorVNEAdjacency(squeeze(treeMPS.mps{1}));
 % Get graph for adjacency
 g = graph(res,'upper');
 %% Plot the Graph
+figure(30);
 h = plot(g,  'LineWidth', 5*g.Edges.Weight/max(g.Edges.Weight), 'Layout', 'circle'); %		'EdgeLabel',g.Edges.Weight,
 %% [5,9] and [6,7] SV:
 A = treeMPS.mps{1}; dA = size(A);

@@ -56,9 +56,9 @@ if chainpara.Lambda > 1
 elseif chainpara.Lambda == 1
 	assert(chainpara.L > 1 || strcmp(chainpara.spectralDensity,'CoupDiscr'),'You need to define a chain length > 1!');
 	% TODO: make sensible estimate!
-	bigL = 10*chainpara.L		% arbitrary now
+	bigL = 10*chainpara.L		% arbitrary now, was 10*
 	if strcmp(chainpara.discrMethod,'Direct') && strcmp(chainpara.mapping,'Stieltjes')
-		bigL = 100*bigL;							% can deal with much more!
+		bigL = 100*bigL;							% can deal with much more! was: 100
 	end
 else
 	error('VMPS:SBM_genpara','Please define Lambda >= 1 for discretization!');
@@ -265,7 +265,7 @@ end
 		%% Section for Spectral function for Spin-Boson Model from A. Leggett
 		% Hard cutoff at wc using stepfunction
 		% i to get function J*w^(-i)
-		y = 2*pi*chainpara.alpha*w_cutoff.^(1-chainpara.s).*w.^(chainpara.s-i).*ceil(heaviside(w_cutoff-w));
+		y = 2*pi*chainpara.alpha*w_cutoff.^(1-chainpara.s).*w.^(chainpara.s-i).*(w_cutoff>=w);
 	end
 
 	function init_Leggett_Hard()
