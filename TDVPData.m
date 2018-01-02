@@ -475,6 +475,8 @@ classdef TDVPData
                 case 'sys-env-n'
 					out = obj.getSysEnvObs('n');			% returns t x NC cell array; using mps(:,2), Vmat(:,2)
                     full = 1;
+				case 'sz'
+					out = obj.tresults.spin.sz;
 				case 'spin'
 				case 'spin-ttm'
 					out = struct();
@@ -2802,6 +2804,13 @@ classdef TDVPData
 					% plot norm of transfer tensors
 					h.xdata = obj.t(2:obj.lastIdx)*ts;
 					h.ydata = obj.tresults.TTM.Tnorm(1:obj.lastIdx-1)./(obj.dt^2);
+					h.ylbl = '$|T|/\Delta t^2$';
+					h.leglbl = {obj.LegLabel};
+				case 'ttm-norm-hull'
+					% plot norm of transfer tensors
+					h.xdata = obj.t(2:obj.lastIdx)*ts;
+					h.ydata = obj.tresults.TTM.Tnorm(1:obj.lastIdx-1)./(obj.dt^2);
+					h.ydata = TDVPData.maxFilter(h.ydata,[1,121]);
 					h.ylbl = '$|T|/\Delta t^2$';
 					h.leglbl = {obj.LegLabel};
 				case 'spin-ttm'
