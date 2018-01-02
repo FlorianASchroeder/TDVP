@@ -2900,7 +2900,7 @@ res{ 4,2} = '\alpha = 0.15, Haswell';
 res{ 5,1} = load('20150130-1334-SpinBoson-OrthPol-v37TCM33-alpha0.2delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
 res{ 5,2} = '\alpha = 0.2, Haswell';
 res{ 6,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.01delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
-res{ 6,2} = '\alpha = 0.01, Sandy'; res{6,3} = 'Sandy';
+res{ 6,2} = '\alpha = 0.01, Sandy'; res{6,3} = 'Sandy Bridge';
 res{ 7,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.05delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
 res{ 7,2} = '\alpha = 0.05, Sandy';
 res{ 8,1} = load('20150201-1745-SpinBoson-OrthPol-v37TCM40-alpha0.1delta0.1epsilon0dk20D5dopt5L50-artificial/results-Till325Step4v37-OBBExpand-noBondExpand-expvCustom800-1core-small.mat');
@@ -2921,25 +2921,27 @@ res{15,1} = load('20150201-1747-SpinBoson-OrthPol-v37TCM14-alpha0.2delta0.1epsil
 res{15,2} = '\alpha = 0.2, Nehalem';
 res{16,1} = load('20141114-1902-SpinBoson-OrthPol-alpha0.01delta0.1epsilon0dk20D5dopt5L200\results-Till325Step4-OBBExpandBondExpand-small.mat');
 res{16,2} = 'v19, Perfect';
-cd('./../TDVP/');
+cd('./../TDVP-Git/');
+%%
 for fignum = 1:size(defPlot,1)
-	figure(fignum); clf; hold all;
+	f=figure(fignum); clf; hold all; f.Name = 'Orth2010-OrthPol-TDVP-OBBnoBondExpand-L50-architecture-artificial-v37-new';
 	pick = defPlot{fignum,2};			% plot all
 	xmax = max(cellfun(@(x) x.para.tdvp.t(end), res(pick,1)));
 	plot([1,xmax],[0,0],'black');
 
 	ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.tresults.spin.sz)), x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
-	axis tight
+	axis tight; box on;
 	cellfun(@(x) set(x,'Color',col(1,:)), ph(1:5));
 	cellfun(@(x) set(x,'Color',col(2,:)), ph(6:10));
 	cellfun(@(x) set(x,'Color',col(3,:)), ph(11:15));
 	set(gca,'ylim',[-1,1]);
-	xlabel('t');
-	ylabel('$<s_z>$');
+	xlabel('$t$');
+	ylabel('$\langle\sigma_z\rangle$');
 	leg = legend([ph{[1,6,11]}],res{[1,6,11],3},'location','best');
-	leg.FontSize = 18;
-	formatPlot(fignum);
-	title(defPlot{fignum,1},'fontsize',15);
+	resizePlot(f,2.3,2,true);
+% 	leg.FontSize = 18;
+% 	formatPlot(fignum);
+% 	title(defPlot{fignum,1},'fontsize',15);
 end
 %% TDVP SBM Ohmic  s1  a<0.5  Orth2010, OrthPol, art, L=50, L=200; weak -0.75 coupling		LabBook: 30/01/2015, 27/02/2015, POSTER April 2015
 cd('./../cacheComputations/');
@@ -3947,69 +3949,219 @@ res(offset+1:i,5) = {'OBB15E, D150E, v62, dt1'};
 
 if size(res,1) >= n, break; end;
 end
+%% TDVP SBM Ohmic: v52n-v62 TDVP Benchmark s=1 0.01 < a < 0.5		TDVPData					% LabBook 06/08/2015 TOOODOOOO!!!
+% deleted v52 results, since no real extra information gain. If needed, rerun!
+% includes: j, sx, sn
+clear
+defPlot(1,:) = {'20150805-Benchmark-v52n-dt01-Using-ExpvCustom-only',		[1:6],  {'ylim',[-1,1],'xlim',[0,500]}};
+defPlot(2,:) = {'20150928-Benchmark-v62-dt01-Bond5',						[7:14], {'ylim',[-1,1],'xlim',[0,300]}};
+defPlot(3,:) = {'20150928-Benchmark-v62-dt01-Bond20',						[15:22],{'ylim',[-1,1],'xlim',[0,300]}};
+defPlot(4,:) = {'20150928-Benchmark-v62-dt01-Bond150',						[23:30],{'ylim',[-1,1],'xlim',[0,300]}};
+defPlot(5,:) = {'20150928-Benchmark-v62-dt1-Bond5',							[31:38],{'ylim',[-1,1],'xlim',[0,300]}};
+defPlot(6,:) = {'20150928-Benchmark-v62-dt1-Bond20',						[39:46],{'ylim',[-1,1],'xlim',[0,300]}};
+defPlot(7,:) = {'20150928-Benchmark-v62-dt1-Bond150',						[47:54],{'ylim',[-1,1],'xlim',[0,300]}};
+
+
+i=0; cols = 5;
+n = max(cell2mat(defPlot(:,2)'));
+
+load('TDVPLib.mat');
+%
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'SpinBoson')),TDVPfolds));
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'OrthPol')),TDVPfolds));
+TDVPfolds = TDVPfolds(arrayfun(@(x) ~isempty(strfind(x.name,'2015')),TDVPfolds));
+matches = [];
+legLabels = [];
+
+%1-6
+dirPat = '20150805-2056-SpinBoson-OrthPol-v52TCMde10-alpha.*delta0.1epsilon0dk30D5dopt5L200-art-sz';
+filPat = 'results-Till500Step0.1v52n-OBBExpand-noBondExpand-expvCustom0-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+% res(offset+1:i,5) = {'expvCustom, v52n, dt0.1'};
+
+%7-14
+dirPat = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till300Step0.1v62-alpha.*-OBBmax40-Dmax5-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v.*-Dmax(?<D>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$D = %s, dt = %s$',tokens{ii}.D,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$D = %s$',tokens{ii}.D), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+% res(offset+1:i,5) = {'OBB40E, D5E, v62, dt0.1'};
+
+%15-22
+dirPat = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till300Step0.1v62-alpha.*-OBBmax40-Dmax20-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v.*-Dmax(?<D>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$D = %s, dt = %s$',tokens{ii}.D,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$D = %s$',tokens{ii}.D), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+% res(offset+1:i,5) = {'OBB40E, D20E, v62, dt0.1'};
+
+%23-30
+dirPat = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till300Step0.1v62-alpha.*-OBBmax40-Dmax150-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v.*-Dmax(?<D>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$D = %s, dt = %s$',tokens{ii}.D,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$D = %s$',tokens{ii}.D), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+% res(offset+1:i,5) = {'OBB40E, D150E, v62, dt0.1'};
+
+%31-38
+dirPat = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till300Step1v62-alpha.*-OBBmax15-Dmax5-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v.*-Dmax(?<D>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$D = %s, dt = %s$',tokens{ii}.D,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$D = %s$',tokens{ii}.D), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+% res(offset+1:i,5) = {'OBB15E, D5E, v62, dt1'};
+
+%39-46
+dirPat = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till300Step1v62-alpha.*-OBBmax15-Dmax20-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v.*-Dmax(?<D>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$D = %s, dt = %s$',tokens{ii}.D,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$D = %s$',tokens{ii}.D), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+% res(offset+1:i,5) = {'OBB15E, D20E, v62, dt1'};
+
+%47-52
+dirPat = '20150925-1538-SpinBoson-OrthPol-v62TCMde9-alpha.*delta0.1epsilon0dk40D5dopt5L200';
+filPat = 'results-Till300Step1v62-alpha.*-OBBmax15-Dmax150-expvCustom700-1core-small.mat';
+m = TDVPData.getMatches(TDVPfolds,dirPat,filPat);
+tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v.*-Dmax(?<D>[0-9\.]*)-','names');			% start sorting
+[y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
+matches = [matches; m(I)];
+% y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$D = %s, dt = %s$',tokens{ii}.D,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$D = %s$',tokens{ii}.D), I, 'UniformOutput', false);
+legLabels = [legLabels, y];
+% res(offset+1:i,5) = {'OBB15E, D150E, v62, dt1'};
+
+res = TDVPData({matches.name});
+res = res.setLegLabel(mat2cell(legLabels,1,ones(1,length(legLabels))));
 %%
 for fignum = 1:size(defPlot,1)
 	f = figure(fignum); clf; hold all;
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
-	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+	xmax = max(arrayfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
 	plot([0,xmax],[0,0],'black');
-	ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx)), res(pick,1), 'UniformOutput', false);
+	ph = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx), 'DisplayName',num2str(x.alpha)), res(pick,1), 'UniformOutput', false);
 	axis tight; ax = gca;
 	set(ax,defPlot{fignum,3}{:});
 	xlabel('$\omega_ct$');
 	ylabel('$\left<\sigma_z\right>$');
-	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
-	legend boxoff
-	fs = 22;
-	leg.FontSize = fs;
-	formatPlot(fignum,'twocolumn-single');
-	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
-% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 	set(gca,'color','none');
 	if fignum ~= 4
 		ax.ColorOrderIndex = 1;
-		ph = cellfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx),'.black'), res(defPlot{4,2},1), 'UniformOutput', false);
+		ph2 = arrayfun(@(x) plot(x.tresults.t(1:x.tresults.lastIdx), x.tresults.spin.sz(1:x.tresults.lastIdx),'.black'), res(defPlot{4,2},1), 'UniformOutput', false);
 	end
+	leg = legend([ph{:}]);
 end
 
 % plot time taken
 figure(fignum+1);clf; hold all;
-ph = cellfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
+ph = arrayfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 %% plot error wrt D150 run															% LabBook 25/09/2015
 
 for jj = 2:3
 	figure(fignum+jj); clf; hold all;
 	pick = defPlot{jj,2};
 	for ii = 1:8
-		plot( res{pick(ii),1}.tresults.t, res{ii+22,1}.tresults.spin.sz - res{pick(ii),1}.tresults.spin.sz);
+		plot( res(pick(ii)).tresults.t, res(ii+22).tresults.spin.sz - res(pick(ii)).tresults.spin.sz);
 	% 	plot( res{ii,1}.tresults.t, res{ii+16,1}.tresults.spin.sz -
 	% 	res{ii+8}.tresults.spin.sz);	% D20
 % 		plot( res{ii,1}.tresults.t, res{ii+16,1}.tresults.spin.sz - res{ii}.tresults.spin.sz);
 	end
-	leg = legend(cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
-	legend boxoff
-	fs = 22;
-	leg.FontSize = fs;
-	formatPlot(fignum+jj,'twocolumn-single');
+% 	leg = legend(cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+% 	formatPlot(fignum+jj,'twocolumn-single');
 end
 
 for jj = 5:6
 	figure(fignum+jj); clf; hold all;
 	pick = defPlot{jj,2};
 	for ii = 1:8
-		plot( res{pick(ii),1}.tresults.t, res{ii+46,1}.tresults.spin.sz - res{pick(ii),1}.tresults.spin.sz);
+		plot( res(pick(ii)).tresults.t, res(ii+46).tresults.spin.sz - res(pick(ii)).tresults.spin.sz);
 	% 	plot( res{ii,1}.tresults.t, res{ii+16,1}.tresults.spin.sz -
 	% 	res{ii+8}.tresults.spin.sz);	% D20
 % 		plot( res{ii,1}.tresults.t, res{ii+16,1}.tresults.spin.sz - res{ii}.tresults.spin.sz);
 	end
-	leg = legend(cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
-	legend boxoff
-	fs = 22;
-	leg.FontSize = fs;
-	formatPlot(fignum+jj,'twocolumn-single');
+% 	leg = legend(cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
+% 	legend boxoff
+% 	fs = 22;
+% 	leg.FontSize = fs;
+% 	formatPlot(fignum+jj,'twocolumn-single');
 end
 
+%% plot error wrt D150 run as mean error			% Dissertation Plot!			% LabBook 25/09/2015
+h = struct();
+h.f = figure(120); clf;
+h.f.Name = 'SBM-Convergence';
+h.ax = gca;
+set(h.f,'DefaultAxesFontSize', 8,...
+		'DefaultLineLineWidth',1);
+resizePlot(h.f,2.3,2,true);
+col = get(0,'defaultaxescolororder');		% not necessary?
+col(8,:) = [0 0 0];
+hold all; box on;
+for ii = 1:8
+pick = [7 15 31 39 47 23]+ii-1;
+ttPop = cell2mat(arrayfun(@(x) TDVPData.subsample(real(x.getData('sz')),x.dt,1),res(pick)','UniformOutput',false));
+	% estimate mean error
+ttErr = bsxfun(@minus,-ttPop,-ttPop(:,end));
+ttErr = bsxfun(@rdivide,ttErr,ttPop(:,end)); ttErr(isnan(ttErr)) = 0;		% makes error relative
+ttMeanErr = abs(mean(ttErr,1));
+	% get Runtimes
+tSweep = arrayfun(@(x) 60*mean(diff(nonzeros(x.para.tdvp.calcTime))),res(pick));
+h.pl = scatter(tSweep(1:2), ttMeanErr(1:2),60,[1;1]*col(ii,:),'filled');
+h.pl = scatter(tSweep(3:5), ttMeanErr(3:5),60,[1;1;1]*col(ii,:),'x');
+% set(h.ax(ii), defPlot{ii,3}{:});
+h.ax.YScale = 'log';
+xlabel('$t_{CPU}$/Sweep/min');
+ylabel('$\varepsilon(\langle\sigma_z\rangle)$');
+
+	% shift text labels
+offX = +ones(1,length(pick))*0.015; offY = ones(1,length(pick))*0;
+% offX(5) = 0.2; offY(5) = 0;
+% offX(7) = -1.0; offY(7) = -0.005;
+% offX(8) = -0.1; offY(8) = 0.008;
+% offX(9) = -0.6; offY(9) = 0.003;
+offY = offY;
+for kk = 1:length(pick)
+% 	t = text(tSweep(kk)+offX(kk),double(ttMeanErr(kk))+offY(kk),strrep(res(pick(kk)).LegLabel,', ','\\\\'),'FontSize',8);
+	t = text(tSweep(kk)+offX(kk),double(ttMeanErr(kk))+offY(kk),['$',res(pick(kk)).LegLabel(5:end)],'FontSize',8);
+end
+end
+% axis tight
 
 %% TDVP SBM multi files: v58 SBM2C Benchmark s=1 0.01 < a < 1						% LabBook ??/08/2015
 clear
@@ -4230,11 +4382,11 @@ end
 
 %% TDVP SBM multi load : v59 TTM Benchmark, s=1 0.01 < a < 1	TDVPData			% LabBook 16/08/2015
 clear
-defPlot(1,:) = {'20150816-SBMTTM-dt0.02-FirstTry',							[1:8], {'ylim',[1e-5,1],'xlim',[0,100],'yscale','log'}};
+defPlot(1,:) = {'20150816-SBMTTM-dt0.02-FirstTry',							[1:8], {'ylim',[1e-5,1],'xlim',[0,150],'yscale','log'}};
 defPlot(2,:) = {'20150805-Benchmark-v52-dt01-Using-ExpvCustom-only',		[9:14,17,18], {'ylim',[-1,1],'xlim',[0,500]}};
 defPlot(3,:) = {'20150929-SBMTTM-dt01-szcoup',								[19:21],{'ylim',[-1,1],'xlim',[0,100],'yscale','log'}};
 defPlot(4,:) = {'20150928-Benchmark-v62-dt01-Bond150',						[22:29],{'ylim',[-1,1],'xlim',[0,300]}};
-defPlot(5,:) = {'20150928-SBMTTM-dt01-szcoup-SBM-compare',					[22,27,28],{'ylim',[-1,1],'xlim',[0,1000]}};
+defPlot(5,:) = {'20150928-SBMTTM-dt01-szcoup-SBM-compare',					[22,27,28],{'ylim',[-1,1],'xlim',[0,2300]}};
 i=0; cols = 5;
 
 load('TDVPLib.mat');
@@ -4285,7 +4437,8 @@ tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','n
 [y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
 matches = [matches; m(I)];
 % y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
-y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$\\alpha = %s$',tokens{ii}.alpha), I, 'UniformOutput', false);
 legLabels = [legLabels, y];
 
 % 22-29
@@ -4296,7 +4449,8 @@ tokens = regexp({m.name},'alpha(?<alpha>[0-9\.]*)delta.*Step(?<dt>[0-9\.]*)v','n
 [y,I] = sort(cellfun(@(x) str2double(x.alpha),tokens));
 matches = [matches; m(I)];
 % y = arrayfun(@(ii) sprintf( '$D_{Node}=%s, D_{Chain}=%s$',tokens{ii}.DNode,tokens{ii}.DChain), I, 'UniformOutput', false);
-y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+% y = arrayfun(@(ii) sprintf( '$\\alpha = %s, dt = %s$',tokens{ii}.alpha,tokens{ii}.dt), I, 'UniformOutput', false);
+y = arrayfun(@(ii) sprintf( '$%s$',tokens{ii}.alpha), I, 'UniformOutput', false);
 legLabels = [legLabels, y];
 
 res = TDVPData({matches.name});
@@ -4314,23 +4468,24 @@ for fignum = [1,3]%:size(defPlot,1)
 % 	legend boxoff
 	fs = 22;
 	leg.FontSize = fs;
-	resizePlot(f,2,2,true);
+	resizePlot(f,2.5,2,true);
 % 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 % 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 	set(gca,'color','none');
+	title('');
 end
 
 figure(fignum+1);clf; hold all;
 ph = arrayfun(@(x) plot(x.para.tdvp.t(1:length(x.para.tdvp.calcTime)), x.para.tdvp.calcTime), res(pick,1), 'UniformOutput', false);
 	%% reconstruct Dynamics using the TTM & plot
-finalT = 1000;
+finalT = 2300;
 [sx,sy,sz] = spinop('Z');
 tic;
 for k = 19:21%6:size(res,1)
-	n = round(finalT/res{k,1}.para.tdvp.deltaT)+1;
-	rhoT = zeros(length(res{k,1}.tresults.TTM.T)*4,1);
+	n = round(finalT/res(k).para.tdvp.deltaT)+1;
+	rhoT = zeros(length(res(k).tresults.TTM.T)*4,1);
 	Esigma = zeros(n,3);
-	T = reshape(res{k,1}.tresults.TTM.T, 4,[]);			% creates [T(1) T(2) T(3) ...]
+	T = reshape(res(k).tresults.TTM.T, 4,[]);			% creates [T(1) T(2) T(3) ...]
 	for i = 1:n
 		if i == 1
 			rho = [1,0,0,0]';
@@ -4343,36 +4498,99 @@ for k = 19:21%6:size(res,1)
 		Esigma(i,2) = trace(sy*rho);
 		Esigma(i,3) = trace(sz*rho);
 	end
-	res{k,1}.tresults.spin.sx = real(Esigma(:,1));
-	res{k,1}.tresults.spin.sy = real(Esigma(:,2));
-	res{k,1}.tresults.spin.sz = real(Esigma(:,3));
-	res{k,1}.tresults.t       = 0:res{k,1}.para.tdvp.deltaT:finalT;
+	res(k).tresults.spin.sx = real(Esigma(:,1));
+	res(k).tresults.spin.sy = real(Esigma(:,2));
+	res(k).tresults.spin.sz = real(Esigma(:,3));
+	res(k).tresults.t       = 0:res(k).para.tdvp.deltaT:finalT;
 % 	plot(res{k,1}.tresults.TTM.t,res{k,1}.tresults.TTM.Esigma(:,3));
 end
 toc
 	%% Plot Spin Dynamics for szcoup
 	set(0,'defaulttextinterpreter','latex');
 for fignum = 5 %:size(defPlot,1)
-	f = figure(fignum); clf; hold all;
+	f = figure(fignum); clf; hold all; resizePlot(f,2,2,true);
 	f.Name = defPlot{fignum,1};
 	pick = defPlot{fignum,2};			% plot all
-	xmax = max(cellfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
-	ph = cellfun(@(x) plot(x.tresults.t, x.tresults.spin.sz), res(pick,1), 'UniformOutput', false);
-% 	ph = cellfun(@(x) plot(x.tresults.t(2:x.tresults.lastIdx), x.tresults.TTM.Tnorm(1:x.tresults.lastIdx-1)./(x.para.tdvp.deltaT.^2)), res(pick,1), 'UniformOutput', false); % plot TTM norm
-	axis tight; ax = gca;
-	set(ax,defPlot{fignum,3}{:});
-	plot(ax.XLim,[0,0],'k');
+	xmax = max(arrayfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+	ph2 = arrayfun(@(x) plot(x.tresults.t, x.tresults.spin.sz,'k'), res(defPlot{3,2},1), 'UniformOutput', false);
+	h = res(pick).plot('sz',f);
+	title('');
+	set(h(1).ax,defPlot{fignum,3}{:});
+	plot(h(1).ax.XLim,[0,0],'Color',[1 1 1]*0,'LineStyle',':');
 	xlabel('$\omega_ct$');
-	ylabel('$\left<\sigma_z\right>$');
-% 	ylabel('$|T|/\Delta t^2$');
-	leg = legend([ph{:}],cellfun(@(x) sprintf('%g\n',x),res(pick,3),'UniformOutput',false),'location','best');
-	legend boxoff
-	fs = 22;
-	leg.FontSize = fs;
-	formatPlot(fignum,'twocolumn-single');
-	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
 	set(gca,'color','none');
-	ph = cellfun(@(x) plot(x.tresults.t, x.tresults.spin.sz,'k.'), res(defPlot{3,2},1), 'UniformOutput', false);
+	leg = legend([h.pl],cellfun(@(x) sprintf('%s\n',x),legLabels(pick),'UniformOutput',false),'location','southeast');
+	t1 = text(leg.Position(1)+h(1).ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$','Units','norm','VerticalAlignment','bottom');
+	legend boxoff
+	resizePlot(f,2,2,true);
+end
+
+	%% plot TTM norm
+for fignum = [1]%:size(defPlot,1)
+	f = figure(fignum); clf; hold all;
+	f.Name = defPlot{fignum,1};
+% 	pick = defPlot{fignum,2};			% plot all
+	pick = [1,2,5];			% plot all
+	resizePlot(f,2,2,true);
+	h = res(pick).plot('ttm-norm-hull',f);
+	axis tight; ax = gca;
+	ax.YTick=10.^[-4:0];
+	set(ax,defPlot{fignum,3}{:});
+	legend([h.pl],{'0.01','0.05','0.2'});
+	legend boxoff
+	resizePlot(f,2.5,2,true);
+% 	t1 = text(leg.Position(1)+ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+% 	t2 = text(leg.Position(1),leg.Position(2)+leg.Position(4)/2,'$s=0.5$', 'FontSize',fs,'Units','norm','VerticalAlignment','bottom');
+	set(gca,'color','none');
+	title('');
+end
+
+	%% reconstruct Dynamics using the TTM & plot
+finalT = 1000;
+[sx,sy,sz] = spinop('Z');
+tic;
+for k = 1:8%6:size(res,1)
+	n = round(finalT/res(k).para.tdvp.deltaT)+1;
+	rhoT = zeros(length(res(k).tresults.TTM.T)*4,1);
+	Esigma = zeros(n,3);
+	T = reshape(res(k).tresults.TTM.T, 4,[]);			% creates [T(1) T(2) T(3) ...]
+	for i = 1:n
+		if i == 1
+			rho = [1,0,0,0]';
+		else
+			rho = T*rhoT;
+		end
+		rhoT = [rho; rhoT(1:end-4)];					% prepend new vector rho(i)
+		rho = reshape(rho,[2,2]);						% reshape rho(i) for observables
+		Esigma(i,1) = trace(sx*rho);
+		Esigma(i,2) = trace(sy*rho);
+		Esigma(i,3) = trace(sz*rho);
+	end
+	res(k).tresults.spin.sx = real(Esigma(:,1));
+	res(k).tresults.spin.sy = real(Esigma(:,2));
+	res(k).tresults.spin.sz = real(Esigma(:,3));
+	res(k).tresults.t       = 0:res(k).para.tdvp.deltaT:finalT;
+% 	plot(res{k,1}.tresults.TTM.t,res{k,1}.tresults.TTM.Esigma(:,3));
+end
+toc
+	%% Plot Spin Dynamics for szcoup
+	set(0,'defaulttextinterpreter','latex');
+for fignum = 2 %:size(defPlot,1)
+	f = figure(fignum); clf; hold all; resizePlot(f,2,2,true);
+	f.Name = defPlot{fignum,1};
+	pick = defPlot{fignum,2};			% plot all
+	xmax = max(arrayfun(@(x) x.tresults.t(x.tresults.lastIdx), res(pick,1)));
+	ph2 = arrayfun(@(x) plot(x.tresults.t/2, x.tresults.spin.sz,'k'), res(defPlot{1,2},1), 'UniformOutput', false);
+	h = res(pick).plot('sz',f);
+	title('');
+	set(h(1).ax,defPlot{fignum,3}{:});
+	plot(h(1).ax.XLim,[0,0],'k');
+	xlabel('$\omega_ct$');
+	set(gca,'color','none');
+	leg = legend([h.pl],cellfun(@(x) sprintf('%s\n',x),legLabels(pick),'UniformOutput',false),'location','southeast');
+	t1 = text(leg.Position(1)+h(1).ax.Position(1),leg.Position(2)+leg.Position(4)/2,'$\alpha$','Units','norm','VerticalAlignment','bottom');
+	legend boxoff
+	resizePlot(f,2,2,true);
 end
 
 
@@ -8256,19 +8474,22 @@ p2 = plot(a,((gamma(1-2.*a).*cos(pi.*a)).^(1./(2-2.*a))).*d.^(1./(1-a))); % this
 figure(1); clf; hold all;
 % x = res{11}; para = x.para; tresults = x.tresults;
 % a = para.chain{1}.alpha; d = 0.1; t = 0:0.1:180;
-a = 0.01; d = 0.1; t = 0:0.1:180;
+a = 0.01; d = 0.1; t = 0:0.1:2300;
 % calculate the sum to eps precision
 summ  = 0;
 summP = inf;
 n = 0;
 while norm(abs(summP-summ)) > 1e-16
+% while n<70
     summP = summ;
     summ = summ + ((-1).^n./gamma(1+2.*(1-a).*n).*(d.^(1./(1-a)).*t ).^(2.*n.*(1-a)));
     n = n + 1;
 end
 % plot the result
 p1 = plot(t,summ);
-plot(tresults.t, tresults.spin.sz);
+xlim([0,2300]);
+ylim([-1,1]);
+% plot(tresults.t, tresults.spin.sz);
 
 %% Plot iSBM multi-Chain Analytic
 t = 0:0.2:200;%para.tdvp.tmax;
